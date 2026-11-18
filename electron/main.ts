@@ -24,6 +24,11 @@ import {
   waitForStartupHealth,
   type StartupHealthResult,
 } from "./startup-health";
+import {
+  createDesktopStartupRecorder,
+  safeAppend,
+  type DesktopStartupRecorder,
+} from "./startup-log";
 
 let window: BrowserWindow | undefined,
   tray: Tray | undefined,
@@ -32,7 +37,8 @@ let window: BrowserWindow | undefined,
   phase: "starting" | "running" | "failed" = "starting",
   startup: AbortController | undefined,
   startupFailure: StartupHealthResult | undefined,
-  failureShown = false;
+  failureShown = false,
+  startupLog: DesktopStartupRecorder | undefined;
 const token = randomBytes(32).toString("hex");
 function page(markup: string) {
   return "data:text/html;charset=utf-8," + encodeURIComponent(markup);
@@ -68,6 +74,7 @@ function failStartup() {
 function abortStartup(result: StartupHealthResult) {
   if (phase !== "starting" || startupFailure) return;
   startupFailure = result;
+  startupLog?.record(result);
   startup?.abort(result);
 }
 async function showFailure(win: BrowserWindow, markup: string) {
@@ -124,6 +131,10 @@ async function finishStartupFailure(
   result: StartupHealthResult,
 ) {
   if (quitting || win.isDestroyed()) return;
+  // The gate can confirm a failure from a reported exit code or signal even
+  // when no JavaScript exit event arrives. An earlier exit or timeout record
+  // keeps its place.
+  startupLog?.record(result);
   phase = "failed";
   const markup = startupFailureMarkup(result);
   if (markup) await showFailure(win, markup);
@@ -171,6 +182,10 @@ async function main() {
         ? configuredData
         : resolve(root, configuredData);
   mkdirSync(data, { recursive: true });
+  const logPath = join(data, "server.log");
+  // One record per attempt is prepared only after the data root exists and
+  // before the child can report anything.
+  startupLog = createDesktopStartupRecorder(logPath);
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     NODE_ENV: "production",
@@ -198,10 +213,7 @@ async function main() {
   }
   if (service) {
     service.on("error", (error) => {
-      appendFileSync(
-        join(data, "server.log"),
-        "Backend process could not start.\n",
-      );
+      safeAppend(logPath, "Backend process could not start.\n");
       abortStartup(spawnErrorResult(error));
     });
     service.on("exit", (code, signal) => {
@@ -216,8 +228,8 @@ async function main() {
       }
     });
     service.stderr?.on("data", (chunk) =>
-      appendFileSync(
-        join(data, "server.log"),
+      safeAppend(
+        logPath,
         String(chunk).replace(/Bearer\s+\S+/gi, "Bearer [REDACTED]"),
       ),
     );
@@ -230,6 +242,12 @@ async function main() {
         url: `${origin}/api/health`,
         signal: startup.signal,
       });
+  // A settled non-ready cause owns the record immediately. A later exit, an
+  // unfinished cookie write or a user quit must not replace it.
+  void healthPromise.then((result) => {
+    if (result.status === "cancelled") startupLog?.record(result);
+    else if (result.status !== "ready") abortStartup(result);
+  });
   await session.defaultSession.cookies.set({
     url: origin,
     name: "quant-session",
@@ -330,6 +348,9 @@ async function main() {
     throw new Error("Desktop page failed to load");
   }
   phase = "running";
+  // Identity, the first page load and the post-load re-check all succeeded.
+  // This lands before the independent smoke step.
+  startupLog?.record({ status: "ready" });
   if (process.env.QUANT_DESKTOP_SMOKE === "1") {
     await new Promise((resolve) => setTimeout(resolve, 3000));
     if (quitting || appWindow.isDestroyed()) return;
@@ -354,13 +375,20 @@ else {
   });
   app.on("before-quit", () => {
     quitting = true;
+    // A quit confirmed first records only cancellation. Any ready or failure
+    // record already taken keeps its place.
+    startupLog?.record({ status: "cancelled" });
     startup?.abort({ status: "cancelled" });
     stopService();
   });
   app.on("window-all-closed", () => app.quit());
   void main().catch(() => {
-    // A quit that interrupts startup is normal and stays silent.
+    // A quit that interrupts startup is normal and stays silent. It is not a
+    // host failure, and before-quit owns its cancellation record.
     if (quitting) return;
+    // An unexpected shell-side failure after the data root existed owns the
+    // record only when no earlier startup cause was confirmed.
+    startupLog?.record({ status: "host-error" });
     quitting = true;
     stopService();
     app.exit(1);

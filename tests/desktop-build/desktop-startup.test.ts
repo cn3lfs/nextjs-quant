@@ -1,4 +1,12 @@
-import { mkdtemp, readFile, rm, rmdir, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  rmdir,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -15,6 +23,7 @@ import {
   startupNavigationDecision,
   waitForStartupHealth,
 } from "../../electron/startup-health";
+import { desktopStartupLine } from "../../electron/startup-log";
 
 const h = vi.hoisted(() => {
   type Listener = (...args: any[]) => void;
@@ -35,6 +44,8 @@ const h = vi.hoisted(() => {
     messageBoxImpl: null as null | ((...args: any[]) => Promise<any>),
     loadURL: null as null | ((url: string) => Promise<void>),
     executeJavaScript: null as null | ((code: string) => Promise<string>),
+    cookiesSet: null as null | (() => Promise<void>),
+    spawnImpl: null as null | ((...args: any[]) => any),
     dataDir: "",
     on(event: string, listener: Listener) {
       const list = listeners.get(event) ?? [];
@@ -96,7 +107,13 @@ vi.mock("electron", () => {
     Tray,
     Menu: { buildFromTemplate: (template: unknown) => template },
     nativeImage: { createFromPath: () => ({ resize: () => ({}) }) },
-    session: { defaultSession: { cookies: { set: async () => {} } } },
+    session: {
+      defaultSession: {
+        cookies: {
+          set: () => (h.cookiesSet ? h.cookiesSet() : Promise.resolve()),
+        },
+      },
+    },
     dialog: {
       showOpenDialog: async () => ({ canceled: true, filePaths: [] }),
       showMessageBox: (...args: any[]) => {
@@ -134,7 +151,7 @@ vi.mock("node:path", async (importOriginal) => {
 vi.mock("node:child_process", () => ({
   spawn: (...args: any[]) => {
     h.spawnCalls.push(args);
-    return h.child;
+    return h.spawnImpl ? h.spawnImpl(...args) : h.child;
   },
   spawnSync: (...args: any[]) => h.spawnSync(...args),
 }));
@@ -149,11 +166,19 @@ vi.mock("node:net", () => ({
 
 function makeChild() {
   const listeners = new Map<string, Array<(...args: any[]) => void>>();
+  const stderrListeners: Array<(chunk: unknown) => void> = [];
   return {
     pid: 4321,
     exitCode: null as number | null,
     signalCode: null as NodeJS.Signals | null,
-    stderr: { on: vi.fn() },
+    stderr: {
+      on: (_event: string, listener: (chunk: unknown) => void) => {
+        stderrListeners.push(listener);
+      },
+    },
+    emitStderr(chunk: unknown) {
+      for (const listener of stderrListeners) listener(chunk);
+    },
     kill: vi.fn(),
     on(event: string, listener: (...args: any[]) => void) {
       const list = listeners.get(event) ?? [];
@@ -181,6 +206,8 @@ beforeEach(async () => {
   h.messageBoxImpl = null;
   h.loadURL = null;
   h.executeJavaScript = null;
+  h.cookiesSet = null;
+  h.spawnImpl = null;
   h.child = makeChild();
   h.spawnSync = vi.fn(() => ({ status: 0 }));
   h.dataDir = await mkdtemp(join(tmpdir(), "quant-desktop-wiring-"));
@@ -227,6 +254,38 @@ const serviceRoot = (dataDir: string) =>
 
 function spawnedEnv(): NodeJS.ProcessEnv {
   return h.spawnCalls[0]![2].env as NodeJS.ProcessEnv;
+}
+
+const STARTUP_LINE =
+  /^\[desktop-startup\] (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z) (ready|timeout|exited|spawn-error|cancelled|host-error)(?: (.*))?$/;
+
+async function startupLines(): Promise<string[]> {
+  const text = await readFile(join(h.dataDir, "server.log"), "utf8").catch(
+    () => "",
+  );
+  return text
+    .split("\n")
+    .filter((line) => line.startsWith("[desktop-startup]"));
+}
+
+function parseStartupLine(line: string) {
+  const match = STARTUP_LINE.exec(line);
+  if (!match) throw new Error("unexpected startup line " + line);
+  return {
+    at: Date.parse(match[1]!),
+    status: match[2]!,
+    detail: match[3] ?? "",
+  };
+}
+
+async function expectSingleStartup(status: string) {
+  const lines = await startupLines();
+  expect(lines).toHaveLength(1);
+  const record = parseStartupLine(lines[0]!);
+  expect(record.status).toBe(status);
+  expect(Number.isFinite(record.at)).toBe(true);
+  expect(Math.abs(record.at - Date.now())).toBeLessThan(10_000);
+  return record;
 }
 
 const healthUrl = "http://127.0.0.1:3911/api/health";
@@ -486,6 +545,52 @@ describe("health payload shape", () => {
   });
 });
 
+describe("desktop startup record", () => {
+  const at = new Date("2026-11-19T01:02:03.456Z");
+
+  it("writes only a bounded integer exit code or a known signal", () => {
+    expect(desktopStartupLine(exitedResult(0, null), at)).toBe(
+      "[desktop-startup] 2026-11-19T01:02:03.456Z exited code=0",
+    );
+    expect(desktopStartupLine(exitedResult(7, null), at)).toBe(
+      "[desktop-startup] 2026-11-19T01:02:03.456Z exited code=7",
+    );
+    expect(desktopStartupLine(exitedResult(0xc0000005, null), at)).toBe(
+      "[desktop-startup] 2026-11-19T01:02:03.456Z exited code=3221225477",
+    );
+    for (const code of [
+      -1,
+      1.5,
+      0x1_0000_0000,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+    ])
+      expect(desktopStartupLine(exitedResult(code, null), at)).toBe(
+        "[desktop-startup] 2026-11-19T01:02:03.456Z exited",
+      );
+    expect(desktopStartupLine(exitedResult(null, "SIGTERM"), at)).toBe(
+      "[desktop-startup] 2026-11-19T01:02:03.456Z exited signal=SIGTERM",
+    );
+    expect(
+      desktopStartupLine(exitedResult(null, "SIGBOGUS" as NodeJS.Signals), at),
+    ).toBe("[desktop-startup] 2026-11-19T01:02:03.456Z exited");
+  });
+
+  it("never carries process errors, paths, tokens or environment values", () => {
+    const error = new Error("EACCES token=abc at C:\\secret\\node.exe");
+    expect(desktopStartupLine(spawnErrorResult(error), at)).toBe(
+      "[desktop-startup] 2026-11-19T01:02:03.456Z spawn-error",
+    );
+    expect(desktopStartupLine({ status: "host-error" }, at)).toBe(
+      "[desktop-startup] 2026-11-19T01:02:03.456Z host-error",
+    );
+    for (const status of ["ready", "timeout", "cancelled"] as const)
+      expect(desktopStartupLine({ status }, at)).toBe(
+        `[desktop-startup] 2026-11-19T01:02:03.456Z ${status}`,
+      );
+  });
+});
+
 describe("main-process startup gate", () => {
   it("stays quiet for quit and a destroyed window", () => {
     expect(
@@ -597,8 +702,10 @@ describe("mocked Electron startup wiring", () => {
     h.loadURL = (url) =>
       url.startsWith("data:")
         ? Promise.resolve()
-        : new Promise<void>((resolve) => {
-            release = resolve;
+        : new Promise<void>((_resolve, reject) => {
+            // The confirmed exit must win over this navigation rejection.
+            release = () =>
+              reject(new Error("net::ERR_CONNECTION_REFUSED C:\\secret"));
           });
     await import("../../electron/main");
     await flush();
@@ -611,6 +718,161 @@ describe("mocked Electron startup wiring", () => {
     expect(decodeURIComponent(h.loadCalls[1]!)).toContain("本地服务已停止");
     expect(h.exitCalls).toEqual([]);
     expect(h.windows[0]!.show).toHaveBeenCalledTimes(1);
+    const record = await expectSingleStartup("exited");
+    expect(record.detail).toBe("code=0");
+    // A quit that follows the confirmed exit must not rewrite the first cause.
+    h.emit("before-quit");
+    await flush();
+    const lines = await startupLines();
+    expect(lines).toHaveLength(1);
+    expect(parseStartupLine(lines[0]!).status).toBe("exited");
+  });
+
+  it("records a reported signal the gate sees after navigation", async () => {
+    let release!: () => void;
+    h.loadURL = (url) =>
+      url.startsWith("data:")
+        ? Promise.resolve()
+        : new Promise<void>((resolve) => {
+            release = resolve;
+          });
+    await import("../../electron/main");
+    await flush();
+    // No exit event: only the reported signal is visible to the gate.
+    h.child.signalCode = "SIGTERM";
+    release();
+    await flush();
+    const record = await expectSingleStartup("exited");
+    expect(record.detail).toBe("signal=SIGTERM");
+    expect(decodeURIComponent(h.loadCalls.at(-1)!)).toContain("本地服务已停止");
+  });
+
+  it("records one ready outcome with a UTC timestamp before smoke", async () => {
+    await import("../../electron/main");
+    await flush();
+    expect(h.loadCalls).toEqual(["http://127.0.0.1:3911"]);
+    const record = await expectSingleStartup("ready");
+    expect(record.detail).toBe("");
+    const text = await readFile(join(h.dataDir, "server.log"), "utf8");
+    expect(text.startsWith("\n[desktop-startup] ")).toBe(true);
+    // Quitting after ready appends nothing.
+    h.emit("before-quit");
+    await flush();
+    expect(await startupLines()).toHaveLength(1);
+  });
+
+  it("records only cancelled when quit lands before the first page load", async () => {
+    vi.stubEnv("QUANT_DESKTOP_SMOKE", "1");
+    let release!: () => void;
+    h.loadURL = (url) =>
+      url.startsWith("data:")
+        ? Promise.resolve()
+        : new Promise<void>((resolve) => {
+            release = resolve;
+          });
+    await import("../../electron/main");
+    await flush();
+    h.emit("before-quit");
+    // Late error and exit must not append after the quit won.
+    h.child.emit("error", new Error("late spawn error"));
+    h.child.exitCode = 0;
+    h.child.emit("exit", 0, null);
+    release();
+    await flush();
+    const record = await expectSingleStartup("cancelled");
+    expect(record.detail).toBe("");
+    await expect(
+      readFile(join(h.dataDir, "smoke.txt"), "utf8"),
+    ).rejects.toMatchObject({ code: "ENOENT" });
+    expect(h.executeCalls).toHaveLength(0);
+    expect(h.spawnSync).toHaveBeenCalledTimes(1);
+    expect(h.exitCalls).toEqual([]);
+  });
+
+  it("separates the exit record from stderr without a trailing newline", async () => {
+    let release!: () => void;
+    h.loadURL = (url) =>
+      url.startsWith("data:")
+        ? Promise.resolve()
+        : new Promise<void>((resolve) => {
+            release = resolve;
+          });
+    await import("../../electron/main");
+    await flush();
+    h.child.emitStderr("partial stderr");
+    h.child.exitCode = 0;
+    h.child.emit("exit", 0, null);
+    release();
+    await flush();
+    const text = await readFile(join(h.dataDir, "server.log"), "utf8");
+    expect(text.startsWith("partial stderr\n[desktop-startup] ")).toBe(true);
+    const record = await expectSingleStartup("exited");
+    expect(record.detail).toBe("code=0");
+  });
+
+  it("records one timeout and keeps it when the child exits later", async () => {
+    vi.stubGlobal("fetch", hangingFetch());
+    await import("../../electron/main");
+    await flush();
+    await vi.advanceTimersByTimeAsync(STARTUP_BUDGET_MS);
+    await flush();
+    await expectSingleStartup("timeout");
+    expect(decodeURIComponent(h.loadCalls.at(-1)!)).toContain("启动超时");
+    h.child.exitCode = 1;
+    h.child.emit("exit", 1, null);
+    await flush();
+    const lines = await startupLines();
+    expect(lines).toHaveLength(1);
+    expect(parseStartupLine(lines[0]!).status).toBe("timeout");
+  });
+
+  it("records host-error without copying the thrown text", async () => {
+    h.cookiesSet = async () => {
+      throw new Error("EACCES token=abc at C:\\secret\\node.exe " + h.dataDir);
+    };
+    await import("../../electron/main");
+    await flush();
+    await expectSingleStartup("host-error");
+    const text = await readFile(join(h.dataDir, "server.log"), "utf8");
+    expect(text).not.toContain("EACCES");
+    expect(text).not.toContain("token=");
+    expect(text).not.toContain("C:\\");
+    expect(text).not.toContain(h.dataDir);
+    expect(h.exitCalls).toEqual([1]);
+    expect(h.spawnSync).toHaveBeenCalledWith(
+      "taskkill.exe",
+      ["/PID", "4321", "/T", "/F"],
+      { windowsHide: true, timeout: 10000, stdio: "ignore" },
+    );
+  });
+
+  it("records a synchronous spawn error without its message", async () => {
+    h.spawnImpl = () => {
+      throw new Error("spawn EACCES token=abc at C:\\secret\\node.exe");
+    };
+    await import("../../electron/main");
+    await flush();
+    const record = await expectSingleStartup("spawn-error");
+    expect(record.detail).toBe("");
+    const text = await readFile(join(h.dataDir, "server.log"), "utf8");
+    expect(text).not.toContain("secret");
+    expect(text).not.toContain("token=");
+    expect(text).not.toContain("C:\\");
+    expect(decodeURIComponent(h.loadCalls.at(-1)!)).toContain("本地服务已停止");
+  });
+
+  it("keeps starting and closing when server.log cannot be written", async () => {
+    await mkdir(join(h.dataDir, "server.log"));
+    vi.stubGlobal("fetch", hangingFetch());
+    await import("../../electron/main");
+    await flush();
+    h.child.emit("error", new Error("spawn EACCES C:\\secret"));
+    await flush();
+    expect(h.loadCalls).toHaveLength(1);
+    expect(decodeURIComponent(h.loadCalls[0]!)).toContain("本地服务已停止");
+    expect(h.exitCalls).toEqual([]);
+    h.emit("before-quit");
+    expect(h.spawnSync).toHaveBeenCalledTimes(1);
   });
 
   it("leaves no smoke output when quit interrupts the smoke wait", async () => {
@@ -673,6 +935,10 @@ describe("mocked Electron startup wiring", () => {
       ).rejects.toMatchObject({ code: "ENOENT" });
       expect(h.exitCalls).toEqual([1]);
       expect(h.spawnSync).not.toHaveBeenCalled();
+      // Ready already owned the record: a later exit appends nothing.
+      const lines = await startupLines();
+      expect(lines).toHaveLength(1);
+      expect(parseStartupLine(lines[0]!).status).toBe("ready");
     },
   );
 });
@@ -723,6 +989,8 @@ describe("tray data directory action", () => {
     await import("../../electron/main");
     await flush();
     expect(spawnedEnv().QUANT_DATA_DIR).toBe(h.dataDir);
+    // Remove only the known log file, then the now-empty root.
+    await unlink(join(h.dataDir, "server.log"));
     await rmdir(h.dataDir);
     await writeFile(h.dataDir, "not a directory");
     await trayClick("打开数据与日志目录");

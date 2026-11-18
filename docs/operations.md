@@ -85,6 +85,8 @@ await db.backup(dest); // 输出的是含 WAL 的一致快照
 
 Windows 托盘的「打开数据与日志目录」打开本次启动使用的数据根，服务启动失败时也可用。非空相对 `QUANT_DATA_DIR` 以原后端服务目录解析，`server.log` 落在同一数据根。
 
+`server.log` 中的 `[desktop-startup]` 行给出本次启动结论，时间为 UTC ISO，状态为 `ready`、`timeout`、`exited`、`spawn-error`、`cancelled` 或 `host-error`。`exited` 可附 0–0xffffffff 的退出码（Windows DWORD）或已知信号名，即使 exit 事件未送达，确认失败时也会补记结论。`ready` 只说明健康身份与首次页面加载完成，不表示数据库或调度器正常。日志不可写时启动与退出仍照常进行。
+
 应用不复制 Codex/Claude CLI 登录令牌，CLI 在本机自行认证；DeepSeek 从环境变量读取密钥，配置说明见根 README。不要输出 `.env`、业务凭证或未脱敏远程响应。
 
 ## 常见故障
