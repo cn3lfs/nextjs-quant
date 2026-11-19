@@ -47,6 +47,7 @@ import {
 } from "../../screening/formula-screen-service";
 import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
 import { formulaFromText } from "../../screening/formula-from-text";
+import { formulaScreenInputSchema } from "~/lib/screening/formula-screen-request";
 import {
   thsdkHotBlockKindSchema,
   thsdkWencaiQueryInputSchema,
@@ -231,7 +232,7 @@ export const screeningRouter = createTRPCRouter({
     .input(z.string().trim().min(2).max(500))
     .mutation(({ input, signal }) => formulaFromText(input, signal)),
   formulaScreen: p("formulaScreen", "compute")
-    .input(formulaSchema)
+    .input(formulaScreenInputSchema)
     .mutation(({ input }) => formulaScreenJob(input)),
   onlineScreen: p("onlineScreen", "compute")
     .input(

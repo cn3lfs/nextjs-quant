@@ -8,6 +8,7 @@ export type BarMetadata = {
   sourceVersions: string[];
   adjustment: "none" | "forward" | "backward";
   adjustmentReference: string | null;
+  adjustmentSource?: "local-gbbq" | "thsdk-native";
   coverage: {
     from: string | null;
     to: string | null;

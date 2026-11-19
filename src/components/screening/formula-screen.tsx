@@ -23,6 +23,39 @@ import { MethodologyPopover } from "~/components/panels";
 const subscribeToReady = () => () => {};
 const clientReady = () => true;
 const serverReady = () => false;
+const thsdkSymbolExample = "sh600519, sz000001, sz300033";
+const thsdkSymbolPattern = /^(sh|sz|bj)\d{6}$/;
+const thsdkSymbolLimit = 200;
+function parseThsdkSymbols(text: string) {
+  return [
+    ...new Set(
+      text
+        .split(/[\s,，;；]+/)
+        .map((symbol) => symbol.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  ];
+}
+/** Normalize and bound the explicit THS pool; nothing is truncated or filled in. */
+function validateThsdkSymbols(
+  text: string,
+): { symbols: string[] } | { error: string } {
+  const symbols = parseThsdkSymbols(text);
+  if (symbols.length === 0)
+    return {
+      error: `请填写同花顺证券代码（1–${thsdkSymbolLimit} 只），例如 ${thsdkSymbolExample}。`,
+    };
+  const invalid = symbols.filter((symbol) => !thsdkSymbolPattern.test(symbol));
+  if (invalid.length > 0)
+    return {
+      error: `同花顺证券代码格式无效：${invalid.join("、")}；应为 sh/sz/bj 前缀加 6 位数字。`,
+    };
+  if (symbols.length > thsdkSymbolLimit)
+    return {
+      error: `同花顺证券代码最多 ${thsdkSymbolLimit} 只，当前 ${symbols.length} 只，请精简后再执行。`,
+    };
+  return { symbols };
+}
 export function FormulaScreen({
   onStarted,
 }: {
@@ -40,6 +73,8 @@ export function FormulaScreen({
   const [source, setSource] = useState("选股:CROSS(MA(C,N1),MA(C,N2));");
   const [params, setParams] = useState('{"N1":5,"N2":20}');
   const [checked, setChecked] = useState<string | null>(null);
+  const [marketSource, setMarketSource] = useState<"local" | "thsdk">("local");
+  const [thsdkSymbolsText, setThsdkSymbolsText] = useState("");
   const [message, setMessage] = useState("");
   const key = JSON.stringify([name, source, params]);
   const utils = api.useUtils();
@@ -110,6 +145,11 @@ export function FormulaScreen({
               label: "数据范围与价格",
               detail:
                 "本地全 A 股 · 已完成日线 · 前复权信号价；成交与账户保留原价。",
+            },
+            {
+              label: "同花顺数据源（可选）",
+              detail:
+                "信号价使用同花顺原生前复权，不叠加本地 GBBQ 复权；证券池严格按指定的 1–200 只代码执行，不读取本地目录、不静默截断。同花顺行情可能延迟，盘中未完成的日线不参与计算。",
             },
             {
               label: "参数与语法",
@@ -242,6 +282,49 @@ export function FormulaScreen({
         />
       </label>
       <div className="inline-form">
+        <label>
+          数据源
+          <Select
+            disabled={!ready}
+            value={marketSource}
+            onValueChange={(value) => {
+              if (value === "local" || value === "thsdk")
+                setMarketSource(value);
+            }}
+          >
+            <SelectTrigger aria-label="数据源" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="local">本地通达信（默认）</SelectItem>
+              <SelectItem value="thsdk">同花顺 (THSDK)</SelectItem>
+            </SelectContent>
+          </Select>
+        </label>
+      </div>
+      {marketSource === "thsdk" && (
+        <div className="inline-form">
+          <label className="grow">
+            同花顺证券代码（1–200 只，逗号/空格分隔）
+            <Input
+              aria-label="同花顺证券代码"
+              disabled={!ready}
+              value={thsdkSymbolsText}
+              placeholder={thsdkSymbolExample}
+              maxLength={4000}
+              onChange={(e) => setThsdkSymbolsText(e.target.value)}
+            />
+          </label>
+          <Button
+            variant="outline"
+            disabled={!ready}
+            onClick={() => setThsdkSymbolsText(thsdkSymbolExample)}
+          >
+            填入示例标的
+          </Button>
+        </div>
+      )}
+      <div className="inline-form">
         <Button
           variant="outline"
           disabled={busy}
@@ -278,6 +361,23 @@ export function FormulaScreen({
           disabled={busy || checked !== key}
           onClick={async () => {
             try {
+              if (marketSource === "thsdk") {
+                const pool = validateThsdkSymbols(thsdkSymbolsText);
+                if ("error" in pool) {
+                  setMessage(pool.error);
+                  return;
+                }
+                const job = await run.mutateAsync({
+                  ...input(),
+                  marketSource: "thsdk",
+                  symbols: pool.symbols,
+                });
+                onStarted(job.id);
+                setMessage(
+                  `同花顺公式选股任务已启动（${pool.symbols.length} 只指定标的）；进度、取消与结果见下方候选表。`,
+                );
+                return;
+              }
               const job = await run.mutateAsync(input());
               onStarted(job.id);
               setMessage("全市场任务已启动；进度、取消与结果见下方候选表。");
@@ -286,7 +386,7 @@ export function FormulaScreen({
             }
           }}
         >
-          全市场执行公式
+          {marketSource === "thsdk" ? "同花顺执行公式" : "全市场执行公式"}
         </Button>
       </div>
       <p role="status" style={{ whiteSpace: "pre-wrap" }}>

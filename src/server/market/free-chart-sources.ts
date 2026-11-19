@@ -14,6 +14,7 @@ import { getThsdkStatus } from "../data-sources/thsdk/thsdk-auth";
 
 export { parseWestockBars as parseTencentChart } from "../data-sources/westock/westock-bars";
 export type FreeChartHistoryResult = {
+  adjustment?: "none" | "qfq" | "hfq";
   bars: Bar[];
   source: string;
   volumeUnit?: string;
@@ -60,9 +61,17 @@ export async function thsdkChartHistory(
   symbol: string,
   period: ChartPeriod,
   limit: number,
+  adjustment?: "none" | "qfq" | "hfq",
+  end?: string,
 ): Promise<FreeChartHistoryResult> {
   if (period === "4h" || period === "1h") throw new Error("同花顺不支持该周期");
-  const result = await thsdkKlines({ symbols: [symbol], period, limit });
+  const result = await thsdkKlines({
+    symbols: [symbol],
+    period,
+    limit,
+    ...(adjustment ? { adjustment } : {}),
+    ...(end ? { end } : {}),
+  });
   const item = result.items[0];
   if (!item) throw new Error("同花顺未返回行情");
   if (item.status !== "ok") throw new Error(item.message);
@@ -71,6 +80,7 @@ export async function thsdkChartHistory(
     source: result.source,
     volumeUnit: item.volumeUnit,
     historyExhausted: item.historyExhausted,
+    adjustment: adjustment ?? "none",
     sourceNote: [result.version, "同花顺延迟行情", ...result.warnings].join(
       "；",
     ),

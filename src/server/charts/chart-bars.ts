@@ -138,6 +138,34 @@ export async function chartBars(
   const reasons: string[] = [];
   const errors: string[] = [];
   let resolved: Omit<ChartSnapshot, "id"> | undefined;
+  const thsdkSeries = async (): Promise<Omit<ChartSnapshot, "id">> => {
+    const series = await readBars({
+      instrument: { market: "cn-equity", symbol: source.symbol },
+      root: source.dataRoot,
+      source: "thsdk",
+      period,
+      adjustment,
+      limit,
+      now,
+      chartFunds: true,
+    });
+    return {
+      ...series,
+      name: series.name ?? source.name,
+      requestedSource: source.requestedSource,
+      formingDates: series.barStore.formingDates,
+      excluded: series.barStore.excluded,
+      historyExhausted: series.barStore.coverage.historyExhausted,
+    };
+  };
+  if (source.requestedSource === "thsdk" && adjustment !== "none")
+    return finalizeChartBars(
+      source,
+      period,
+      adjustment,
+      limit,
+      await thsdkSeries(),
+    );
   try {
     if (
       source.requestedSource &&
@@ -286,6 +314,16 @@ export async function chartBars(
         limit,
         source.requestedSource ?? "auto",
       );
+      if (remote.source === "thsdk-hq" && adjustment !== "none") {
+        const native = await thsdkSeries();
+        return finalizeChartBars(source, period, adjustment, limit, {
+          ...native,
+          sourceNote: [...reasons, remote.sourceNote]
+            .filter(Boolean)
+            .join("；"),
+          sourceErrors: [...errors, ...(remote.sourceErrors ?? [])],
+        });
+      }
       const remoteSeries = await adjustChartSeries(
         {
           ...source,

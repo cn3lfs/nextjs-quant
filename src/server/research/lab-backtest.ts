@@ -43,6 +43,7 @@ function frozenMarketPolicy(
   market: "cn-equity" | "crypto",
   instruments: readonly PortfolioInstrument[],
   theory: boolean,
+  source: "local" | "thsdk",
 ) {
   const cells = new Set<string>();
   for (const instrument of instruments) {
@@ -62,9 +63,11 @@ function frozenMarketPolicy(
     signalBars:
       market === "crypto"
         ? "none（原始归档）"
-        : theory
-          ? "per-symbol GBBQ anchor（frozen.sources[].adjustmentId）"
-          : "forward（frozen.sources[].adjustment）",
+        : source === "thsdk"
+          ? "同花顺原生前复权 qfq（frozen.sources[].adjustment）"
+          : theory
+            ? "per-symbol GBBQ anchor（frozen.sources[].adjustmentId）"
+            : "forward（frozen.sources[].adjustment）",
     executionBars: "raw（未复权原价，仅用原价成交）",
     quantityGrid:
       market === "cn-equity"
@@ -94,7 +97,9 @@ export async function executeLabBacktest(
   work: LabBacktestWork,
   progress: (n: number, phase: string) => void = () => {},
   read = readBars,
+  signal?: AbortSignal,
 ) {
+  signal?.throwIfAborted();
   const input = labBacktestSchema.parse(work.input),
     strategy = input.strategy,
     config = settings();
@@ -147,13 +152,14 @@ export async function executeLabBacktest(
           })
         : null;
   const actionSource =
-    strategy.market === "cn-equity" && !theory
+    strategy.market === "cn-equity" && input.source === "local" && !theory
       ? await corporateActions(config.tdxRoot)
       : null;
   const instruments: PortfolioInstrument[] = theory?.instruments ?? [],
     sources: Record<string, unknown>[] = theory?.sources ?? [];
   let total = 0;
   for (const symbol of theory ? [] : symbols) {
+    signal?.throwIfAborted();
     const archive =
       strategy.market === "crypto"
         ? await binanceArchiveSource({
@@ -173,17 +179,20 @@ export async function executeLabBacktest(
         adjustment: strategy.market === "cn-equity" ? "forward" : "none",
         freezeRaw: true,
         root: config.tdxRoot,
-        source: "local",
+        source: input.source,
         to: input.end,
         live: false,
       },
       archive ?? undefined,
     );
+    signal?.throwIfAborted();
     if (
       snapshot.barStore.formingDates.length ||
       snapshot.barStore.priceRepaired
     )
       throw new Error(`${symbol}包含未完成或修复行情`);
+    if (input.source === "thsdk" && !snapshot.rawBars)
+      throw new Error(`${symbol}缺少同花顺未复权成交原价`);
     const raw = snapshot.rawBars ?? snapshot.bars;
     if (
       raw.length !== snapshot.bars.length ||
@@ -240,7 +249,13 @@ export async function executeLabBacktest(
     sources.push({
       symbol,
       hash: snapshot.hash,
+      source: snapshot.source,
       adjustment: snapshot.barStore.adjustmentReference,
+      adjustmentSource:
+        snapshot.barStore.adjustmentSource ??
+        (input.source === "thsdk" ? "thsdk-native" : "local-gbbq"),
+      volumeUnit: snapshot.volumeUnit ?? null,
+      dataAsOf: snapshot.barStore.coverage?.to ?? null,
     });
     progress(
       Math.floor((instruments.length / symbols.length) * 70),
@@ -271,23 +286,30 @@ export async function executeLabBacktest(
   const frozen = {
     request,
     sources,
+    dataSource: input.source,
     costScenario: input.costScenario,
     marketPolicy: frozenMarketPolicy(
       strategy.market,
       request.instruments,
       !!theory,
+      input.source,
     ),
     strategyBuildHash,
     executionBuildHash: forwardExecutionBuildHash(),
     boundary:
-      "规则自检；当前证券池、历史ST/IPO/排队及到账日未认证；公司行动沿R2a-5研究情景，币种数量网格未认证；非可信策略业绩",
+      input.source === "thsdk"
+        ? "规则自检；同花顺延迟行情，信号采用原生前复权 qfq，成交采用同源未复权原价；未计入公司行动分红送转，历史ST/IPO/排队未认证；非可信策略业绩"
+        : "规则自检；当前证券池、历史ST/IPO/排队及到账日未认证；公司行动沿R2a-5研究情景，币种数量网格未认证；非可信策略业绩",
   };
   const inputHash = createHash("sha256")
     .update(JSON.stringify(frozen))
     .digest("hex");
-  const result = runPortfolio(request, (done, count) =>
-    progress(70 + Math.floor((done / Math.max(1, count)) * 30), "组合回放"),
-  );
+  if (signal) await new Promise<void>((resolve) => setImmediate(resolve));
+  signal?.throwIfAborted();
+  const result = runPortfolio(request, (done, count) => {
+    signal?.throwIfAborted();
+    progress(70 + Math.floor((done / Math.max(1, count)) * 30), "组合回放");
+  });
   const performance = createPerformanceReport(
     input.initial,
     dailyEquity(result.curve),

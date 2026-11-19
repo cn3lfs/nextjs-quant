@@ -8,7 +8,10 @@ export type StoredScreenResult = Omit<ScreeningResult, "snapshots"> & {
   formula: ScreeningFormula;
   adjustment?: "none" | "forward" | "backward";
   period: "day";
-  researchMode: "latest-local";
+  researchMode: "latest-local" | "latest-thsdk";
+  source?: "tdx-local" | "thsdk-hq";
+  adjustmentSource?: "local-gbbq" | "thsdk-native";
+  volumeUnit?: string;
   universeSource: string;
   researchWarnings: string[];
 };

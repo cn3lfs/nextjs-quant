@@ -13,7 +13,8 @@ import {
 } from "../../db/strategy-lab";
 import { labValidationReport } from "../../research/lab-report";
 import { researchCommandSchema } from "~/lib/research/research-command";
-import { background, runWorker } from "../../jobs/jobs";
+import { background, runWorker, updateJob } from "../../jobs/jobs";
+import { executeLabBacktest } from "../../research/lab-backtest";
 import { labBacktestSchema } from "~/lib/research/lab-backtest";
 import {
   labPortfolioEvidenceHashSchema,
@@ -53,8 +54,25 @@ export const strategyLabRouter = createTRPCRouter({
   strategyLabBacktest: p("backtest", "compute")
     .input(labBacktestSchema)
     .mutation(({ input }) =>
-      background("backtest", { type: "lab-backtest", ...input }, (job) =>
-        runWorker({ type: "lab-backtest", input }, job.id),
+      background(
+        "backtest",
+        { type: "lab-backtest", ...input },
+        (job, signal) => {
+          const work = { type: "lab-backtest" as const, input };
+          if (input.source !== "thsdk") return runWorker(work, job.id);
+          return executeLabBacktest(
+            work,
+            (progress, phase) => {
+              signal.throwIfAborted();
+              if (
+                updateJob(job.id, { progress, phase })?.status === "cancelled"
+              )
+                throw new Error("任务已取消");
+            },
+            undefined,
+            signal,
+          );
+        },
       ),
     ),
   strategyLabMode: p("alerts", "configure")

@@ -53,7 +53,10 @@ export async function scanFormulaParallel(
   step?: Step,
 ): Promise<FormulaPart[]> {
   const entry = workerEntry();
-  const threads = entry ? formulaThreads(securities.length) : 1;
+  const threads =
+    entry && work.marketSource !== "thsdk"
+      ? formulaThreads(securities.length)
+      : 1;
   if (threads <= 1)
     return [await scanFormulaRange(work, formula, securities, step)];
   const ranges = formulaRanges(securities, threads);

@@ -30,7 +30,7 @@ import {
   BINANCE_KLINES_VERSION,
 } from "../../data-sources/binance/binance-klines";
 import { settings } from "../../infra/settings";
-import { freeChartHistory } from "../free-chart-sources";
+import { freeChartHistory, thsdkChartHistory } from "../free-chart-sources";
 import { mergeOnlineDailyTail } from "../chart-online-delta";
 import { marketSourceSchema } from "~/lib/market/market-source";
 
@@ -273,6 +273,7 @@ async function cryptoBars(
 export async function readBars<const T extends ReadBarsInput>(
   value: T,
   frozen?: Omit<Snapshot, "period"> & { period: ChartPeriod },
+  thsdkFetch?: typeof thsdkChartHistory,
 ): Promise<BarSeries & { period: T["period"] }> {
   const input = readBarsInput.parse(value),
     now = input.now ?? Date.now();
@@ -284,7 +285,17 @@ export async function readBars<const T extends ReadBarsInput>(
   if (market !== "cn-equity" && input.adjustment !== "none")
     throw new Error("数字货币不支持复权");
   const base = input.cryptoNative15m ? "15m" : basePeriod(market, input.period);
-  const root = input.root ?? (market === "cn-equity" ? settings().tdxRoot : "");
+  const nativeThs =
+    !frozen && market === "cn-equity" && input.source === "thsdk";
+  const root =
+    input.root ??
+    (market === "cn-equity" && !nativeThs ? settings().tdxRoot : "");
+  const thsAdjustment = {
+    none: "none",
+    forward: "qfq",
+    backward: "hfq",
+  } as const;
+  let thsRawBars: Bar[] | undefined;
   let raw: SourceSeries;
   if (frozen) {
     if (
@@ -323,6 +334,54 @@ export async function readBars<const T extends ReadBarsInput>(
         })
       : null;
     raw = archive ?? (await cryptoBars(input, base, now));
+  } else if (nativeThs) {
+    const fetchHistory = thsdkFetch ?? thsdkChartHistory;
+    const adjustment = thsAdjustment[input.adjustment];
+    const multiplier = {
+      week: 5,
+      month: 23,
+      "15m": 3,
+      "30m": 6,
+      "60m": 12,
+      day: 1,
+      "5m": 1,
+      "1h": 1,
+      "4h": 1,
+    }[input.period];
+    const count = input.limit
+      ? (input.limit + (multiplier > 1 ? 1 : 0)) * multiplier
+      : 20000;
+    const end = input.to?.slice(0, 10);
+    const remote = await fetchHistory(symbol, base, count, adjustment, end);
+    const bars = remote.bars.filter((bar) => withinEnd(bar.date, input.to));
+    if (input.freezeRaw && adjustment !== "none") {
+      const original = await fetchHistory(symbol, base, count, "none", end);
+      thsRawBars = original.bars.filter((bar) => withinEnd(bar.date, input.to));
+      if (
+        thsRawBars.length !== bars.length ||
+        thsRawBars.some((bar, i) => bar.date !== bars[i]!.date)
+      )
+        throw new Error("同花顺原价与复权序列日期未对齐");
+    }
+    const hash = hashOf({
+      symbol,
+      base,
+      source: remote.source,
+      adjustment,
+      bars,
+      rawBars: thsRawBars,
+    });
+    raw = {
+      ...remote,
+      bars,
+      adjustment: input.adjustment,
+      symbol,
+      period: base,
+      hash,
+      id: `snapshot-${symbol}-${hash}`,
+      createdAt: now,
+      requestedSource: "thsdk",
+    };
   } else {
     const local = () =>
       localBars(root, symbol, base === "day" ? "day" : "5m", input.chartFunds);
@@ -355,28 +414,46 @@ export async function readBars<const T extends ReadBarsInput>(
     raw.barStore?.priceRepaired ??
     (raw.source === "tdx-local" && Boolean(raw.sourceNote));
   let overlay: BarMetadata["overlay"] = null;
-  if (input.live && market === "cn-equity" && base === "day" && !input.to) {
+  if (
+    input.live &&
+    market === "cn-equity" &&
+    base === "day" &&
+    !input.to &&
+    input.source !== "thsdk" &&
+    raw.source !== "thsdk-hq"
+  ) {
     const clock = beijingClock(now),
       session = marketSession(now);
     if (["morning", "lunch", "afternoon"].includes(session.kind)) {
       const remote = await freeChartHistory(symbol, "day", 20);
       if (remote.source === "tencent/westock-data")
         throw new Error("腾讯成交量单位未核验，不能拼接本地尾段");
+      // The local/auto path verifies overlapping OHLC, amount and volume scale before merging.
       const merged = mergeOnlineDailyTail(raw, remote.bars, {
         source: remote.source,
         requests: 1,
       });
       raw = merged.snapshot;
       if (raw.bars.at(-1)?.date === clock.date)
-        overlay = { source: remote.source, date: clock.date, completed: false };
+        overlay = {
+          source: remote.source,
+          date: clock.date,
+          completed: false,
+        };
     }
   }
   let bars = input.to
     ? raw.bars.filter((b) => withinEnd(b.date, input.to))
     : raw.bars;
   let adjustmentReference: string | null = null;
+  let adjustmentSource: BarMetadata["adjustmentSource"];
   const sourceVersions = [...(raw.sourceVersions ?? [raw.hash])];
-  if (input.adjustment !== "none") {
+  if (nativeThs && input.adjustment !== "none") {
+    const version = `thsdk-native:${thsAdjustment[input.adjustment]}`;
+    adjustmentSource = "thsdk-native";
+    adjustmentReference = `${version}:${bars.at(-1)?.date ?? "empty"}`;
+    sourceVersions.push(version);
+  } else if (input.adjustment !== "none") {
     const daily =
       base === "day"
         ? { ...raw, bars }
@@ -392,6 +469,7 @@ export async function readBars<const T extends ReadBarsInput>(
     bars = applyAdjustmentByDate(bars, factors, input.adjustment);
     adjustmentReference = `${actionFingerprint}:${reference.at(-1)?.date ?? "empty"}:${factors.at(-1)?.factor ?? 1}`;
     sourceVersions.push(actionFingerprint);
+    adjustmentSource = "local-gbbq";
   }
   const aggregated =
     (!frozen &&
@@ -404,7 +482,9 @@ export async function readBars<const T extends ReadBarsInput>(
           market === "cn-equity" &&
           base === "day" &&
           input.period === "day" &&
-          (raw.source === "tdx-local" || raw.source === "tdx-full-package")
+          (raw.source === "tdx-local" ||
+            raw.source === "tdx-full-package" ||
+            raw.source === "thsdk-hq")
         ? // Source codec and column decoder validate base bars on the IO boundary.
           completedDailySource(bars, now, input.adjustment !== "none")
         : market === "crypto"
@@ -421,6 +501,22 @@ export async function readBars<const T extends ReadBarsInput>(
     : aggregated.bars;
   const total = bars.length;
   if (input.limit) bars = bars.slice(-input.limit);
+  if (thsRawBars) {
+    if (input.period !== "day") {
+      thsRawBars = aggregateChartBars(
+        thsRawBars,
+        base === "day" ? "day" : "5m",
+        input.period,
+        now,
+        input.calendar,
+      ).bars;
+    }
+    if (input.from)
+      thsRawBars = thsRawBars.filter((bar) =>
+        withinStart(bar.date, input.from),
+      );
+    if (input.limit) thsRawBars = thsRawBars.slice(-input.limit);
+  }
   const selected = new Set(
     aggregated.formingDates.length ? bars.map((b) => b.date) : [],
   );
@@ -479,6 +575,7 @@ export async function readBars<const T extends ReadBarsInput>(
         // and selected coverage determine every value. Do not serialize a full
         // adjusted history a second time just to identify that deterministic view.
         hashOf({ base: raw.hash, period: input.period, metadata });
+  if (adjustmentSource) metadata.adjustmentSource = adjustmentSource;
   return {
     ...raw,
     id:
@@ -491,8 +588,12 @@ export async function readBars<const T extends ReadBarsInput>(
     period: input.period,
     adjustment: input.adjustment,
     bars,
+    ...(nativeThs ? { sourceVersions } : {}),
     ...(input.freezeRaw && input.adjustment !== "none"
-      ? { rawBars: raw.bars.filter((b) => withinEnd(b.date, input.to)) }
+      ? {
+          rawBars:
+            thsRawBars ?? raw.bars.filter((b) => withinEnd(b.date, input.to)),
+        }
       : {}),
     hash,
     barStore: metadata,

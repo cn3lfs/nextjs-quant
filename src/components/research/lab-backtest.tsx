@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { usePanelVisible } from "../workbench/keep-alive";
+import { MethodologyPopover } from "../panels";
 
 const initialStrategy = {
   id: "my-lab-ma",
@@ -49,6 +50,17 @@ const costScenarioOptions = [
   },
 ] as const;
 type CostScenario = (typeof costScenarioOptions)[number]["value"];
+const dataSourceOptions = [
+  {
+    value: "local",
+    label: "本地通达信（默认）",
+  },
+  {
+    value: "thsdk",
+    label: "同花顺 (THSDK · 仅A股)",
+  },
+] as const;
+type DataSource = (typeof dataSourceOptions)[number]["value"];
 type LabIdentity = { id: string; version: number };
 type LoadedStrategy = ReturnType<typeof strategyObjectSchema.parse>;
 type LabBacktestRequest = ReturnType<typeof labBacktestSchema.parse>;
@@ -57,6 +69,7 @@ type LabBacktestFormFields = {
   end: string;
   initial: number;
   costScenario: CostScenario;
+  source?: DataSource;
 };
 export type LabBacktestReceipt = {
   jobId: string;
@@ -67,6 +80,7 @@ export type LabBacktestReceipt = {
   end: string;
   initial: number;
   costScenario: CostScenario;
+  source?: DataSource;
 };
 const labFieldLabels: Record<string, string> = {
   strategy: "策略对象",
@@ -74,6 +88,7 @@ const labFieldLabels: Record<string, string> = {
   end: "结束日期",
   initial: "独立本金",
   costScenario: "交易成本情景",
+  source: "行情数据源",
 };
 /** The shared lab schema is the only form check; messages stay in its own terms. */
 export function readLabBacktestForm(
@@ -102,6 +117,7 @@ export function labBacktestReceipt(
   input: LabBacktestRequest,
   jobId: string,
 ): LabBacktestReceipt {
+  const source: DataSource = input.source ?? "local";
   return {
     jobId,
     strategyId: input.strategy.id,
@@ -111,6 +127,8 @@ export function labBacktestReceipt(
     end: input.end,
     initial: input.initial,
     costScenario: input.costScenario,
+    // Keep the pre-source receipt shape for the default local source.
+    ...(source === "thsdk" ? { source } : {}),
   };
 }
 const marketLabels: Record<LabBacktestReceipt["market"], string> = {
@@ -299,6 +317,7 @@ function LabEditor({
     [end, setEnd] = useState(""),
     [initial, setInitial] = useState(1000000),
     [costScenario, setCostScenario] = useState<CostScenario>("fixed"),
+    [dataSource, setDataSource] = useState<DataSource>("local"),
     [error, setError] = useState(""),
     [receipt, setReceipt] = useState<LabBacktestReceipt | null>(null),
     submitting = useRef(false);
@@ -321,6 +340,7 @@ function LabEditor({
           end,
           initial,
           costScenario,
+          source: dataSource,
         });
         if (!result.ok) {
           setError(result.message);
@@ -345,7 +365,7 @@ function LabEditor({
     >
       <p className="text-sm text-nc-text-3">
         提交同一策略对象，经 BarStore 冻结完成行情，调用
-        runPortfolio。行情读取本地数据；多周期研究另核对官方交易日历及币种当前价格步长，并保存来源。
+        runPortfolio。行情默认读取本地数据，也可切换同花顺数据源；多周期研究另核对官方交易日历及币种当前价格步长，并保存来源。
         缺少时点外部证据的规则须走冻结研究任务。结果为规则自检，公司行动与数量网格沿用研究情景。
         fixed 等同本入口原默认费用且不启用历史印花税切换；base 与 double-cost
         使用 2023-08-28 前后的历史印花税情景，double-cost
@@ -503,6 +523,46 @@ function LabEditor({
             </SelectContent>
           </Select>
         </label>
+        <label className="block text-sm">
+          数据源
+          <Select
+            value={dataSource}
+            onValueChange={(value) => {
+              if (value === "local" || value === "thsdk") setDataSource(value);
+            }}
+          >
+            <SelectTrigger aria-label="行情数据源" className="mt-1 max-w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {dataSourceOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </label>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <MethodologyPopover
+          title="回测数据源与复权口径"
+          buttonLabel="数据源口径"
+          items={[
+            {
+              label: "本地通达信（默认）",
+              detail: "本地全量行情 + 本地 GBBQ 复权与公司行动情景。",
+            },
+            {
+              label: "同花顺 (THSDK)",
+              detail:
+                "仅支持 A 股策略；信号价采用同花顺原生前复权、成交价采用未复权原价，不叠加本地 GBBQ 复权，不含本地公司行动分红送转台账，盘中未收盘的日线自动拒绝。",
+            },
+          ]}
+        />
+        <span className="text-sub text-nc-text-3">
+          切换数据源会改变复权与公司行动口径，结果不可直接互比。
+        </span>
       </div>
       <p className="text-sub text-nc-text-3">
         仅影响费用假设，不改变信号、复权、数量网格或成交顺序；默认 fixed
@@ -551,7 +611,7 @@ function LabEditor({
         <div role="status" className="space-y-1 text-sm">
           <p>最近一次已创建的回测任务</p>
           <p className="text-nc-text-3">
-            {`${receipt.strategyId} v${receipt.strategyVersion} · ${marketLabels[receipt.market]} · ${receipt.start} 至 ${receipt.end} · 本金 ${String(receipt.initial)} · 交易成本 ${costScenarioLabel(receipt.costScenario)}`}
+            {`${receipt.strategyId} v${receipt.strategyVersion} · ${marketLabels[receipt.market]} · ${receipt.start} 至 ${receipt.end} · 本金 ${String(receipt.initial)} · 交易成本 ${costScenarioLabel(receipt.costScenario)} · 数据源：${receipt.source === "thsdk" ? "同花顺 (THSDK)" : "本地通达信"}`}
           </p>
           <Link
             href={taskHistoryHref({ id: receipt.jobId })}
