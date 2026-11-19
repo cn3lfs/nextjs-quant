@@ -1,4 +1,8 @@
-import { isRpsMarketSymbol, rpsExclusionLabels } from "quant-rps";
+import {
+  isRpsMarketSymbol,
+  rpsExclusionLabels,
+  type RpsValue,
+} from "quant-rps";
 import { resolve } from "node:path";
 import {
   marketPoolQuerySchema,
@@ -58,14 +62,39 @@ export async function marketPoolRows(input: unknown) {
     latest && resolve(latest.source.root) === resolve(config.tdxRoot)
       ? latest
       : null;
-  const ranks = new Map(
-    day?.periods.includes(query.period)
-      ? (observation
+  // Filtering reads one snapshot only: all conditions and the display period
+  // come from the same chosen day/observation, with each period's own rank.
+  const conditionPeriods = [...new Set(query.conditions.map((c) => c.period))];
+  const neededPeriods = [...new Set([query.period, ...conditionPeriods])];
+  const ranks = new Map<string, RpsValue>();
+  const conditionValues = new Map<string, Map<number, RpsValue>>();
+  if (day) {
+    if (query.conditions.length === 0) {
+      if (day.periods.includes(query.period))
+        for (const row of observation
           ? observationRanking(observation, query.period)
-          : store.ranking(day.date, query.period)
-        ).map((r) => [r.symbol, r])
-      : [],
-  );
+          : store.ranking(day.date, query.period))
+          ranks.set(row.symbol, row);
+    } else {
+      // One read for every requested period instead of one full scan per period.
+      const sourceRows = observation ? observation.rows : store.rows(day.date);
+      const indexes = new Map(
+        neededPeriods
+          .filter((period) => day.periods.includes(period))
+          .map((period) => [period, day.periods.indexOf(period)]),
+      );
+      for (const row of sourceRows) {
+        const byPeriod = new Map<number, RpsValue>();
+        for (const [period, index] of indexes) {
+          const value = row.values[index];
+          if (value) byPeriod.set(period, value);
+        }
+        if (byPeriod.size) conditionValues.set(row.symbol, byPeriod);
+        const display = byPeriod.get(query.period);
+        if (display) ranks.set(row.symbol, display);
+      }
+    }
+  }
   const reasons = new Map<string, string>();
   if (day)
     for (const [key, symbols] of Object.entries(day.excluded))
@@ -93,6 +122,16 @@ export async function marketPoolRows(input: unknown) {
     localDay: local.has(symbol),
     fullDayCache: imported.has(symbol),
     value: ranks.get(symbol) ?? null,
+    ...(query.conditions.length
+      ? {
+          conditionValues: Object.fromEntries(
+            conditionPeriods.map((period) => [
+              String(period),
+              conditionValues.get(symbol)?.get(period) ?? null,
+            ]),
+          ),
+        }
+      : {}),
     reason: ranks.has(symbol)
       ? null
       : !day
@@ -125,6 +164,18 @@ export async function marketPoolRows(input: unknown) {
           mode: day.mode,
           count: day.counts[day.periods.indexOf(query.period)] ?? null,
           inputHash: day.inputHash,
+          ...(query.conditions.length
+            ? {
+                conditions: query.conditions.map((condition) => {
+                  const index = day.periods.indexOf(condition.period);
+                  return {
+                    ...condition,
+                    count: index < 0 ? null : (day.counts[index] ?? null),
+                    periodMissing: index < 0,
+                  };
+                }),
+              }
+            : {}),
           observation: observation
             ? {
                 phase: observation.phase,
@@ -133,6 +184,11 @@ export async function marketPoolRows(input: unknown) {
                 coverage: observation.coverage,
                 reused: observation.reused.length,
                 missing: observation.missing.length,
+                // A close observation is only a confirmed persistent close when
+                // the same day was written to the RPS store.
+                persistedClose:
+                  observation.phase === "close" &&
+                  stored?.date === observation.day.date,
               }
             : null,
         }

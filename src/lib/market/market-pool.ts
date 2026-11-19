@@ -26,6 +26,31 @@ export function poolMembersHref(
 ) {
   return `/scan?tab=pool&poolCategory=${category}&poolName=${encodeURIComponent(name)}`;
 }
+/** One AND condition: the security's RPS for `period` must satisfy the threshold. */
+export const marketPoolRpsConditionSchema = z.object({
+  period: z
+    .number()
+    .refine(
+      (n) => (rpsPeriods as readonly number[]).includes(n),
+      "不支持的RPS周期",
+    ),
+  side: z.enum(["gte", "lte"]),
+  value: z.number().int().min(0).max(100),
+});
+export type MarketPoolRpsCondition = z.infer<
+  typeof marketPoolRpsConditionSchema
+>;
+/** Zero conditions reproduce the old unfiltered pool; at most three combine with AND. */
+export const marketPoolRpsConditionsSchema = z
+  .array(marketPoolRpsConditionSchema)
+  .max(3)
+  .default([])
+  .refine(
+    (conditions) =>
+      new Set(conditions.map((condition) => condition.period)).size ===
+      conditions.length,
+    "RPS条件周期不能重复",
+  );
 export const marketPoolQuerySchema = z.object({
   pool: poolSelectionSchema.nullable().default(null),
   search: z.string().trim().max(80).default(""),
@@ -34,6 +59,7 @@ export const marketPoolQuerySchema = z.object({
     .refine((n) => (rpsPeriods as readonly number[]).includes(n))
     .default(50),
   minimumRps: z.number().min(0).max(100).nullable().default(null),
+  conditions: marketPoolRpsConditionsSchema,
   sort: z.enum(["rps", "symbol"]).default("rps"),
   /** Column header sort; overrides `sort` across the whole filtered pool. */
   order: tableSortSchema,
@@ -61,6 +87,8 @@ export type MarketPoolRow = {
   localDay: boolean;
   fullDayCache?: boolean;
   value: RpsValue | null;
+  /** Condition-period ranks from the same batch; present only with conditions. */
+  conditionValues?: Record<string, RpsValue | null>;
   reason: string | null;
 };
 
@@ -70,6 +98,7 @@ export function selectMarketPoolRows(
   input: MarketPoolQuery,
 ) {
   const needle = input.search.toLowerCase();
+  const conditions = input.conditions;
   const filtered = rows
     .filter(
       (row) =>
@@ -78,7 +107,18 @@ export function selectMarketPoolRows(
           row.symbol.includes(needle) ||
           row.name.toLowerCase().includes(needle)) &&
         (input.minimumRps === null ||
-          (row.value !== null && row.value.rps >= input.minimumRps)),
+          (row.value !== null && row.value.rps >= input.minimumRps)) &&
+        // Missing condition values never match, including at threshold 0.
+        conditions.every((condition) => {
+          const rps = row.conditionValues?.[String(condition.period)]?.rps;
+          return (
+            rps !== null &&
+            rps !== undefined &&
+            (condition.side === "gte"
+              ? rps >= condition.value
+              : rps <= condition.value)
+          );
+        }),
     )
     .sort(
       (a, b) =>

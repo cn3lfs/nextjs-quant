@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { migrate } from "../../src/server/db/migrations";
 import { RpsStore } from "../../src/server/db/rps-store";
-import { rpsDay } from "../helpers/rps-fixture";
+import { rpsDate, rpsDay } from "../helpers/rps-fixture";
 import {
   marketPoolPage,
   marketPoolRows,
@@ -13,6 +13,10 @@ const state = vi.hoisted(() => ({
   root: "fixture",
   coverageRoot: "fixture",
   coverage: "ready" as "ready" | "empty" | "missing",
+  observation: null as null | Record<string, unknown>,
+}));
+vi.mock("../../src/server/db/rps-observations", () => ({
+  latestRpsObservation: () => state.observation,
 }));
 vi.mock("../../src/server/db/index", () => ({
   sqlite: () => state.db,
@@ -59,6 +63,7 @@ vi.mock("../../src/server/market/market-pool-files", () => ({
 beforeEach(() => {
   state.root = state.coverageRoot = "fixture";
   state.coverage = "ready";
+  state.observation = null;
   state.db = new Database(":memory:");
   migrate(state.db);
   const { day, rows } = rpsDay();
@@ -195,6 +200,237 @@ it("keeps batch availability independent of filters, pages and individual missin
   });
   for (const page of [empty, beyond, unranked])
     expect(page.availability).toEqual({ rps: "ready", dailyIndex: "ready" });
+});
+
+it("applies multi-period conditions from one batch before paging and keeps per-period bases", async () => {
+  state.db!.exec("DELETE FROM rps_values; DELETE FROM rps_days;");
+  const { day } = rpsDay();
+  // Stored rank is what survives; RPS is recomputed from the batch counts.
+  const value = (rank: number, rps: number) => ({ return: 0, rank, rps });
+  const custom = {
+    ...day,
+    periods: [20, 50],
+    counts: [100, 100],
+    missing: [0, 2],
+    total: 5,
+    pool: 5,
+  };
+  new RpsStore(state.db!).saveDay(custom, [
+    { symbol: "sz000001", values: [value(5, 95), value(10, 90)] },
+    // Missing RPS50 must not be treated as zero or pass another period.
+    { symbol: "sz000002", values: [value(5, 95), null] },
+    { symbol: "sz000003", values: [value(15, 85), value(10, 90)] },
+    { symbol: "sz000004", values: [value(100, 0), value(0, 100)] },
+    // Exactly on both thresholds.
+    { symbol: "sz000005", values: [value(10, 90), value(20, 80)] },
+  ]);
+  const conditions = [
+    { period: 20, side: "gte" as const, value: 90 },
+    { period: 50, side: "gte" as const, value: 80 },
+  ];
+  const page = await marketPoolPage({ conditions });
+  expect(page.rows.map((row) => row.symbol)).toEqual(["sz000001", "sz000005"]);
+  expect(page.total).toBe(2);
+  expect(page.rows[0]!.value).toEqual(value(10, 90));
+  expect(page.rows[0]!.conditionValues).toEqual({
+    "20": value(5, 95),
+    "50": value(10, 90),
+  });
+  expect(page.rps?.count).toBe(100);
+  expect(page.rps?.conditions).toEqual([
+    { ...conditions[0], count: 100, periodMissing: false },
+    { ...conditions[1], count: 100, periodMissing: false },
+  ]);
+  const exported = await marketPoolRows({ conditions });
+  expect(page.rows).toEqual(exported.rows);
+  expect((await marketPoolPage({ conditions, page: 1 })).rows).toEqual([]);
+  // A selected security outside the filtered set has no neighbours.
+  expect(
+    await marketPoolPage({ conditions, selected: "sz000004" }),
+  ).toMatchObject({ previous: null, next: null });
+  expect(
+    await marketPoolPage({ conditions, selected: "sz000001" }),
+  ).toMatchObject({
+    previous: null,
+    next: { symbol: "sz000005", page: 0 },
+  });
+});
+
+it("filters before paging so a later-page security enters page 1 and a real zero stays normal", async () => {
+  state.db!.exec("DELETE FROM rps_values; DELETE FROM rps_days;");
+  const { day } = rpsDay();
+  const value = (rank: number, rps: number) => ({ return: 0, rank, rps });
+  const symbols = Array.from(
+    { length: 21 },
+    (_, index) => `sz${String(index).padStart(6, "0")}`,
+  );
+  new RpsStore(state.db!).saveDay(
+    {
+      ...day,
+      periods: [20, 50],
+      counts: [100, 100],
+      total: 21,
+      pool: 21,
+    },
+    symbols.map((symbol, index) =>
+      index === 20
+        ? // Ranks last on the display period, but is the only condition match.
+          { symbol, values: [value(1, 99), value(21, 79)] }
+        : { symbol, values: [value(100, 0), value(index + 1, 99 - index)] },
+    ),
+  );
+  const unfiltered = await marketPoolPage({});
+  expect(unfiltered.rows.map((row) => row.symbol)).not.toContain("sz000020");
+  expect(
+    (await marketPoolPage({ page: 1 })).rows.map((row) => row.symbol),
+  ).toContain("sz000020");
+  const conditions = [{ period: 20, side: "gte" as const, value: 50 }];
+  const filtered = await marketPoolPage({ conditions });
+  expect(filtered.total).toBe(1);
+  expect(filtered.rows.map((row) => row.symbol)).toEqual(["sz000020"]);
+  expect(filtered.rows[0]!.conditionValues?.["20"]?.rps).toBe(99);
+  expect(filtered.rps?.conditions).toEqual([
+    { ...conditions[0], count: 100, periodMissing: false },
+  ]);
+  // Periods exist and every value is real: this is a genuine zero-hit result.
+  const zero = await marketPoolPage({
+    conditions: [{ period: 20, side: "gte", value: 100 }],
+  });
+  expect(zero.total).toBe(0);
+  expect(zero.rows).toEqual([]);
+  expect(zero.rps?.conditions).toEqual([
+    { period: 20, side: "gte", value: 100, count: 100, periodMissing: false },
+  ]);
+});
+
+it("does not fill a missing condition value even at threshold zero, and reports a missing period", async () => {
+  state.db!.exec("DELETE FROM rps_values; DELETE FROM rps_days;");
+  const { day } = rpsDay();
+  const value = (rank: number, rps: number) => ({ return: 0, rank, rps });
+  new RpsStore(state.db!).saveDay(
+    { ...day, periods: [20, 50], counts: [10, 10], total: 3, pool: 3 },
+    [
+      // A real RPS 0 (rank 10 of 10) passes ≥ 0; a null never does.
+      { symbol: "sz000001", values: [value(10, 0), value(1, 90)] },
+      { symbol: "sz000002", values: [value(1, 90), null] },
+      { symbol: "sz000003", values: [null, value(1, 90)] },
+    ],
+  );
+  const zero = await marketPoolPage({
+    conditions: [{ period: 20, side: "gte", value: 0 }],
+  });
+  expect(zero.rows.map((row) => row.symbol)).toEqual(["sz000001", "sz000002"]);
+  const missing = await marketPoolPage({
+    period: 20,
+    conditions: [{ period: 1, side: "gte", value: 0 }],
+  });
+  expect(missing.availability.rps).toBe("ready");
+  expect(missing.rps?.conditions).toEqual([
+    { period: 1, side: "gte", value: 0, count: null, periodMissing: true },
+  ]);
+  expect(missing.rows).toEqual([]);
+});
+
+it("uses the newer observation alone for every condition and never falls back to the stored day", async () => {
+  state.observation = {
+    id: "observation",
+    phase: "noon",
+    date: "2099-01-01",
+    createdAt: Date.now(),
+    baseline: rpsDate,
+    root: "fixture",
+    fresh: 1,
+    total: 5,
+    coverage: 0.5,
+    reused: ["sz000009"],
+    missing: ["sz000008"],
+    day: {
+      ...rpsDay().day,
+      date: "2099-01-01",
+      mode: "forward",
+      periods: [20, 50],
+      counts: [10, 8],
+      total: 5,
+      pool: 5,
+    },
+    rows: [
+      {
+        symbol: "sz000001",
+        values: [
+          { return: 0, rank: 9, rps: 10 },
+          { return: 0, rank: 1, rps: 87.5 },
+        ],
+      },
+    ],
+    groups: {},
+  };
+  const page = await marketPoolPage({
+    conditions: [{ period: 20, side: "gte", value: 0 }],
+  });
+  // The stored day has sz000009, but a newer observation is the only batch.
+  expect(page.rows.map((row) => row.symbol)).toEqual(["sz000001"]);
+  // Only the condition period is projected; the display period stays in value.
+  expect(page.rows[0]!.conditionValues).toEqual({
+    "20": { return: 0, rank: 9, rps: 10 },
+  });
+  expect(page.rps).toMatchObject({
+    date: "2099-01-01",
+    mode: "forward",
+    count: 8,
+    observation: { phase: "noon", coverage: 0.5, reused: 1, missing: 1 },
+    conditions: [{ period: 20, count: 10, periodMissing: false }],
+  });
+});
+
+it("marks close as persistent only when the same day exists in the RPS store", async () => {
+  const { day } = rpsDay();
+  const base = {
+    id: "close-observation",
+    phase: "close" as const,
+    createdAt: 2,
+    baseline: rpsDate,
+    root: "fixture",
+    fresh: 1,
+    total: 1,
+    coverage: 0.5,
+    reused: [] as string[],
+    missing: [] as string[],
+    day: {
+      ...day,
+      periods: [20, 50],
+      counts: [100, 100],
+      total: 1,
+      pool: 1,
+    },
+    rows: [
+      {
+        symbol: "sz000001",
+        values: [
+          { return: 0, rank: 1, rps: 99 },
+          { return: 0, rank: 1, rps: 99 },
+        ],
+      },
+    ],
+    groups: {},
+  };
+  state.observation = {
+    ...base,
+    date: day.date,
+    day: { ...base.day, date: day.date },
+  };
+  expect((await marketPoolPage({})).rps?.observation).toMatchObject({
+    phase: "close",
+    persistedClose: true,
+  });
+  state.observation = {
+    ...base,
+    date: "2099-01-01",
+    day: { ...base.day, date: "2099-01-01" },
+  };
+  expect((await marketPoolPage({})).rps?.observation).toMatchObject({
+    phase: "close",
+    persistedClose: false,
+  });
 });
 
 it("distinguishes no scan from an empty scan without changing exported reasons", async () => {

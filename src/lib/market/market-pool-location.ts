@@ -5,9 +5,11 @@ import {
   type MarketPoolQuery,
 } from "./market-pool";
 
+/** URL state predates RPS conditions; keep its object shape unchanged. */
+export type MarketPoolLocationQuery = Omit<MarketPoolQuery, "conditions">;
 export type MarketPoolLocation = {
   category: "all" | "industry" | "concept" | "index";
-  query: MarketPoolQuery;
+  query: MarketPoolLocationQuery;
 };
 
 /** Every filter needed to reopen the pool lives in its URL, not a cached page DOM. */
@@ -27,6 +29,7 @@ export function readMarketPoolLocation(search: string): MarketPoolLocation {
   return {
     category: category.success ? category.data : "all",
     query: {
+      // Conditions are session-only on the stock RPS panel, not URL state.
       pool: pool.success ? pool.data : null,
       // Keep typing spaces; the API trims its own input when searching.
       search: searchText.length <= 80 ? searchText : "",

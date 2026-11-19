@@ -11,10 +11,12 @@ import { rpsPollInterval } from "./rps-status";
 import { MarketPoolAvailabilityNote } from "./market-pool-availability";
 import {
   poolCategoryLabels,
-  type MarketPoolQuery,
   type MarketPoolRow,
 } from "~/lib/market/market-pool";
-import type { MarketPoolLocation } from "~/lib/market/market-pool-location";
+import type {
+  MarketPoolLocation,
+  MarketPoolLocationQuery,
+} from "~/lib/market/market-pool-location";
 import { rpsPeriodLabel } from "~/lib/screening/rps";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -42,7 +44,7 @@ export function MarketPoolBrowser({
   const visible = usePanelVisible();
   const { category, query } = location;
   const symbol = query.selected ?? "";
-  const setQuery = (action: SetStateAction<MarketPoolQuery>) =>
+  const setQuery = (action: SetStateAction<MarketPoolLocationQuery>) =>
     onLocationChange((current) => ({
       ...current,
       query: typeof action === "function" ? action(current.query) : action,
@@ -73,6 +75,8 @@ export function MarketPoolBrowser({
     // Only A-share codes are members of a pool; other charts select nothing.
     {
       ...query,
+      // The URL state intentionally has no RPS conditions.
+      conditions: [],
       selected: symbolSchema.safeParse(symbol).success ? symbol : undefined,
     },
     { enabled: ready },
@@ -96,7 +100,7 @@ export function MarketPoolBrowser({
     },
     onError: (e) => setMessage(e.message),
   });
-  const change = (patch: Partial<MarketPoolQuery>) =>
+  const change = (patch: Partial<MarketPoolLocationQuery>) =>
     setQuery((q) => ({ ...q, ...patch, page: 0 }));
   const rows = ready ? (page.data?.rows ?? []) : [];
   const navigate = (
@@ -269,7 +273,10 @@ export function MarketPoolBrowser({
         <Select
           value={query.sort}
           onValueChange={(value) =>
-            change({ sort: value as MarketPoolQuery["sort"], order: null })
+            change({
+              sort: value as MarketPoolLocationQuery["sort"],
+              order: null,
+            })
           }
         >
           <SelectTrigger aria-label="股票排序">
@@ -295,7 +302,7 @@ export function MarketPoolBrowser({
           disabled={
             !ready || !page.data || page.isFetching || exportRows.isPending
           }
-          onClick={() => exportRows.mutate(query)}
+          onClick={() => exportRows.mutate({ ...query, conditions: [] })}
         >
           导出当前筛选
         </Button>

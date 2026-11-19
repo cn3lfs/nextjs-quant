@@ -135,6 +135,137 @@ const rows: MarketPoolRow[] = [
     reason: "非沪深",
   },
 ];
+it("validates zero to three unique RPS conditions with integer 0-100 thresholds", () => {
+  expect(marketPoolQuerySchema.parse({}).conditions).toEqual([]);
+  const condition = { period: 20, side: "gte", value: 80 } as const;
+  expect(
+    marketPoolQuerySchema.safeParse({ conditions: [condition] }).success,
+  ).toBe(true);
+  expect(
+    marketPoolQuerySchema.safeParse({
+      conditions: [
+        condition,
+        { ...condition, period: 50 },
+        { ...condition, period: 120 },
+        { ...condition, period: 10 },
+      ],
+    }).success,
+  ).toBe(false);
+  expect(
+    marketPoolQuerySchema.safeParse({ conditions: [condition, condition] })
+      .success,
+  ).toBe(false);
+  for (const value of [-1, 101, 12.5]) {
+    expect(
+      marketPoolQuerySchema.safeParse({
+        conditions: [{ ...condition, value }],
+      }).success,
+    ).toBe(false);
+  }
+  expect(
+    marketPoolQuerySchema.safeParse({
+      conditions: [{ ...condition, period: 2 }],
+    }).success,
+  ).toBe(false);
+  expect(
+    marketPoolQuerySchema.safeParse({
+      conditions: [{ ...condition, side: "gt" }],
+    }).success,
+  ).toBe(false);
+});
+
+const conditionedRows: MarketPoolRow[] = [
+  {
+    symbol: "sh600001",
+    name: "全中",
+    localDay: true,
+    value: { rank: 1, rps: 99, return: 0.1 },
+    conditionValues: {
+      "20": { rank: 1, rps: 90, return: 0.1 },
+      "50": { rank: 2, rps: 80, return: 0.1 },
+    },
+    reason: null,
+  },
+  {
+    symbol: "sh600002",
+    name: "缺RPS50",
+    localDay: true,
+    value: { rank: 2, rps: 98, return: 0.1 },
+    conditionValues: {
+      "20": { rank: 2, rps: 95, return: 0.1 },
+      "50": null,
+    },
+    reason: null,
+  },
+  {
+    symbol: "sh600003",
+    name: "差一分",
+    localDay: true,
+    value: { rank: 3, rps: 97, return: 0.1 },
+    conditionValues: {
+      "20": { rank: 3, rps: 89, return: 0.1 },
+      "50": { rank: 3, rps: 80, return: 0.1 },
+    },
+    reason: null,
+  },
+  {
+    symbol: "sh600004",
+    name: "零值",
+    localDay: true,
+    value: { rank: 4, rps: 10, return: 0.1 },
+    conditionValues: {
+      "20": { rank: 4, rps: 0, return: 0.1 },
+      "50": { rank: 1, rps: 100, return: 0.1 },
+    },
+    reason: null,
+  },
+  {
+    symbol: "sh600005",
+    name: "缺RPS20",
+    localDay: true,
+    value: { rank: 5, rps: 9, return: 0.1 },
+    conditionValues: {
+      "20": null,
+      "50": { rank: 4, rps: 90, return: 0.1 },
+    },
+    reason: null,
+  },
+];
+it("requires every condition, includes threshold boundaries, and never fills missing values", () => {
+  const query = marketPoolQuerySchema.parse({
+    conditions: [
+      { period: 20, side: "gte", value: 90 },
+      { period: 50, side: "gte", value: 80 },
+    ],
+  });
+  const selected = selectMarketPoolRows(conditionedRows, query);
+  expect(selected.map((row) => row.symbol)).toEqual(["sh600001"]);
+  // Original full-market ranks and returns survive filtering unchanged.
+  expect(selected[0]!.value).toEqual({ rank: 1, rps: 99, return: 0.1 });
+  expect(selected[0]!.conditionValues).toEqual(
+    conditionedRows[0]!.conditionValues,
+  );
+  // A zero threshold still needs a real value: sh600005's missing RPS20 never
+  // becomes zero, while sh600004's actual zero passes ≥ 0.
+  expect(
+    selectMarketPoolRows(
+      conditionedRows,
+      marketPoolQuerySchema.parse({
+        conditions: [{ period: 20, side: "gte", value: 0 }],
+      }),
+    ).map((row) => row.symbol),
+  ).toEqual(["sh600001", "sh600002", "sh600003", "sh600004"]);
+  // ≤ includes the boundary and still excludes a missing period value.
+  expect(
+    selectMarketPoolRows(
+      conditionedRows,
+      marketPoolQuerySchema.parse({
+        conditions: [{ period: 50, side: "lte", value: 80 }],
+      }),
+    ).map((row) => row.symbol),
+  ).toEqual(["sh600001", "sh600003"]);
+});
+
 it("retains full-market RPS, uses deterministic ties and keeps unavailable members until explicitly filtered", () => {
   const query = marketPoolQuerySchema.parse({});
   const selected = selectMarketPoolRows(rows, query);
