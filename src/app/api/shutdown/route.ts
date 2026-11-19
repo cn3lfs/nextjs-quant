@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 import type { NextRequest } from "next/server";
+import { thsdkShutdown } from "~/server/data-sources/thsdk/thsdk-client";
 import { dataDirectory } from "~/server/db";
 
 export const runtime = "nodejs";
@@ -10,7 +11,7 @@ function digest(value: string) {
   return createHash("sha256").update(value).digest();
 }
 
-export function POST(request: NextRequest) {
+export async function POST(request: NextRequest) {
   const expected = process.env.QUANT_SESSION_TOKEN;
   const origin = request.headers.get("origin");
   if (
@@ -22,6 +23,19 @@ export function POST(request: NextRequest) {
     ].some((value) => value && timingSafeEqual(digest(value), digest(expected)))
   )
     return new Response("Forbidden", { status: 403 });
+
+  const shutdownBudgetMs = 1_200;
+  let shutdownDeadline: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      thsdkShutdown(shutdownBudgetMs).catch(() => {}),
+      new Promise<void>((resolve) => {
+        shutdownDeadline = setTimeout(resolve, shutdownBudgetMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(shutdownDeadline);
+  }
 
   let connection: Database.Database | undefined;
   try {

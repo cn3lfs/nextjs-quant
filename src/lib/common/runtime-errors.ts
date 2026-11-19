@@ -24,6 +24,11 @@ export const runtimeErrorEvents = {
     stage: "原生计算",
     summary: "图表原生计算失败，请检查数据和原生运行库。",
   },
+  "thsdk-worker": {
+    module: "同花顺数据源",
+    stage: "原生请求",
+    summary: "同花顺数据请求未完成，请检查数据源运行状态后重试。",
+  },
   "discipline-worker": {
     module: "纪律复盘",
     stage: "计算线程",

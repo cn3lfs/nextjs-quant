@@ -2,17 +2,12 @@ import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { homedir } from "node:os";
 import * as schema from "./schema";
 import { eq, desc } from "drizzle-orm";
 import { migrate } from "./migrations";
 import { WriteReceipts } from "./write-receipts";
-export function dataDirectory() {
-  return (
-    process.env.QUANT_DATA_DIR ??
-    join(process.env.LOCALAPPDATA ?? homedir(), "QuantWorkbench")
-  );
-}
+import { dataDirectory } from "../infra/paths";
+export { dataDirectory };
 let connection: Database.Database | undefined;
 let receipts: WriteReceipts;
 export function sqlite() {

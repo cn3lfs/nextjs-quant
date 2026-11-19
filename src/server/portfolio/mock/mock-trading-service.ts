@@ -26,7 +26,9 @@ const adapter = () =>
         [...mockDiagnostics(), entry].slice(-20),
       ),
     read: () => readSecret<MockAccount>(credentialId),
-    save: (a) => saveSecret(credentialId, a),
+    save: async (a) => {
+      await saveSecret(credentialId, a);
+    },
   });
 // Local-only preference. Enabling never implicitly opens an account or polls.
 export function setMockEnabled(enabled: boolean) {

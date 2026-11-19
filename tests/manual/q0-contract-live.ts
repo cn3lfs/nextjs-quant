@@ -26,7 +26,9 @@ if (!process.env.QUANT_DATA_DIR?.includes(".test-data"))
 const adapter = new MockTradingAdapter({
   enabled: () => true,
   read: () => readSecret<MockAccount>("mock-trading-account"),
-  save: (a) => saveSecret("mock-trading-account", a),
+  save: async (a) => {
+    await saveSecret("mock-trading-account", a);
+  },
   retain: (entry) =>
     put(
       "mock-diagnostics",
