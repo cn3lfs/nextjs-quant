@@ -94,7 +94,9 @@ export function ClsReviewWorkspace() {
         // tab; any other deep link drops it.
         const anchor = url.searchParams.get("clsSample") ?? "";
         setSampleAnchor(
-          id && currentTab === "prices" && clsReviewDate.safeParse(anchor).success
+          id &&
+            currentTab === "prices" &&
+            clsReviewDate.safeParse(anchor).success
             ? anchor
             : "",
         );
@@ -238,8 +240,7 @@ export function ClsReviewWorkspace() {
     setExportError("");
     try {
       const value = await utils.clsReviewExportAll.fetch(id);
-      if (!value.report)
-        throw new Error("报告已不存在，未发起下载");
+      if (!value.report) throw new Error("报告已不存在，未发起下载");
       if (value.report.id !== id)
         throw new Error("服务端返回的报告与请求不一致，未发起下载");
       const link = document.createElement("a");

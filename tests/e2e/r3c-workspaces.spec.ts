@@ -44,7 +44,10 @@ async function decodeBatch(response: {
   const entries = await Promise.all(
     Object.entries(head as Record<string, unknown>).map(
       async ([index, value]) =>
-        [Number(index), (await resolveBatchValue(value)) as BatchEntry] as const,
+        [
+          Number(index),
+          (await resolveBatchValue(value)) as BatchEntry,
+        ] as const,
     ),
   );
   return entries.sort((a, b) => a[0] - b[0]).map(([, value]) => value);
@@ -540,9 +543,7 @@ test("R3c 实验室集成 登记链接与回执", async ({ page, context }) => {
   expect((await waitForJob(page, jobId!, 60000)).status).toBe("completed");
 
   await page.route("**/api/trpc/**", async (route) => {
-    if (
-      !procedurePaths(route.request().url()).includes("strategyLabBacktest")
-    )
+    if (!procedurePaths(route.request().url()).includes("strategyLabBacktest"))
       return route.continue();
     await route.fulfill({
       status: 500,
@@ -590,9 +591,7 @@ test("R3c 实验室集成 共同冻结输入下载", async ({ page }, testInfo) 
   // The pool fixture only has a two-day index calendar and mismatched stock
   // history. Extend the disposable fixture so the public strategy-center flow
   // can run two real same-input studies.
-  const calendar = [...daily.bars].sort((a, b) =>
-    a.date.localeCompare(b.date),
-  );
+  const calendar = [...daily.bars].sort((a, b) => a.date.localeCompare(b.date));
   const targets = ["sh600099.day", "sh000001.day"].map((name) =>
     join(tdxRoot, "vipdoc/sh/lday", name),
   );
@@ -637,7 +636,9 @@ test("R3c 实验室集成 共同冻结输入下载", async ({ page }, testInfo) 
     has: page.getByRole("heading", { name: "同口径比较", exact: true }),
   });
   await expect(comparison.getByRole("row")).toHaveCount(3);
-  await expect(comparison).toContainText(`共同冻结输入区间：${start} 至 ${end}`);
+  await expect(comparison).toContainText(
+    `共同冻结输入区间：${start} 至 ${end}`,
+  );
   await expect(comparison).toContainText("独立本金 1000000");
   await expect(comparison).toContainText("sh600099");
   const itemLinks = comparison.getByRole("link", { name: /^任务 / });
@@ -731,9 +732,7 @@ test("R3c 实验室集成 列表闭环", async ({ page, context }) => {
     .poll(() =>
       listInputs.some(
         (input) =>
-          input.market === "crypto" &&
-          input.query === "QA" &&
-          input.page === 0,
+          input.market === "crypto" && input.query === "QA" && input.page === 0,
       ),
     )
     .toBe(true);
@@ -743,9 +742,7 @@ test("R3c 实验室集成 列表闭环", async ({ page, context }) => {
     .poll(() =>
       listInputs.some(
         (input) =>
-          input.market === "crypto" &&
-          input.query === "QA" &&
-          input.page === 1,
+          input.market === "crypto" && input.query === "QA" && input.page === 1,
       ),
     )
     .toBe(true);
@@ -762,12 +759,14 @@ test("R3c 实验室集成 列表闭环", async ({ page, context }) => {
   await expect(
     page.getByRole("radio", { name: "BTC / ETH", exact: true }),
   ).toHaveAttribute("aria-checked", "true");
-  await expect(
-    page.getByLabel("搜索实验室策略", { exact: true }),
-  ).toHaveValue("QA");
+  await expect(page.getByLabel("搜索实验室策略", { exact: true })).toHaveValue(
+    "QA",
+  );
   await expect(page.getByText(/第 2 \/ 2 页/)).toBeVisible();
   // The page-2 row is only present in the synthetic second page.
-  await expect(page.getByRole("link", { name: /r3a-shadow-qa v1/ })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: /r3a-shadow-qa v1/ }),
+  ).toBeVisible();
 
   await page.goBack();
   await expect(
@@ -790,9 +789,9 @@ test("R3c 实验室集成 列表闭环", async ({ page, context }) => {
   await expect(
     fresh.getByRole("radio", { name: "A股中证800", exact: true }),
   ).toHaveAttribute("aria-checked", "true");
-  await expect(
-    fresh.getByLabel("搜索实验室策略", { exact: true }),
-  ).toHaveValue("");
+  await expect(fresh.getByLabel("搜索实验室策略", { exact: true })).toHaveValue(
+    "",
+  );
   await expect(fresh.getByText(/第 1 \/ 1 页/)).toBeVisible();
   await fresh.close();
 
@@ -834,9 +833,7 @@ test("R3c 实验室集成 列表闭环", async ({ page, context }) => {
     detailPage.getByRole("link", { name: "返回策略列表" }),
   ).toBeVisible();
   await detailPage.unroute("**/api/trpc/**");
-  await detailPage
-    .getByRole("button", { name: "重试", exact: true })
-    .click();
+  await detailPage.getByRole("button", { name: "重试", exact: true }).click();
   await expect(
     detailPage.getByRole("region", { name: "实验室策略详情" }),
   ).toContainText("缺少对应版本的策略对象");

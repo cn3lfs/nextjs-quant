@@ -130,16 +130,19 @@ const bundle = await build({
 const script = bundle.outputFiles[0].text;
 
 const origin = "http://127.0.0.1";
-const search = encodeURIComponent(JSON.stringify({ query: "", status: "failed" }));
+const search = encodeURIComponent(
+  JSON.stringify({ query: "", status: "failed" }),
+);
 const start = `${origin}/system/notifications?monitorTab=deliveries&monitorFilters=${search}`;
-const record = () =>
-  new URLSearchParams(location.search).get("monitorRecord");
+const record = () => new URLSearchParams(location.search).get("monitorRecord");
 const filters = (page) =>
   new URLSearchParams(new URL(page.url()).search).get("monitorFilters");
 
 const browser = await chromium.launch({ channel: "chrome", headless: true });
 try {
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const page = await browser.newPage({
+    viewport: { width: 1440, height: 1000 },
+  });
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.addInitScript(() => {
@@ -169,7 +172,8 @@ try {
   await page.addScriptTag({ content: script });
 
   const list = page.locator('[aria-label="投递列表"] button');
-  const open = () => page.getByRole("button", { name: "查看原投递", exact: true });
+  const open = () =>
+    page.getByRole("button", { name: "查看原投递", exact: true });
   const detailIds = () =>
     page.evaluate(() => window.monitorFixture.detailRequests.slice());
   const pageRequests = () =>
@@ -177,17 +181,19 @@ try {
 
   // Page 2 under the applied "failed" filter.
   await page.getByText("第 2 页", { exact: true }).waitFor();
-  assert.equal((await page.getByLabel("投递状态筛选").textContent())?.trim(), "失败");
+  assert.equal(
+    (await page.getByLabel("投递状态筛选").textContent())?.trim(),
+    "失败",
+  );
   await page.getByText("投递状态：失败", { exact: true }).waitFor();
   assert.equal(await list.count(), 3);
 
   // Select the manual resend; its detail loads the exact record.
   await list.filter({ hasText: "合成人工重发记录" }).click();
-  await page
-    .getByRole("heading", { name: "合成人工重发记录" })
-    .waitFor();
+  await page.getByRole("heading", { name: "合成人工重发记录" }).waitFor();
   await page.waitForFunction(
-    () => new URLSearchParams(location.search).get("monitorRecord") === "d-resend",
+    () =>
+      new URLSearchParams(location.search).get("monitorRecord") === "d-resend",
   );
   assert.deepEqual(await detailIds(), ["d-resend"]);
   await page.getByText("原投递：d-origin", { exact: true }).waitFor();
@@ -199,11 +205,10 @@ try {
   await open().click();
 
   // The source opens by its exact id; no list, filter or page change.
-  await page
-    .getByRole("heading", { name: "合成原通知（成功）" })
-    .waitFor();
+  await page.getByRole("heading", { name: "合成原通知（成功）" }).waitFor();
   await page.waitForFunction(
-    () => new URLSearchParams(location.search).get("monitorRecord") === "d-origin",
+    () =>
+      new URLSearchParams(location.search).get("monitorRecord") === "d-origin",
   );
   const added = (await detailIds()).slice(beforeDetail);
   assert.ok(added.length >= 1, "缺少源详情读取");
@@ -213,7 +218,9 @@ try {
   );
   const laterPages = (await pageRequests()).slice(beforePages);
   assert.ok(
-    laterPages.every((input) => input.status === "failed" && input.cursor === "20"),
+    laterPages.every(
+      (input) => input.status === "failed" && input.cursor === "20",
+    ),
     `列表筛选或页码被改写：${JSON.stringify(laterPages)}`,
   );
   assert.equal(filters(page), beforeFilters);
@@ -227,14 +234,16 @@ try {
   // Back restores the resend at the same filter and page; Forward returns.
   await page.evaluate(() => history.back());
   await page.waitForFunction(
-    () => new URLSearchParams(location.search).get("monitorRecord") === "d-resend",
+    () =>
+      new URLSearchParams(location.search).get("monitorRecord") === "d-resend",
   );
   await page.getByRole("heading", { name: "合成人工重发记录" }).waitFor();
   await page.getByText("第 2 页", { exact: true }).waitFor();
   assert.equal(await list.count(), 3);
   await page.evaluate(() => history.forward());
   await page.waitForFunction(
-    () => new URLSearchParams(location.search).get("monitorRecord") === "d-origin",
+    () =>
+      new URLSearchParams(location.search).get("monitorRecord") === "d-origin",
   );
   await page.getByRole("heading", { name: "合成原通知（成功）" }).waitFor();
 

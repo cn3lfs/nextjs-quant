@@ -11,7 +11,10 @@
 ## 1. 工具链
 
 - **Prettier 是唯一格式化权威**。当前已安装 ESLint，`pnpm lint` 检查 src 和六包源码；类型感知规则用于 src，固定动态路径规则也覆盖包内源码。提交前 `pnpm format:check` 必须通过。
-  2026-09-12 起该命令**确实通过**；在此之前它长期为红，原因不是风格漂移：
+
+- **普通文本使用 LF**。Git 按 `.gitattributes` 中的 `* text=auto eol=lf` 存储与检出，Prettier 按 `endOfLine: "lf"` 写入。Windows 现有检出如果继承了全局 `core.autocrlf=true`，在本仓库运行 `git config --local core.autocrlf false`。用 `git ls-files --eol` 排查旧工作区，确认将 CRLF 转为 LF 后与索引字节一致，再规范化行尾。定字节夹具和外部源快照沿用 `.gitattributes` 的例外，格式检查仍按 `.prettierignore` 排除夹具数据。
+
+- **2026-09 行尾故障复盘**。2026-09-12 格式检查恢复通过，当时的故障起因如下。
 
   `core.autocrlf=true` 设在用户全局 `.gitconfig` 里，仓库又没有 `.gitattributes`
   覆盖，所以 git 每次 checkout 都把工作区文件转成 CRLF，而 prettier 默认
@@ -20,7 +23,7 @@
   git 下次 checkout 又把 CR 加回去——用这个办法永远修不好，
   红文件数还会随「git 刚好动过哪些文件」在 37–44 之间漂。
 
-  实际修法：新增 `.prettierrc.json` 设 `endOfLine: "auto"`，
+  当时新增 `.prettierrc.json` 设 `endOfLine: "auto"`，
   让 prettier 接受工作区的行尾（git 仓库内存的始终是 LF，不受影响）。
   同时新增 `.prettierignore` 排除 `tests/fixtures/`——
   fixture 是数据不是代码，重排会改掉测试断言的内容

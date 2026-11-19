@@ -12,10 +12,7 @@ import { defaultBacktestCosts } from "../../src/lib/backtest/backtest-costs";
 
 /** R3b round-5 fixture: a real delivery-table import plus two same-day,
  * same-symbol manual trades. Synthetic QA data only, never forward evidence. */
-const symbols = Array.from(
-  { length: 21 },
-  (_, index) => `sh${600000 + index}`,
-);
+const symbols = Array.from({ length: 21 }, (_, index) => `sh${600000 + index}`);
 const account = "QA-r5-券商";
 const deliveryDate = "2003-08-20";
 const sameDay = "2025-03-06";

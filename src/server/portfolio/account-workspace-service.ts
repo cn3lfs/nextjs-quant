@@ -507,8 +507,7 @@ export function pageAccountBook(book: AccountBook, raw: unknown) {
         (source === "all" || p.id.startsWith(`${source}:`)) &&
         (input.market === "all" || p.market === input.market) &&
         (!input.sleeve || p.sleeve === input.sleeve) &&
-        (input.stopStatus === "all" ||
-          stopStatusFor(p) === input.stopStatus),
+        (input.stopStatus === "all" || stopStatusFor(p) === input.stopStatus),
     )
     .sort(
       (a, b) =>

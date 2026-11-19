@@ -795,20 +795,23 @@ it("filters real positions by delivery/local id prefix and ignores source for ot
 
     // Non-real kinds have no source: an explicit source must behave as all.
     expect(ids({ kind: "all" })).toEqual(ids({ kind: "all", source: "local" }));
-    expect(pageAccountBook(book, { kind: "all", source: "local" }).totals).toEqual(
-      [
-        { currency: "CNY", count: 2, value: null, missing: 1 },
-        { currency: "USDT", count: 1, value: 500, missing: 0 },
-      ],
-    );
     expect(
-      pageAccountBook(book, { kind: "exchange-simulation", source: "delivery" }),
+      pageAccountBook(book, { kind: "all", source: "local" }).totals,
+    ).toEqual([
+      { currency: "CNY", count: 2, value: null, missing: 1 },
+      { currency: "USDT", count: 1, value: 500, missing: 0 },
+    ]);
+    expect(
+      pageAccountBook(book, {
+        kind: "exchange-simulation",
+        source: "delivery",
+      }),
     ).toEqual(
       pageAccountBook(book, { kind: "exchange-simulation", source: "all" }),
     );
-    expect(
-      ids({ kind: "exchange-simulation", source: "delivery" }),
-    ).toEqual(["demo:usdt"]);
+    expect(ids({ kind: "exchange-simulation", source: "delivery" })).toEqual([
+      "demo:usdt",
+    ]);
   } finally {
     s.db.close();
   }
@@ -857,8 +860,10 @@ it("classifies read price/stop before filtering and paging, and reports the same
     expect(touched.exposure.every((e) => e.value === 25000)).toBe(true);
 
     expect(
-      pageAccountBook(book, { stopStatus: "touched", source: "local" }).items
-        .map((p) => p.id),
+      pageAccountBook(book, {
+        stopStatus: "touched",
+        source: "local",
+      }).items.map((p) => p.id),
     ).toEqual(["local:equal"]);
     expect(
       pageAccountBook(book, { stopStatus: "unknown" })

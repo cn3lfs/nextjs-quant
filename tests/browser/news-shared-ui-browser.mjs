@@ -259,18 +259,15 @@ try {
     await page.getByRole("button", { name: "阅读原文", exact: true }).click();
     await page.getByRole("heading", { name: "新闻原文" }).waitFor();
     const originalUrl = await page.evaluate(() => location.href);
-    await page.evaluate(
-      (analysisId) => {
-        window.setNewsTask({
-          id: "job-1",
-          status: "completed",
-          phase: "合成完成",
-          progress: 100,
-          analysisId,
-        });
-      },
-      savedId,
-    );
+    await page.evaluate((analysisId) => {
+      window.setNewsTask({
+        id: "job-1",
+        status: "completed",
+        phase: "合成完成",
+        progress: 100,
+        analysisId,
+      });
+    }, savedId);
     await page
       .getByRole("button", { name: "查看分析结果", exact: true })
       .waitFor();
@@ -284,18 +281,15 @@ try {
       ["archive", "analysis"],
       "a completed task invalidates archive caches once",
     );
-    await page.evaluate(
-      (analysisId) => {
-        window.setNewsTask({
-          id: "job-1",
-          status: "completed",
-          phase: "合成完成",
-          progress: 100,
-          analysisId,
-        });
-      },
-      savedId,
-    );
+    await page.evaluate((analysisId) => {
+      window.setNewsTask({
+        id: "job-1",
+        status: "completed",
+        phase: "合成完成",
+        progress: 100,
+        analysisId,
+      });
+    }, savedId);
     await page.waitForTimeout(50);
     assert.deepEqual(
       await page.evaluate(() => window.newsInvalidations),
@@ -314,9 +308,7 @@ try {
         job: url.searchParams.get("newsJob"),
         query: JSON.parse(newsQuery).query,
         cursor: newsQuery.includes("cursor"),
-        pages: JSON.parse(
-          sessionStorage.getItem(`news-pages:${newsQuery}`),
-        ),
+        pages: JSON.parse(sessionStorage.getItem(`news-pages:${newsQuery}`)),
       };
     });
     assert.equal(opened.analysis, savedId);
@@ -395,18 +387,15 @@ try {
       0,
       "an invalid analysis id must not become a result link",
     );
-    await page.evaluate(
-      (analysisId) => {
-        window.setNewsTask({
-          id: "job-1",
-          status: "cancelled",
-          phase: "合成取消",
-          progress: 0,
-          analysisId,
-        });
-      },
-      recoveredId,
-    );
+    await page.evaluate((analysisId) => {
+      window.setNewsTask({
+        id: "job-1",
+        status: "cancelled",
+        phase: "合成取消",
+        progress: 0,
+        analysisId,
+      });
+    }, recoveredId);
     await page
       .getByRole("button", { name: "查看已保存结果", exact: true })
       .waitFor();

@@ -398,7 +398,9 @@ try {
       1,
     );
     assert.equal(
-      await compareRegion.getByText("可访问 · 样本可用", { exact: true }).count(),
+      await compareRegion
+        .getByText("可访问 · 样本可用", { exact: true })
+        .count(),
       1,
     );
     assert.equal(
@@ -469,7 +471,9 @@ try {
     await page.getByText("检查范围与时间").click();
     await diagnostics.getByText(/东方财富 · sz000001/).waitFor();
     assert.equal(
-      await diagnostics.getByText("行情最后时点：2026-09-23", { exact: true }).count(),
+      await diagnostics
+        .getByText("行情最后时点：2026-09-23", { exact: true })
+        .count(),
       1,
       "The late response keeps the identity it was requested with",
     );
@@ -577,7 +581,8 @@ try {
     await compareRegion.waitFor();
     assert.equal(
       await page.evaluate(
-        () => window.mutations.filter((m) => m.name === "checkConnection").length,
+        () =>
+          window.mutations.filter((m) => m.name === "checkConnection").length,
       ),
       checkCallsBeforePassive,
       "Selection, configuration and table changes never start a check",

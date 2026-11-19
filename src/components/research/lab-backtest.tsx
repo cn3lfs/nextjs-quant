@@ -79,9 +79,7 @@ const labFieldLabels: Record<string, string> = {
 export function readLabBacktestForm(
   object: string,
   fields: LabBacktestFormFields,
-):
-  | { ok: true; input: LabBacktestRequest }
-  | { ok: false; message: string } {
+): { ok: true; input: LabBacktestRequest } | { ok: false; message: string } {
   let strategy: unknown;
   try {
     strategy = JSON.parse(object);
@@ -120,7 +118,9 @@ const marketLabels: Record<LabBacktestReceipt["market"], string> = {
   crypto: "BTC / ETH",
 };
 function costScenarioLabel(value: CostScenario) {
-  return costScenarioOptions.find((option) => option.value === value)?.label ?? value;
+  return (
+    costScenarioOptions.find((option) => option.value === value)?.label ?? value
+  );
 }
 
 /** Missing `strategy` means the ordinary entry; any present but invalid pair is an invalid link. */
@@ -141,13 +141,7 @@ function presetStrategy(preset: string | null) {
   if (preset === "utc-orb") return utcOrbStrategy();
   return null;
 }
-function LabFrame({
-  open,
-  children,
-}: {
-  open: boolean;
-  children: ReactNode;
-}) {
+function LabFrame({ open, children }: { open: boolean; children: ReactNode }) {
   return (
     <details open={open} className="mb-4 space-y-3 rounded border p-4">
       <summary className="cursor-pointer font-semibold">

@@ -275,9 +275,7 @@ export function ConnectionDiagnostics({
           <p className="text-nc-text-3">
             已保存配置 · {symbol} · {periodLabels[period]}
           </p>
-          <p className="text-nc-text-3">
-            各来源显示本页最近一次已完成的检查。
-          </p>
+          <p className="text-nc-text-3">各来源显示本页最近一次已完成的检查。</p>
           {source !== "tencent" &&
             comparisonRows.some((receipt) => receipt.source === "tencent") && (
               <p className="text-nc-warn">

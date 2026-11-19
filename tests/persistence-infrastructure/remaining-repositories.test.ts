@@ -255,7 +255,8 @@ it("refuses a late archive pointer after a news task is terminal", () => {
   updateJob("news-terminal", { newsAnalysisId: first });
   expect(readJob("news-terminal")?.newsAnalysisId).toBe(first);
   expect(
-    updateJob("news-terminal", { status: "cancelled", phase: "已取消" })?.status,
+    updateJob("news-terminal", { status: "cancelled", phase: "已取消" })
+      ?.status,
   ).toBe("cancelled");
   updateJob("news-terminal", { newsAnalysisId: late });
   expect(readJob("news-terminal")).toMatchObject({

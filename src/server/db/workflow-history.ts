@@ -41,8 +41,7 @@ export function newsAnalysisIdForTask(id: string) {
         AND json_extract(payload,'$.input.kind')='news-analysis'`,
     )
     .get(id) as
-    | { archivedId: string | null; resultId: string | null }
-    | undefined;
+    { archivedId: string | null; resultId: string | null } | undefined;
   // The running task records its first persisted archive; completed records
   // written before that pointer existed still expose their result archive.
   const candidate = row?.archivedId ?? row?.resultId ?? null;

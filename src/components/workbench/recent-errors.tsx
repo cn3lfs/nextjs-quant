@@ -75,8 +75,7 @@ export function RecentErrors({
         )}
         {!!data?.unrecordedInThisProcess && (
           <p role="alert">
-            本次服务运行有 {data.unrecordedInThisProcess}{" "}
-            条错误未能写入日志
+            本次服务运行有 {data.unrecordedInThisProcess} 条错误未能写入日志
             {scoped ? "（全局计数，不限此任务）" : ""}
             ，记录可能不完整。
           </p>

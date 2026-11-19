@@ -172,10 +172,7 @@ it("counts an explicit pool and keeps absent archive fields null", async () => {
   };
   const basis = async (prefix: string) =>
     (
-      await caller().strategyCenterCompare([
-        `${prefix}-one`,
-        `${prefix}-two`,
-      ])
+      await caller().strategyCenterCompare([`${prefix}-one`, `${prefix}-two`])
     )[0]!.comparisonBasis;
 
   savePair("pool", { symbol: undefined, symbols: ["sh600519", "sz000858"] });

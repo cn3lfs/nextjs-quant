@@ -235,7 +235,9 @@ export type B2StructureRunOptions = {
 };
 
 export async function runB2StructureStudy(options: B2StructureRunOptions = {}) {
-  const output = resolve(options.output ?? ".test-data/method-pool-ten/structure");
+  const output = resolve(
+    options.output ?? ".test-data/method-pool-ten/structure",
+  );
   const outputRelative = relative(resolve(".test-data"), output);
   if (
     !outputRelative ||

@@ -200,9 +200,7 @@ test("R3b R5 A 两来源持仓、筛选后翻页与详情返回保持", async ({
   const before = gets.length;
   await page.getByRole("link", { name: /sh600020 · A股/ }).click();
   const detail = page.getByRole("region", { name: "持仓归因与衰减" });
-  await expect(
-    detail.getByRole("heading", { name: /sh600020/ }),
-  ).toBeVisible();
+  await expect(detail.getByRole("heading", { name: /sh600020/ })).toBeVisible();
   expect(gets.length, "进入详情不应新增统一持仓读取").toBe(before);
   await expect(detail.getByText("缺原价日线")).toBeVisible();
   await expect(detail.getByText("距止损 待核对")).toBeVisible();
@@ -246,17 +244,13 @@ test("R3b R5 A 两来源持仓、筛选后翻页与详情返回保持", async ({
     (href) => window.history.pushState(null, "", href),
     detailHref(delivery("sh600020")),
   );
-  await expect(
-    detail.getByRole("heading", { name: /sh600020/ }),
-  ).toBeVisible();
+  await expect(detail.getByRole("heading", { name: /sh600020/ })).toBeVisible();
   await expect(page.getByText("成交来源（第 1 页，共 1 笔）")).toBeVisible();
 
   // Re-enter the same detail by a real direct navigation so the default-list
   // assertion below still covers a cold entry.
   await page.goto(detailHref(delivery("sh600020")));
-  await expect(
-    detail.getByRole("heading", { name: /sh600020/ }),
-  ).toBeVisible();
+  await expect(detail.getByRole("heading", { name: /sh600020/ })).toBeVisible();
 
   // A direct detail link still returns to the default list.
   await detail.getByRole("link", { name: "返回统一持仓" }).click();
@@ -272,9 +266,7 @@ test("R3b R5 A 两来源持仓、筛选后翻页与详情返回保持", async ({
   );
   await page.goto(detailHref(delivery("sh600020")));
   await expect(page.getByRole("alert")).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "返回统一持仓" }),
-  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "返回统一持仓" })).toBeVisible();
   await page.unroute(/\/api\/trpc\/[^?]*accountPosition(?!s)/);
   await page.getByRole("link", { name: "返回统一持仓" }).click();
   await expect(holdings).toBeVisible();
@@ -298,9 +290,7 @@ test("R3b R5 B 真实建议/手工关联、单请求保护与回执保留", asyn
     .getByRole("button", { name: /确认关联/ })
     .click();
   await expect(
-    page
-      .getByRole("status")
-      .filter({ hasText: `成交编号 ${pairA}` }),
+    page.getByRole("status").filter({ hasText: `成交编号 ${pairA}` }),
   ).toBeVisible();
   const suggestion = links.responses.at(-1)!;
   expect(suggestion).toMatchObject({
@@ -310,11 +300,12 @@ test("R3b R5 B 真实建议/手工关联、单请求保护与回执保留", asyn
     sleeve: "swing",
     planId: "QA-r5-plan",
   });
-  const readA = await readTrpc<{ trades: TradeRow[] }>(
-    page,
-    "accountTrades",
-    { page: 0, kind: "real", symbol: "sh600001", tradeId: pairA },
-  );
+  const readA = await readTrpc<{ trades: TradeRow[] }>(page, "accountTrades", {
+    page: 0,
+    kind: "real",
+    symbol: "sh600001",
+    tradeId: pairA,
+  });
   expect(readA.trades[0]).toMatchObject({
     id: pairA,
     quantity: 110,
@@ -392,11 +383,12 @@ test("R3b R5 B 真实建议/手工关联、单请求保护与回执保留", asyn
     .filter({ hasText: "关联已保存，审计记录保留。" });
   await expect(manualReceipt).not.toContainText(" · 计划 ");
   await expect(manualReceipt).not.toContainText(" · 提醒 ");
-  const readB = await readTrpc<{ trades: TradeRow[] }>(
-    page,
-    "accountTrades",
-    { page: 0, kind: "real", symbol: "sh600001", tradeId: pairB },
-  );
+  const readB = await readTrpc<{ trades: TradeRow[] }>(page, "accountTrades", {
+    page: 0,
+    kind: "real",
+    symbol: "sh600001",
+    tradeId: pairB,
+  });
   expect(readB.trades[0]).toMatchObject({
     id: pairB,
     quantity: 120,
@@ -448,9 +440,7 @@ test("R3b R5 B 真实建议/手工关联、单请求保护与回执保留", asyn
     .getByRole("button", { name: "手工关联" })
     .click();
   await expect(dialog).toBeVisible();
-  await expect(
-    dialog.getByText("关联已保存，审计记录保留。"),
-  ).toHaveCount(0);
+  await expect(dialog.getByText("关联已保存，审计记录保留。")).toHaveCount(0);
   await dialog.getByLabel("策略ID").fill("QA-r3b-decay");
   await dialog.getByLabel("策略版本").fill("1");
   await dialog.getByLabel("分仓ID").fill("swing");
@@ -463,7 +453,9 @@ test("R3b R5 B 真实建议/手工关联、单请求保护与回执保留", asyn
   await expect(dialog.getByLabel("分仓ID")).toHaveValue("swing");
   await dialog.getByRole("button", { name: "保存人工关联" }).click();
   await expect(
-    dialog.getByRole("status").filter({ hasText: "关联已保存，审计记录保留。" }),
+    dialog
+      .getByRole("status")
+      .filter({ hasText: "关联已保存，审计记录保留。" }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
@@ -520,11 +512,12 @@ test("R3b R5 C 回执复制使用真实剪贴板，拒绝与迟到反馈不串�
   expect(copied).toContain(first.strategyId);
   expect(copied).toContain(`v${first.strategyVersion}`);
   expect(copied).toContain(`分仓 ${first.sleeve}`);
-  const read = await readTrpc<{ trades: TradeRow[] }>(
-    page,
-    "accountTrades",
-    { page: 0, kind: "real", symbol: "sh600000", tradeId: first.tradeId },
-  );
+  const read = await readTrpc<{ trades: TradeRow[] }>(page, "accountTrades", {
+    page: 0,
+    kind: "real",
+    symbol: "sh600000",
+    tradeId: first.tradeId,
+  });
   const trade = read.trades[0]!;
   expect(copied).toContain(trade.symbol);
   expect(copied).toContain(trade.date);

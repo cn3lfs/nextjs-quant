@@ -588,9 +588,7 @@ export function TaskHistory({
                         if (expanded && detailIntent)
                           suppressedIntent.current = detailIntent;
                         setSelection(
-                          expanded
-                            ? null
-                            : { key: selectionKey, id: job.id },
+                          expanded ? null : { key: selectionKey, id: job.id },
                         );
                         setNotice("");
                       }}

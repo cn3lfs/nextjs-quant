@@ -858,7 +858,10 @@ try {
   await prices
     .getByRole("button", { name: "读取行情并核对", exact: true })
     .click();
-  await pricePage.waitForFunction((n) => window.verifyCalls > n, overflowBefore);
+  await pricePage.waitForFunction(
+    (n) => window.verifyCalls > n,
+    overflowBefore,
+  );
   await pricePage.evaluate(() => window.releaseVerify());
   await expect(
     prices.getByText(/核对回执身份校验失败：返回保存时间无效/),

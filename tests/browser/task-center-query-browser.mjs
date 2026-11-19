@@ -520,7 +520,8 @@ try {
       ...document.querySelectorAll('[aria-label="任务列表"] article strong'),
     ];
     return (
-      labels.length > 0 && labels.every((node) => node.textContent === "AI 研究")
+      labels.length > 0 &&
+      labels.every((node) => node.textContent === "AI 研究")
     );
   });
   await page.getByRole("button", { name: "下一页任务" }).click();
@@ -541,9 +542,9 @@ try {
   await page.evaluate((href) => history.pushState(null, "", href), detailHref);
   await page.waitForFunction(
     () =>
-      document.querySelector("#task-trigger-query-019")?.getAttribute(
-        "aria-expanded",
-      ) === "true",
+      document
+        .querySelector("#task-trigger-query-019")
+        ?.getAttribute("aria-expanded") === "true",
   );
   assert.equal(await rows.count(), 1);
   assert.deepEqual(await expandedIds(), ["task-trigger-query-019"]);
@@ -613,20 +614,20 @@ try {
   );
   await page.waitForFunction(
     () =>
-      document.querySelector("#task-trigger-query-019")?.getAttribute(
-        "aria-expanded",
-      ) === "true",
+      document
+        .querySelector("#task-trigger-query-019")
+        ?.getAttribute("aria-expanded") === "true",
   );
   assert.equal(await rows.count(), 1);
   // Another detail link, then Back, restores the earlier intent as well.
-  await page.evaluate(
-    () => history.pushState(null, "", "/system/tasks?id=query-021&detail=1"),
+  await page.evaluate(() =>
+    history.pushState(null, "", "/system/tasks?id=query-021&detail=1"),
   );
   await page.waitForFunction(
     () =>
-      document.querySelector("#task-trigger-query-021")?.getAttribute(
-        "aria-expanded",
-      ) === "true",
+      document
+        .querySelector("#task-trigger-query-021")
+        ?.getAttribute("aria-expanded") === "true",
   );
   await page.evaluate(() => history.back());
   await page.waitForFunction(
@@ -634,13 +635,13 @@ try {
   );
   await page.waitForFunction(
     () =>
-      document.querySelector("#task-trigger-query-019")?.getAttribute(
-        "aria-expanded",
-      ) === "true",
+      document
+        .querySelector("#task-trigger-query-019")
+        ?.getAttribute("aria-expanded") === "true",
   );
   // An id-only location still filters without opening anything.
-  await page.evaluate(
-    () => history.pushState(null, "", "/system/tasks?id=query-037"),
+  await page.evaluate(() =>
+    history.pushState(null, "", "/system/tasks?id=query-037"),
   );
   await page.locator("#task-trigger-query-037").waitFor();
   await page.waitForTimeout(100);
@@ -677,15 +678,14 @@ try {
     "false",
   );
   // Missing identifiers, wrong markers and list failures never emit a detail.
-  await page.evaluate(
-    () => history.pushState(null, "", "/system/tasks?detail=1"),
+  await page.evaluate(() =>
+    history.pushState(null, "", "/system/tasks?detail=1"),
   );
   await rows.first().waitFor();
   await page.waitForTimeout(100);
   assert.deepEqual(await expandedIds(), []);
-  await page.evaluate(
-    () =>
-      history.pushState(null, "", "/system/tasks?id=query-035&detail=0"),
+  await page.evaluate(() =>
+    history.pushState(null, "", "/system/tasks?id=query-035&detail=0"),
   );
   await page.locator("#task-trigger-query-035").waitFor();
   await page.waitForTimeout(100);
@@ -697,9 +697,8 @@ try {
   const failedAt = await page.evaluate(
     () => window.taskFixture.requests.length,
   );
-  await page.evaluate(
-    () =>
-      history.pushState(null, "", "/system/tasks?id=query-033&detail=1"),
+  await page.evaluate(() =>
+    history.pushState(null, "", "/system/tasks?id=query-033&detail=1"),
   );
   await page
     .getByText("任务列表读取失败：受控离线", { exact: false })
@@ -712,9 +711,9 @@ try {
   await page.getByRole("button", { name: "重试列表" }).click();
   await page.waitForFunction(
     () =>
-      document.querySelector("#task-trigger-query-033")?.getAttribute(
-        "aria-expanded",
-      ) === "true",
+      document
+        .querySelector("#task-trigger-query-033")
+        ?.getAttribute("aria-expanded") === "true",
   );
   await page.locator("#task-trigger-query-033").click();
   await page.getByRole("button", { name: "刷新任务", exact: true }).click();
@@ -724,9 +723,8 @@ try {
     "false",
   );
   // A successful empty read reports the exact identifier and stays consumed.
-  await page.evaluate(
-    () =>
-      history.pushState(null, "", "/system/tasks?id=query-missing&detail=1"),
+  await page.evaluate(() =>
+    history.pushState(null, "", "/system/tasks?id=query-missing&detail=1"),
   );
   await page
     .getByText("没有找到编号 query-missing 的任务。", { exact: false })
@@ -736,22 +734,18 @@ try {
     (await stateIds()).filter((id) => id === "query-missing").length,
     0,
   );
-  await page.evaluate(
-    () =>
-      history.pushState(
-        null,
-        "",
-        "/system/tasks?id=query-039&status=failed&detail=1",
-      ),
+  await page.evaluate(() =>
+    history.pushState(
+      null,
+      "",
+      "/system/tasks?id=query-039&status=failed&detail=1",
+    ),
   );
   const filteredMissing = page.getByText("没有找到编号 query-039 的任务。", {
     exact: false,
   });
   await filteredMissing.waitFor();
-  assert.match(
-    await filteredMissing.innerText(),
-    /状态或类型筛选也会影响结果/,
-  );
+  assert.match(await filteredMissing.innerText(), /状态或类型筛选也会影响结果/);
   assert.deepEqual(await expandedIds(), []);
   // R2: diagnostics scoped from confirmed task details; every R1 assertion above stays.
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -836,8 +830,7 @@ try {
         ) &&
         window.taskFixture.requests.some(
           (request) =>
-            request.name === "recentErrors" &&
-            request.input?.jobId === jobId,
+            request.name === "recentErrors" && request.input?.jobId === jobId,
         ),
       id,
     );
@@ -855,9 +848,12 @@ try {
   assert.deepEqual((await scopedErrorRequests()).at(-1).input, { jobId: jobA });
   await errorsSection.getByText(jobA, { exact: true }).waitFor();
   await errorsSection
-    .getByText("按任务编号精确筛选，最多显示最近 30 组。更早的记录可能已滚动清理。", {
-      exact: true,
-    })
+    .getByText(
+      "按任务编号精确筛选，最多显示最近 30 组。更早的记录可能已滚动清理。",
+      {
+        exact: true,
+      },
+    )
     .waitFor();
   await errorsSection.getByText("任务 A 的保留记录", { exact: true }).waitFor();
   assert.equal(
@@ -935,7 +931,9 @@ try {
     .getByText("此任务暂无保留的错误记录。", { exact: true })
     .waitFor();
   assert.equal(
-    await errorsSection.getByText("暂无已记录的后台错误。", { exact: true }).count(),
+    await errorsSection
+      .getByText("暂无已记录的后台错误。", { exact: true })
+      .count(),
     0,
   );
   const globalReads = await page.evaluate(
@@ -957,9 +955,12 @@ try {
   await errorsSection.getByText("全局保留记录", { exact: true }).waitFor();
   assert.equal(
     await errorsSection
-      .getByText("按任务编号精确筛选，最多显示最近 30 组。更早的记录可能已滚动清理。", {
-        exact: true,
-      })
+      .getByText(
+        "按任务编号精确筛选，最多显示最近 30 组。更早的记录可能已滚动清理。",
+        {
+          exact: true,
+        },
+      )
       .count(),
     0,
   );
