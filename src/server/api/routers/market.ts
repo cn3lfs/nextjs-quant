@@ -46,7 +46,11 @@ import {
   transactionPage,
 } from "../../data-sources/tdx/tdx-quotes";
 import { KLINE, PAGE_LIMIT, QUOTES_BATCH_LIMIT } from "tstdx/wire";
-import { limitSentiment } from "../../market/limit-sentiment";
+import {
+  limitConcepts,
+  limitConceptsInput,
+  limitSentiment,
+} from "../../market/limit-sentiment";
 import { limitHistory } from "../../market/limit-history";
 import { marketBreadth } from "../../market/market-breadth";
 import { etfNetSubscriptions } from "../../market/etf-net-subscriptions";
@@ -239,6 +243,10 @@ export const marketRouter = createTRPCRouter({
   limitSentiment: p("market", "read")
     .input(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }))
     .query(({ input, signal }) => limitSentiment(input.date, signal)),
+  /** 已确认涨停池 ∩ 本机概念成分；只读本机名单，不触发上游四池。 */
+  limitConcepts: p("market", "read")
+    .input(limitConceptsInput)
+    .query(({ input }) => limitConcepts(input, settings().tdxRoot)),
   /** 通达信本地涨跌停按日复盘；只读本地文件，不混入东财刷新与网络抓取。 */
   limitHistory: p("market", "read")
     .input(z.object({ date: researchDateSchema }))

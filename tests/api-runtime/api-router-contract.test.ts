@@ -252,6 +252,7 @@ const expectedProcedures = {
   tdxHosts: "query",
   tdxSaveHosts: "mutation",
   limitSentiment: "query",
+  limitConcepts: "query",
   limitHistory: "query",
   marketBreadth: "query",
   etfNetSubscriptions: "query",

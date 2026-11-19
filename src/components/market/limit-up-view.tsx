@@ -2,7 +2,7 @@
 import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 
 import { useEffect, useState } from "react";
-import { Fire, Stairs } from "@phosphor-icons/react/ssr";
+import { Fire, Stairs, Tag } from "@phosphor-icons/react/ssr";
 import type { LimitPoolRow } from "~/server/data-sources/eastmoney/em-limit-pool";
 import {
   useLimitUpStore,
@@ -46,17 +46,20 @@ const poolLabels: Record<Pool, string> = {
   yzt: "昨日涨停",
 };
 type PoolSort = "original" | "change" | "streak" | "firstSeal";
+type ConceptFilter = { code: string; name: string };
 type PoolFilter = {
   page: number;
   industry: string;
   height: number | null;
   sort: PoolSort;
+  concept: ConceptFilter | null;
 };
 const blankPoolFilter = (): PoolFilter => ({
   page: 1,
   industry: "",
   height: null,
   sort: "original",
+  concept: null,
 });
 const blankPoolFilters = (): Record<Pool, PoolFilter> => ({
   zt: blankPoolFilter(),
@@ -70,6 +73,13 @@ const yi = (v: number | null) =>
   v == null ? "—" : `${displayNumber(v / 1e8, 2)}亿`;
 const pct = (v: number | null, suffix = "%") =>
   v == null ? "—" : `${displayNumber(v, 1)}${suffix}`;
+const beijingTime = (epoch: number | null) =>
+  epoch == null
+    ? "—"
+    : new Date(epoch).toLocaleString("zh-CN", {
+        hour12: false,
+        timeZone: "Asia/Shanghai",
+      });
 
 /** 首封时间只接受 00–23:00–59:00–59；缺值或非法值视为未知，排在末尾。 */
 export function firstSealSeconds(value: string | null): number | null {
@@ -82,6 +92,16 @@ export function firstSealSeconds(value: string | null): number | null {
     seconds = Number(s);
   if (hours > 23 || minutes > 59 || seconds > 59) return null;
   return hours * 3600 + minutes * 60 + seconds;
+}
+
+/** 同一 symbol 只保留首次出现，避免概念人数与表格家数重复计算。 */
+function uniqueRows(rows: readonly LimitPoolRow[]): LimitPoolRow[] {
+  const seen = new Set<string>();
+  return rows.filter((row) => {
+    if (seen.has(row.symbol)) return false;
+    seen.add(row.symbol);
+    return true;
+  });
 }
 
 /** 有效首封时间升序；同秒保留来源顺序；未知时间保留并排在末尾。 */
@@ -197,8 +217,11 @@ export function LimitUpView() {
   const setPool = useLimitUpStore((s) => s.setPool);
   const [dateDraft, setDateDraft] = useState(date);
   const [poolFilters, setPoolFilters] = useState(blankPoolFilters);
+  const [conceptOpen, setConceptOpen] = useState(false);
   useEffect(() => {
     setPoolFilters(blankPoolFilters());
+    // 切日清概念；历史日期不展示概念分布，也不保留展开状态。
+    setConceptOpen(false);
     if (date) setDateDraft((draft) => draft || date);
   }, [date]);
   const current = poolFilters[pool];
@@ -212,6 +235,29 @@ export function LimitUpView() {
     setPool("zt");
     changePoolFilter(patch, "zt");
   }
+  /** 普通切池保留各池分页与筛选记忆，只清离开池的概念。 */
+  function selectPool(next: Pool) {
+    if (next === pool) return;
+    const leaving = pool;
+    setPool(next);
+    setPoolFilters((previous) => ({
+      ...previous,
+      [leaving]: { ...previous[leaving], concept: null },
+    }));
+  }
+  /** 换行业时清概念；高度筛选也归零，沿用 R8 的整行业回看。 */
+  function drillIndustry(patch: Partial<PoolFilter>) {
+    setPool("zt");
+    changePoolFilter({ ...patch, concept: null }, "zt");
+  }
+  /** 点概念：切回涨停池，清行业和高度，使概念人数与打开表一致。 */
+  function openConcept(concept: ConceptFilter) {
+    setPool("zt");
+    changePoolFilter(
+      { concept, industry: "", height: null, sort: "firstSeal" },
+      "zt",
+    );
+  }
   const query = api.limitSentiment.useQuery(
     { date },
     {
@@ -224,11 +270,55 @@ export function LimitUpView() {
   const s = data?.stats;
   // IndexedDB 里可能残留没有 intraday 的旧响应，日期相同也不能直接挂图。
   const intraday = data?.date === date ? data.intraday : undefined;
-  const filtered = (data?.pools[pool] ?? []).filter(
-    (row) =>
-      (!current.industry || row.industry === current.industry) &&
-      (current.height === null || row.streak === current.height),
+  // 概念成员只在用户展开时读取；键含四池 fetchedAt，行情刷新后随原有
+  // 刷新重取，不新建定时器。刷新期间新键没有旧分布可冒充。
+  const conceptQuery = api.limitConcepts.useQuery(
+    { date, fetchedAt: data?.fetchedAt ?? 0 },
+    {
+      enabled:
+        visible &&
+        conceptOpen &&
+        date === today() &&
+        data?.date === date &&
+        data?.available === true,
+      retry: false,
+      refetchInterval: false,
+    },
   );
+  const conceptData = conceptQuery.data;
+  // 条件表达式内直接收窄 conceptData，避免用布尔变量丢失非空判断。
+  const conceptMembers =
+    current.concept !== null &&
+    !conceptQuery.isError &&
+    conceptData?.status === "ready"
+      ? new Set(
+          conceptData.concepts.find(
+            (concept) => concept.code === current.concept!.code,
+          )?.symbols ?? [],
+        )
+      : null;
+  const conceptReady = conceptMembers !== null;
+  // 选中概念但成员未真实完成时，表格不展示“筛选后 0 家”。
+  const conceptUnavailable = current.concept !== null && !conceptReady;
+  const conceptStatusText = !current.concept
+    ? null
+    : conceptQuery.isError
+      ? `概念成员读取失败：${conceptQuery.error.message}`
+      : (conceptData?.message ??
+        (conceptQuery.isLoading
+          ? "正在读取本机概念名单…"
+          : !conceptOpen
+            ? "概念分布已收起；展开后重新读取本机概念名单。"
+            : "概念成员尚未同步；请刷新行情后重试。"));
+  const poolRows = uniqueRows(data?.pools[pool] ?? []);
+  const filtered = conceptUnavailable
+    ? []
+    : poolRows.filter(
+        (row) =>
+          (!current.industry || row.industry === current.industry) &&
+          (current.height === null || row.streak === current.height) &&
+          (!current.concept || (conceptMembers?.has(row.symbol) ?? false)),
+      );
   const firstSealSort = pool === "zt" && current.sort === "firstSeal";
   const rows = firstSealSort ? sortRowsByFirstSeal(filtered) : [...filtered];
   if (!firstSealSort && current.sort !== "original")
@@ -246,7 +336,22 @@ export function LimitUpView() {
   const missingSeal = firstSealSort
     ? rows.filter((row) => firstSealSeconds(row.firstSeal) === null).length
     : 0;
+  const poolMeta = conceptUnavailable
+    ? `概念 ${current.concept?.name ?? ""} · 概念成员未就绪`
+    : `筛选后 ${rows.length} / ${poolRows.length} 只${current.industry ? ` · ${current.industry}` : ""}${current.height !== null ? ` · ${current.height}板` : ""}${current.concept ? ` · 概念 ${current.concept.name}` : ""}${firstSealSort ? " · 首封时间升序" : ""}${missingSeal ? ` · ${missingSeal} 只缺首封时间，已排末尾` : ""}`;
   const pageCount = Math.max(1, Math.ceil(rows.length / 50));
+  // 概念浏览按家数降序；同数沿用服务端稳定源顺序。
+  const conceptRows =
+    conceptData?.status === "ready"
+      ? conceptData.concepts
+          .map((concept, index) => ({ concept, index }))
+          .sort(
+            (a, b) =>
+              b.concept.symbols.length - a.concept.symbols.length ||
+              a.index - b.index,
+          )
+          .map((entry) => entry.concept)
+      : [];
   const page = Math.min(current.page, pageCount);
   // Client wall-clock dates must not enter server or hydration markup.
   if (now === null) return <p role="status">正在确定查询日期…</p>;
@@ -347,13 +452,13 @@ export function LimitUpView() {
             <TablePanel
               span={12}
               title={`${poolLabels[pool]}池`}
-              meta={`筛选后 ${rows.length} / ${data.pools[pool].length} 只${current.industry ? ` · ${current.industry}` : ""}${current.height !== null ? ` · ${current.height}板` : ""}${firstSealSort ? " · 首封时间升序" : ""}${missingSeal ? ` · ${missingSeal} 只缺首封时间，已排末尾` : ""}`}
+              meta={poolMeta}
               actions={
                 <div className="flex flex-wrap items-center gap-2">
                   <Segmented
                     label="涨停板池"
                     value={pool}
-                    onChange={setPool}
+                    onChange={selectPool}
                     options={(Object.keys(poolLabels) as Pool[]).map((k) => ({
                       value: k,
                       label: `${poolLabels[k]} ${data.pools[k].length}`,
@@ -379,12 +484,18 @@ export function LimitUpView() {
                       )}
                     </SelectContent>
                   </Select>
-                  {(current.industry || current.height !== null) && (
+                  {(current.industry ||
+                    current.height !== null ||
+                    current.concept) && (
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() =>
-                        changePoolFilter({ industry: "", height: null })
+                        changePoolFilter({
+                          industry: "",
+                          height: null,
+                          concept: null,
+                        })
                       }
                     >
                       清除成分筛选
@@ -396,32 +507,55 @@ export function LimitUpView() {
               rows={rows.slice((page - 1) * 50, page * 50)}
               rowKey={(r) => r.symbol}
               minWidth={960}
-              empty="当前筛选下无成分，可清除筛选或切换证券池。"
+              empty={
+                conceptUnavailable ? (
+                  <span className="flex flex-col items-start gap-2 text-left">
+                    <span role="alert">{conceptStatusText}</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={query.isFetching}
+                      onClick={() => {
+                        if (!conceptOpen) setConceptOpen(true);
+                        else void query.refetch();
+                      }}
+                    >
+                      {conceptOpen ? "刷新行情" : "展开概念分布"}
+                    </Button>
+                  </span>
+                ) : current.concept && conceptReady && rows.length === 0 ? (
+                  "该概念当前没有涨停成分。"
+                ) : (
+                  "当前筛选下无成分，可清除筛选或切换证券池。"
+                )
+              }
             >
-              <nav
-                aria-label="当前证券池分页"
-                className="mt-4 flex flex-wrap items-center justify-between gap-2"
-              >
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page === 1}
-                  onClick={() => changePoolFilter({ page: page - 1 })}
+              {!conceptUnavailable && (
+                <nav
+                  aria-label="当前证券池分页"
+                  className="mt-4 flex flex-wrap items-center justify-between gap-2"
                 >
-                  上一页
-                </Button>
-                <span className="text-sm text-nc-text-3">
-                  第 {page} / {pageCount} 页 · 每页50只
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page === pageCount}
-                  onClick={() => changePoolFilter({ page: page + 1 })}
-                >
-                  下一页
-                </Button>
-              </nav>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page === 1}
+                    onClick={() => changePoolFilter({ page: page - 1 })}
+                  >
+                    上一页
+                  </Button>
+                  <span className="text-sm text-nc-text-3">
+                    第 {page} / {pageCount} 页 · 每页50只
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page === pageCount}
+                    onClick={() => changePoolFilter({ page: page + 1 })}
+                  >
+                    下一页
+                  </Button>
+                </nav>
+              )}
             </TablePanel>
           </BrowseSource>
           <Panel span={8} icon={Stairs} title="连板梯队">
@@ -458,7 +592,7 @@ export function LimitUpView() {
                   size="sm"
                   aria-label={`打开${i.name}行业涨停，按首封时间升序`}
                   onClick={() =>
-                    drill({
+                    drillIndustry({
                       industry: i.name,
                       sort: "firstSeal",
                       height: null,
@@ -472,6 +606,96 @@ export function LimitUpView() {
               pct: (i.count / data.industries[0]!.count) * 100,
             }))}
           />
+          {date === today() && (
+            <Panel
+              span={12}
+              icon={Tag}
+              title="涨停概念分布"
+              actions={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-expanded={conceptOpen}
+                  aria-controls="limit-concept-distribution"
+                  onClick={() => setConceptOpen((open) => !open)}
+                >
+                  {conceptOpen ? "收起" : "展开概念分布"}
+                </Button>
+              }
+              note="数据：东方财富已确认涨停池 ∩ 本机通达信当前概念成分。同一证券可属于多个概念；有映射与未覆盖按证券去重。只读本机名单，不请求上游四池。"
+            >
+              <div id="limit-concept-distribution">
+                {!conceptOpen ? (
+                  <p className="m-0 text-sm text-nc-text-3">
+                    展开后读取一次本机概念名单；不展开不读取，也不会新建定时刷新。
+                  </p>
+                ) : conceptQuery.isLoading ? (
+                  <PanelEmpty>正在读取本机概念名单…</PanelEmpty>
+                ) : conceptQuery.isError ? (
+                  <p role="alert" className="m-0 text-[13px] text-nc-bad">
+                    读取失败：{conceptQuery.error.message}
+                  </p>
+                ) : !conceptData ? (
+                  <PanelEmpty>正在读取…</PanelEmpty>
+                ) : (
+                  <>
+                    <p role="status" className="m-0 text-sm text-nc-text-2">
+                      {conceptData.status === "ready"
+                        ? `涨停 ${conceptData.limitUp} 只 · 有概念映射 ${conceptData.mapped} 只 · 未覆盖 ${conceptData.uncovered} 只`
+                        : conceptData.message}
+                    </p>
+                    <p className="mb-2 mt-1 text-[12px] text-nc-text-3">
+                      四池读取于 {beijingTime(conceptData.poolFetchedAt)}
+                      {" · "}本机概念名单读取于{" "}
+                      {beijingTime(conceptData.blocksObservedAt)}
+                    </p>
+                    {conceptData.status === "ready" &&
+                      (conceptRows.length === 0 ? (
+                        <p className="m-0 text-[13px] text-nc-text-3">
+                          {conceptData.limitUp === 0
+                            ? "当日已确认涨停池为空，暂无概念映射。"
+                            : "概念名单存在，但当日涨停没有命中任何概念。"}
+                        </p>
+                      ) : (
+                        <div
+                          role="group"
+                          aria-label="涨停概念分布列表"
+                          className="grid max-h-64 grid-cols-2 gap-1 overflow-y-auto pr-1 md:grid-cols-3"
+                        >
+                          {conceptRows.map((concept) => {
+                            const active =
+                              current.concept?.code === concept.code;
+                            return (
+                              <Button
+                                key={concept.code}
+                                variant={active ? "default" : "outline"}
+                                size="sm"
+                                className="justify-between!"
+                                aria-pressed={active}
+                                aria-label={`筛选${concept.name}概念涨停，按首封时间升序`}
+                                onClick={() =>
+                                  openConcept({
+                                    code: concept.code,
+                                    name: concept.name,
+                                  })
+                                }
+                              >
+                                <span className="min-w-0 truncate">
+                                  {concept.name}
+                                </span>
+                                <span className="tabular-nums">
+                                  {concept.symbols.length} 只
+                                </span>
+                              </Button>
+                            );
+                          })}
+                        </div>
+                      ))}
+                  </>
+                )}
+              </div>
+            </Panel>
+          )}
         </>
       )}
     </PageGrid>
