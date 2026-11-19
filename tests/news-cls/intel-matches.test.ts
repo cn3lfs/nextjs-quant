@@ -232,19 +232,19 @@ it("maps literal SQLite matches to deduplicated held/open-plan securities", asyn
     newsWorkspaceDetail(config(path), filter, 1, source).item.content,
   ).toContain("浦发银行与 600519 贵州茅台");
 
-  // Preserve the existing case-sensitive detail query: a news item matched only
-  // case-insensitively keeps its literal filter and does not open here.
+  // SQLite matched "btc" with ASCII-only folding; the link carries the exact
+  // stored spelling so the still case-sensitive detail query opens the original.
   const btcHref = new URL(events[2]!.href, "http://localhost"),
     btcFilter = JSON.parse(btcHref.searchParams.get("newsQuery")!);
-  expect(btcFilter.query).toBe("BTC");
-  expect(() =>
+  expect(btcFilter.query).toBe("btc");
+  expect(
     newsWorkspaceDetail(
       config(path),
       btcFilter,
       3,
       btcHref.searchParams.get("newsSource")!,
-    ),
-  ).toThrow(/范围/);
+    ).item.content,
+  ).toContain("btc 行情波动");
 });
 
 it("uses only SQLite matches and leaves intelEvents unchanged", () => {

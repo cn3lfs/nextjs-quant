@@ -189,6 +189,25 @@ type RelatedNewsEvent = {
   href: string;
 };
 type RelatedNewsEventWithMatches = RelatedNewsEvent & { matches: string[] };
+/** SQLite's default upper() folds ASCII only and preserves length, so an index
+ * in the folded text is also the index in the original stored field. */
+function asciiFold(value: string) {
+  return value.replace(/[a-z]/g, (char) => char.toUpperCase());
+}
+/** Reuse the SQL candidate order, but take the exact spelling from the first
+ * real title/content occurrence; text that only matched across the joined
+ * delimiter yields an empty query instead of a fragment from neither field. */
+function literalQuery(fields: readonly string[], terms: readonly string[]) {
+  for (const term of terms) {
+    const needle = asciiFold(term);
+    if (!needle) continue;
+    for (const field of fields) {
+      const at = asciiFold(field).indexOf(needle);
+      if (at >= 0) return field.slice(at, at + term.length);
+    }
+  }
+  return "";
+}
 function literalTerms(value: string | null) {
   try {
     const parsed: unknown = JSON.parse(value ?? "[]");
@@ -257,12 +276,7 @@ export function relatedNewsEvents(
       const filter = {
         cutoff: Math.min(Date.parse(news.publishedAt), Date.now()),
         historical: false,
-        query:
-          terms.find((t) =>
-            `${news.title} ${news.content}`
-              .toUpperCase()
-              .includes(t.toUpperCase()),
-          ) ?? "",
+        query: literalQuery([news.title, news.content], terms),
       };
       const event = {
         id: String(news.id),
