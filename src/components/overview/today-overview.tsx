@@ -43,6 +43,7 @@ import {
 import { Button } from "../ui/button";
 import { AlertStatus } from "../signals/alert-status";
 import { useTaskVisible } from "../workbench/use-task-visible";
+import { MarketBreadth } from "./market-breadth";
 import {
   MarketPulse,
   quoteChange,
@@ -547,6 +548,7 @@ export function TodayOverview() {
           </Panel>
         </div>
       </PageGrid>
+      <MarketBreadth />
       <MarketPulse bySymbol={quotes.bySymbol} error={quotes.error} />
       <details className="rounded-lg border border-nc-border bg-nc-card p-4">
         <summary className="cursor-pointer text-sm font-medium">

@@ -251,6 +251,7 @@ const expectedProcedures = {
   tdxSaveHosts: "mutation",
   limitSentiment: "query",
   limitHistory: "query",
+  marketBreadth: "query",
   stockEvents: "query",
   capitalProfile: "query",
   macroRates: "query",

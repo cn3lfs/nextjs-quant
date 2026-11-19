@@ -47,6 +47,8 @@ const localReads = new Set([
   "screenResults",
   // Local TDX limit-up/limit-down daily series; reads no network.
   "limitHistory",
+  // Local TDX SC31 market breadth; reads no network.
+  "marketBreadth",
   "screenTaskProgress",
   "holdoutSettings",
   "savedSnapshot",
