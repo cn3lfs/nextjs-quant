@@ -12,12 +12,72 @@ export const qualificationLabel = {
   shadow: "影子前推中 · 研究中",
   promoted: "已晋级",
 };
-const scanFreshnessLabel = {
-  current: "本次收盘",
-  stale: "历史",
-  intraday: "盘中",
-  unknown: "待核验",
-} as const;
+/** One vocabulary for how old a candidate is, shared by list and detail. */
+export type CandidateFreshness =
+  "fresh-close" | "intraday" | "stale" | "unverified";
+export const freshnessLabels: Record<CandidateFreshness, string> = {
+  "fresh-close": "本次收盘",
+  intraday: "盘中观察",
+  stale: "历史只读",
+  unverified: "待核验",
+};
+type FreshnessSource = {
+  scanFreshness?: "current" | "intraday" | "stale" | "unknown" | null;
+  /** Optional advisory field; the list uses `scanFreshness` when absent. */
+  freshness?: CandidateFreshness | null;
+};
+export function candidateFreshness(
+  source: FreshnessSource,
+): CandidateFreshness | null {
+  if (source.freshness) return source.freshness;
+  switch (source.scanFreshness) {
+    case "current":
+      return "fresh-close";
+    case "intraday":
+      return "intraday";
+    case "stale":
+      return "stale";
+    case "unknown":
+      return "unverified";
+    default:
+      return null;
+  }
+}
+/** A row is as fresh as its weakest source: one historical source is enough
+ *  to warn before the row is opened. */
+function rowFreshness(row: WorkspaceCandidate): CandidateFreshness | null {
+  const values = row.sources
+    .map((source) => candidateFreshness(source))
+    .filter((value): value is CandidateFreshness => value !== null);
+  if (!values.length) return null;
+  if (values.every((value) => value === "fresh-close")) return "fresh-close";
+  if (values.includes("stale")) return "stale";
+  return values.includes("intraday") ? "intraday" : "unverified";
+}
+function freshnessState(freshness: CandidateFreshness) {
+  if (freshness === "fresh-close") return "ok";
+  if (freshness === "stale") return "warn";
+  if (freshness === "intraday") return "idle";
+  return undefined;
+}
+function FreshnessBadge({
+  freshness,
+  title,
+}: {
+  freshness: CandidateFreshness;
+  title?: string;
+}) {
+  return (
+    <span
+      className="nc-status-chip"
+      data-state={freshnessState(freshness)}
+      title={title}
+    >
+      <i aria-hidden="true" />
+      {freshnessLabels[freshness]}
+    </span>
+  );
+}
 export function candidateHref(row: WorkspaceCandidate) {
   const params = new URLSearchParams({
     candidate: row.key,
@@ -98,64 +158,79 @@ export function CandidateTable({
         {
           id: "symbol",
           header: "标的 / 来源策略",
-          cell: ({ row: { original: r } }) => (
-            <div>
-              <Link
-                href={candidateHref(r)}
-                onClick={
-                  onSelect
-                    ? (e) => {
-                        e.preventDefault();
-                        onSelect(r);
-                      }
-                    : undefined
-                }
-                className="underline"
-              >
-                {r.symbol} · 打开图表
-              </Link>
-              <p className="text-xs text-nc-text-3">
-                {r.sources
-                  .map((s) => `${s.strategyId} v${s.version}`)
-                  .join(" / ")}{" "}
-                · {r.bar}
-              </p>
-              {r.sources.map((s) => (
-                <p key={s.key} className="max-w-80 text-xs text-nc-text-3">
-                  {s.strategyId}：{s.reason}
-                  {s.scanFreshness && (
-                    <span
-                      className={
-                        s.scanFreshness === "stale"
-                          ? "text-nc-warn"
-                          : "text-nc-text-3"
-                      }
-                    >
-                      {" "}
-                      · {scanFreshnessLabel[s.scanFreshness]} · 扫描{" "}
-                      {s.scanAt === null
-                        ? "时点未记录"
-                        : new Date(s.scanAt).toLocaleString("zh-CN")}{" "}
-                      · bar {s.bar}
-                    </span>
+          cell: ({ row: { original: r } }) => {
+            const freshness = rowFreshness(r);
+            return (
+              <div>
+                <span className="flex flex-wrap items-center gap-1.5">
+                  <Link
+                    href={candidateHref(r)}
+                    onClick={
+                      onSelect
+                        ? (e) => {
+                            e.preventDefault();
+                            onSelect(r);
+                          }
+                        : undefined
+                    }
+                    className="underline"
+                  >
+                    {r.symbol} · 打开图表
+                  </Link>
+                  {freshness && (
+                    <FreshnessBadge
+                      freshness={freshness}
+                      title="该行最旧来源的新鲜度；任一历史来源都会标为历史只读"
+                    />
                   )}
+                </span>
+                <p className="text-xs text-nc-text-3">
+                  {r.sources
+                    .map((s) => `${s.strategyId} v${s.version}`)
+                    .join(" / ")}{" "}
+                  · {r.bar}
                 </p>
-              ))}
-              {r.scan && (r.scan.hasHistorical || r.scan.hasUnverified) && (
-                <p className="text-xs text-nc-warn">
-                  {[
-                    r.scan.hasHistorical ? "含历史来源" : "",
-                    r.scan.hasUnverified ? "来源待核验" : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
-              )}
-              {r.tradingStatusEvidence?.status === "unknown" && (
-                <p className="text-xs text-nc-warn">交易状态未知，请核验</p>
-              )}
-            </div>
-          ),
+                {r.sources.map((s) => {
+                  const sourceFreshness = candidateFreshness(s);
+                  return (
+                    <p key={s.key} className="max-w-80 text-xs text-nc-text-3">
+                      {s.strategyId}：{s.reason}
+                      {sourceFreshness && (
+                        <span
+                          className={
+                            sourceFreshness === "stale"
+                              ? "text-nc-warn"
+                              : "text-nc-text-3"
+                          }
+                        >
+                          {" "}
+                          · <FreshnessBadge freshness={sourceFreshness} /> ·
+                          扫描{" "}
+                          {s.scanAt === null
+                            ? "时点未记录"
+                            : new Date(s.scanAt).toLocaleString("zh-CN")}{" "}
+                          · bar {s.bar}
+                        </span>
+                      )}
+                    </p>
+                  );
+                })}
+                {r.scan && (r.scan.hasHistorical || r.scan.hasUnverified) && (
+                  <p className="text-xs text-nc-warn">
+                    {[
+                      r.scan.hasHistorical ? "含历史来源" : "",
+                      r.scan.hasUnverified ? "来源待核验" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                )}
+                {r.tradingStatusEvidence?.status === "unknown" && (
+                  <p className="text-xs text-nc-warn">交易状态未知，请核验</p>
+                )}
+              </div>
+            );
+          },
         },
         {
           id: "levels",

@@ -4,7 +4,8 @@ import dynamic from "next/dynamic";
 import { Suspense, useState } from "react";
 import { api } from "~/trpc/react";
 import { PanelCache } from "../workbench/keep-alive";
-import { Segmented } from "../panels";
+import { Segmented, StateBanner } from "../panels";
+import { chartAdjustmentLabels } from "~/lib/chart/chart-adjustment";
 import {
   Select,
   SelectContent,
@@ -47,6 +48,12 @@ const Crypto = dynamic(() =>
 const Futures = dynamic(() =>
   import("../market/futures-view").then((m) => m.FuturesView),
 );
+/** Missing prices stay "不可用"; never derive a raw price from an adjusted one. */
+function priceOrUnavailable(value: number | null | undefined) {
+  return value === null || value === undefined
+    ? "不可用"
+    : formatNumber(value, 2);
+}
 const tabs = [
   { value: "chart", label: "扫描与图表" },
   { value: "pool", label: "证券池" },
@@ -328,8 +335,53 @@ function ScanResults({ market }: { market: "cn-equity" | "crypto" }) {
                   {formatNumber(candidate.stop)} · 目标{" "}
                   {formatNumber(candidate.target)} · 参考线均为原价
                 </p>
+                <div className="mt-2 grid gap-2 text-xs sm:grid-cols-2">
+                  <p className="m-0">
+                    <span className="text-nc-text-4">选股复权参考价</span>{" "}
+                    <span className="tabular">
+                      {priceOrUnavailable(candidate.signalPrice)}
+                    </span>
+                    <span className="text-nc-text-4">
+                      {" "}
+                      ·{" "}
+                      {candidate.signalPriceBasis
+                        ? chartAdjustmentLabels[candidate.signalPriceBasis]
+                        : "口径未记录"}
+                    </span>
+                  </p>
+                  <p className="m-0">
+                    <span className="text-nc-text-4">计划参考原价</span>{" "}
+                    <span
+                      className={
+                        candidate.executionRawPrice === null ||
+                        candidate.executionRawPrice === undefined
+                          ? "text-nc-warn"
+                          : "tabular"
+                      }
+                    >
+                      {priceOrUnavailable(candidate.executionRawPrice)}
+                    </span>
+                    <span className="text-nc-text-4"> · 不复权</span>
+                  </p>
+                </div>
+                {(candidate.executionRawPrice === null ||
+                  candidate.executionRawPrice === undefined) && (
+                  <p className="mt-2 text-xs text-nc-warn">
+                    快照未记录原价：显示不可用，不用复权价推算；建计划前请用原始行情核对。
+                  </p>
+                )}
               </div>
-              <CandidatePlan key={candidate.key} candidate={candidate} />
+              {candidate.freshness === "stale" ? (
+                <StateBanner
+                  state="warn"
+                  title="历史批次候选仅供复盘参考，默认不可新建计划"
+                  asOf={`扫描批次 ${candidate.bar}`}
+                >
+                  该候选来自已过期的历史扫描批次。请选择当前批次；服务端只有在明确允许使用历史候选时才会接受建计划。
+                </StateBanner>
+              ) : (
+                <CandidatePlan key={candidate.key} candidate={candidate} />
+              )}
             </>
           )}
           <PlanLevelsProvider value={levels}>

@@ -119,6 +119,9 @@ export function TradeSources({
       <h3>
         成交来源（第 {page + 1} 页，共 {d.tradeCount} 笔）
       </h3>
+      <p className="text-sm text-nc-text-3">
+        每笔成交可关联到所属策略、计划与提醒，便于复盘时对上账。关联只记录来源和审计，不修改成交数量、价格或原始账本。
+      </p>
       <div className="flex gap-2">
         <Button
           variant="outline"
@@ -235,7 +238,7 @@ export function TradeSources({
             cell: ({ row }) => {
               const t = row.original;
               return t.kind === "paper" ? (
-                "纸面归属固定"
+                "模拟盘成交，归属固定"
               ) : (
                 <div className="flex flex-wrap gap-1">
                   {d.suggestions

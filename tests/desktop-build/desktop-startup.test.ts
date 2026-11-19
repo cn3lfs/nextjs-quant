@@ -7,6 +7,7 @@ import {
   unlink,
   writeFile,
 } from "node:fs/promises";
+import { EventEmitter } from "node:events";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -30,6 +31,8 @@ const h = vi.hoisted(() => {
   const listeners = new Map<string, Listener[]>();
   return {
     listeners,
+    ipc: new Map<string, Listener>(),
+    workspaceCloseToTray: false,
     windows: [] as any[],
     loadCalls: [] as string[],
     executeCalls: [] as string[],
@@ -53,17 +56,20 @@ const h = vi.hoisted(() => {
       listeners.set(event, list);
     },
     emit(event: string, ...args: any[]) {
+      if (event === "before-quit" && !args.length)
+        args.push({ preventDefault: vi.fn() });
       for (const listener of listeners.get(event) ?? []) listener(...args);
     },
   };
 });
 
-vi.mock("electron", () => {
-  class BrowserWindow {
+vi.mock("electron", async () => {
+  const { EventEmitter: WindowEvents } = await import("node:events");
+  class BrowserWindow extends WindowEvents {
     webContents = {
       setWindowOpenHandler: vi.fn(),
       on: vi.fn(),
-      mainFrame: {},
+      mainFrame: { url: "", origin: "" },
       executeJavaScript: (code: string) => {
         h.executeCalls.push(code);
         return h.executeJavaScript
@@ -73,12 +79,15 @@ vi.mock("electron", () => {
     };
     destroyed = false;
     constructor() {
+      super();
       h.windows.push(this);
     }
     loadURL(url: string) {
+      this.webContents.mainFrame = { url, origin: new URL(url).origin };
       h.loadCalls.push(url);
       return h.loadURL ? h.loadURL(url) : Promise.resolve();
     }
+    hide = vi.fn();
     show = vi.fn();
     focus = vi.fn();
     isDestroyed() {
@@ -129,7 +138,10 @@ vi.mock("electron", () => {
         return h.openPathImpl ? h.openPathImpl(path) : Promise.resolve("");
       },
     },
-    ipcMain: { handle: vi.fn() },
+    ipcMain: {
+      handle: (name: string, listener: (...args: any[]) => void) =>
+        h.ipc.set(name, listener),
+    },
   };
 });
 // Vitest injects __dirname as a module-wrapper parameter, so stubGlobal cannot
@@ -165,9 +177,8 @@ vi.mock("node:net", () => ({
 }));
 
 function makeChild() {
-  const listeners = new Map<string, Array<(...args: any[]) => void>>();
   const stderrListeners: Array<(chunk: unknown) => void> = [];
-  return {
+  return Object.assign(new EventEmitter(), {
     pid: 4321,
     exitCode: null as number | null,
     signalCode: null as NodeJS.Signals | null,
@@ -180,20 +191,14 @@ function makeChild() {
       for (const listener of stderrListeners) listener(chunk);
     },
     kill: vi.fn(),
-    on(event: string, listener: (...args: any[]) => void) {
-      const list = listeners.get(event) ?? [];
-      list.push(listener);
-      listeners.set(event, list);
-    },
-    emit(event: string, ...args: any[]) {
-      for (const listener of listeners.get(event) ?? []) listener(...args);
-    },
-  };
+  });
 }
 
 beforeEach(async () => {
   vi.resetModules();
   h.listeners.clear();
+  h.ipc.clear();
+  h.workspaceCloseToTray = false;
   h.windows.length = 0;
   h.loadCalls.length = 0;
   h.executeCalls.length = 0;
@@ -215,11 +220,18 @@ beforeEach(async () => {
   vi.stubEnv("QUANT_DESKTOP_SMOKE", "");
   vi.stubGlobal(
     "fetch",
-    vi.fn(async () => ({
-      ok: true,
-      body: null,
-      json: async () => ({ status: "ok", app: "quant-workbench" }),
-    })),
+    vi.fn(async (url: string, options?: RequestInit) => {
+      if (String(url).includes("/api/trpc/")) {
+        if (String(url).includes("/saveWorkspacePreferences"))
+          h.workspaceCloseToTray = JSON.parse(
+            String(options?.body),
+          ).json.closeToTray;
+        return Response.json({
+          result: { data: { json: { closeToTray: h.workspaceCloseToTray } } },
+        });
+      }
+      return Response.json({ status: "ok", app: "quant-workbench" });
+    }),
   );
   vi.useFakeTimers();
 });
@@ -785,7 +797,7 @@ describe("mocked Electron startup wiring", () => {
       readFile(join(h.dataDir, "smoke.txt"), "utf8"),
     ).rejects.toMatchObject({ code: "ENOENT" });
     expect(h.executeCalls).toHaveLength(0);
-    expect(h.spawnSync).toHaveBeenCalledTimes(1);
+    expect(h.spawnSync).not.toHaveBeenCalled();
     expect(h.exitCalls).toEqual([]);
   });
 
@@ -838,6 +850,7 @@ describe("mocked Electron startup wiring", () => {
     expect(text).not.toContain("token=");
     expect(text).not.toContain("C:\\");
     expect(text).not.toContain(h.dataDir);
+    await vi.advanceTimersByTimeAsync(3500);
     expect(h.exitCalls).toEqual([1]);
     expect(h.spawnSync).toHaveBeenCalledWith(
       "taskkill.exe",
@@ -872,6 +885,7 @@ describe("mocked Electron startup wiring", () => {
     expect(decodeURIComponent(h.loadCalls[0]!)).toContain("本地服务已停止");
     expect(h.exitCalls).toEqual([]);
     h.emit("before-quit");
+    await vi.advanceTimersByTimeAsync(3500);
     expect(h.spawnSync).toHaveBeenCalledTimes(1);
   });
 
@@ -882,6 +896,7 @@ describe("mocked Electron startup wiring", () => {
     expect(h.loadCalls).toHaveLength(1);
     expect(h.executeCalls).toHaveLength(0);
     h.emit("before-quit");
+    await vi.advanceTimersByTimeAsync(3500);
     expect(h.spawnSync).toHaveBeenCalledWith(
       "taskkill.exe",
       ["/PID", "4321", "/T", "/F"],
@@ -989,7 +1004,7 @@ describe("tray data directory action", () => {
     await import("../../electron/main");
     await flush();
     expect(spawnedEnv().QUANT_DATA_DIR).toBe(h.dataDir);
-    // Remove only the known log file, then the now-empty root.
+    await unlink(join(h.dataDir, "desktop-prefs.json"));
     await unlink(join(h.dataDir, "server.log"));
     await rmdir(h.dataDir);
     await writeFile(h.dataDir, "not a directory");
@@ -1078,5 +1093,167 @@ describe("tray data directory action", () => {
     expect(h.openPathCalls).toHaveLength(0);
     await trayClick("打开数据与日志目录");
     expect(h.openPathCalls).toEqual([data]);
+  });
+});
+
+describe("desktop background monitoring", () => {
+  function invoke(channel: string, value?: unknown) {
+    const sender = h.windows[0].webContents;
+    return h.ipc.get(channel)!(
+      { sender, senderFrame: sender.mainFrame },
+      value,
+    );
+  }
+  it("keeps smoke auto-exit and the ready record even with a saved tray preference", async () => {
+    vi.stubEnv("QUANT_DESKTOP_SMOKE", "1");
+    await writeFile(
+      join(h.dataDir, "desktop-prefs.json"),
+      '{"closeToTray":true}',
+    );
+    h.executeJavaScript = async () => "今日决策";
+    await import("../../electron/main");
+    await flush();
+    const event = { preventDefault: vi.fn() };
+    h.windows[0].emit("close", event);
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(h.windows[0].hide).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(await readFile(join(h.dataDir, "smoke.txt"), "utf8")).toBe(
+      "今日决策",
+    );
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/api/shutdown"),
+      expect.anything(),
+    );
+    h.child.exitCode = 0;
+    h.child.emit("exit", 0, null);
+    await flush();
+    await expectSingleStartup("ready");
+    expect(h.spawnSync).not.toHaveBeenCalled();
+  });
+
+  it("uses the workspace preference on launch and hides a closed window without stopping the service", async () => {
+    h.workspaceCloseToTray = true;
+    await import("../../electron/main");
+    await flush();
+    const win = h.windows[0];
+    const event = { preventDefault: vi.fn() };
+    win.emit("close", event);
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(win.hide).toHaveBeenCalledOnce();
+    expect(h.child.kill).not.toHaveBeenCalled();
+    expect(h.spawnSync).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalledWith(
+      expect.stringContaining("/api/shutdown"),
+      expect.anything(),
+    );
+    expect(
+      JSON.parse(await readFile(join(h.dataDir, "desktop-prefs.json"), "utf8")),
+    ).toEqual({ closeToTray: true });
+    await trayClick("打开行情看盘");
+    expect(h.loadCalls.at(-1)).toBe("http://127.0.0.1:3911/scan");
+    await invoke("quant:set-close-to-tray", false);
+    expect(invoke("quant:get-desktop-prefs")).toEqual({ closeToTray: false });
+    expect(h.workspaceCloseToTray).toBe(false);
+    event.preventDefault.mockClear();
+    win.emit("close", event);
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    await h.trayMenus
+      .at(-1)
+      .find((entry: { type?: string }) => entry.type === "checkbox")
+      .click({ checked: true });
+    expect(h.workspaceCloseToTray).toBe(true);
+    expect(invoke("quant:get-desktop-prefs")).toEqual({ closeToTray: true });
+  });
+
+  it("posts one authenticated shutdown and force-stops only the surviving child after the deadline", async () => {
+    await import("../../electron/main");
+    await flush();
+    await trayClick("彻底退出并停止监控");
+    h.emit("before-quit");
+    const shutdown = vi
+      .mocked(fetch)
+      .mock.calls.filter(([url]) => String(url).endsWith("/api/shutdown"));
+    expect(shutdown).toHaveLength(1);
+    expect(shutdown[0]).toEqual([
+      "http://127.0.0.1:3911/api/shutdown",
+      expect.objectContaining({
+        method: "POST",
+        headers: { "x-quant-session": spawnedEnv().QUANT_SESSION_TOKEN },
+        redirect: "error",
+      }),
+    ]);
+    await vi.advanceTimersByTimeAsync(3499);
+    expect(h.spawnSync).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(h.spawnSync).toHaveBeenCalledExactlyOnceWith(
+      "taskkill.exe",
+      ["/PID", "4321", "/T", "/F"],
+      expect.anything(),
+    );
+  });
+
+  it("lets the service exit gracefully and cancels a racing tray restart on quit", async () => {
+    await import("../../electron/main");
+    await flush();
+    const restarting = trayClick("重启后台服务");
+    await flush();
+    await trayClick("彻底退出并停止监控");
+    h.child.exitCode = 0;
+    h.child.emit("exit", 0, null);
+    await restarting;
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(h.spawnSync).not.toHaveBeenCalled();
+    expect(h.spawnCalls).toHaveLength(1);
+    expect(h.loadCalls).toHaveLength(1);
+  });
+
+  it("recovers from a runtime crash only through the trusted failure frame and probes the replacement service", async () => {
+    await import("../../electron/main");
+    await flush();
+    const child = h.child;
+    child.exitCode = 7;
+    child.emit("exit", 7, null);
+    await flush();
+    const win = h.windows[0],
+      frame = win.webContents.mainFrame;
+    expect(decodeURIComponent(frame.url)).toContain(
+      "window.quantDesktop.restartService()",
+    );
+    expect(decodeURIComponent(frame.url)).toContain("打开数据与日志目录");
+    expect(() => invoke("quant:get-desktop-prefs")).toThrow();
+    expect(() =>
+      h.ipc.get("quant:restart-service")!({ sender: {}, senderFrame: frame }),
+    ).toThrow();
+    expect(() =>
+      h.ipc.get("quant:restart-service")!({
+        sender: win.webContents,
+        senderFrame: { ...frame },
+      }),
+    ).toThrow();
+    win.webContents.mainFrame = { url: "data:text/html,other", origin: "null" };
+    expect(() => invoke("quant:restart-service")).toThrow();
+    win.webContents.mainFrame = frame;
+    h.child = makeChild();
+    await invoke("quant:restart-service");
+    expect(h.spawnCalls).toHaveLength(2);
+    expect(h.windows).toHaveLength(1);
+    expect(
+      vi
+        .mocked(fetch)
+        .mock.calls.filter(([url]) => String(url).endsWith("/api/health")),
+    ).toHaveLength(2);
+    expect(h.loadCalls.at(-1)).toBe("http://127.0.0.1:3911");
+    expect(
+      (await startupLines()).map((line) => parseStartupLine(line).status),
+    ).toEqual(["ready", "ready"]);
+    child.emit("exit", 7, null);
+    expect(h.loadCalls).toHaveLength(3);
+    expect(() => invoke("quant:set-close-to-tray", "true")).toThrow();
+    win.webContents.mainFrame = {
+      url: "http://127.0.0.1:3912/",
+      origin: "http://127.0.0.1:3912",
+    };
+    expect(() => invoke("quant:set-close-to-tray", true)).toThrow();
   });
 });

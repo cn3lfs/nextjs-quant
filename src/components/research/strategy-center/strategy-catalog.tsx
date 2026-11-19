@@ -32,6 +32,17 @@ import {
   SelectItem,
 } from "../../ui/select";
 import type { CatalogQuery } from "./shared";
+import { Checkbox } from "../../ui/checkbox";
+import { StateBanner } from "../../panels";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "../../ui/table";
+import { formatNumber } from "trading-strategy-core/format-number";
 
 const states = {
   implemented: "规则已实现",
@@ -513,6 +524,7 @@ export function StrategyCatalogWorkspace({
           </section>
         )}
       </div>
+      <CrossRunComparison panelVisible={panelVisible} />
       {catalog.isLoading && <p role="status">正在读取策略目录…</p>}
       {catalog.data && !visible.length && (
         <div className="rounded-lg border border-dashed p-6">
@@ -529,5 +541,206 @@ export function StrategyCatalogWorkspace({
         </div>
       )}
     </>
+  );
+}
+
+const ratioPercent = (value: number | null | undefined) =>
+  value == null || !Number.isFinite(value)
+    ? "—"
+    : `${formatNumber(value * 100, 2)}%`;
+
+/** Split on either ASCII or full-width separators; duplicates never double-count. */
+function splitRunIds(value: string) {
+  return [
+    ...new Set(
+      value
+        .split(/[,，、\s]+/)
+        .map((part) => part.trim())
+        .filter(Boolean),
+    ),
+  ];
+}
+
+/**
+ * Compares any completed strategy-center or portfolio backtest tasks in one
+ * table. The task ids stay editable, and the confirmed ids only change when the
+ * user asks, so a running comparison never shifts under the reader.
+ */
+function CrossRunComparison({ panelVisible }: { panelVisible: boolean }) {
+  const history = api.strategyCenterHistory.useQuery(undefined, {
+    enabled: panelVisible,
+  });
+  const [text, setText] = useState("");
+  const [committed, setCommitted] = useState<string[]>([]);
+  const [message, setMessage] = useState("");
+  const selected = splitRunIds(text);
+  const completed = (history.data ?? []).filter(
+    (job) => job.status === "completed",
+  );
+  const toggle = (id: string, checked: boolean) => {
+    const next = checked
+      ? selected.includes(id)
+        ? selected
+        : [...selected, id]
+      : selected.filter((value) => value !== id);
+    setText(next.join(", "));
+    setMessage("");
+  };
+  return (
+    <section
+      aria-label="跨任务横向对比"
+      className="space-y-3 rounded border p-4"
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-medium">跨任务横向对比</h2>
+        <span className="text-xs text-muted-foreground">
+          选择 2 至 12 个已完成任务；策略中心与组合回测任务可一起比较
+        </span>
+      </div>
+      <label className="block text-sm">
+        任务ID（逗号或空格分隔）
+        <Input
+          aria-label="对比任务ID"
+          value={text}
+          onChange={(event) => {
+            setText(event.target.value);
+            setMessage("");
+          }}
+          placeholder="例如 job-20261119-a, job-20261119-b"
+        />
+      </label>
+      {completed.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs text-muted-foreground">
+            最近完成的策略中心任务，勾选加入对比：
+          </p>
+          {completed.map((job) => (
+            <label key={job.id} className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={selected.includes(job.id)}
+                onCheckedChange={(checked) => toggle(job.id, checked === true)}
+              />
+              <span className="break-all">
+                {job.symbol} · {job.strategyId} · {job.id}
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
+      {message && (
+        <p role="alert" className="text-sm">
+          {message}
+        </p>
+      )}
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          variant="outline"
+          onClick={() => {
+            if (selected.length < 2 || selected.length > 12) {
+              setMessage("请选择 2 至 12 个已完成任务后再对比。");
+              return;
+            }
+            setMessage("");
+            setCommitted(selected);
+          }}
+        >
+          对比所选（{selected.length}/12）
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          只读已有任务的冻结结果；修改选择不会改写已展示的对比。
+        </p>
+      </div>
+      {committed.length >= 2 && <CompareRunTable ids={committed} />}
+    </section>
+  );
+}
+
+function CompareRunTable({ ids }: { ids: readonly string[] }) {
+  const query = api.strategyLabCompareRuns.useQuery(
+    { ids: [...ids] },
+    { retry: false },
+  );
+  const rows = query.data ?? [];
+  const warnings = rows.flatMap((row) =>
+    row.basisWarnings.map((warning) => `${row.id}：${warning}`),
+  );
+  return (
+    <div className="space-y-3">
+      {query.isLoading && <p role="status">正在读取对比结果…</p>}
+      {query.error && (
+        <StateBanner state="error" title="对比结果读取失败">
+          {query.error.message}
+        </StateBanner>
+      )}
+      {warnings.length > 0 && (
+        <StateBanner
+          state="warn"
+          title="存在口径差异，不能直接混比"
+          asOf={`共 ${warnings.length} 项`}
+        >
+          <ul className="list-disc space-y-0.5 pl-4">
+            {warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </StateBanner>
+      )}
+      {rows.length > 0 && (
+        <div className="overflow-x-auto">
+          <Table className="w-full text-sm">
+            <TableHeader>
+              <TableRow>
+                <TableHead>任务 / 策略</TableHead>
+                <TableHead>区间</TableHead>
+                <TableHead className="text-right">标的数</TableHead>
+                <TableHead className="text-right">本金</TableHead>
+                <TableHead>成本情景</TableHead>
+                <TableHead className="text-right">累计收益</TableHead>
+                <TableHead className="text-right">年化收益</TableHead>
+                <TableHead className="text-right">最大回撤</TableHead>
+                <TableHead className="text-right">夏普</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((row) => (
+                <TableRow key={row.id}>
+                  <TableCell className="align-top">
+                    <span className="block break-all font-mono text-xs">
+                      {row.id}
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      {row.strategyId} v{row.strategyVersion ?? "—"} ·{" "}
+                      {row.kind === "lab-backtest" ? "组合回测" : "策略中心"}
+                    </span>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {row.start} 至 {row.end}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {row.symbolCount}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatNumber(row.initial, 0)}
+                  </TableCell>
+                  <TableCell>{row.costScenario ?? "未冻结"}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {ratioPercent(row.metrics.totalReturn.value)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {ratioPercent(row.metrics.annualReturn.value)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {ratioPercent(row.metrics.maxDrawdown.value)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatNumber(row.metrics.sharpe.value, 2)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
   );
 }

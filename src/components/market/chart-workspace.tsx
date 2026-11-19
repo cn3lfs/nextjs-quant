@@ -52,7 +52,9 @@ import { drawingPointCount } from "~/lib/chart/chart-drawings";
 import { IntradayChart } from "./intraday-chart";
 import { tradableSymbol } from "./tdx-side-panel";
 import { isTypingTarget } from "./chart-hotkeys";
-import type { ChartMode } from "~/lib/stores/market-session";
+import type { ChartMode, MarketSnapshot } from "~/lib/stores/market-session";
+import { useWorkbenchUiStore } from "~/lib/stores/workbench-ui-store";
+import { StateBanner } from "../panels";
 
 // TDX keeps 分时 or K 线 across symbol switches; the workspace remounts per
 // symbol/period. Ordinary A-share charts let the market session own the mode,
@@ -125,28 +127,34 @@ export function ChartWorkspace({
   if (view.error)
     return (
       <div role="alert">
-        视图读取失败：{view.error.message}{" "}
+        图表设置读取失败：{view.error.message}{" "}
         <Button variant="plain" onClick={() => void view.refetch()}>
           重试读取
         </Button>
       </div>
     );
-  if (!view.data) return <p>正在读取图表视图…</p>;
+  if (!view.data) return <p>正在读取图表设置…</p>;
   if (aggregate.error)
     return (
       <div role="alert">
-        聚合失败：{aggregate.error.message}{" "}
+        行情数据合成失败：{aggregate.error.message}{" "}
         <Button variant="plain" onClick={() => void aggregate.refetch()}>
-          重试聚合
+          重试合成
         </Button>
       </div>
     );
   if (!aggregate.data) return <p>正在读取目标周期行情…</p>;
+  // A formula archive is the recorded selection evidence, not ordinary market
+  // data; its adjusted close and plan raw price must be explained together.
+  const frozenCandidate =
+    snapshot.id.startsWith("snapshot-formula-") ||
+    (snapshot as MarketSnapshot).frozenCandidate === true;
   return (
     <EditableChart
       key={`${snapshot.symbol}:${period}:${adjustment}`}
       sourceId={snapshot.id}
       snapshot={aggregate.data}
+      frozenCandidate={frozenCandidate}
       onHistoryRequest={
         !aggregate.isFetching &&
         !aggregate.data.historyExhausted &&
@@ -199,6 +207,7 @@ function EditableChart({
   period,
   adjustment,
   frozenEvidence = false,
+  frozenCandidate = false,
   chartMode,
   onChartModeChange,
   initial,
@@ -217,6 +226,8 @@ function EditableChart({
   adjustment: ChartAdjustment;
   /** Frozen evidence: ignore the remembered live period next to the archive. */
   frozenEvidence?: boolean;
+  /** The loaded snapshot is a saved formula candidate (选股当时快照). */
+  frozenCandidate?: boolean;
   chartMode?: ChartMode;
   onChartModeChange?: (mode: ChartMode) => void;
   initial: ChartView;
@@ -235,6 +246,8 @@ function EditableChart({
     [label, setLabel] = useState("标注"),
     [message, setMessage] = useState("");
   const visible = useScreenVisible();
+  const zenMode = useWorkbenchUiStore((state) => state.zenMode);
+  const toggleZen = useWorkbenchUiStore((state) => state.toggleZen);
   const [dirty, setDirty] = useState(false);
   const [second, setSecondState] = useState<ChartPeriod | null>(() =>
     frozenEvidence || lastSecond === period ? null : lastSecond,
@@ -384,7 +397,7 @@ function EditableChart({
       const current = JSON.stringify(saved) === JSON.stringify(view);
       setDirty(!current);
       // Saving is automatic; only an out-of-date save is worth a line.
-      setMessage(current ? "" : "较早的视图已保存，当前仍有未保存更改");
+      setMessage(current ? "" : "较早的图表设置已保存，当前仍有未保存更改");
     },
   });
   const change = useCallback((next: ChartView) => {
@@ -461,6 +474,24 @@ function EditableChart({
     cost,
     adjustment,
   };
+  // The frozen candidate's last bar is the selection bar; the plan price comes
+  // from the archived raw bars of the same date, never from the adjusted close.
+  const lastBar = frozenCandidate ? snapshot.bars.at(-1) : undefined;
+  const rawBar = lastBar
+    ? snapshot.rawBars?.find((bar) => bar.date === lastBar.date)
+    : undefined;
+  const snapshotClose = lastBar?.close;
+  const executionRawPrice = rawBar?.close;
+  const rpsLatest =
+    frozenCandidate && rps?.length
+      ? rps.reduce(
+          (latest, row) => (row.date > latest ? row.date : latest),
+          rps[0]!.date,
+        )
+      : null;
+  const rpsLaterThanSnapshot = Boolean(
+    lastBar && rpsLatest && rpsLatest > lastBar.date,
+  );
   return (
     <div
       data-testid="chart-workspace"
@@ -477,6 +508,54 @@ function EditableChart({
         }
       }}
     >
+      {frozenCandidate && (
+        <div className="mb-2 space-y-2" data-testid="frozen-dual-price-lock">
+          <StateBanner
+            state="info"
+            title="选股当时快照"
+            asOf={`基准日 ${lastBar?.date ?? "不可用"} · ${periodLabels[period]} · ${chartAdjustmentLabels[adjustment]}`}
+          >
+            <span className="flex flex-wrap gap-x-5 gap-y-1">
+              <span>
+                选股快照末根价（{chartAdjustmentLabels[adjustment]}）：
+                <strong className="tabular text-nc-text">
+                  {snapshotClose === undefined
+                    ? "不可用"
+                    : formatNumber(snapshotClose, common.pricePrecision)}
+                </strong>
+              </span>
+              <span>
+                计划参考原价（不复权）：
+                <strong
+                  className={
+                    executionRawPrice === undefined
+                      ? "text-nc-warn"
+                      : "tabular text-nc-text"
+                  }
+                >
+                  {executionRawPrice === undefined
+                    ? "不可用"
+                    : formatNumber(executionRawPrice, common.pricePrecision)}
+                </strong>
+              </span>
+            </span>
+            {executionRawPrice === undefined && (
+              <span className="mt-1 block text-nc-warn">
+                快照未记录原价：不推算、不以复权价代替；建计划前请用原始行情核对。
+              </span>
+            )}
+          </StateBanner>
+          {rpsLaterThanSnapshot && (
+            <StateBanner
+              state="warn"
+              title="右侧 RPS 曲线为最新日期数据，晚于本次选股快照日"
+              asOf={`RPS ${rpsLatest} · 快照 ${lastBar?.date}`}
+            >
+              复核选股信号请以快照日为准。
+            </StateBanner>
+          )}
+        </div>
+      )}
       <div
         className="relative flex flex-wrap items-center gap-x-3 gap-y-2 py-1 text-sm"
         data-testid="chart-primary-controls"
@@ -634,11 +713,21 @@ function EditableChart({
             </PopoverContent>
           </Popover>
         )}
+        <Button
+          variant={zenMode ? "default" : "outline"}
+          size="sm"
+          className="ml-auto"
+          aria-pressed={zenMode}
+          title="Shift+F 隐藏侧栏，释放全宽看图空间"
+          onClick={toggleZen}
+        >
+          {zenMode ? "退出专注" : "专注看盘（Shift+F）"}
+        </Button>
       </div>
       {(save.error || message) && (
         <span role="status" className="block text-xs">
           {save.error
-            ? `视图自动保存失败：${save.error.message}，下次修改时重试`
+            ? `图表设置自动保存失败：${save.error.message}，下次修改时重试`
             : message}
         </span>
       )}

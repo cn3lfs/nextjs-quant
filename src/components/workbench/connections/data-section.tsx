@@ -8,6 +8,43 @@ import { Button } from "../../ui/button";
 import type { Settings } from "~/lib/domain";
 import { Field, stamp } from "../shared";
 import type { Coverage, FieldError, FieldProps } from "./shared";
+import { useEffect, useState } from "react";
+import { Switch } from "../../ui/switch";
+import { api } from "~/trpc/react";
+
+function CloseToTraySetting() {
+  const [desktop, setDesktop] = useState(false);
+  useEffect(() => setDesktop(Boolean(window.quantDesktop)), []);
+  const utils = api.useUtils();
+  const prefs = api.workspacePreferences.useQuery(undefined, {
+    refetchOnWindowFocus: "always",
+    refetchInterval: desktop ? 5000 : false,
+  });
+  const save = api.saveWorkspacePreferences.useMutation({
+    onSuccess: async (saved) => {
+      utils.workspacePreferences.setData(undefined, saved);
+      await window.quantDesktop?.setCloseToTray?.(saved.closeToTray);
+    },
+  });
+  return (
+    <div className="mt-4 space-y-1">
+      <label className="flex items-center gap-2">
+        <Switch
+          checked={prefs.data?.closeToTray ?? false}
+          disabled={!prefs.data || save.isPending}
+          onCheckedChange={(closeToTray) => save.mutate({ closeToTray })}
+        />
+        桌面端关闭窗口时最小化到托盘（保持后台扫描与提醒）
+      </label>
+      {!desktop && (
+        <p className="text-[13px] text-nc-text-3">仅在桌面应用生效</p>
+      )}
+      {(save.isError || prefs.isError) && (
+        <p role="alert">桌面设置同步失败，请重试。</p>
+      )}
+    </div>
+  );
+}
 
 export function DataSection({
   config,
@@ -103,6 +140,7 @@ export function DataSection({
           </Field>
           {fieldError("calendar")}
         </details>
+        <CloseToTraySetting />
       </Panel>
       <StatsPanel
         icon={Database}

@@ -39,6 +39,7 @@ import { api } from "~/trpc/react";
 import { useTaskVisible } from "./use-task-visible";
 import { useRouter } from "next/navigation";
 import { marketSelectionHref } from "~/lib/stores/market-session";
+import { useWorkbenchUiStore } from "~/lib/stores/workbench-ui-store";
 
 /** Direct 分时/日K/周K/月K choices; every other supported period stays in the
  *  行情周期 dropdown next to it. */
@@ -174,6 +175,8 @@ export function MarketView({
   } = state;
   const visible = useTaskVisible();
   const router = useRouter();
+  // 专注看盘 hides the candidate/watchlist rail and gives the chart full width.
+  const zenMode = useWorkbenchUiStore((state) => state.zenMode);
   // Frozen candidate evidence owns the chart until an ordinary read succeeds,
   // including while the ordinary route is pending or failed.
   const frozenEvidence = loaded?.frozenCandidate === true;
@@ -278,209 +281,219 @@ export function MarketView({
   return (
     <div
       className="nc-market-workspace"
-      style={embedded ? { gridTemplateColumns: "minmax(0,1fr)" } : undefined}
+      style={
+        embedded || zenMode
+          ? { gridTemplateColumns: "minmax(0,1fr)" }
+          : undefined
+      }
     >
-      <aside
-        className={
-          embedded
-            ? "nc-market-candidates static! max-h-none!"
-            : "nc-market-candidates"
-        }
-      >
-        <Button
-          variant="outline"
+      {!zenMode && (
+        <aside
           className={
             embedded
-              ? "nc-market-list-toggle inline-flex!"
-              : "nc-market-list-toggle"
+              ? "nc-market-candidates static! max-h-none!"
+              : "nc-market-candidates"
           }
-          aria-expanded={listsOpen}
-          aria-controls="market-candidate-lists"
-          onClick={() => setListsOpen((open) => !open)}
         >
-          自选与候选
-        </Button>
-        <div
-          id="market-candidate-lists"
-          className="nc-market-list-content space-y-3"
-          data-expanded={listsOpen}
-          style={embedded && !listsOpen ? { display: "none" } : undefined}
-        >
-          {activeBrowse && (
-            <Segmented
-              label="行情候选来源"
-              value={listSource}
-              onChange={setListSource}
-              options={[
-                { value: "candidates", label: "来源列表" },
-                { value: "watch", label: "我的自选" },
-              ]}
-            />
-          )}
-          <div hidden={!activeBrowse || listSource !== "candidates"}>
+          <Button
+            variant="outline"
+            className={
+              embedded
+                ? "nc-market-list-toggle inline-flex!"
+                : "nc-market-list-toggle"
+            }
+            aria-expanded={listsOpen}
+            aria-controls="market-candidate-lists"
+            onClick={() => setListsOpen((open) => !open)}
+          >
+            自选与候选
+          </Button>
+          <div
+            id="market-candidate-lists"
+            className="nc-market-list-content space-y-3"
+            data-expanded={listsOpen}
+            style={embedded && !listsOpen ? { display: "none" } : undefined}
+          >
             {activeBrowse && (
+              <Segmented
+                label="行情候选来源"
+                value={listSource}
+                onChange={setListSource}
+                options={[
+                  { value: "candidates", label: "来源列表" },
+                  { value: "watch", label: "我的自选" },
+                ]}
+              />
+            )}
+            <div hidden={!activeBrowse || listSource !== "candidates"}>
+              {activeBrowse && (
+                <Panel
+                  title={activeBrowse.label}
+                  meta={`${activeBrowse.index + 1} / ${activeBrowse.symbols.length} · PgUp/PgDn连续翻股`}
+                >
+                  <GridTable
+                    label="来源候选"
+                    rows={activeBrowse.symbols.slice(
+                      (displayedCandidatePage - 1) * 50,
+                      displayedCandidatePage * 50,
+                    )}
+                    rowKey={(value) => value}
+                    columns={[
+                      {
+                        key: "security",
+                        header: "证券",
+                        cell: (value) => (
+                          <Button
+                            variant="plain"
+                            className="w-full text-left"
+                            aria-current={symbol === value ? "true" : undefined}
+                            onClick={() => {
+                              const index = activeBrowse.symbols.indexOf(value);
+                              setBrowse({ ...activeBrowse, index });
+                              setBrowseEdge("");
+                              setSymbol(value);
+                              load.mutate({
+                                symbol: value,
+                                period,
+                                source: marketSource,
+                              });
+                            }}
+                          >
+                            <SecurityCell
+                              name={securityDisplayName(value, names)}
+                              code={value.toUpperCase()}
+                            />
+                          </Button>
+                        ),
+                      },
+                    ]}
+                    rowClassName={(value) =>
+                      symbol === value ? "bg-nc-accent-900" : undefined
+                    }
+                  />
+                  <nav
+                    aria-label="候选列表分页"
+                    className="mt-3 flex items-center justify-between gap-2"
+                  >
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={displayedCandidatePage === 1}
+                      onClick={() =>
+                        setCandidatePage(displayedCandidatePage - 1)
+                      }
+                    >
+                      上一页
+                    </Button>
+                    <span className="text-[13px]">
+                      {displayedCandidatePage}/{candidatePages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={displayedCandidatePage === candidatePages}
+                      onClick={() =>
+                        setCandidatePage(displayedCandidatePage + 1)
+                      }
+                    >
+                      下一页
+                    </Button>
+                  </nav>
+                </Panel>
+              )}
+            </div>
+            <div hidden={!!activeBrowse && listSource === "candidates"}>
               <Panel
-                title={activeBrowse.label}
-                meta={`${activeBrowse.index + 1} / ${activeBrowse.symbols.length} · PgUp/PgDn连续翻股`}
+                span={8}
+                icon={Star}
+                title="我的自选"
+                actions={
+                  <span className="muted">
+                    {savedWatchlist.data
+                      ? `${watchlist.length} 个标的`
+                      : "尚未读取"}
+                  </span>
+                }
               >
+                {savedWatchlist.error && (
+                  <p role="alert">
+                    自选列表未刷新：{savedWatchlist.error.message}{" "}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void savedWatchlist.refetch()}
+                    >
+                      重试自选列表
+                    </Button>
+                  </p>
+                )}
                 <GridTable
-                  label="来源候选"
-                  rows={activeBrowse.symbols.slice(
-                    (displayedCandidatePage - 1) * 50,
-                    displayedCandidatePage * 50,
-                  )}
-                  rowKey={(value) => value}
+                  label="我的自选"
+                  rows={watchlist}
+                  rowKey={(s) => s}
+                  empty={
+                    savedWatchlist.error
+                      ? "暂时无法读取自选列表"
+                      : !savedWatchlist.data
+                        ? "正在读取自选列表…"
+                        : "在上方加载证券后加入自选"
+                  }
                   columns={[
                     {
                       key: "security",
                       header: "证券",
-                      cell: (value) => (
+                      width: "3fr",
+                      cell: (s) => (
                         <Button
                           variant="plain"
-                          className="w-full text-left"
-                          aria-current={symbol === value ? "true" : undefined}
+                          className="flex items-center gap-[9px] text-left"
+                          disabled={holdFrozen}
                           onClick={() => {
-                            const index = activeBrowse.symbols.indexOf(value);
-                            setBrowse({ ...activeBrowse, index });
-                            setBrowseEdge("");
-                            setSymbol(value);
+                            setSymbol(s);
                             load.mutate({
-                              symbol: value,
+                              symbol: s,
                               period,
                               source: marketSource,
                             });
                           }}
                         >
+                          <span className="stock-avatar">
+                            {s.slice(0, 2).toUpperCase()}
+                          </span>
                           <SecurityCell
-                            name={securityDisplayName(value, names)}
-                            code={value.toUpperCase()}
+                            name={securityDisplayName(s, names)}
+                            code={s.toUpperCase()}
                           />
+                          <ArrowUpRight size={14} className="text-nc-text-4" />
+                        </Button>
+                      ),
+                    },
+                    {
+                      key: "actions",
+                      header: "",
+                      width: "1fr",
+                      align: "right",
+                      cell: (s) => (
+                        <Button
+                          variant="plain"
+                          className="icon-button"
+                          aria-label={`移除 ${s}`}
+                          disabled={watchUnavailable}
+                          onClick={() =>
+                            watch.mutate(watchlist.filter((v) => v !== s))
+                          }
+                        >
+                          <X size={13} />
                         </Button>
                       ),
                     },
                   ]}
-                  rowClassName={(value) =>
-                    symbol === value ? "bg-nc-accent-900" : undefined
-                  }
                 />
-                <nav
-                  aria-label="候选列表分页"
-                  className="mt-3 flex items-center justify-between gap-2"
-                >
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={displayedCandidatePage === 1}
-                    onClick={() => setCandidatePage(displayedCandidatePage - 1)}
-                  >
-                    上一页
-                  </Button>
-                  <span className="text-[13px]">
-                    {displayedCandidatePage}/{candidatePages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={displayedCandidatePage === candidatePages}
-                    onClick={() => setCandidatePage(displayedCandidatePage + 1)}
-                  >
-                    下一页
-                  </Button>
-                </nav>
               </Panel>
-            )}
+            </div>
           </div>
-          <div hidden={!!activeBrowse && listSource === "candidates"}>
-            <Panel
-              span={8}
-              icon={Star}
-              title="我的自选"
-              actions={
-                <span className="muted">
-                  {savedWatchlist.data
-                    ? `${watchlist.length} 个标的`
-                    : "尚未读取"}
-                </span>
-              }
-            >
-              {savedWatchlist.error && (
-                <p role="alert">
-                  自选列表未刷新：{savedWatchlist.error.message}{" "}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void savedWatchlist.refetch()}
-                  >
-                    重试自选列表
-                  </Button>
-                </p>
-              )}
-              <GridTable
-                label="我的自选"
-                rows={watchlist}
-                rowKey={(s) => s}
-                empty={
-                  savedWatchlist.error
-                    ? "暂时无法读取自选列表"
-                    : !savedWatchlist.data
-                      ? "正在读取自选列表…"
-                      : "在上方加载证券后加入自选"
-                }
-                columns={[
-                  {
-                    key: "security",
-                    header: "证券",
-                    width: "3fr",
-                    cell: (s) => (
-                      <Button
-                        variant="plain"
-                        className="flex items-center gap-[9px] text-left"
-                        disabled={holdFrozen}
-                        onClick={() => {
-                          setSymbol(s);
-                          load.mutate({
-                            symbol: s,
-                            period,
-                            source: marketSource,
-                          });
-                        }}
-                      >
-                        <span className="stock-avatar">
-                          {s.slice(0, 2).toUpperCase()}
-                        </span>
-                        <SecurityCell
-                          name={securityDisplayName(s, names)}
-                          code={s.toUpperCase()}
-                        />
-                        <ArrowUpRight size={14} className="text-nc-text-4" />
-                      </Button>
-                    ),
-                  },
-                  {
-                    key: "actions",
-                    header: "",
-                    width: "1fr",
-                    align: "right",
-                    cell: (s) => (
-                      <Button
-                        variant="plain"
-                        className="icon-button"
-                        aria-label={`移除 ${s}`}
-                        disabled={watchUnavailable}
-                        onClick={() =>
-                          watch.mutate(watchlist.filter((v) => v !== s))
-                        }
-                      >
-                        <X size={13} />
-                      </Button>
-                    ),
-                  },
-                ]}
-              />
-            </Panel>
-          </div>
-        </div>
-      </aside>
+        </aside>
+      )}
       <div className="min-w-0 space-y-4">
         <section className="panel chart-panel nc-span-12">
           <div className="panel-toolbar">
@@ -585,6 +598,9 @@ export function MarketView({
               className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-nc-border px-4 py-2 text-xs text-nc-text-3"
             >
               <span className="text-nc-text-2">冻结候选证据</span>
+              <span className="text-nc-text-4">
+                选股当时快照 · 按快照口径显示，不随普通行情更新
+              </span>
               <span>
                 {securityDisplayName(loaded.symbol, names, loaded.name)} ·{" "}
                 {loaded.symbol.toUpperCase()}
@@ -711,7 +727,7 @@ export function MarketView({
           )}
           <div className="source-line">
             {loaded
-              ? `数据源 ${loaded.source} · 快照于 ${new Date(loaded.createdAt).toLocaleString("zh-CN", { hour12: false })} · 历史导入与回测不会发送通知`
+              ? `数据源 ${marketSourceLabel(loaded.source)} · 快照于 ${new Date(loaded.createdAt).toLocaleString("zh-CN", { hour12: false })} · 历史导入与回测不会发送通知`
               : "历史导入与回测不会发送通知"}
             {(isMarketIndex(chartSymbol) || isSectorChartSymbol(chartSymbol)) &&
               " · 指数行情 · 价格单位：点"}

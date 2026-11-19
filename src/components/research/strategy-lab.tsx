@@ -25,7 +25,15 @@ import { PaperForwardStatus } from "../portfolio/paper-forward-status";
 import { usePanelVisible } from "../workbench/keep-alive";
 import { PaperShadowPrompt } from "./paper-shadow-prompt";
 import { useScreenVisible } from "../workbench/use-task-visible";
-import { labDetailStatus, labPauseSuggestion } from "./lab-review";
+import { labPauseSuggestion } from "./lab-review";
+import { alertModeLabel } from "~/lib/common/ui-glossary";
+import {
+  CheckCircle,
+  CircleDashed,
+  CircleNotch,
+  ShieldCheck,
+  Warning,
+} from "@phosphor-icons/react/ssr";
 
 const pct = (v: number | null | undefined) =>
   formatPercent(v == null ? null : v * 100);
@@ -285,9 +293,21 @@ function LabDetail({ id, version }: { id: string; version: number }) {
         {d.row?.rule ?? id} · v{version}
       </h1>
       <p>
-        {labDetailStatus(d.eligible, !!d.promotion, !!d.shadow?.active)} ·{" "}
-        {d.live ? "策略live已开启" : "策略提醒未开启"}
+        {d.eligible && d.promotion
+          ? "已晋级观察"
+          : d.shadow?.active
+            ? "观察前推中"
+            : "研究中"}{" "}
+        · 正式提醒：{d.live ? "已开启" : "未开启"}
       </p>
+      <LifecyclePipeline
+        detail={d}
+        onLiveAction={() => {
+          change.reset();
+          setAction("live");
+          setRiskAccepted(false);
+        }}
+      />
       {d.strategy ? (
         <details open>
           <summary>规则与参数</summary>
@@ -336,15 +356,15 @@ function LabDetail({ id, version }: { id: string; version: number }) {
           。纸面账户中已冻结的期望另列于账户详情。
         </p>
       )}
-      <h2 className="text-lg font-semibold">影子与纸面前推</h2>
+      <h2 className="text-lg font-semibold">观察前推与模拟盘前推</h2>
       <p>
-        影子样本 {d.forward?.signals ?? 0} 信号 / {d.forward?.days ?? 0}{" "}
+        观察样本 {d.forward?.signals ?? 0} 信号 / {d.forward?.days ?? 0}{" "}
         实际观察市场日；
         {d.forward?.assessment?.recommendation ??
           "缺少同版本冻结分布或前推样本；继续观察"}
       </p>
       <p className="text-sm text-nc-text-3">
-        纸面撮合一致性使用模型滑点；真实执行尚未验证。
+        模拟盘撮合一致性按模型滑点估算；真实执行尚未验证。
       </p>
       {review.error && (
         <p role="status">
@@ -361,7 +381,7 @@ function LabDetail({ id, version }: { id: string; version: number }) {
         >
           <p>{pauseSuggestion.suggestion.reason}</p>
           <p className="text-sm text-nc-text-3">
-            同策略同版本的账户复盘建议；仅供人工核对，暂停后保留影子时钟与历史证据。
+            同策略同版本的账户复盘建议；仅供人工核对，暂停后保留观察时钟与历史证据。
           </p>
           {pauseSuggestion.current ? (
             <Button
@@ -395,7 +415,7 @@ function LabDetail({ id, version }: { id: string; version: number }) {
       ))}
       <div className="flex flex-wrap gap-3 text-sm">
         <Link href="/accounts?tab=paper" className="underline">
-          纸面账户与期望对照
+          模拟盘账户与期望对照
         </Link>
         <Link
           href={`/accounts/alerts?strategy=${encodeURIComponent(id)}`}
@@ -457,8 +477,8 @@ function LabDetail({ id, version }: { id: string; version: number }) {
             </label>
           )}
           <p>
-            影子 {d.forward?.signals ?? 0} 信号 / {d.forward?.days ?? 0}{" "}
-            日。策略live仍受全局模式、启用订阅和渠道约束，不产生真实委托。
+            观察前推 {d.forward?.signals ?? 0} 信号 / {d.forward?.days ?? 0}{" "}
+            日。策略的正式提醒仍受全局模式、启用订阅和渠道约束，不产生真实委托。
           </p>
           <Button
             disabled={
@@ -489,6 +509,184 @@ function LabDetail({ id, version }: { id: string; version: number }) {
     </section>
   );
 }
+/** Straight Chinese names for the six server lifecycle gates. */
+const lifecycleStageNames: Record<string, string> = {
+  definition: "定义冻结",
+  backtest: "回测证据",
+  comparison: "同口径对比",
+  paper: "模拟前推",
+  shadow: "观察前推",
+  promotion: "晋级观察",
+};
+const lifecycleStatus = {
+  passed: { label: "已完成", icon: CheckCircle, tone: "text-nc-ok" },
+  current: { label: "进行中", icon: CircleNotch, tone: "text-nc-accent" },
+  blocked: { label: "已阻断", icon: Warning, tone: "text-nc-warn" },
+  pending: { label: "未开始", icon: CircleDashed, tone: "text-nc-text-4" },
+} as const;
+
+function LifecyclePipeline({
+  detail,
+  onLiveAction,
+}: {
+  detail: RouterOutputs["strategyLabDetail"];
+  onLiveAction: () => void;
+}) {
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const blocker = detail.primaryBlocker;
+  const openGate = detail.lifecycleGates.find((gate) => gate.key === expanded);
+  return (
+    <section
+      aria-label="晋级流水线"
+      className="space-y-3 rounded-lg border border-nc-border-soft bg-nc-card p-4"
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-lg font-semibold">六阶段晋级流水线</h2>
+        <span className="text-sub text-nc-text-3">
+          各阶段依次进行；正式提醒开关独立于阶段之外
+        </span>
+      </div>
+      <ol className="grid gap-2 md:grid-cols-3 xl:grid-cols-6">
+        {detail.lifecycleGates.map((gate, index) => {
+          const stageName = lifecycleStageNames[gate.key] ?? gate.label;
+          const status = lifecycleStatus[gate.status];
+          const Icon = status.icon;
+          const open = expanded === gate.key;
+          return (
+            <li key={gate.key}>
+              <Button
+                variant="plain"
+                type="button"
+                aria-expanded={open}
+                onClick={() => setExpanded(open ? null : gate.key)}
+                className={`flex w-full flex-col items-start gap-1 whitespace-normal rounded-lg border p-2.5 text-left transition-colors ${
+                  open
+                    ? "border-nc-accent bg-nc-accent-900"
+                    : "border-nc-border-soft hover:border-nc-accent-800"
+                }`}
+              >
+                <span className="flex items-center gap-1.5">
+                  <Icon
+                    size={16}
+                    aria-hidden="true"
+                    className={`flex-none ${status.tone} ${
+                      gate.status === "current"
+                        ? "motion-reduce:animate-none animate-spin"
+                        : ""
+                    }`}
+                  />
+                  <span className="text-[11px] text-nc-text-4">
+                    第 {index + 1} 阶段
+                  </span>
+                </span>
+                <strong className="text-sm font-semibold text-nc-text">
+                  {stageName}
+                </strong>
+                <span className="text-sub text-nc-text-3">
+                  {status.label} · {gate.summary}
+                </span>
+              </Button>
+            </li>
+          );
+        })}
+      </ol>
+      {openGate && (
+        <div
+          aria-label={`${lifecycleStageNames[openGate.key] ?? openGate.label}证据`}
+          className="rounded-lg border border-nc-border-soft p-3"
+        >
+          <p className="text-sub font-medium text-nc-text">
+            {lifecycleStageNames[openGate.key] ?? openGate.label} · 证据明细
+          </p>
+          <p className="mt-1 text-sub text-nc-text-3">{openGate.summary}</p>
+          {openGate.evidence.length ? (
+            <ul className="mt-2 space-y-1">
+              {openGate.evidence.map((item) => (
+                <li key={item} className="break-all font-mono text-sub">
+                  {item}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-sub text-nc-text-4">
+              尚未留下该阶段证据；补齐后重新读取本页即可核对。
+            </p>
+          )}
+        </div>
+      )}
+      <div className="grid gap-3 lg:grid-cols-2">
+        <div
+          aria-label="当前主阻断原因"
+          className={`rounded-lg border p-3 ${
+            blocker ? "border-nc-warn-edge" : "border-nc-ok-edge"
+          }`}
+        >
+          <p className="text-sub text-nc-text-3">当前主阻断原因</p>
+          {blocker ? (
+            <>
+              <p className="mt-1 font-semibold text-nc-warn">
+                卡在第 {blocker.stage} 阶段 ·{" "}
+                {lifecycleStageNames[blocker.key] ?? blocker.key}
+              </p>
+              <p className="mt-1 text-sub text-nc-text-2">{blocker.reason}</p>
+              <p className="mt-1 text-sub text-nc-text-3">
+                下一步：先补齐第 {blocker.stage}{" "}
+                阶段证据；点击上方对应节点可展开明细，完成后刷新本页。
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="mt-1 font-semibold text-nc-ok">已满足晋级门槛</p>
+              <p className="mt-1 text-sub text-nc-text-3">
+                六个阶段均通过；仍需人工确认晋级与正式提醒开关。
+              </p>
+            </>
+          )}
+        </div>
+        <div
+          aria-label="正式提醒开关"
+          className="rounded-lg border border-nc-border-soft p-3"
+        >
+          <p className="flex items-center gap-1.5 text-sub font-medium text-nc-text">
+            <ShieldCheck
+              size={16}
+              aria-hidden="true"
+              className="flex-none text-nc-accent"
+            />
+            正式提醒开关（人工授权）
+          </p>
+          <p
+            className={`mt-1 font-semibold ${
+              detail.liveSwitch.enabled ? "text-nc-ok" : "text-nc-text-2"
+            }`}
+          >
+            {detail.liveSwitch.enabled ? "已人工开启" : "未开启"}
+          </p>
+          <p className="mt-1 text-sub text-nc-text-3">
+            {detail.liveSwitch.enabled
+              ? "此版本的正式提醒已开启；仍受全局提醒模式、启用订阅和渠道约束。"
+              : "此版本的正式提醒未开启，不会自动推送。"}
+          </p>
+          <p className="mt-1 text-sub text-nc-warn">
+            晋级通过不等于自动推送，正式提醒需人工确认开启。
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2"
+            disabled={!detail.strategy}
+            onClick={onLiveAction}
+          >
+            {detail.liveSwitch.enabled
+              ? "人工核对提醒开关"
+              : "人工开启正式提醒"}
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function GateStatus({
   detail: d,
 }: {
@@ -550,10 +748,12 @@ function AlertModeControl() {
   });
   return (
     <section aria-label="全局提醒模式" className="space-y-2 rounded border p-3">
-      <h2>全局提醒模式：{status.data?.mode ?? "读取中"}</h2>
+      <h2>
+        全局提醒模式：
+        {status.data ? alertModeLabel(status.data.mode) : "读取中"}
+      </h2>
       <p className="text-sm">
-        开启 live
-        前须先在策略详情核对门槛和前推样本、手动晋级及开启该策略。订阅与渠道在系统配置。
+        开启正式提醒前，须先在策略详情核对门槛与前推样本、手动晋级并开启该策略。订阅与渠道在系统配置。
       </p>
       <div className="flex flex-wrap gap-2">
         {(["off", "shadow", "live"] as const).map((mode) => (
@@ -567,9 +767,9 @@ function AlertModeControl() {
             disabled={!status.data || setMode.isPending}
           >
             {mode === "live"
-              ? "开启全局 live"
+              ? "开启全局正式提醒"
               : mode === "shadow"
-                ? "切换全局影子"
+                ? "切换全局观察模式"
                 : "关闭全局提醒"}
           </Button>
         ))}

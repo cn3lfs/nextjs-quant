@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
-import { api } from "~/trpc/react";
+import { useState } from "react";
+import { api, type RouterOutputs } from "~/trpc/react";
 import {
   accountKindLabels,
   industryGroupsFor,
@@ -13,7 +14,15 @@ import {
   type HoldingsFilters,
 } from "~/lib/portfolio/account-holdings-url";
 import { formatNumber } from "trading-strategy-core/format-number";
-import { Segmented } from "../../panels";
+import { MetricStrip, Segmented, StateBanner } from "../../panels";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "../../ui/table";
 import { Input } from "../../ui/input";
 import { DataTable, type DataTableColumn } from "../../ui/data-table";
 import { CryptoRiskNotes } from "../crypto-risk-notes";
@@ -56,6 +65,212 @@ export function HoldingsExplorer({
       <CryptoRiskNotes />
       <UnifiedPositions search={search} filters={filters} update={update} />
     </>
+  );
+}
+
+const exposureDimensionLabels: Record<string, string> = {
+  market: "市场",
+  sleeve: "策略分仓",
+  industry: "行业",
+};
+
+const reconciliationModes = {
+  "upper-bound": "含重叠上限",
+  "delivery-first": "券商优先预览",
+  "local-first": "手工优先预览",
+} as const;
+type ReconciliationMode = keyof typeof reconciliationModes;
+
+const known = (value: number | null | undefined) =>
+  value == null || !Number.isFinite(value) ? "—" : formatNumber(value);
+
+const rangeText = (
+  lower: number | null | undefined,
+  upper: number | null | undefined,
+) =>
+  lower == null || upper == null
+    ? "—"
+    : `[${formatNumber(lower)}, ${formatNumber(upper)}]`;
+
+/**
+ * Two real ledgers can describe the same fill. This read-only block shows the
+ * gross total, the deduplicated interval and the per-symbol overlap instead of
+ * guessing which ledger wins; switching the view never edits either ledger.
+ */
+function HoldingsReconciliation({
+  reconciliation,
+}: {
+  reconciliation: NonNullable<
+    RouterOutputs["accountPositions"]["reconciliation"]
+  >;
+}) {
+  const preferences = api.workspacePreferences.useQuery();
+  const save = api.saveWorkspacePreferences.useMutation({
+    onSuccess: () => void preferences.refetch(),
+  });
+  const [showOverlaps, setShowOverlaps] = useState(false);
+  const mode: ReconciliationMode =
+    preferences.data?.holdingsReconciliation ?? "upper-bound";
+  const overlaps = reconciliation.overlapSymbols;
+  return (
+    <section
+      aria-label="双账重叠核对"
+      className="space-y-3 rounded-lg border border-nc-border-soft p-3"
+    >
+      {overlaps.length > 0 && (
+        <StateBanner
+          state="warn"
+          title={`检测到 ${overlaps.length} 只标的同时存在于券商交割单与手工记账，合计可能重复`}
+          action={{
+            label: showOverlaps ? "收起重叠明细" : "展开重叠明细",
+            onClick: () => setShowOverlaps((value) => !value),
+          }}
+        >
+          区间下限取两账较大者，上限为两账相加；不自动去重，也不修改原始账本。
+        </StateBanner>
+      )}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">分币种汇总与重叠区间</h3>
+        <Segmented
+          label="汇总视角"
+          value={mode}
+          options={(
+            Object.keys(reconciliationModes) as ReconciliationMode[]
+          ).map((key) => ({ value: key, label: reconciliationModes[key] }))}
+          onChange={(value) => {
+            save.reset();
+            save.mutate({ holdingsReconciliation: value });
+          }}
+        />
+      </div>
+      <p className="text-sub text-nc-text-3">
+        仅切换预览口径，不修改原始账本。人民币与 USDT
+        分币种核对，绝不相加；缺失价格显示为「—」。
+      </p>
+      {preferences.error && (
+        <p role="alert" className="text-sm">
+          汇总视角偏好读取失败：{preferences.error.message}
+          。当前按含重叠上限显示。
+        </p>
+      )}
+      {save.error && (
+        <p role="alert" className="text-sm">
+          汇总视角未保存：{save.error.message}
+          。当前页仍按上次口径显示，原始账本未变化。
+        </p>
+      )}
+      {reconciliation.summaryByCurrency.map((summary) => {
+        const previewValue =
+          mode === "delivery-first"
+            ? summary.deliveryTotal
+            : mode === "local-first"
+              ? summary.localTotal
+              : summary.grossTotal;
+        const previewLabel =
+          mode === "delivery-first"
+            ? "券商账本合计（预览）"
+            : mode === "local-first"
+              ? "手工账本合计（预览）"
+              : "毛合计（保守上限）";
+        return (
+          <div key={summary.currency} className="space-y-2">
+            <p className="text-sub text-nc-text-3">
+              {summary.currency} · 重叠 {summary.overlapCount} 只
+            </p>
+            <MetricStrip
+              items={[
+                {
+                  id: `${summary.currency}-preview`,
+                  label: previewLabel,
+                  value: previewValue,
+                  unit: summary.currency,
+                  size: "compact",
+                  note:
+                    mode === "upper-bound"
+                      ? "券商 + 手工，含重复部分"
+                      : "仅预览口径，不改账本",
+                },
+                {
+                  id: `${summary.currency}-range`,
+                  label: "去重区间 [下限, 上限]",
+                  value: rangeText(
+                    summary.deduplicatedLowerBound,
+                    summary.grossTotal,
+                  ),
+                  size: "compact",
+                  note: "下限=两账取大；上限=两账相加",
+                },
+                {
+                  id: `${summary.currency}-delivery`,
+                  label: "券商交割单",
+                  value: summary.deliveryTotal,
+                  unit: summary.currency,
+                  size: "compact",
+                },
+                {
+                  id: `${summary.currency}-local`,
+                  label: "手工账本",
+                  value: summary.localTotal,
+                  unit: summary.currency,
+                  size: "compact",
+                },
+              ]}
+            />
+          </div>
+        );
+      })}
+      <p className="text-sub text-nc-text-3">
+        行业 30% 限额按保守上限核对（当前口径：
+        {reconciliation.industryLimitBasis === "upper-bound"
+          ? "含重叠上限"
+          : reconciliation.industryLimitBasis}
+        ）。若两账记录的是同一持仓，按上限可能显示超限，实际未必超限。
+      </p>
+      {showOverlaps && overlaps.length > 0 && (
+        <div className="overflow-x-auto">
+          <Table className="w-full text-sm">
+            <TableHeader>
+              <TableRow>
+                <TableHead>标的</TableHead>
+                <TableHead>市场 / 币种</TableHead>
+                <TableHead className="text-right">券商市值</TableHead>
+                <TableHead className="text-right">手工市值</TableHead>
+                <TableHead className="text-right">毛合计</TableHead>
+                <TableHead className="text-right">去重区间</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {overlaps.map((row) => (
+                <TableRow key={`${row.market}:${row.symbol}:${row.currency}`}>
+                  <TableCell className="border-l-2 border-nc-warn pl-2">
+                    <span className="block">{row.name ?? row.symbol}</span>
+                    <span className="block font-mono text-xs text-nc-text-3">
+                      {row.symbol}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {row.market === "cn-equity" ? "A股" : "数字货币"} /{" "}
+                    {row.currency}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {known(row.deliveryValue)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {known(row.localValue)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {known(row.grossTotal)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {rangeText(row.lowerBound, row.upperBound)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -167,7 +382,8 @@ function UnifiedPositions({
         )}
       </h2>
       <p className="text-sm text-nc-text-3">
-        默认仅真实账户；纸面、模拟交易所分别标记。CNY/USDT不换算相加。手工与导入账本为独立事实，请勿重复登记同一成交。
+        默认只看真实账户；模拟盘与模拟交易所单独标记。人民币与 USDT
+        分币种显示、绝不相加。券商交割单与手工账本是两本独立账本，同一笔成交可能两边都有；页面给出重叠区间，不会自动删除或合并。
       </p>
       <p className="text-sm text-nc-text-3">
         按已读取的价格与记录的止损比较。缺少有效价格或止损的持仓显示为「待核对」。
@@ -241,6 +457,9 @@ function UnifiedPositions({
           className="max-w-56"
         />
       </div>
+      {kind === "real" && query.data?.reconciliation && (
+        <HoldingsReconciliation reconciliation={query.data.reconciliation} />
+      )}
       <div className="grid gap-3 lg:grid-cols-2">
         {query.data?.totals.map((t) => (
           <p key={t.currency} className="rounded border p-3">
@@ -253,7 +472,8 @@ function UnifiedPositions({
         <p>行业组可重叠，各组独立校验；行业市值不相加为账户总额。</p>
         {query.data?.exposure.map((e) => (
           <p key={`${e.dimension}:${e.key}`}>
-            {e.dimension} / {e.key}：{formatNumber(e.value)}
+            {exposureDimensionLabels[e.dimension] ?? e.dimension} / {e.key}：
+            {formatNumber(e.value)}
           </p>
         ))}
       </div>

@@ -1,6 +1,7 @@
 "use client";
 import { capabilityAllows } from "~/lib/common/capabilities";
 import { AlertStatus } from "./alert-status";
+import { AlertPipelinePanel } from "./alert-pipeline-panel";
 import { CapabilityNotice } from "../common/capability-notice";
 import { useEffect, useRef, useState } from "react";
 import { keepPreviousData } from "@tanstack/react-query";
@@ -583,6 +584,7 @@ export function MonitorWorkspace({
       <div className="nc-span-12">
         <AlertStatus />
       </div>
+      <AlertPipelinePanel />
       <CapabilityNotice id="signalMonitor" />
       <Panel
         title="策略监控与通知"
