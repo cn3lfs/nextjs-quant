@@ -49,6 +49,8 @@ const localReads = new Set([
   "limitHistory",
   // Local TDX SC31 market breadth; reads no network.
   "marketBreadth",
+  // Local TDX SC38 ETF net subscriptions plus same-day index; reads no network.
+  "etfNetSubscriptions",
   "screenTaskProgress",
   "holdoutSettings",
   "savedSnapshot",

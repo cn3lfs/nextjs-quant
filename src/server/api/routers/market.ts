@@ -49,6 +49,7 @@ import { KLINE, PAGE_LIMIT, QUOTES_BATCH_LIMIT } from "tstdx/wire";
 import { limitSentiment } from "../../market/limit-sentiment";
 import { limitHistory } from "../../market/limit-history";
 import { marketBreadth } from "../../market/market-breadth";
+import { etfNetSubscriptions } from "../../market/etf-net-subscriptions";
 import { stockEvents } from "../../research/stock-events";
 import { capitalProfile } from "../../market/capital-profile";
 import { macroRates } from "../../data-sources/macro/macro-rates";
@@ -245,6 +246,10 @@ export const marketRouter = createTRPCRouter({
   /** 通达信本地 SC31 市场涨跌家数；只读本地文件，按北京时间自然日截止。 */
   marketBreadth: p("market", "read").query(() =>
     marketBreadth(settings().tdxRoot),
+  ),
+  /** 通达信本地 SC38 全市场 ETF 日度净申赎；只读本地文件，指数同日可选。 */
+  etfNetSubscriptions: p("market", "read").query(() =>
+    etfNetSubscriptions(settings().tdxRoot),
   ),
   stockEvents: p("market", "read")
     .input(symbolSchema)

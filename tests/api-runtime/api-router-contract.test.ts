@@ -252,6 +252,7 @@ const expectedProcedures = {
   limitSentiment: "query",
   limitHistory: "query",
   marketBreadth: "query",
+  etfNetSubscriptions: "query",
   stockEvents: "query",
   capitalProfile: "query",
   macroRates: "query",

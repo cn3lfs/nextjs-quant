@@ -43,6 +43,7 @@ import {
 import { Button } from "../ui/button";
 import { AlertStatus } from "../signals/alert-status";
 import { useTaskVisible } from "../workbench/use-task-visible";
+import { EtfNetSubscriptions } from "./etf-net-subscriptions";
 import { MarketBreadth } from "./market-breadth";
 import {
   MarketPulse,
@@ -550,6 +551,7 @@ export function TodayOverview() {
       </PageGrid>
       <MarketBreadth />
       <MarketPulse bySymbol={quotes.bySymbol} error={quotes.error} />
+      <EtfNetSubscriptions />
       <details className="rounded-lg border border-nc-border bg-nc-card p-4">
         <summary className="cursor-pointer text-sm font-medium">
           数据与调度状态 · 展开查看各自时点
