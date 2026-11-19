@@ -67,6 +67,14 @@ export async function calculationIdentity(market: "cn-equity" | "crypto") {
       if (/\.(ts|json)$/.test(name))
         files.push(join(root, name).replaceAll("\\", "/"));
   }
+  const replayRoot = "src/server/research/validation-replay";
+  for (const entry of await readdir(replayRoot, {
+    recursive: true,
+    withFileTypes: true,
+  })) {
+    if (entry.isFile() && entry.name.endsWith(".ts"))
+      files.push(join(entry.parentPath, entry.name).replaceAll("\\", "/"));
+  }
   if (config.batch === "R2a-5") {
     files.push(process.env.QUANT_RESEARCH_CONFIG!);
     if (market === "crypto") files.push("src/server/research/crypto-sizing.ts");

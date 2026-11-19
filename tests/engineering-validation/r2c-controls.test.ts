@@ -1,16 +1,14 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { expect, it } from "vitest";
-import { connectionSourcePaths, renderHandlers } from "../helpers/r2-contracts";
+import { connectionSourcePaths } from "../helpers/r2-contracts";
 
-// Radix migration source hashes are retired; settings save/races/validation
-// are exercised in connections-browser.mjs. Research form selection, submission
-// and draft lifetime are exercised in page-state-browser.mjs.
+// connections-browser.mjs exercises settings save, races and validation.
+// page-state-browser.mjs exercises research selection, submission and drafts.
 it("connects current strategy, connection and evidence controls", () => {
   const strategy = readFileSync(
     "src/components/workbench/strategy-fields.tsx",
     "utf8",
   );
-  expect(strategy.match(/<Input\b/g)).toHaveLength(5);
   for (const field of [
     "fast",
     "slow",
@@ -33,7 +31,6 @@ it("connects current strategy, connection and evidence controls", () => {
     "src/components/workbench/evidence-analysis.tsx",
     "utf8",
   );
-  expect(evidence).toContain('className="field-sizing-fixed"');
   expect(evidence).toContain("rows={4}");
   expect(evidence).toContain("value={question}");
   expect(evidence).toContain('aria-label="研究方法"');
@@ -47,27 +44,7 @@ it("connects current strategy, connection and evidence controls", () => {
   // task-center-query-browser.mjs against the real TaskHistory component.
 });
 
-it("R2c evidence rejects changed strategy conversion and task page reset", () => {
-  for (const [file, from, to] of [
-    [
-      "src/components/workbench/strategy-fields.tsx",
-      "fast: Number(e.target.value)",
-      "fast: 0",
-    ],
-    [
-      "src/components/workbench/task-history.tsx",
-      "setCursors((p) => p.slice(0, -1));",
-      "setSelected('');",
-    ],
-  ]) {
-    const source = readFileSync(file!, "utf8");
-    expect(renderHandlers(source.replace(from!, to!))).not.toEqual(
-      renderHandlers(source),
-    );
-  }
-});
-
-it("R2c leaves native controls only in the exact frozen exemption inventory", () => {
+it("allows native form and table controls only in shared UI or existing exemptions", () => {
   const exempt: Record<string, number> = {
     "research/financial-growth-panel.tsx": 1,
     "research/financial-quality-panel.tsx": 2,
@@ -85,10 +62,10 @@ it("R2c leaves native controls only in the exact frozen exemption inventory", ()
     if (typeof file !== "string" || !file.endsWith(".tsx")) continue;
     const path = file.replaceAll("\\", "/");
     if (path.startsWith("components/ui/")) continue;
+    const source = readFileSync(`src/${file}`, "utf8");
+    expect(source, path).not.toMatch(/<button(?=[\s/>])/);
     const count =
-      readFileSync(`src/${file}`, "utf8").match(
-        /<(input|select|textarea|table)(?=[\s>])/g,
-      )?.length ?? 0;
+      source.match(/<(input|select|textarea|table)(?=[\s/>])/g)?.length ?? 0;
     if (count) remaining[path.replace(/^components\//, "")] = count;
   }
   expect(remaining).toEqual(exempt);

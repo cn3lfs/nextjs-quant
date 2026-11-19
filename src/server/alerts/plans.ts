@@ -511,7 +511,9 @@ export function previewAlertPlan(
             bookSizing: {
               ...policy.bookSizing,
               actualHeldQuantity: held.reduce((n, p) => n + p.quantity, 0),
-              actualHeldValue: held.reduce((n, p) => n + (p.value ?? 0), 0),
+              // The required numeric audit field sums only verified valuations.
+              // The market-wide guard above rejects null before sizing. An empty holding sums to zero.
+              actualHeldValue: held.reduce((n, p) => n + p.value!, 0),
             },
           }
         : {}),

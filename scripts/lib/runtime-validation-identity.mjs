@@ -62,6 +62,7 @@ export async function runtimeValidationSourcePaths(root = process.cwd()) {
   const paths = [...adapters];
   for (const directory of [
     "packages/quant-performance/src",
+    "src/server/alerts/inputs",
     "src/server/research",
   ]) {
     const base = join(root, directory);
@@ -75,7 +76,8 @@ export async function runtimeValidationSourcePaths(root = process.cwd()) {
         join(entry.parentPath, entry.name),
       ).replaceAll("\\", "/");
       if (
-        directory.startsWith("packages/") ||
+        directory !== "src/server/research" ||
+        // Includes validation-replay/ and its nested modules.
         file.startsWith("validation-") ||
         file.startsWith("lifecycle/")
       ) {

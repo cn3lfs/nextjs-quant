@@ -22,6 +22,7 @@ const suites = [
       "lifecycle-review.spec.ts",
       "intel-review-r5.spec.ts",
       "system-monitor-r5.spec.ts",
+      "wave-global-opt.spec.ts",
     ],
     timeout: 180000,
     serverTimeout: 120000,
@@ -105,6 +106,15 @@ const suites = [
     profile: "core",
     match: "system-monitor-r5.spec.ts",
     env: { E2E_SYSTEM_MONITOR: "1" },
+  },
+  {
+    name: "wave-opt",
+    port: 3928,
+    profile: "pool",
+    match: "wave-global-opt.spec.ts",
+    timeout: 120000,
+    serverTimeout: 120000,
+    env: {},
   },
 ];
 // Each project owns a fresh server. Only selected projects start servers;
