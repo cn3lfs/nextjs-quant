@@ -228,6 +228,7 @@ const expectedProcedures = {
   conceptRpsStatus: "query",
   conceptRpsPage: "query",
   marketPoolCatalog: "query",
+  marketPoolAssociations: "query",
   marketPoolPage: "query",
   universeAuditPage: "query",
   marketPoolExport: "mutation",

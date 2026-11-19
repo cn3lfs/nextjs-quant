@@ -119,6 +119,7 @@ const localReads = new Set([
   "intradayStorage",
   "intradaySummary",
   "marketPoolCatalog",
+  "marketPoolAssociations",
   "marketPoolPage",
   "indexDirectory",
   "rpsWorkflowLog",

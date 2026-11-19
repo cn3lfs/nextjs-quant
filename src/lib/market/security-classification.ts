@@ -10,3 +10,10 @@ const szFundPattern = new RegExp(`^sz(?:${SZ_FUND_PREFIXES.join("|")})\\d{4}$`);
 export function isPriceScaleThreeFund(symbol: string) {
   return shFundPattern.test(symbol) || szFundPattern.test(symbol);
 }
+
+/**
+ * Mirrors the local TDX `isAStock` predicate so client-side gating does not
+ * load the Node-only tstdx entry: sector membership only applies to listed shares.
+ */
+export const isAShareStockSymbol = (symbol: string) =>
+  /^(sh(60|68)\d{4}|sz(00|30)\d{4}|bj(43|83|87|88|92)\d{4})$/.test(symbol);

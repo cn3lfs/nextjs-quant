@@ -6,6 +6,10 @@ import {
 } from "~/lib/market/market-pool";
 import { marketPoolCatalog } from "../../market/market-pool-files";
 import {
+  marketPoolAssociations,
+  marketPoolAssociationsInput,
+} from "../../market/market-pool-associations";
+import {
   marketPoolPage,
   marketPoolRows,
 } from "../../market/market-pool-service";
@@ -86,6 +90,9 @@ export const screeningRouter = createTRPCRouter({
         settings().tdxRoot,
       ),
     ),
+  marketPoolAssociations: p("market", "read")
+    .input(marketPoolAssociationsInput)
+    .query(({ input }) => marketPoolAssociations(input, settings().tdxRoot)),
   marketPoolPage: p("market", "read")
     .input(marketPoolQuerySchema)
     .query(({ input }) => marketPoolPage(input)),

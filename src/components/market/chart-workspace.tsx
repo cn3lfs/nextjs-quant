@@ -47,6 +47,7 @@ import { IntelAnnotations } from "../news/intel-annotations";
 import type { ChartCompare } from "./market-chart-state";
 import { compareColors } from "./market-chart-palette";
 import { SecuritySelect } from "./security-select";
+import { ChartCompareSectors } from "./chart-compare-sectors";
 import { drawingPointCount } from "~/lib/chart/chart-drawings";
 import { IntradayChart } from "./intraday-chart";
 import { tradableSymbol } from "./tdx-side-panel";
@@ -254,6 +255,34 @@ function EditableChart({
   const canIntraday = !frozenEvidence && tradableSymbol(snapshot.symbol);
   // TDX 叠加 / TradingView compare: up to three A-share symbols.
   const [compareSymbols, setCompareSymbols] = useState<string[]>([]);
+  // TDX board codes have no security name, so remember the label chosen here.
+  const [compareLabels, setCompareLabels] = useState<Record<string, string>>(
+    {},
+  );
+  const addCompare = useCallback(
+    (symbol: string, label: string) => {
+      setCompareSymbols((current) =>
+        symbol === snapshot.symbol ||
+        current.includes(symbol) ||
+        current.length >= 3
+          ? current
+          : [...current, symbol],
+      );
+      setCompareLabels((current) =>
+        current[symbol] ? current : { ...current, [symbol]: label },
+      );
+    },
+    [snapshot.symbol],
+  );
+  const removeCompare = useCallback((symbol: string) => {
+    setCompareSymbols((current) => current.filter((item) => item !== symbol));
+    setCompareLabels((current) => {
+      if (!(symbol in current)) return current;
+      const next = { ...current };
+      delete next[symbol];
+      return next;
+    });
+  }, []);
   const names = api.securityNames.useQuery(undefined, {
     enabled: visible && compareSymbols.length > 0,
     staleTime: Infinity,
@@ -286,6 +315,7 @@ function EditableChart({
                 symbol: compareSymbols[i]!,
                 label:
                   names.data?.[compareSymbols[i]!] ??
+                  compareLabels[compareSymbols[i]!] ??
                   compareSymbols[i]!.toUpperCase(),
                 bars: q.data.bars,
               },
@@ -293,7 +323,7 @@ function EditableChart({
           : [],
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [compareKey, compareSymbols.join(), names.data],
+    [compareKey, compareSymbols.join(), names.data, compareLabels],
   );
   const compareErrors = compareQueries.flatMap((q, i) =>
     q.error ? [`${compareSymbols[i]!.toUpperCase()}：${q.error.message}`] : [],
@@ -500,16 +530,21 @@ function EditableChart({
                     variant="plain"
                     title="移除叠加"
                     style={{ color: compareColors[i % compareColors.length] }}
-                    onClick={() =>
-                      setCompareSymbols((current) =>
-                        current.filter((item) => item !== symbol),
-                      )
-                    }
+                    onClick={() => removeCompare(symbol)}
                   >
-                    {names.data?.[symbol] ?? symbol.toUpperCase()} ×
+                    {names.data?.[symbol] ??
+                      compareLabels[symbol] ??
+                      symbol.toUpperCase()}{" "}
+                    ×
                   </Button>
                 ))}
               </span>
+              <ChartCompareSectors
+                key={snapshot.symbol}
+                symbol={snapshot.symbol}
+                compareSymbols={compareSymbols}
+                onAdd={addCompare}
+              />
             </PopoverContent>
           </Popover>
         )}

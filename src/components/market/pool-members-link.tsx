@@ -9,9 +9,12 @@ import Link from "next/link";
 export function PoolMembersLink({
   category,
   name,
+  label = name,
 }: {
   category: z.infer<typeof poolCategorySchema>;
   name: string;
+  /** Optional shorter link text while the target stays the full pool name. */
+  label?: string;
 }) {
   return (
     <Link
@@ -19,7 +22,7 @@ export function PoolMembersLink({
       href={poolMembersHref(category, name)}
       title={`查看 ${name} 的成分股`}
     >
-      {name}
+      {label}
     </Link>
   );
 }
