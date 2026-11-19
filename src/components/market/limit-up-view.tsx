@@ -44,11 +44,12 @@ const poolLabels: Record<Pool, string> = {
   dt: "跌停",
   yzt: "昨日涨停",
 };
+type PoolSort = "original" | "change" | "streak" | "firstSeal";
 type PoolFilter = {
   page: number;
   industry: string;
   height: number | null;
-  sort: "original" | "change" | "streak";
+  sort: PoolSort;
 };
 const blankPoolFilter = (): PoolFilter => ({
   page: 1,
@@ -68,6 +69,37 @@ const yi = (v: number | null) =>
   v == null ? "—" : `${displayNumber(v / 1e8, 2)}亿`;
 const pct = (v: number | null, suffix = "%") =>
   v == null ? "—" : `${displayNumber(v, 1)}${suffix}`;
+
+/** 首封时间只接受 00–23:00–59:00–59；缺值或非法值视为未知，排在末尾。 */
+export function firstSealSeconds(value: string | null): number | null {
+  if (!value) return null;
+  const match = /^(\d{2}):(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return null;
+  const [, h, m, s] = match;
+  const hours = Number(h),
+    minutes = Number(m),
+    seconds = Number(s);
+  if (hours > 23 || minutes > 59 || seconds > 59) return null;
+  return hours * 3600 + minutes * 60 + seconds;
+}
+
+/** 有效首封时间升序；同秒保留来源顺序；未知时间保留并排在末尾。 */
+export function sortRowsByFirstSeal(
+  rows: readonly LimitPoolRow[],
+): LimitPoolRow[] {
+  return rows
+    .map((row, index) => ({
+      row,
+      index,
+      seal: firstSealSeconds(row.firstSeal),
+    }))
+    .sort((a, b) => {
+      if (a.seal === null || b.seal === null)
+        return a.seal === b.seal ? a.index - b.index : a.seal === null ? 1 : -1;
+      return a.seal - b.seal || a.index - b.index;
+    })
+    .map((entry) => entry.row);
+}
 
 function columns(pool: Pool): Column<LimitPoolRow>[] {
   const base: Column<LimitPoolRow>[] = [
@@ -106,7 +138,14 @@ function columns(pool: Pool): Column<LimitPoolRow>[] {
       key: "seal",
       header: pool === "yzt" ? "昨首封" : pool === "dt" ? "末次封板" : "首封",
       width: "80px",
-      cell: (r) => (pool === "dt" ? r.lastSeal : r.firstSeal) ?? "—",
+      cell: (r) =>
+        pool === "zt"
+          ? firstSealSeconds(r.firstSeal) === null
+            ? "—"
+            : (r.firstSeal ?? "—")
+          : pool === "dt"
+            ? (r.lastSeal ?? "—")
+            : (r.firstSeal ?? "—"),
     },
   ];
   if (pool === "zt" || pool === "dt")
@@ -182,12 +221,14 @@ export function LimitUpView() {
   );
   const data = query.data;
   const s = data?.stats;
-  const rows = (data?.pools[pool] ?? []).filter(
+  const filtered = (data?.pools[pool] ?? []).filter(
     (row) =>
       (!current.industry || row.industry === current.industry) &&
       (current.height === null || row.streak === current.height),
   );
-  if (current.sort !== "original")
+  const firstSealSort = pool === "zt" && current.sort === "firstSeal";
+  const rows = firstSealSort ? sortRowsByFirstSeal(filtered) : [...filtered];
+  if (!firstSealSort && current.sort !== "original")
     rows.sort((a, b) => {
       const left = current.sort === "change" ? a.changePct : a.streak,
         right = current.sort === "change" ? b.changePct : b.streak;
@@ -199,6 +240,9 @@ export function LimitUpView() {
           ? -1
           : right - left;
     });
+  const missingSeal = firstSealSort
+    ? rows.filter((row) => firstSealSeconds(row.firstSeal) === null).length
+    : 0;
   const pageCount = Math.max(1, Math.ceil(rows.length / 50));
   const page = Math.min(current.page, pageCount);
   // Client wall-clock dates must not enter server or hydration markup.
@@ -297,7 +341,7 @@ export function LimitUpView() {
             <TablePanel
               span={12}
               title={`${poolLabels[pool]}池`}
-              meta={`筛选后 ${rows.length} / ${data.pools[pool].length} 只${current.industry ? ` · ${current.industry}` : ""}${current.height !== null ? ` · ${current.height}板` : ""}`}
+              meta={`筛选后 ${rows.length} / ${data.pools[pool].length} 只${current.industry ? ` · ${current.industry}` : ""}${current.height !== null ? ` · ${current.height}板` : ""}${firstSealSort ? " · 首封时间升序" : ""}${missingSeal ? ` · ${missingSeal} 只缺首封时间，已排末尾` : ""}`}
               actions={
                 <div className="flex flex-wrap items-center gap-2">
                   <Segmented
@@ -324,6 +368,9 @@ export function LimitUpView() {
                       <SelectItem value="streak">
                         {pool === "dt" ? "连续跌停" : "连板数"}降序
                       </SelectItem>
+                      {pool === "zt" && (
+                        <SelectItem value="firstSeal">首封时间升序</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                   {(current.industry || current.height !== null) && (
@@ -403,7 +450,14 @@ export function LimitUpView() {
                 <Button
                   variant="plain"
                   size="sm"
-                  onClick={() => drill({ industry: i.name })}
+                  aria-label={`打开${i.name}行业涨停，按首封时间升序`}
+                  onClick={() =>
+                    drill({
+                      industry: i.name,
+                      sort: "firstSeal",
+                      height: null,
+                    })
+                  }
                 >
                   {i.name}
                 </Button>
