@@ -250,6 +250,7 @@ const expectedProcedures = {
   tdxHosts: "query",
   tdxSaveHosts: "mutation",
   limitSentiment: "query",
+  limitHistory: "query",
   stockEvents: "query",
   capitalProfile: "query",
   macroRates: "query",

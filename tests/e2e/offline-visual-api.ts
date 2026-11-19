@@ -45,6 +45,8 @@ const localReads = new Set([
   "job",
   "jobSummary",
   "screenResults",
+  // Local TDX limit-up/limit-down daily series; reads no network.
+  "limitHistory",
   "screenTaskProgress",
   "holdoutSettings",
   "savedSnapshot",

@@ -35,6 +35,7 @@ import {
   SelectItem,
 } from "../ui/select";
 import { ChartSymbolLink } from "./chart-symbol-link";
+import { LimitDailyTrend } from "./limit-daily-trend";
 import { BrowseSource } from "./open-chart";
 
 const poolLabels: Record<Pool, string> = {
@@ -286,6 +287,7 @@ export function LimitUpView() {
           />
         )}
       </Panel>
+      <LimitDailyTrend date={date} visible={visible} />
       {data?.available && (
         <>
           <BrowseSource

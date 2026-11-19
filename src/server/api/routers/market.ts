@@ -19,6 +19,7 @@ import { verifySecurityTradingStatus } from "../../market/security-trading-statu
 import { verifySecurityIdentity } from "../../market/security-identity";
 import { z } from "zod";
 import { periodSchema, type Coverage } from "~/lib/domain";
+import { researchDateSchema } from "trading-strategies/research/contracts/date";
 import { symbolSchema } from "trading-strategies/research/contracts/security";
 import { get } from "../../db";
 import { settings } from "../../infra/settings";
@@ -46,6 +47,7 @@ import {
 } from "../../data-sources/tdx/tdx-quotes";
 import { KLINE, PAGE_LIMIT, QUOTES_BATCH_LIMIT } from "tstdx/wire";
 import { limitSentiment } from "../../market/limit-sentiment";
+import { limitHistory } from "../../market/limit-history";
 import { stockEvents } from "../../research/stock-events";
 import { capitalProfile } from "../../market/capital-profile";
 import { macroRates } from "../../data-sources/macro/macro-rates";
@@ -235,6 +237,10 @@ export const marketRouter = createTRPCRouter({
   limitSentiment: p("market", "read")
     .input(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }))
     .query(({ input, signal }) => limitSentiment(input.date, signal)),
+  /** 通达信本地涨跌停按日复盘；只读本地文件，不混入东财刷新与网络抓取。 */
+  limitHistory: p("market", "read")
+    .input(z.object({ date: researchDateSchema }))
+    .query(({ input }) => limitHistory(settings().tdxRoot, input.date)),
   stockEvents: p("market", "read")
     .input(symbolSchema)
     .query(({ input, signal }) => stockEvents(input, signal)),
