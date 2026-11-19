@@ -36,6 +36,7 @@ import {
 } from "../ui/select";
 import { ChartSymbolLink } from "./chart-symbol-link";
 import { LimitDailyTrend } from "./limit-daily-trend";
+import { LimitIntradayTrend } from "./limit-intraday-trend";
 import { BrowseSource } from "./open-chart";
 
 const poolLabels: Record<Pool, string> = {
@@ -221,6 +222,8 @@ export function LimitUpView() {
   );
   const data = query.data;
   const s = data?.stats;
+  // IndexedDB 里可能残留没有 intraday 的旧响应，日期相同也不能直接挂图。
+  const intraday = data?.date === date ? data.intraday : undefined;
   const filtered = (data?.pools[pool] ?? []).filter(
     (row) =>
       (!current.industry || row.industry === current.industry) &&
@@ -331,6 +334,9 @@ export function LimitUpView() {
           />
         )}
       </Panel>
+      {intraday && intraday.date === date && (
+        <LimitIntradayTrend date={date} intraday={intraday} />
+      )}
       <LimitDailyTrend date={date} visible={visible} />
       {data?.available && (
         <>

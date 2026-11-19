@@ -30,7 +30,7 @@ try {
       row('sz000002','庚',null,'电池')
     ];
     const zb=[row('sz000003','辛','09:40:00','半导体',3),row('sz000004','壬',null,'电池',2)];
-    const data={available:true,final:false,stats,pools:{zt,zb,dt:[],yzt:[]},
+    const data={available:true,final:false,date:'${today}',stats,pools:{zt,zb,dt:[],yzt:[]},
       ladder:[{height:2,count:2,names:['乙','戊']}],
       industries:[{name:'半导体',count:5},{name:'电池',count:2}]};
     export const api={
@@ -93,6 +93,11 @@ try {
   await page.addScriptTag({ content: bundle.outputFiles[0].text });
 
   await page.getByText("已查询", { exact: false }).waitFor();
+  assert.equal(
+    await page.getByText("盘中观测走势", { exact: false }).count(),
+    0,
+    "旧响应没有 intraday 时不得挂载盘中图",
+  );
   const poolGroup = page.getByRole("radiogroup", { name: "涨停板池" });
   await page.getByRole("radio", { name: "炸板 2" }).waitFor();
   assert.equal(
