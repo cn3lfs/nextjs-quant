@@ -1,14 +1,13 @@
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
-import { componentLogic } from "../helpers/r2-contracts";
+import { componentLogic, connectionSourcePaths } from "../helpers/r2-contracts";
 
 // Current settings/formula/task behavior is covered by the corresponding
 // browser harnesses. Frozen pre-R2 callback and hook inventories are obsolete.
 it("R2 precisely wires the connection components and preserves validation attributes", () => {
-  const connection = readFileSync(
-    "src/components/workbench/connections.tsx",
-    "utf8",
-  );
+  const connection = connectionSourcePaths()
+    .map((file) => readFileSync(file, "utf8"))
+    .join("\n");
   const policy = readFileSync(
     "src/components/signals/notification-policy-fields.tsx",
     "utf8",

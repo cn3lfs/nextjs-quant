@@ -1,4 +1,5 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it, expect } from "vitest";
@@ -9,6 +10,24 @@ import {
 import { csi800ClassicFactors } from "../../packages/trading-strategies/src/csi800-factors";
 import type { ClassicPriceInput } from "../../scripts/lib/csi800-factor-data";
 import type { ClassicWeek } from "../../packages/trading-strategies/src/csi800-composite";
+import { classicCodeHashes } from "../../scripts/lib/csi800-research-manifest";
+
+it("fingerprints the split financial catalog tables in the CSI 800 manifest", async () => {
+  const hashes = await classicCodeHashes();
+  const directory = "packages/tstdx/src/financial-data";
+  const catalogFiles = (await readdir(directory)).filter(
+    (file) => file.startsWith("catalog-") && file.endsWith(".ts"),
+  );
+  expect(catalogFiles).toEqual(expect.arrayContaining(["catalog-bk.ts"]));
+  for (const file of catalogFiles) {
+    const path = `${directory}/${file}`;
+    expect(hashes[path]).toBe(
+      createHash("sha256")
+        .update(await readFile(path))
+        .digest("hex"),
+    );
+  }
+});
 
 it("IC diagnostics respect direction, tied ranks, label maturity and actual non-overlap", async () => {
   const out = await mkdtemp(join(tmpdir(), "csi800-diagnostic-"));

@@ -130,7 +130,6 @@ it("keeps every worker source entry resolvable and emitted runtime filenames sta
     "runtime/discipline-worker.cjs",
     "runtime/intraday-worker.cjs",
     "runtime/rps-worker.cjs",
-    "runtime/signal-ledger-worker.cjs",
     "runtime/westock-preload.mjs",
     "runtime/worker.cjs",
     "runtime/workflow-runner.cjs",

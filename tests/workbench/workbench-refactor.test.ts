@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import ts from "typescript";
 import { expect, it } from "vitest";
+import { connectionSourcePaths } from "../helpers/r2-contracts";
 import baseline from "../fixtures/n3-workbench-structure.json";
 
 // Characterization of the pre-N3 source: supporting evidence for mechanical
@@ -153,7 +154,10 @@ it("retains existing helper and report implementations", () => {
 });
 
 it("keeps notification policy wiring and read-only connection boundaries", () => {
-  const connection = functions("connections.tsx");
+  const sources = connectionSourcePaths().map(parse);
+  const notifications = sources.find((source) =>
+    source.fileName.endsWith("/notifications-section.tsx"),
+  )!;
   const additions: ts.JsxSelfClosingElement[] = [];
   const importPanel: ts.JsxSelfClosingElement[] = [];
   const visit = (node: ts.Node) => {
@@ -169,8 +173,9 @@ it("keeps notification policy wiring and read-only connection boundaries", () =>
       additions.push(node);
     ts.forEachChild(node, visit);
   };
-  connection.forEach(visit);
+  sources.forEach(visit);
   expect(additions).toHaveLength(1);
+  expect(additions[0]!.getSourceFile()).toBe(notifications);
   // P2 owns this new controlled field: it must read the existing settings state
   // and replace only notificationPolicy so the existing Save action persists it.
   const expected = ts.createSourceFile(
@@ -183,14 +188,15 @@ it("keeps notification policy wiring and read-only connection boundaries", () =>
   const statement = expected.statements[0] as ts.ExpressionStatement;
   expect(fingerprint(additions)).toBe(fingerprint([statement.expression]));
   expect(importPanel).toHaveLength(0);
-  const connectionSource = readFileSync(
-    "src/components/workbench/connections.tsx",
+  const connectionSource = sources.map((source) => source.text).join("\n");
+  const newsSection = readFileSync(
+    "src/components/workbench/connections/news-section.tsx",
     "utf8",
   );
   expect(connectionSource).not.toContain("FiveMinuteImport");
   expect(connectionSource).not.toContain("五分钟 CSV 导入");
   expect(connectionSource).not.toContain("五分钟导入按下方流程操作");
-  expect(connectionSource.replace(/\s+/g, " ")).toContain(
+  expect(newsSection.replace(/\s+/g, " ")).toContain(
     "行情读取与外部 Blocks 目录只读",
   );
   // Current save validation, races and error recovery: connections-browser.mjs.

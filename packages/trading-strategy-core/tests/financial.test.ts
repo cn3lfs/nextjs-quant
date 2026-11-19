@@ -159,17 +159,28 @@ describe("财务计算与时点", () => {
     expect(combineFinancialConditions([false, null], "all")).toBe(false);
     expect(combineFinancialConditions([true, null], "any")).toBe(true);
   });
-  it("源字典不会把公司诊断放进第5651个物理槽", () => {
-    const body = readFileSync(
-      new URL(
-        "../../../docs/data-sources/tdx-financial/fn-fields.json",
-        import.meta.url,
-      ),
-      "utf8",
+  it("保留五套源字典每项字段的编号、分类、名称和次序", () => {
+    const frozenRows = ["fn", "gp", "bk", "sc", "go"].flatMap(
+      (namespace) =>
+        JSON.parse(
+          readFileSync(
+            new URL(
+              `../../../docs/data-sources/tdx-financial/${namespace}-fields.json`,
+              import.meta.url,
+            ),
+            "utf8",
+          ),
+        ) as { code: string; section: string; label: string }[],
     );
     expect(
-      JSON.parse(body).find((f: { code: string }) => f.code === "FN5651").label,
-    ).toBe("盈利能力");
+      financialCatalog.map(({ code, section, label }) => ({
+        code,
+        section,
+        label,
+      })),
+    ).toEqual(frozenRows);
+  });
+  it("源字典不会把公司诊断放进第5651个物理槽", () => {
     expect(financialCatalog.find((f) => f.code === "FN5651")?.slot).toBeNull();
   });
 });

@@ -1,10 +1,19 @@
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { csiHash } from "./csi800-factor-data.js";
+
+export async function financialCatalogSourcePaths() {
+  const directory = "packages/tstdx/src/financial-data";
+  const entries = await readdir(directory, { withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isFile() && /^catalog-.*\.ts$/.test(entry.name))
+    .map((entry) => `${directory}/${entry.name}`)
+    .sort();
+}
+
 export async function classicCodeHashes() {
   const files = [
     "packages/trading-strategies/src/study-decision.ts",
     "packages/trading-strategies/src/csi800-model.ts",
-    "packages/trading-strategies/src/ma-cross.ts",
     "packages/quant-backtest/src/allocation-profile.ts",
     "packages/quant-backtest/src/portfolio-account.ts",
     "packages/quant-backtest/src/execution.ts",
@@ -35,7 +44,7 @@ export async function classicCodeHashes() {
     "packages/tstdx/src/financial.ts",
     "packages/tstdx/src/financial-data/model.ts",
     "packages/tstdx/src/financial-data/catalog.ts",
-    "packages/tstdx/src/financial-data/catalog-source.ts",
+    ...(await financialCatalogSourcePaths()),
     "packages/tstdx/src/financial-series.ts",
     "packages/quant-performance/src/performance.ts",
     "packages/quant-performance/src/trades.ts",

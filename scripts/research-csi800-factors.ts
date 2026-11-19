@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { runClassicMatrix } from "./lib/csi800-factor-matrix.js";
 import { runClassicDiagnostics } from "./lib/csi800-factor-diagnostics.js";
+import { financialCatalogSourcePaths } from "./lib/csi800-research-manifest.js";
 import {
   loadClassicInputs,
   buildClassicPanel,
@@ -59,7 +60,6 @@ await writeFile(
 const files = [
   "packages/trading-strategies/src/study-decision.ts",
   "packages/trading-strategies/src/csi800-model.ts",
-  "packages/trading-strategies/src/ma-cross.ts",
   "packages/quant-backtest/src/allocation-profile.ts",
   "packages/quant-backtest/src/portfolio-account.ts",
   "packages/quant-backtest/src/execution.ts",
@@ -81,8 +81,9 @@ const files = [
   "packages/tstdx/src/local/financial-files.ts",
   "packages/tstdx/src/financial-data/model.ts",
   "packages/tstdx/src/financial-data/catalog.ts",
-  "packages/tstdx/src/financial-data/catalog-source.ts",
+  ...(await financialCatalogSourcePaths()),
   "packages/tstdx/src/financial-series.ts",
+  "scripts/lib/csi800-research-manifest.ts",
   "scripts/research-csi800-factors.ts",
   "pnpm-lock.yaml",
 ];

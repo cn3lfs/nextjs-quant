@@ -16,7 +16,10 @@ it("shows a currently supported RPS period in the formula example", () => {
   expect(source).not.toContain("RPS250");
 });
 it("uses shared RPS periods and labels with explicit colors for the new chart windows", () => {
-  const source = readFileSync("src/components/market/chart.tsx", "utf8");
+  const source = readFileSync(
+    "src/components/market/charts/market-chart.tsx",
+    "utf8",
+  );
   expect(source).toContain("rpsPeriods.map((window)");
   expect(source).toContain("{rpsPeriodLabel(window)}");
   const palette = readFileSync(

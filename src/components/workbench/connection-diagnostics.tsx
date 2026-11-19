@@ -19,6 +19,14 @@ import {
   SelectContent,
   SelectItem,
 } from "../ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/table";
 import { Field, stamp } from "./shared";
 
 const sourceOrder = ["local", "pytdx", "eastmoney", "tencent"] as const;
@@ -282,30 +290,30 @@ export function ConnectionDiagnostics({
                 腾讯源为延迟行情；检查通过也不代表实时行情。
               </p>
             )}
-          <div className="table-wrap mt-2">
-            <table data-sortable="false">
-              <thead>
-                <tr>
-                  <th scope="col">来源</th>
-                  <th scope="col">连接 / 样本</th>
-                  <th scope="col">行情最后时点</th>
-                  <th scope="col">检查时间</th>
-                </tr>
-              </thead>
-              <tbody>
+          <div className="mt-2">
+            <Table data-sortable="false">
+              <TableHeader>
+                <TableRow>
+                  <TableHead scope="col">来源</TableHead>
+                  <TableHead scope="col">连接 / 样本</TableHead>
+                  <TableHead scope="col">行情最后时点</TableHead>
+                  <TableHead scope="col">检查时间</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {comparisonRows.map((receipt) => (
-                  <tr key={receipt.source}>
-                    <td>{marketSourceLabels[receipt.source]}</td>
-                    <td>
+                  <TableRow key={receipt.source}>
+                    <TableCell>{marketSourceLabels[receipt.source]}</TableCell>
+                    <TableCell>
                       {connectionLabels[receipt.connection]} ·{" "}
                       {dataLabels[receipt.data]}
-                    </td>
-                    <td>{receipt.dataAsOf ?? "未知"}</td>
-                    <td>{stamp(receipt.checkedAt)}</td>
-                  </tr>
+                    </TableCell>
+                    <TableCell>{receipt.dataAsOf ?? "未知"}</TableCell>
+                    <TableCell>{stamp(receipt.checkedAt)}</TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </section>
       )}

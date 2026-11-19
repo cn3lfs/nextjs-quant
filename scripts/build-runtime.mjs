@@ -172,16 +172,7 @@ await sharp(
   .png()
   .toFile("desktop/icon.png");
 
-await build({
-  entryPoints: ["src/server/monitoring/signal-ledger-worker.ts"],
-  outfile: "runtime/signal-ledger-worker.cjs",
-  bundle: true,
-  platform: "node",
-  format: "cjs",
-  external: ["better-sqlite3", "koffi"],
-  target: "node22",
-});
-
+// The paused intraday regression starts this exact runtime bundle.
 await build({
   entryPoints: ["src/server/monitoring/intraday-worker.ts"],
   outfile: "runtime/intraday-worker.cjs",
@@ -192,7 +183,10 @@ await build({
   target: "node22",
 });
 
-// Do not carry the retired sample-research executor into an incremental package.
+// Drop stale bundles of retired workers from incremental packages.
+await rm(new URL("../runtime/signal-ledger-worker.cjs", import.meta.url), {
+  force: true,
+});
 await rm(new URL("../runtime/research-worker.cjs", import.meta.url), {
   force: true,
 });

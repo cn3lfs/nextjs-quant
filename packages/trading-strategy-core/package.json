@@ -2,7 +2,7 @@
   "name": "trading-strategy-core",
   "version": "0.3.0",
   "private": true,
-  "description": "Pure shared primitives for the Guanlan strategy services",
+  "description": "Pure shared primitives for Guanlan strategies. The TongDaXin dependency is limited to the IO-free tstdx/financial-model entrypoint.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

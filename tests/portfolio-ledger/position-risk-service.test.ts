@@ -124,9 +124,10 @@ it("新增入口精确接线、刷新失效、排序归首页且颜色只取toke
   expect(parent).toContain("if (changedAccount !== account) return;");
   expect(parent).toContain("setBatchRevision((value) => value + 1)");
   expect(parent).not.toContain("api.deliveryBatches.useQuery");
-  const chart = readFileSync("src/components/market/chart.tsx", "utf8")
-    .split("export function PositionRiskChart")[1]!
-    .split("export function PriceChart")[0]!;
+  const chart = readFileSync(
+    "src/components/market/charts/position-risk-chart.tsx",
+    "utf8",
+  );
   expect(chart).toContain('getPropertyValue("--primary")');
   expect(chart).not.toMatch(/#[0-9a-f]{3,8}/i);
   expect(chart).toContain("positionRiskCurveSegments(points, key)");

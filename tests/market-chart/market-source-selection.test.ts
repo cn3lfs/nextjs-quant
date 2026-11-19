@@ -10,6 +10,7 @@ import {
   mcpTools,
   importLocalMcp,
 } from "../../src/server/data-sources/tdx/tdx-mcp-disabled";
+import { connectionSourcePaths } from "../helpers/r2-contracts";
 const deps = vi.hoisted(() => ({ remote: vi.fn(), local: vi.fn() }));
 vi.mock("../../src/server/market/free-chart-sources", () => ({
   freeChartHistory: deps.remote,
@@ -211,12 +212,13 @@ it("disconnects original MCP imports and preserves selectable source wiring", ()
   expect(market).toContain("<MarketSourceSelect");
   expect(market).toContain("source: marketSource");
   expect(market).not.toContain('source: "mcp"');
-  const connection = readFileSync(
-    "src/components/workbench/connections.tsx",
+  const dataSection = readFileSync(
+    "src/components/workbench/connections/data-section.tsx",
     "utf8",
   );
-  expect(connection).not.toContain("api.mcp");
-  expect(connection).toContain("marketDataSource");
+  for (const file of connectionSourcePaths())
+    expect(readFileSync(file, "utf8")).not.toContain("api.mcp");
+  expect(dataSection).toContain("marketDataSource");
   expect(
     readFileSync("src/components/workbench/screen-view.tsx", "utf8"),
   ).not.toContain("<OnlineScreen");
@@ -231,9 +233,15 @@ it("keeps the chart tab focused and renders the task center only as a tab", () =
   expect(market).not.toContain("<SecurityProfilePanel");
   expect(market).not.toContain("核验证券身份");
   expect(market).not.toContain("证券主档与名称来源");
-  expect(readFileSync("src/components/market/chart.tsx", "utf8")).not.toContain(
-    "双突破观察日",
-  );
+  const chartDirectory = "src/components/market/charts";
+  const chartFiles = [
+    "src/components/market/chart.tsx",
+    ...readdirSync(chartDirectory)
+      .filter((file) => file.endsWith(".tsx"))
+      .map((file) => `${chartDirectory}/${file}`),
+  ];
+  for (const file of chartFiles)
+    expect(readFileSync(file, "utf8")).not.toContain("双突破观察日");
   const workbench = readFileSync(
     "src/components/workbench/workbench.tsx",
     "utf8",

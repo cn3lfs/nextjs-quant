@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { expect, it } from "vitest";
-import { renderHandlers } from "../helpers/r2-contracts";
+import { connectionSourcePaths, renderHandlers } from "../helpers/r2-contracts";
 
 // Radix migration source hashes are retired; settings save/races/validation
 // are exercised in connections-browser.mjs. Research form selection, submission
@@ -20,10 +20,9 @@ it("connects current strategy, connection and evidence controls", () => {
   ])
     expect(strategy).toContain(`value={strategy.${field}}`);
   expect(strategy).toContain('step="0.1"');
-  const connection = readFileSync(
-    "src/components/workbench/connections.tsx",
-    "utf8",
-  );
+  const connection = connectionSourcePaths()
+    .map((file) => readFileSync(file, "utf8"))
+    .join("\n");
   expect(connection).toContain("checked={config.autoNewsAnalysis}");
   expect(connection).not.toContain("config.autoAnalysis");
   expect(connection).not.toContain("选股和回测完成后自动分析");

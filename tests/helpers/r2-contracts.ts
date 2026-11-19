@@ -1,5 +1,17 @@
 import { createHash } from "node:crypto";
+import { readdirSync } from "node:fs";
 import ts from "typescript";
+
+export function connectionSourcePaths() {
+  const base = "src/components/workbench/connections";
+  return [
+    `${base}.tsx`,
+    ...readdirSync(base)
+      .filter((file) => file.endsWith(".tsx"))
+      .sort()
+      .map((file) => `${base}/${file}`),
+  ];
+}
 
 // Only normalize the event payload adapter required by Radix. Everything in
 // the callback body (validation, state updates, requests) remains significant.

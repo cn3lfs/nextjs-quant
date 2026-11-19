@@ -90,7 +90,10 @@ it("wires persisted curves from the workspace and fixes the RPS pane range", asy
   );
   expect(workspace).toContain('rps={period === "day" ? rps.data : undefined}');
   expect(workspace).toContain("onRpsRetry={() => void rps.refetch()}");
-  const chart = readFileSync("src/components/market/chart.tsx", "utf8");
+  const chart = readFileSync(
+    "src/components/market/charts/market-chart.tsx",
+    "utf8",
+  );
   const indicators = readFileSync(
     "src/components/market/market-chart-indicators.ts",
     "utf8",

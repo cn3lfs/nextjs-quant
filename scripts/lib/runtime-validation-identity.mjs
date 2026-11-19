@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 
 const adapters = [
   "src/lib/backtest/backtest-overfit.ts",
@@ -64,16 +64,24 @@ export async function runtimeValidationSourcePaths(root = process.cwd()) {
     "packages/quant-performance/src",
     "src/server/research",
   ]) {
-    const files = (
-      await readdir(join(root, directory), { recursive: true })
-    ).filter(
-      (file) =>
-        file.endsWith(".ts") &&
-        (directory.startsWith("packages/") || file.startsWith("validation-")),
-    );
-    paths.push(
-      ...files.map((file) => `${directory}/${file.replaceAll("\\", "/")}`),
-    );
+    const base = join(root, directory);
+    for (const entry of await readdir(base, {
+      recursive: true,
+      withFileTypes: true,
+    })) {
+      if (!entry.isFile() || !entry.name.endsWith(".ts")) continue;
+      const file = relative(
+        base,
+        join(entry.parentPath, entry.name),
+      ).replaceAll("\\", "/");
+      if (
+        directory.startsWith("packages/") ||
+        file.startsWith("validation-") ||
+        file.startsWith("lifecycle/")
+      ) {
+        paths.push(`${directory}/${file}`);
+      }
+    }
   }
   return [...new Set(paths)].sort();
 }

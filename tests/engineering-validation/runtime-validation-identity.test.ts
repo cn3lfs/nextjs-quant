@@ -29,6 +29,7 @@ it("changing an actual distribution/binding adapter changes the existing validat
     "src/server/research/forward-identity.ts",
     "src/server/paper/cn-book-context.ts",
     "src/server/research/lifecycle-low-zone.ts",
+    "src/server/research/lifecycle/load-source.ts",
     "scripts/lib/csi800-factor-data.ts",
     "packages/tstdx/src/local/gbbq.ts",
     "src/server/research/corporate-actions.ts",
@@ -45,4 +46,12 @@ it("changing an actual distribution/binding adapter changes the existing validat
   await mkdir(join(root, "src/components"), { recursive: true });
   await writeFile(join(root, "src/components/unrelated.tsx"), "changed UI\n");
   expect(await runtimeValidationHash(root)).toBe(baseline);
+
+  const nestedSource = "src/server/research/lifecycle/nested/new-source.ts";
+  await mkdir(dirname(join(root, nestedSource)), { recursive: true });
+  await writeFile(join(root, nestedSource), "new adapter\n");
+  expect(await runtimeValidationSourcePaths(root)).toEqual(
+    [...paths, nestedSource].sort(),
+  );
+  expect(await runtimeValidationHash(root)).not.toBe(baseline);
 });
