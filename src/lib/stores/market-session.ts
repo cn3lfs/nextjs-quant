@@ -13,6 +13,10 @@ export type MarketSelection = {
   marketView: "chart" | "financial";
 };
 
+/** The main chart is either K 线 at `chartPeriod` or 分时, a mode rather than
+ *  a period. One owner keeps the toolbar and the workspace from disagreeing. */
+export type ChartMode = "k" | "intraday";
+
 /** Client-only evidence marker; persisted and server snapshots stay plain. */
 export type MarketSnapshot = Snapshot & { frozenCandidate?: true };
 
@@ -93,6 +97,7 @@ export function rememberMarketUrl() {
 
 type MarketSession = MarketSelection & {
   period: Period;
+  chartMode: ChartMode;
   loaded: MarketSnapshot | null;
   snapshotSource: MarketSource | null;
   browse: BrowseList | null;
@@ -101,6 +106,7 @@ type MarketSession = MarketSelection & {
   setPeriod: (period: Period) => void;
   setBrowse: (browse: BrowseList | null) => void;
   setChartPeriod: (chartPeriod: ChartPeriod) => void;
+  setChartMode: (chartMode: ChartMode) => void;
   setMarketSource: (marketSource: MarketSource) => void;
   setAdjustment: (adjustment: ChartAdjustment) => void;
   setMarketView: (marketView: MarketSelection["marketView"]) => void;
@@ -138,6 +144,7 @@ export const useMarketSession = create<MarketSession>((set) => {
     symbol: "sh600519",
     period: "day",
     chartPeriod: "day",
+    chartMode: "k",
     marketSource: null,
     adjustment: "none",
     marketView: "chart",
@@ -152,6 +159,8 @@ export const useMarketSession = create<MarketSession>((set) => {
       set({ chartPeriod });
       rememberMarketUrl();
     },
+    // 分时 is not a period, so it never reaches the URL or a snapshot read.
+    setChartMode: (chartMode) => set({ chartMode }),
     setMarketSource: (marketSource) => {
       set({ marketSource });
       rememberMarketUrl();

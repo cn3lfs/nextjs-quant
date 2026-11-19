@@ -2,7 +2,11 @@ import { MarketSourceSelect } from "../market/market-source-select";
 import { ChartAdjustmentSelect } from "../market/chart-adjustment-select";
 import { ArrowUpRight, Plus, X } from "@phosphor-icons/react/ssr";
 import { useEffect, useState } from "react";
-import { chartPeriodSchema, periodLabels } from "~/lib/chart/chart-view";
+import {
+  chartPeriodSchema,
+  periodLabels,
+  type ChartPeriod,
+} from "~/lib/chart/chart-view";
 import { chartAdjustmentLabels } from "~/lib/chart/chart-adjustment";
 import { marketSourceLabel } from "~/lib/market/market-source";
 import { securityDisplayName } from "~/lib/market/security-display";
@@ -12,13 +16,7 @@ import { usePeriodHotkey } from "../market/chart-hotkeys";
 import { isMarketIndex } from "~/lib/market/market-indices";
 import { isSectorChartSymbol } from "~/lib/chart/chart-symbol";
 import { Button } from "../ui/button";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "../ui/select";
+import { Select, SelectTrigger, SelectContent, SelectItem } from "../ui/select";
 import { PopoverTrigger, PopoverContent, PopoverClose } from "../ui/popover";
 import { PanelPopover as Popover } from "./panel-popover";
 import Link from "next/link";
@@ -30,7 +28,7 @@ import {
   Star,
 } from "@phosphor-icons/react/ssr";
 import { GridTable, PageGrid, Panel, SecurityCell, Segmented } from "../panels";
-import { TdxSidePanel } from "../market/tdx-side-panel";
+import { TdxSidePanel, tradableSymbol } from "../market/tdx-side-panel";
 import { SymbolRpsBars } from "../market/symbol-rps-bars";
 
 import { Empty } from "./shared";
@@ -41,6 +39,88 @@ import { api } from "~/trpc/react";
 import { useTaskVisible } from "./use-task-visible";
 import { useRouter } from "next/navigation";
 import { marketSelectionHref } from "~/lib/stores/market-session";
+
+/** Direct 分时/日K/周K/月K choices; every other supported period stays in the
+ *  行情周期 dropdown next to it. */
+export function ChartPeriodControl({
+  period,
+  intraday,
+  canIntraday,
+  disabled,
+  periods,
+  onSelect,
+}: {
+  period: ChartPeriod;
+  intraday: boolean;
+  canIntraday: boolean;
+  disabled: boolean;
+  periods: readonly ChartPeriod[];
+  onSelect: (next: "intraday" | ChartPeriod) => void;
+}) {
+  const common = periods.filter(
+    (p) => p === "day" || p === "week" || p === "month",
+  );
+  const choices: { value: "intraday" | ChartPeriod; label: string }[] = [
+    ...(canIntraday ? [{ value: "intraday" as const, label: "分时" }] : []),
+    ...common.map((p) => ({
+      value: p,
+      label: p === "day" ? "日 K" : p === "week" ? "周 K" : "月 K",
+    })),
+  ];
+  const selected = intraday ? "intraday" : period;
+  // 分时 keeps the previous K period, but the dropdown must not present that
+  // period as already selected: choosing it has to fire onValueChange and
+  // return to K 线. A value outside the item list keeps it unselected.
+  const moreValue = intraday ? "__intraday__" : period;
+  return (
+    <>
+      <span role="group" aria-label="常用图表周期" className="segmented">
+        {choices.map((choice) => (
+          <Button
+            key={choice.value}
+            variant="plain"
+            type="button"
+            className={choice.value === selected ? "selected" : ""}
+            aria-pressed={choice.value === selected}
+            disabled={disabled}
+            onClick={() => onSelect(choice.value)}
+          >
+            {choice.label}
+          </Button>
+        ))}
+      </span>
+      <Select
+        value={moreValue}
+        disabled={disabled}
+        onValueChange={(value) => onSelect(chartPeriodSchema.parse(value))}
+      >
+        <SelectTrigger
+          aria-label="行情周期"
+          title="更多周期 · F8 切换周期"
+          className="w-auto min-w-28"
+        >
+          <span className="truncate">
+            更多周期 ·{" "}
+            {intraday
+              ? "分时"
+              : period === "day"
+                ? "日 K"
+                : periodLabels[period]}
+          </span>
+        </SelectTrigger>
+        {/* popper placement does not depend on a selected item, so 分时 can
+            leave the dropdown unselected without breaking focus/position. */}
+        <SelectContent position="popper">
+          {periods.map((p) => (
+            <SelectItem key={p} value={p}>
+              {p === "day" ? "日 K" : periodLabels[p]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </>
+  );
+}
 
 export function MarketView({
   state,
@@ -67,6 +147,8 @@ export function MarketView({
     | "setBrowse"
     | "chartPeriod"
     | "setChartPeriod"
+    | "chartMode"
+    | "setChartMode"
     | "adjustment"
     | "setAdjustment"
   >;
@@ -85,6 +167,8 @@ export function MarketView({
     setBrowse,
     chartPeriod,
     setChartPeriod,
+    chartMode,
+    setChartMode,
     adjustment: chartAdjustment,
     setAdjustment: setChartAdjustment,
   } = state;
@@ -137,9 +221,26 @@ export function MarketView({
         !loaded?.barStore?.availablePeriods ||
         loaded.barStore.availablePeriods.includes(p)),
   );
+  // 分时 reuses the chart's existing availability rule (ordinary, tradable
+  // A-share symbols, indices included); frozen evidence always stays on K 线.
+  const canIntraday = !holdFrozen && tradableSymbol(chartSymbol);
+  const showIntraday = canIntraday && chartMode === "intraday";
+  const selectChart = (next: "intraday" | ChartPeriod) => {
+    if (next === "intraday") {
+      if (canIntraday) setChartMode("intraday");
+      return;
+    }
+    // Any explicit K period choice leaves 分时 and keeps that period.
+    setChartMode("k");
+    if (availableChartPeriods.includes(next)) setChartPeriod(next);
+  };
   usePeriodHotkey(
     chartPeriod,
-    setChartPeriod,
+    (next) => {
+      setChartMode("k");
+      // Leaving 分时 enters the last K period; K 线 keeps cycling as before.
+      if (!showIntraday) setChartPeriod(next);
+    },
     !visible || load.isPending || holdFrozen || marketView === "financial",
     availableChartPeriods,
   );
@@ -392,9 +493,7 @@ export function MarketView({
               }
               period={period}
               disabled={holdFrozen || load.isPending}
-              onPeriod={(next) => {
-                if (availableChartPeriods.includes(next)) setChartPeriod(next);
-              }}
+              onPeriod={selectChart}
               onSelect={(next) => {
                 setSymbol(next);
                 load.mutate({
@@ -470,28 +569,14 @@ export function MarketView({
               <ArrowClockwise size={13} />
               刷新行情
             </Button>
-            <Select
-              value={displayedPeriod}
+            <ChartPeriodControl
+              period={displayedPeriod}
+              intraday={showIntraday}
+              canIntraday={canIntraday}
               disabled={holdFrozen || load.isPending}
-              onValueChange={(value) =>
-                setChartPeriod(chartPeriodSchema.parse(value))
-              }
-            >
-              <SelectTrigger
-                aria-label="行情周期"
-                title="F8 切换周期"
-                className="w-auto min-w-28"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {availableChartPeriods.map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {p === "day" ? "日 K" : periodLabels[p]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              periods={availableChartPeriods}
+              onSelect={selectChart}
+            />
           </div>
           {frozenEvidence && loaded && (
             <div
@@ -570,6 +655,8 @@ export function MarketView({
               period={snapshotPeriod}
               adjustment={snapshotAdjustment}
               frozenEvidence={holdFrozen}
+              chartMode={chartMode}
+              onChartModeChange={setChartMode}
               view={marketView}
               onViewChange={setMarketView}
               heading={

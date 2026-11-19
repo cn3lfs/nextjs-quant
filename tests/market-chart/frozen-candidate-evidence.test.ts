@@ -62,6 +62,7 @@ vi.mock("~/components/market/market-security-views", async () => {
 });
 vi.mock("~/components/market/tdx-side-panel", () => ({
   TdxSidePanel: () => null,
+  tradableSymbol: (symbol: string) => /^(sh|sz|bj)\d{6}$/.test(symbol),
 }));
 vi.mock("~/components/market/symbol-rps-bars", () => ({
   SymbolRpsBars: () => null,
@@ -177,12 +178,14 @@ function render(
     },
     browse: options.browse === undefined ? browse : options.browse,
     chartPeriod: options.chartPeriod ?? loaded?.period ?? "day",
+    chartMode: "k",
     adjustment: options.adjustment ?? loaded?.adjustment ?? "none",
     setMarketView: vi.fn(),
     setMarketSource: vi.fn(),
     setSymbol: vi.fn(),
     setBrowse: vi.fn(),
     setChartPeriod: vi.fn(),
+    setChartMode: vi.fn(),
     setAdjustment: vi.fn(),
   } as ComponentProps<typeof MarketView>["state"];
   return renderToStaticMarkup(

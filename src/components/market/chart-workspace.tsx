@@ -52,9 +52,11 @@ import { drawingPointCount } from "~/lib/chart/chart-drawings";
 import { IntradayChart } from "./intraday-chart";
 import { tradableSymbol } from "./tdx-side-panel";
 import { isTypingTarget } from "./chart-hotkeys";
+import type { ChartMode } from "~/lib/stores/market-session";
 
 // TDX keeps 分时 or K 线 across symbol switches; the workspace remounts per
-// symbol/period, so the last choice lives at module scope for the session.
+// symbol/period. Ordinary A-share charts let the market session own the mode,
+// while standalone charts (crypto/futures) keep the last choice here.
 let lastIntraday = false;
 // The linked second period (TDX 多周期同列) is kept the same way.
 let lastSecond: ChartPeriod | null = null;
@@ -75,12 +77,17 @@ export function ChartWorkspace({
   period,
   adjustment,
   frozenEvidence = false,
+  chartMode,
+  onChartModeChange,
 }: {
   snapshot: Snapshot;
   period: ChartPeriod;
   adjustment: ChartAdjustment;
   /** The chart must stay on the archived snapshot; no linked live period. */
   frozenEvidence?: boolean;
+  /** Controlled by the market session on ordinary A-share charts. */
+  chartMode?: ChartMode;
+  onChartModeChange?: (mode: ChartMode) => void;
 }) {
   const [limit, setLimit] = useState(2000);
   const visible = useScreenVisible();
@@ -151,6 +158,8 @@ export function ChartWorkspace({
       adjustment={adjustment}
       frozenEvidence={frozenEvidence}
       initial={view.data}
+      chartMode={chartMode}
+      onChartModeChange={onChartModeChange}
       rps={period === "day" ? rps.data : undefined}
       rpsMessage={
         period !== "day"
@@ -190,6 +199,8 @@ function EditableChart({
   period,
   adjustment,
   frozenEvidence = false,
+  chartMode,
+  onChartModeChange,
   initial,
   bars,
   cost,
@@ -206,6 +217,8 @@ function EditableChart({
   adjustment: ChartAdjustment;
   /** Frozen evidence: ignore the remembered live period next to the archive. */
   frozenEvidence?: boolean;
+  chartMode?: ChartMode;
+  onChartModeChange?: (mode: ChartMode) => void;
   initial: ChartView;
   onHistoryRequest?: () => void;
   bars: Snapshot["bars"];
@@ -328,11 +341,14 @@ function EditableChart({
   const compareErrors = compareQueries.flatMap((q, i) =>
     q.error ? [`${compareSymbols[i]!.toUpperCase()}：${q.error.message}`] : [],
   );
-  const [intraday, setIntradayState] = useState(lastIntraday);
+  const [localIntraday, setLocalIntradayState] = useState(lastIntraday);
+  const intraday =
+    chartMode === undefined ? localIntraday : chartMode === "intraday";
   const showIntraday = canIntraday && intraday;
   const setIntraday = (next: boolean) => {
     lastIntraday = next;
-    setIntradayState(next);
+    if (chartMode === undefined) setLocalIntradayState(next);
+    else onChartModeChange?.(next ? "intraday" : "k");
   };
   // F5 switches between K 线 and 分时 (TDX).
   useEffect(() => {
@@ -348,11 +364,17 @@ function EditableChart({
       )
         return;
       event.preventDefault();
-      setIntradayState((current) => (lastIntraday = !current));
+      if (chartMode === undefined)
+        setLocalIntradayState((current) => (lastIntraday = !current));
+      else {
+        const next = chartMode !== "intraday";
+        lastIntraday = next;
+        onChartModeChange?.(next ? "intraday" : "k");
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [canIntraday, visible]);
+  }, [canIntraday, visible, chartMode, onChartModeChange]);
   const utils = api.useUtils();
   const save = api.saveChartView.useMutation({
     onSuccess: (saved) => {

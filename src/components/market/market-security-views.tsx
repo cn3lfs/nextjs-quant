@@ -16,6 +16,8 @@ export function MarketSecurityViews({
   period,
   adjustment,
   frozenEvidence = false,
+  chartMode,
+  onChartModeChange,
   view,
   onViewChange,
   heading,
@@ -26,6 +28,8 @@ export function MarketSecurityViews({
   adjustment: ChartAdjustment;
   /** Frozen candidate evidence: derive views only from the archived snapshot. */
   frozenEvidence?: boolean;
+  chartMode?: "k" | "intraday";
+  onChartModeChange?: (mode: "k" | "intraday") => void;
   view: View;
   onViewChange: (view: View) => void;
   heading?: ReactNode;
@@ -97,6 +101,8 @@ export function MarketSecurityViews({
               period={period}
               adjustment={adjustment}
               frozenEvidence={frozenEvidence}
+              chartMode={chartMode}
+              onChartModeChange={onChartModeChange}
             />
           </PanelVisibility>
         </TabsContent>
