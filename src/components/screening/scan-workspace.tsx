@@ -38,6 +38,9 @@ const Rps = dynamic(() =>
 const Sentiment = dynamic(() =>
   import("../market/limit-up-view").then((m) => m.LimitUpView),
 );
+const Valuation = dynamic(() =>
+  import("../market/sector-valuation-view").then((m) => m.SectorValuationView),
+);
 const Crypto = dynamic(() =>
   import("../market/crypto-view").then((m) => m.CryptoQuotes),
 );
@@ -50,6 +53,7 @@ const tabs = [
   { value: "formula", label: "条件选股" },
   { value: "rps", label: "RPS 数据管理" },
   { value: "sentiment", label: "打板情绪" },
+  { value: "valuation", label: "板块估值" },
 ];
 export function ScanWorkspace() {
   return (
@@ -104,6 +108,7 @@ function ScanWorkspaceBody() {
           pool: <Pool />,
           rps: <Rps />,
           sentiment: <Sentiment />,
+          valuation: <Valuation />,
           futures: <Futures />,
         }}
       />

@@ -158,6 +158,7 @@ const localReads = new Set([
   "cashWorkspaceDiagnostics",
   "localFinancialView",
   "localFinancialSeries",
+  "sectorValuation",
   "localFinancialAudit",
   "localFinancialArchive",
   "localFinancialScreenPage",

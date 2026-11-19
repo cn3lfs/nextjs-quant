@@ -89,6 +89,7 @@ const expectedProcedures = {
   strategyValidationReplay: "mutation",
   localFinancialView: "query",
   localFinancialSeries: "query",
+  sectorValuation: "query",
   localFinancialExport: "query",
   localFinancialAudit: "query",
   localFinancialAuditStart: "mutation",

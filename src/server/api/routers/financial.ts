@@ -18,6 +18,8 @@ import {
   localFinancialSeriesView,
   localFinancialExport,
 } from "../../financial/local-financial-service";
+import { sectorValuationInput } from "~/lib/financial/sector-valuation";
+import { sectorValuation } from "../../financial/sector-valuation";
 import {
   verifyLocalFinancialArchive,
   type LocalFinancialArchive,
@@ -58,6 +60,9 @@ export const financialRouter = createTRPCRouter({
   localFinancialSeries: p("financial", "read")
     .input(localSeriesQuery)
     .query(({ input }) => localFinancialSeriesView(settings().tdxRoot, input)),
+  sectorValuation: p("financial", "read")
+    .input(sectorValuationInput)
+    .query(({ input }) => sectorValuation(settings().tdxRoot, input)),
   localFinancialExport: p("financial", "read")
     .input(
       z.object({

@@ -62,6 +62,7 @@ export const navGroups: readonly NavGroup[] = [
       item("/scan?tab=formula", "条件选股", ChartLine, "screen"),
       item("/scan?tab=rps", "RPS 排名与数据管理", ChartLine),
       item("/scan?tab=sentiment", "打板情绪", ChartLine),
+      item("/scan?tab=valuation", "板块估值", ChartLine),
       item("/scan?tab=crypto", "数字货币图表", ChartLine),
       item("/scan?tab=futures", "资源期货", ChartLine),
     ],
