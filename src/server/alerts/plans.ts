@@ -19,7 +19,98 @@ import {
   type AccountPosition,
 } from "~/lib/portfolio/account-workspace";
 
+import type { AlertEvent } from "~/lib/strategy-facts/alerts";
+import type { Period, Snapshot } from "~/lib/domain";
+import { screenDataHealth } from "../market/data-health";
+import {
+  candidateScanFreshness,
+  type CandidateScanState,
+} from "./candidate-scan";
+
+type CandidateEvidence = AlertEvent & {
+  freshness?: "fresh-close" | "intraday" | "stale" | "unverified";
+  scanFreshness?: "current" | "intraday" | "stale" | "unknown" | null;
+  signalPrice?: number | null;
+  signalPriceBasis?: Snapshot["adjustment"] | null;
+  executionRawPrice?: number | null;
+};
+type CloseReference = { closeDate: string | null; calendar: readonly string[] };
+export function evaluateCandidatePlanEligibility(
+  event: CandidateEvidence,
+  scan?: CandidateScanState,
+  period?: Period,
+  reference?: CloseReference,
+) {
+  let freshness =
+    event.freshness ??
+    (event.scanFreshness === "current"
+      ? "fresh-close"
+      : event.scanFreshness === "intraday"
+        ? "intraday"
+        : "unverified");
+  if (event.scanFreshness === "stale") freshness = "stale";
+  if (freshness !== "stale" && scan && period) {
+    if (scan.bar && Date.parse(event.bar) < Date.parse(scan.bar))
+      freshness = "stale";
+    else if (
+      event.market === "cn-equity" &&
+      reference &&
+      scan.bar === event.bar
+    ) {
+      const status = candidateScanFreshness(scan, period, reference);
+      freshness =
+        status === "current"
+          ? "fresh-close"
+          : status === "unknown"
+            ? "unverified"
+            : status;
+    } else if (period !== "day" && period !== "week") freshness = "intraday";
+  }
+  const raw =
+    event.executionRawPrice === undefined
+      ? event.firstWatchPayload
+        ? (event.confirmation?.price ?? null)
+        : event.price
+      : event.executionRawPrice;
+  return {
+    freshness,
+    signalPrice: event.signalPrice ?? (event.market === "crypto" ? raw : null),
+    signalPriceBasis:
+      event.signalPriceBasis ?? (event.market === "crypto" ? "none" : null),
+    executionRawPrice: raw,
+  };
+}
+
+export function storedCandidateEligibility(
+  event: AlertEvent,
+  repo: AlertRepository,
+  reference?: CloseReference,
+  now = Date.now(),
+) {
+  const scan = repo.state<CandidateScanState>(
+    `candidate-scan:${event.market}:${event.strategyId}:${event.version}`,
+  );
+  if (!reference && scan && event.market === "cn-equity") {
+    const calendar = repo.records.days();
+    reference = {
+      calendar,
+      closeDate: screenDataHealth(null, "day", now, {
+        days: calendar,
+        source: "已记录的交易日历",
+        hash: null,
+      }).referenceAsOf,
+    };
+  }
+  return evaluateCandidatePlanEligibility(
+    event,
+    scan,
+    scan?.period ??
+      repo.strategies.strategy(event.strategyId, event.version)?.period,
+    reference,
+  );
+}
 export const createAlertPlanSchema = z.object({
+  allowStale: z.boolean().optional(),
   ...planJournalSchema.shape,
   overrideCaps: z.boolean().default(false),
   overrideSizing: z
@@ -62,6 +153,7 @@ export function createAlertPlan(
       basis: "current-labelled";
       grouping: "all-known-groups";
     } | null;
+    closeReference?: CloseReference;
     assertCurrent: () => void;
   },
 ) {
@@ -73,6 +165,7 @@ export function createAlertPlan(
       now,
       repository,
       admission?.positions,
+      admission?.closeReference,
     );
     const caps = effectiveExposureCaps(config.accountReview, plan.market);
     if (caps.length && !admission)
@@ -170,11 +263,20 @@ export function previewAlertPlan(
   now: number,
   repository = new AlertRepository(),
   positions?: readonly AccountPosition[],
+  reference?: CloseReference,
 ) {
   input = createAlertPlanSchema.parse(input);
   const event = repository.event(input.eventKey);
   if (!event || event.status === "missed" || event.type !== "entry")
     throw new Error("只能从有效入场候选加入计划");
+  if (
+    storedCandidateEligibility(event, repository, reference, now).freshness ===
+      "stale" &&
+    !input.allowStale
+  )
+    throw new Error(
+      "该候选来自已过期的历史扫描批次，请选择当前批次，或明确允许使用历史候选后再创建计划",
+    );
   if (Date.parse(input.expiresAt) <= now)
     throw new Error("计划到期时间必须在未来");
   if (

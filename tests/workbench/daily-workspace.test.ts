@@ -778,14 +778,15 @@ it("today close scan separates historical, completed-zero and never-scanned read
   });
   expect(result.candidates.total).toBe(0);
 });
-it("six workspace entrances and the display formatter preserve unknown and zero", () => {
+it("seven workspace entrances and the display formatter preserve unknown and zero", () => {
   expect(navGroups.map((g) => g.label)).toEqual([
-    "今日",
-    "扫描与图表",
-    "策略实验室",
-    "账户与复盘",
-    "情报",
-    "系统",
+    "今日交易",
+    "行情看盘",
+    "选股筛选",
+    "策略回测",
+    "持仓复盘",
+    "资讯研报",
+    "系统设置",
   ]);
   expect(formatNumber(null)).toBe("—");
   expect(formatNumber(NaN)).toBe("—");

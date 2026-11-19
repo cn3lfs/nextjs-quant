@@ -18,7 +18,7 @@ it("migration19 labels old protection unavailable, preserves plan values and is 
   const db = v18();
   try {
     migrate(db);
-    expect(db.pragma("user_version", { simple: true })).toBe(19);
+    expect(db.pragma("user_version", { simple: true })).toBe(20);
     expect(
       JSON.parse(
         (
@@ -59,7 +59,7 @@ it("a migration19 failure rolls back without altering v18 facts or its version",
   }
 });
 
-it("the deployed schema18 application's actual migration entry refuses schema19 unchanged", () => {
+it("the deployed schema18 application's actual migration entry refuses schema20 unchanged", () => {
   const db = new Database(":memory:");
   try {
     migrate(db);
@@ -67,7 +67,7 @@ it("the deployed schema18 application's actual migration entry refuses schema19 
       .prepare("SELECT name,sql FROM sqlite_master ORDER BY name")
       .all();
     expect(() => migrateDeployedV18(db)).toThrow("数据库版本高于此应用版本");
-    expect(db.pragma("user_version", { simple: true })).toBe(19);
+    expect(db.pragma("user_version", { simple: true })).toBe(20);
     expect(
       db.prepare("SELECT name,sql FROM sqlite_master ORDER BY name").all(),
     ).toEqual(before);

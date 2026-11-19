@@ -179,6 +179,17 @@ const migrations = [
     FOREIGN KEY(strategy_id,strategy_version) REFERENCES strategies(id,version), FOREIGN KEY(plan_id) REFERENCES trade_plans(id));
    UPDATE trade_plans SET payload=json_set(payload,'$.protection',json_object('version','unavailable','reason','旧计划未提供完整退出规格，请重新核验'))
    WHERE json_type(payload,'$.protection') IS NULL;`,
+  `CREATE TABLE workspace_preferences (
+    id INTEGER PRIMARY KEY CHECK(id=1),
+    density TEXT NOT NULL CHECK(density IN ('comfort','compact')),
+    sidebar_collapsed INTEGER NOT NULL CHECK(sidebar_collapsed IN (0,1)),
+    expanded_groups TEXT NOT NULL CHECK(json_valid(expanded_groups) AND json_type(expanded_groups)='array'),
+    close_to_tray INTEGER NOT NULL CHECK(close_to_tray IN (0,1)),
+    holdings_reconciliation TEXT NOT NULL CHECK(holdings_reconciliation IN ('upper-bound','delivery-first','local-first')),
+    single_key_shortcuts INTEGER NOT NULL CHECK(single_key_shortcuts IN (0,1)),
+    updated_at INTEGER NOT NULL
+  ) STRICT;
+  INSERT INTO workspace_preferences VALUES(1,'comfort',0,'["今日交易"]',0,'upper-bound',1,unixepoch()*1000);`,
 ];
 export function migrate(connection: Database.Database) {
   const version = connection.pragma("user_version", { simple: true }) as number;

@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { appRouter } from "../../src/server/api/root";
 
 const expectedProcedures = {
+  workspacePreferences: "query",
+  saveWorkspacePreferences: "mutation",
+  strategyLabCompareRuns: "query",
+  alertPipelineDiagnostics: "query",
+  quickSearchSecurities: "query",
   strategyLabRegister: "mutation",
   accountTrades: "query",
   accountRiskPositions: "query",

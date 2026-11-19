@@ -132,6 +132,39 @@ it("keeps known industry evidence for earlier unfilled plans when checking the n
   expect(plan.exposureAudit?.violations).toEqual([]);
   expect(f.repo.plans(true)).toHaveLength(2);
 });
+it("rejects a stale server-side scan even without client metadata and requires a separate explicit override", () => {
+  const f = setup();
+  const bar = "2026-11-16";
+  f.repo.saveState(`candidate-scan:cn-equity:${strategy.id}:1`, {
+    bar,
+    period: "day",
+    observedAt: now,
+  });
+  const admission = {
+    positions: [],
+    industry: () => "银行",
+    assertCurrent: () => {},
+  };
+  expect(() =>
+    createAlertPlan(
+      { ...f.input, overrideCaps: true },
+      config,
+      now,
+      f.repo,
+      admission,
+    ),
+  ).toThrow("已过期的历史扫描批次");
+  expect(f.repo.plans()).toHaveLength(0);
+  expect(
+    createAlertPlan(
+      { ...f.input, allowStale: true },
+      config,
+      now,
+      f.repo,
+      admission,
+    ).triggerKey,
+  ).toBe(f.event.key);
+});
 function setup(s = strategy) {
   const db = new Database(":memory:");
   connections.push(db);

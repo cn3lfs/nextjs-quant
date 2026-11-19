@@ -731,6 +731,72 @@ it("includes closed trades in source linking and reviews the manual ledger witho
     s.db.close();
   }
 });
+it("projects the sum of symbol lower bounds before pagination and propagates unpriced positions only in their currency", async () => {
+  const s = seed();
+  try {
+    const book = await s.load();
+    const base = book.positions.find((p) => p.id.startsWith("delivery:"))!;
+    book.positions = [
+      { ...base, id: "delivery:a", price: 10, value: 100, quantity: 10 },
+      { ...base, id: "delivery:b", price: 10, value: 50, quantity: 5 },
+      { ...base, id: "local:a", price: 10, value: 90, quantity: 9 },
+      {
+        ...base,
+        id: "local:b",
+        symbol: "sh600001",
+        price: 20,
+        value: 200,
+        quantity: 10,
+      },
+      {
+        ...base,
+        id: "local:crypto",
+        symbol: "BTCUSDT",
+        currency: "USDT",
+        market: "crypto",
+        price: null,
+        value: null,
+        quantity: 1,
+      },
+      { ...base, id: "paper:a", kind: "paper", value: 99999 },
+    ];
+    const before = JSON.stringify(book.positions);
+    const out = pageAccountBook(book, {
+      page: 2,
+      source: "delivery",
+    }).reconciliation;
+    expect(out.overlapSymbols).toHaveLength(1);
+    expect(out.overlapSymbols[0]).toMatchObject({
+      deliveryQuantity: 15,
+      localQuantity: 9,
+      grossTotal: 240,
+      lowerBound: 150,
+      upperBound: 240,
+    });
+    expect(out.summaryByCurrency).toEqual([
+      {
+        currency: "CNY",
+        deliveryTotal: 150,
+        localTotal: 290,
+        grossTotal: 440,
+        deduplicatedLowerBound: 350,
+        overlapCount: 1,
+      },
+      {
+        currency: "USDT",
+        deliveryTotal: null,
+        localTotal: null,
+        grossTotal: null,
+        deduplicatedLowerBound: null,
+        overlapCount: 0,
+      },
+    ]);
+    expect(out.industryLimitBasis).toBe("upper-bound");
+    expect(JSON.stringify(book.positions)).toBe(before);
+  } finally {
+    s.db.close();
+  }
+});
 it("filters real positions by delivery/local id prefix and ignores source for other kinds", async () => {
   const s = seed();
   try {

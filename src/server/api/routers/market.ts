@@ -58,6 +58,67 @@ import { stockEvents } from "../../research/stock-events";
 import { capitalProfile } from "../../market/capital-profile";
 import { macroRates } from "../../data-sources/macro/macro-rates";
 import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
+import { pinyin } from "pinyin-pro";
+import { futuresContracts } from "~/lib/market/futures";
+import { defaultCryptoPairs } from "~/lib/market/crypto";
+import type { Market } from "~/lib/market/instrument";
+type SearchEntry = { symbol: string; name: string; market: Market };
+const initialsCache = new Map<string, string>();
+export function matchQuickSecurities(
+  entries: readonly Pick<SearchEntry, "symbol" | "name">[],
+  query: string,
+  limit: number,
+) {
+  const needle = query.trim().toLowerCase();
+  const items: (SearchEntry & {
+    matchType: "code" | "name" | "pinyin";
+    ready: true;
+  })[] = [];
+  if (!entries.length || !needle) return { ready: entries.length > 0, items };
+  const candidates: SearchEntry[] = [
+    ...entries.map(({ symbol, name }) => ({
+      symbol,
+      name,
+      market: "cn-equity" as const,
+    })),
+    ...defaultCryptoPairs
+      .filter((e) => ["cxBTCUSDT", "cxETHUSDT"].includes(e.symbol))
+      .map((e) => ({ ...e, market: "crypto" as const })),
+    ...futuresContracts.map(({ symbol, name }) => ({
+      symbol,
+      name,
+      market: "futures" as const,
+    })),
+  ];
+  for (const { symbol, name, market } of candidates) {
+    const code = symbol.toLowerCase();
+    let matchType: "code" | "name" | "pinyin";
+    if (code.startsWith(needle) || code.slice(2).startsWith(needle))
+      matchType = "code";
+    else if (name.toLowerCase().includes(needle)) matchType = "name";
+    else {
+      if (!/^[a-z]+$/.test(needle)) continue;
+      let initials = initialsCache.get(name);
+      if (initials === undefined) {
+        initials = pinyin(name, { type: "array", toneType: "none" })
+          .map((s) => s[0])
+          .join("")
+          .toLowerCase();
+        initialsCache.set(name, initials);
+      }
+      if (!initials.includes(needle)) continue;
+      matchType = "pinyin";
+    }
+    items.push({ symbol, name, market, matchType, ready: true });
+  }
+  const rank = { code: 0, name: 1, pinyin: 2 };
+  items.sort(
+    (a, b) =>
+      rank[a.matchType] - rank[b.matchType] || a.symbol.localeCompare(b.symbol),
+  );
+  return { ready: true, items: items.slice(0, limit) };
+}
+
 const klineSchema = z.enum(
   Object.keys(KLINE) as [keyof typeof KLINE, ...(keyof typeof KLINE)[]],
 );
@@ -68,6 +129,26 @@ const pageSchema = z.object({
 });
 const tradingDateSchema = z.number().int().min(19900101).max(21001231);
 export const marketRouter = createTRPCRouter({
+  quickSearchSecurities: p("market", "read")
+    .input(
+      z.object({
+        query: z.string().trim().max(100),
+        limit: z.number().int().min(1).max(25).default(12),
+      }),
+    )
+    .query(({ input }) => {
+      const directory =
+        get<Awaited<ReturnType<typeof securityDirectory>>>(
+          "security-directory",
+        );
+      return matchQuickSecurities(
+        directory?.root === settings().tdxRoot
+          ? Object.values(directory.entries)
+          : [],
+        input.query,
+        input.limit,
+      );
+    }),
   mxDataStatus: p("market", "read").query(() => mxDataStatus()),
   mxDataQuery: p("market", "compute")
     .input(mxQuerySchema)

@@ -379,15 +379,15 @@ it("migrations are repeatable and preserve a genuine version 9 database", () => 
       )
       .matchAll(/`([^`]+)`/g),
   ].map((match) => match[1]!);
-  // v19 adds one literal migration; the first nine historical statements stay fixed.
-  expect(statements).toHaveLength(15);
+  // Four migrations use named SQL constants; the first nine literal statements stay fixed.
+  expect(statements).toHaveLength(16);
   for (const sql of statements.slice(0, 9)) db.exec(sql);
   db.pragma("user_version = 9");
   db.prepare("INSERT INTO records VALUES ('old','snapshot','{}',1)").run();
   db.prepare("INSERT INTO concept_rps_days VALUES ('2026-01-01','{}')").run();
   migrate(db);
   migrate(db);
-  expect(db.pragma("user_version", { simple: true })).toBe(19);
+  expect(db.pragma("user_version", { simple: true })).toBe(20);
   expect(
     db
       .prepare(

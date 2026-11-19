@@ -8,6 +8,7 @@ import {
 import {
   strategyLabPage,
   strategyLabDetail,
+  strategyLabCompareRuns,
   actOnLabStrategy,
 } from "../../db/strategy-lab";
 import { labValidationReport } from "../../research/lab-report";
@@ -86,6 +87,17 @@ export const strategyLabRouter = createTRPCRouter({
   strategyLab: p("strategyCenter", "read")
     .input(labQuerySchema)
     .query(({ input }) => strategyLabPage(input)),
+  strategyLabCompareRuns: p("backtest", "read")
+    .input(
+      z.object({
+        ids: z
+          .array(z.string().min(1).max(200))
+          .min(2)
+          .max(12)
+          .refine((ids) => new Set(ids).size === ids.length, "任务 ID 重复"),
+      }),
+    )
+    .query(({ input }) => strategyLabCompareRuns(input.ids)),
   strategyLabDetail: p("strategyCenter", "read")
     .input(labIdentitySchema)
     .query(({ input }) => strategyLabDetail(input.id, input.version)),

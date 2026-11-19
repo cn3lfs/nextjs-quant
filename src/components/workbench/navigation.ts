@@ -1,13 +1,42 @@
 import { capabilities } from "~/lib/common/capabilities";
 import { type Icon } from "@phosphor-icons/react";
 import {
-  Compass,
+  Archive,
+  ArrowsLeftRight,
+  Article,
+  BellRinging,
+  BookOpen,
+  CalendarCheck,
+  CalendarDots,
+  ChartBar,
   ChartLine,
+  ChartPieSlice,
+  ClipboardText,
+  ClockCounterClockwise,
+  Compass,
+  CurrencyBtc,
+  Database,
+  Fire,
   Flask,
-  Wallet,
+  Funnel,
+  Gauge,
+  GearSix,
+  LinkSimple,
+  ListChecks,
+  MathOperations,
   Newspaper,
-  PlugsConnected,
+  NotePencil,
+  PiggyBank,
+  PlayCircle,
+  Receipt,
+  Sparkle,
+  Stack,
+  Swatches,
+  TrendUp,
+  Trophy,
+  Wallet,
 } from "@phosphor-icons/react/ssr";
+
 export type Tab =
   | "market"
   | "screen"
@@ -27,7 +56,15 @@ export type NavItem = {
   tab?: Tab;
   hidden?: boolean;
 };
-export type NavGroup = { label: string; items: readonly NavItem[] };
+/** 一级工作区：7 个直白职责分组，每组只回答一类问题。 */
+export type NavGroup = {
+  label: string;
+  subtitle: string;
+  icon: Icon;
+  items: readonly NavItem[];
+};
+export type NavEntry = NavItem & { group: string };
+
 function item(href: string, label: string, icon: Icon, tab?: Tab): NavItem {
   const capability =
     href === "/?tab=intraday"
@@ -45,99 +82,167 @@ function item(href: string, label: string, icon: Icon, tab?: Tab): NavItem {
     subtitle: capability ? capabilities[capability].reason : label,
   };
 }
+
 export const navGroups: readonly NavGroup[] = [
   {
-    label: "今日",
+    label: "今日交易",
+    subtitle: "先看今天该做什么：计划、大盘、涨停情绪与板块位置。",
+    icon: Compass,
     items: [
-      item("/", "今日", Compass),
-      item("/?tab=intraday", "盘中预选", Compass),
-      item("/?tab=overview", "市场与数据总览", Compass),
+      item("/", "今日计划", Compass),
+      item("/?tab=overview", "大盘总览", Gauge),
+      item("/scan?tab=sentiment", "涨停与情绪", Fire),
+      item("/scan?tab=valuation", "板块估值", ChartBar),
     ],
   },
   {
-    label: "扫描与图表",
+    label: "行情看盘",
+    subtitle: "按市场看盘：A 股、数字货币与期货各自独立。",
+    icon: ChartLine,
     items: [
-      item("/scan", "扫描与图表", ChartLine, "market"),
-      item("/scan?tab=pool", "证券池", ChartLine),
-      item("/scan?tab=formula", "条件选股", ChartLine, "screen"),
-      item("/scan?tab=rps", "RPS 排名与数据管理", ChartLine),
-      item("/scan?tab=sentiment", "打板情绪", ChartLine),
-      item("/scan?tab=valuation", "板块估值", ChartLine),
-      item("/scan?tab=crypto", "数字货币图表", ChartLine),
-      item("/scan?tab=futures", "资源期货", ChartLine),
+      item("/scan", "A 股看盘", ChartLine, "market"),
+      item("/scan?tab=crypto", "数字货币", CurrencyBtc),
+      item("/scan?tab=futures", "期货行情", TrendUp),
     ],
   },
   {
-    label: "策略实验室",
+    label: "选股筛选",
+    subtitle: "把条件变成候选：公式、强势排名、股票池与历史信号。",
+    icon: Funnel,
     items: [
-      item("/lab", "策略中心", Flask),
-      item("/lab/backtest", "策略实验", Flask, "backtest"),
-      item("/lab?tab=tasks", "研究任务", Flask),
-      item("/lab?tab=catalog", "方法目录与运行比较", Flask),
-      item("/lab/analysis", "证据分析", Flask, "analysis"),
-      item("/lab/reports", "研究档案", Flask, "reports"),
-      item("/lab/data-guide", "研究数据指南", Flask),
+      item("/scan?tab=formula", "公式选股", MathOperations, "screen"),
+      item("/scan?tab=rps", "强势排名 (RPS)", Trophy),
+      item("/scan?tab=pool", "股票池", Stack),
+      item("/accounts/alerts", "历史信号", BellRinging),
+      item("/?tab=intraday", "盘中记录", NotePencil),
     ],
   },
   {
-    label: "账户与复盘",
+    label: "策略回测",
+    subtitle: "同口径验证策略：策略库、组合回测、对比与记录。",
+    icon: Flask,
     items: [
-      item("/accounts", "统一持仓", Wallet),
-      item("/accounts?tab=ledger", "持仓与交易日志", Wallet),
-      item("/accounts?tab=trades", "全部成交与来源", Wallet),
-      item("/accounts?tab=paper", "纸面账户", Wallet),
-      item("/accounts?tab=attribution", "策略归因与衰减", Wallet),
-      item("/accounts?tab=monthly", "月度自查", Wallet),
-      item("/accounts?tab=weekly", "周复盘与执行质量", Wallet),
-      item("/accounts/review", "交割单与交易复盘", Wallet),
-      item("/accounts/alerts", "信号台账", Wallet),
-      item("/accounts/crypto", "数字货币账户与模拟", Wallet),
+      item("/lab", "策略库", Flask),
+      item("/lab/backtest", "组合回测", PlayCircle, "backtest"),
+      item("/lab?tab=catalog", "策略对比", ArrowsLeftRight),
+      item("/lab?tab=tasks", "回测记录", ClockCounterClockwise),
     ],
   },
   {
-    label: "情报",
+    label: "持仓复盘",
+    subtitle: "从持仓到交割单，把每一笔交易解释清楚。",
+    icon: Wallet,
     items: [
-      item("/intel", "新闻 / 主题", Newspaper, "news"),
-      item("/intel?tab=related", "持仓与计划情报", Newspaper),
-      item("/intel/review", "财联社复盘", Newspaper),
+      item("/accounts", "持仓总览", Wallet),
+      item("/accounts?tab=ledger", "手工记账", NotePencil),
+      item("/accounts?tab=trades", "成交明细", Receipt),
+      item("/accounts/review", "交割单复盘", ClipboardText),
+      item("/accounts?tab=attribution", "策略归因", ChartPieSlice),
+      item("/accounts?tab=weekly", "周度复盘", CalendarCheck),
+      item("/accounts?tab=monthly", "月度复盘", CalendarDots),
+      item("/accounts?tab=paper", "本地模拟盘", PiggyBank),
+      item("/accounts/crypto", "币圈模拟盘", CurrencyBtc),
     ],
   },
   {
-    label: "系统",
+    label: "资讯研报",
+    subtitle: "把快讯、研报与 AI 研判放回持仓上下文。",
+    icon: Newspaper,
     items: [
-      item("/system", "数据与连接", PlugsConnected, "settings"),
-      item("/system/tasks", "任务中心", PlugsConnected, "tasks"),
-      item("/system/notifications", "信号与通知", PlugsConnected, "signals"),
+      item("/intel", "快讯与主题", Newspaper, "news"),
+      item("/intel?tab=related", "持仓关联资讯", LinkSimple),
+      item("/intel/review", "财联社复盘", Article),
+      item("/lab/analysis", "AI 研判", Sparkle, "analysis"),
+      item("/lab/reports", "研报存档", Archive, "reports"),
+    ],
+  },
+  {
+    label: "系统设置",
+    subtitle: "数据源、提醒推送与后台任务的运行状态。",
+    icon: GearSix,
+    items: [
+      item("/system", "数据源与备份", Database, "settings"),
+      item("/system/notifications", "提醒与推送", BellRinging, "signals"),
+      item("/system/tasks", "后台任务", ListChecks, "tasks"),
+      item("/lab/data-guide", "数据说明", BookOpen),
       ...(process.env.NODE_ENV === "development"
-        ? [item("/system/ui-gallery", "UI 组件", PlugsConnected)]
+        ? [item("/system/ui-gallery", "UI 组件", Swatches)]
         : []),
     ],
   },
 ];
-export const navItems = navGroups.flatMap((g) =>
-  g.items.map((i) => ({ ...i, group: g.label })),
+
+export const navItems: readonly NavEntry[] = navGroups.flatMap((group) =>
+  group.items.map((entry) => ({ ...entry, group: group.label })),
 );
-export function tabHref(tab: Tab) {
-  return navItems.find((i) => i.tab === tab)!.href;
+
+/** 每个工作区的默认落点，供 Alt+1…7 与图标窄轨使用。 */
+export const workspaceHrefs: readonly string[] = navGroups.map(
+  (group) => group.items[0]!.href,
+);
+
+function splitHref(href: string) {
+  const index = href.indexOf("?");
+  const path = index === -1 ? href : href.slice(0, index);
+  const query = index === -1 ? "" : href.slice(index + 1);
+  return { path: path || "/", tab: new URLSearchParams(query).get("tab") };
 }
-export function navItemFor(pathname: string) {
+
+function matches(item: NavItem, path: string, tab: string | null) {
+  const parsed = splitHref(item.href);
+  return parsed.path === path && parsed.tab === tab;
+}
+
+export function tabHref(tab: Tab) {
+  return navItems.find((entry) => entry.tab === tab)!.href;
+}
+
+/**
+ * 结合 `?tab=` 精确匹配当前子页；单参数调用仍兼容旧的 `href` 形式
+ * （例如 `navItemFor("/?tab=intraday")`）。
+ */
+export function navItemFor(pathname: string, search?: string) {
+  const parsed = splitHref(pathname);
+  const tab =
+    search === undefined ? parsed.tab : new URLSearchParams(search).get("tab");
+  const exact = navItems.find((entry) => matches(entry, parsed.path, tab));
+  if (exact) return exact;
+  if (parsed.path.startsWith("/lab/reports/")) {
+    const reports = navItems.find((entry) => entry.href === "/lab/reports");
+    return reports ? { ...reports, title: "研究报告详情" } : undefined;
+  }
+  return undefined;
+}
+
+/** 当前路由所属的一级工作区；`workspace` 是布局传入的路径兜底。 */
+export function workspaceGroupFor(href: string, search?: string) {
+  const active = navItemFor(href, search);
   return (
-    navItems.find((i) => i.href === pathname) ??
-    (pathname.startsWith("/lab/reports/")
-      ? {
-          ...navItems.find((i) => i.href === "/lab/reports")!,
-          title: "研究报告详情",
-        }
-      : undefined)
+    (active
+      ? navGroups.find((group) =>
+          group.items.some((entry) => entry.href === active.href),
+        )
+      : undefined) ??
+    navGroups.find((group) =>
+      group.items.some(
+        (entry) => splitHref(entry.href).path === splitHref(href).path,
+      ),
+    ) ??
+    navGroups[0]!
   );
 }
-export function searchNav(query: string) {
+
+export function searchNav(query: string): readonly NavEntry[] {
   const term = query.trim().toLowerCase();
   return term
-    ? navItems.filter((i) =>
-        [i.label, i.title ?? "", i.href, i.group].some((t) =>
-          t.toLowerCase().includes(term),
-        ),
+    ? navItems.filter((entry) =>
+        [
+          entry.label,
+          entry.title ?? "",
+          entry.href,
+          entry.group,
+          entry.subtitle,
+        ].some((text) => text.toLowerCase().includes(term)),
       )
     : [];
 }

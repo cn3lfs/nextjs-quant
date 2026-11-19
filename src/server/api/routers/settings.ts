@@ -33,7 +33,18 @@ import {
   saveBackupSettings,
   backupSettingsSchema,
 } from "../../db/backups";
+import {
+  workspacePreferences,
+  saveWorkspacePreferences,
+  workspacePreferencesPatch,
+} from "../../db/workspace-preferences";
 export const settingsRouter = createTRPCRouter({
+  workspacePreferences: p("settings", "read").query(() =>
+    workspacePreferences(),
+  ),
+  saveWorkspacePreferences: p("settings", "configure")
+    .input(workspacePreferencesPatch)
+    .mutation(({ input }) => saveWorkspacePreferences(input)),
   verifyBinancePublicData: p("settings", "compute").mutation(() => {
     const root = publicDataRoot(settings().binancePublicDataRoot);
     return background(

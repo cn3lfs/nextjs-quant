@@ -50,14 +50,121 @@
 
   /* type */
   --nc-font: "Inter", "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  --nc-font-mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
   --nc-text-base: 14px;
+
+  /* type scale — comfort tier, per DESIGN.md and benchmark §3.9 */
+  --nc-font-size-body: 14px;
+  --nc-line-height-body: 22px;
+  --nc-font-size-sub: 13px;
+  --nc-line-height-sub: 20px;
+  --nc-font-size-kpi: 28px;
+  --nc-line-height-kpi: 36px;
+  --nc-font-size-page: 24px;
+  --nc-line-height-page: 32px;
+  --nc-font-size-section: 18px;
+  --nc-line-height-section: 26px;
+  /* Secondary stat tiles keep their legacy 17px so comfort matches today. */
+  --nc-font-size-stat: 17px;
+
+  /* tables */
+  --nc-table-row-h: 44px;
+  --nc-table-head-h: 40px;
+  --nc-cell-px: 12px;
+  --nc-cell-py: 10px;
 
   /* shape and layout */
   --nc-radius: 8px;
+  --nc-radius-control: 8px;
   --nc-pill: 999px;
   --nc-gap: 14px;
-  --nc-sidebar-width: 216px;
+  --nc-card-p: 16px;
+  --nc-section-gap: 24px;
+  --nc-topbar-h: 56px;
+  --nc-sidebar-w: 216px;
+  --nc-sidebar-width: var(--nc-sidebar-w);
+  --nc-sidebar-rail-w: 56px;
+  --nc-control-h: 40px;
+  --nc-control-sm-h: 32px;
+  --nc-segmented-h: 36px;
+  --nc-nav-item-h: 36px;
+  --nc-field-py: 7px;
+  --nc-field-px: 10px;
+  --nc-ribbon-h: 64px;
+  --nc-motion: 140ms;
   --nc-shadow-md: 0 8px 28px rgba(23, 43, 77, 0.12);
+}
+
+/* Professional compact tier (benchmark §3.9). Only type, rhythm and spacing
+   change; the same light palette, semantic colors and components remain.
+   `html[data-density]` outranks `:root`, so every token below wins. */
+html[data-density="compact"],
+body[data-density="compact"] {
+  --nc-text-base: 13px;
+
+  --nc-font-size-body: 13px;
+  --nc-line-height-body: 19px;
+  --nc-font-size-sub: 12px;
+  --nc-line-height-sub: 17px;
+  --nc-font-size-kpi: 24px;
+  --nc-line-height-kpi: 30px;
+  --nc-font-size-page: 20px;
+  --nc-line-height-page: 28px;
+  --nc-font-size-section: 16px;
+  --nc-line-height-section: 23px;
+  --nc-font-size-stat: 15px;
+
+  --nc-table-row-h: 36px;
+  --nc-table-head-h: 32px;
+  --nc-cell-px: 10px;
+  --nc-cell-py: 6px;
+
+  --nc-radius: 6px;
+  --nc-radius-control: 6px;
+  /* Re-substitute the shadcn alias: custom properties resolve where declared,
+     so `:root`'s `--radius` would otherwise stay at the comfort value. */
+  --radius: 6px;
+  --nc-card-p: 12px;
+  --nc-section-gap: 16px;
+  --nc-topbar-h: 48px;
+  --nc-sidebar-w: 200px;
+  --nc-sidebar-rail-w: 52px;
+  --nc-control-h: 36px;
+  --nc-control-sm-h: 28px;
+  --nc-segmented-h: 30px;
+  --nc-nav-item-h: 30px;
+  --nc-field-py: 4px;
+  --nc-field-px: 8px;
+  --nc-ribbon-h: 52px;
+}
+
+/* Numeric columns: tabular figures so digits never jitter between rows.
+   Prose keeps the proportional face — mixed CJK/latin baselines stay stable. */
+.num,
+.numeric,
+.tabular,
+.nc-tabular,
+td[data-numeric],
+th[data-numeric] {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings:
+    "tnum" 1,
+    "lnum" 1;
+}
+
+/* Code and logs only; body copy never uses the monospace face. */
+.nc-mono,
+code,
+pre,
+kbd,
+samp {
+  font-family: var(--nc-font-mono);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --nc-motion: 0ms;
+  }
 }
 
 /* Three layout tiers: compact through1024px, medium1025–1279px, wide1280px+. */

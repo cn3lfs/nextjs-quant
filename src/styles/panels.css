@@ -1,4 +1,5 @@
-/* Panel system from the design handoff. Values come from tokens.css. */
+/* Panel system from the design handoff. Values come from tokens.css, so the
+   comfort ⇄ compact switch changes rhythm without touching a component. */
 .nc-grid {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
@@ -34,9 +35,7 @@
     grid-column: span 12;
   }
 }
-.nc-grid > .panel,
-.nc-grid > .report-card,
-.nc-grid > .task-bar {
+.nc-grid > :where(.panel, .report-card, .task-bar) {
   margin: 0;
 }
 .nc-grid > :where(.panel, .report-card, .task-bar):not([class*="nc-span-"]) {
@@ -48,7 +47,7 @@
   background: var(--nc-card);
   border: 1px solid var(--nc-border);
   border-radius: var(--nc-radius);
-  padding: 14px 16px;
+  padding: var(--nc-card-p);
 }
 .nc-panel-accent {
   border-color: var(--nc-accent-800);
@@ -63,12 +62,12 @@
 }
 .nc-panel-head h3 {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--nc-font-size-body);
   font-weight: 600;
   color: var(--nc-text);
 }
 .nc-panel-meta {
-  font-size: 13px;
+  font-size: var(--nc-font-size-sub);
   color: var(--nc-text-4);
 }
 .nc-panel-actions {
@@ -81,7 +80,7 @@
 .nc-panel-note,
 .nc-panel-foot {
   margin: 10px 0 0;
-  font-size: 13px;
+  font-size: var(--nc-font-size-sub);
   line-height: 1.6;
   color: var(--nc-text-4);
 }
@@ -89,7 +88,7 @@
   margin: 0;
   padding: 18px 4px;
   text-align: center;
-  font-size: 13px;
+  font-size: var(--nc-font-size-sub);
   color: var(--nc-text-4);
 }
 .nc-pill {
@@ -100,7 +99,7 @@
   border: 1px solid;
   border-radius: var(--nc-pill);
   padding: 0 7px;
-  font-size: 13px;
+  font-size: var(--nc-font-size-sub);
   line-height: 16px;
   white-space: nowrap;
 }
@@ -110,13 +109,13 @@
   gap: 6px;
 }
 .nc-segmented > button {
-  min-height: 36px;
+  min-height: var(--nc-segmented-h);
   border: 1px solid var(--nc-border);
   background: transparent;
   color: var(--nc-text-3);
-  border-radius: var(--nc-radius);
+  border-radius: var(--nc-radius-control);
   padding: 4px 11px;
-  font-size: 13px;
+  font-size: var(--nc-font-size-sub);
   line-height: 1.5;
 }
 .nc-segmented > button:hover {
@@ -126,6 +125,42 @@
   border-color: var(--nc-accent-700);
   background: var(--nc-accent-900);
   color: var(--nc-accent-light);
+}
+
+/* State banner semantics. Layout, spacing and type are Tailwind utilities in
+   `state-banner.tsx`; only the 2px semantic edge and the near-white ground
+   live here, because `data-state` cannot set two custom properties inline.
+   No large red/green fills: meaning is carried by edge, icon and text. */
+.nc-state-banner {
+  --nc-banner-accent: var(--nc-text-4);
+  --nc-banner-ground: var(--nc-card);
+  border-left-color: var(--nc-banner-accent);
+  background: var(--nc-banner-ground);
+}
+.nc-state-banner > svg {
+  color: var(--nc-banner-accent);
+}
+.nc-state-banner[data-state="info"] {
+  --nc-banner-accent: var(--nc-accent);
+  --nc-banner-ground: var(--nc-accent-glow);
+}
+.nc-state-banner[data-state="warn"] {
+  --nc-banner-accent: var(--nc-warn);
+  --nc-banner-ground: color-mix(in srgb, var(--nc-warn) 6%, var(--nc-card));
+}
+.nc-state-banner[data-state="error"] {
+  --nc-banner-accent: var(--nc-bad);
+  --nc-banner-ground: color-mix(in srgb, var(--nc-bad) 6%, var(--nc-card));
+}
+.nc-state-banner[data-state="stale"] {
+  --nc-banner-accent: var(--nc-warn);
+  --nc-banner-ground: var(--nc-inset);
+  border-style: dashed;
+  border-left-style: solid;
+}
+.nc-state-banner[data-state="empty"] {
+  --nc-banner-accent: var(--nc-border);
+  --nc-banner-ground: var(--nc-inset);
 }
 
 /* Stats */
@@ -141,25 +176,25 @@
   min-width: 0;
   padding: 10px 12px;
   border: 1px solid var(--nc-border-soft);
-  border-radius: var(--nc-radius);
+  border-radius: var(--nc-radius-control);
   background: var(--nc-inset);
 }
 .nc-stat-label {
-  font-size: 13px;
+  font-size: var(--nc-font-size-sub);
   color: var(--nc-text-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .nc-stat-value {
-  font-size: 17px;
+  font-size: var(--nc-font-size-stat);
   font-weight: 500;
   line-height: 1.3;
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
 .nc-stat-note {
-  font-size: 13px;
+  font-size: var(--nc-font-size-sub);
   line-height: 1.45;
   color: var(--nc-text-4);
 }
@@ -170,22 +205,22 @@
 }
 .nc-table-head,
 .nc-table-row {
-  min-height: 44px;
+  min-height: var(--nc-table-row-h);
   display: grid;
   gap: 8px;
   align-items: center;
 }
 .nc-table-head {
-  padding: 0 4px 7px;
+  padding: 0 4px calc(var(--nc-cell-py) - 3px);
   border-bottom: 1px solid var(--nc-border-soft);
-  font-size: 13px;
+  font-size: var(--nc-font-size-sub);
   letter-spacing: 0.08em;
   color: var(--nc-text-4);
 }
 .nc-table-row {
-  padding: 9px 4px;
+  padding: var(--nc-cell-py) 4px;
   border-bottom: 1px solid var(--nc-inset);
-  font-size: 13px;
+  font-size: var(--nc-font-size-sub);
   font-variant-numeric: tabular-nums;
 }
 .nc-table-row:hover {
@@ -202,9 +237,9 @@
   gap: 8px;
 }
 .nc-list-row {
-  padding: 10px 12px;
+  padding: var(--nc-cell-py) var(--nc-cell-px);
   border: 1px solid var(--nc-border-soft);
-  border-radius: var(--nc-radius);
+  border-radius: var(--nc-radius-control);
   background: var(--nc-inset);
 }
 
@@ -221,11 +256,11 @@
   min-width: 0;
 }
 .nc-field > span {
-  font-size: 13px;
+  font-size: var(--nc-font-size-sub);
   color: var(--nc-text-3);
 }
 .nc-field > small {
-  font-size: 13px;
+  font-size: var(--nc-font-size-sub);
   color: var(--nc-text-4);
 }
 .nc-checks {
@@ -233,7 +268,7 @@
   flex-wrap: wrap;
   gap: 8px 18px;
   margin-top: 12px;
-  font-size: 13px;
+  font-size: var(--nc-font-size-sub);
   color: var(--nc-text-2);
 }
 .nc-buttons {
@@ -253,7 +288,7 @@
 .nc-bar-name {
   width: 96px;
   flex: none;
-  font-size: 13px;
+  font-size: var(--nc-font-size-sub);
   color: var(--nc-text-2);
   white-space: nowrap;
   overflow: hidden;
@@ -274,7 +309,7 @@
 .nc-bar-value {
   min-width: 34px;
   text-align: right;
-  font-size: 13px;
+  font-size: var(--nc-font-size-sub);
   color: var(--nc-text-3);
   font-variant-numeric: tabular-nums;
 }
@@ -298,7 +333,7 @@
 }
 .nc-report-summary {
   margin: 0 0 12px;
-  font-size: 13px;
+  font-size: var(--nc-font-size-sub);
   line-height: 1.7;
   color: var(--nc-text-3);
 }
@@ -311,9 +346,9 @@
   display: flex;
   flex-direction: column;
   gap: 5px;
-  padding: 10px 12px;
+  padding: var(--nc-cell-py) var(--nc-cell-px);
   border: 1px solid var(--nc-border-soft);
-  border-radius: var(--nc-radius);
+  border-radius: var(--nc-radius-control);
   background: var(--nc-inset);
 }
 
@@ -365,7 +400,7 @@
   bottom: 12px;
   left: 0;
   font-style: normal;
-  font-size: 13px;
+  font-size: var(--nc-font-size-sub);
   line-height: 1.5;
   color: var(--nc-accent-100);
   background: var(--nc-accent-700);
@@ -438,7 +473,7 @@
   position: absolute;
   right: 0;
   top: -22px;
-  font-size: 13px;
+  font-size: var(--nc-font-size-sub);
   color: var(--nc-text-4);
 }
 .nc-health {
@@ -452,7 +487,7 @@
   gap: 5px;
   padding: 10px 12px;
   border: 1px solid var(--nc-border);
-  border-radius: var(--nc-radius);
+  border-radius: var(--nc-radius-control);
   background: var(--nc-card);
 }
 .nc-todo {
@@ -461,7 +496,7 @@
   gap: 12px;
   padding: 11px 13px;
   border: 1px solid var(--nc-border-soft);
-  border-radius: var(--nc-radius);
+  border-radius: var(--nc-radius-control);
   background: var(--nc-inset);
 }
 .nc-candidate,
@@ -472,7 +507,7 @@
   min-width: 0;
   padding: 8px 10px;
   border: 1px solid var(--nc-border-soft);
-  border-radius: var(--nc-radius);
+  border-radius: var(--nc-radius-control);
   background: var(--nc-inset);
   color: var(--nc-text);
   text-decoration: none;
@@ -487,10 +522,10 @@
   flex: none;
   display: grid;
   place-items: center;
-  border-radius: 6px;
+  border-radius: var(--nc-radius-control);
   background: var(--nc-accent-900);
   color: var(--nc-accent-light);
-  font-size: 13px;
+  font-size: var(--nc-font-size-sub);
 }
 
 /* Tones — declared last so they override the base panel rules above. */

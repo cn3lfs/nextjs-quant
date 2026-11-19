@@ -1,7 +1,4 @@
 import { describe, it, expect } from "vitest";
-import { mkdtempSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
 import Database from "better-sqlite3";
 import { trustedRequest } from "~/server/infra/access";
 import { normalizeMcpBars } from "~/server/data-sources/tdx/mcp-market-data";
@@ -149,7 +146,7 @@ describe("HTTP 与数据适配集成", () => {
       const before = db.prepare("SELECT * FROM records").all();
       migrate(db);
       expect(db.prepare("SELECT * FROM records").all()).toEqual(before);
-      expect(db.pragma("user_version", { simple: true })).toBe(19);
+      expect(db.pragma("user_version", { simple: true })).toBe(20);
       expect(
         db.prepare("SELECT COUNT(*) AS n FROM concept_rps_days").get(),
       ).toEqual({ n: 0 });

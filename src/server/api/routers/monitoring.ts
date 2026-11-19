@@ -80,7 +80,13 @@ import { strategySchema, periodSchema } from "~/lib/domain";
 import { symbolSchema } from "trading-strategies/research/contracts/security";
 import { saveChannel, testDelivery } from "../../infra/notifications";
 import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
+import { alertPipelineDiagnostics } from "../../infra/alert-pipeline-diagnostics";
 export const monitoringRouter = createTRPCRouter({
+  alertPipelineDiagnostics: p("notifications", "read")
+    .input(
+      z.object({ eventKey: z.string().min(1).max(1000).optional() }).optional(),
+    )
+    .query(({ input }) => alertPipelineDiagnostics(input?.eventKey)),
   monitorWorkspaceSave: p("signalMonitor", "configure")
     .input(monitorSaveSchema)
     .mutation(({ input }) => {

@@ -6,7 +6,11 @@ import {
   alertSubscriptionSchema,
 } from "~/lib/strategy-facts/alerts";
 import { AlertRepository } from "../../db/alert-repository";
-import { createAlertPlanSchema, createAlertPlan } from "../../alerts/plans";
+import {
+  createAlertPlanSchema,
+  createAlertPlan,
+  storedCandidateEligibility,
+} from "../../alerts/plans";
 import { settings } from "../../infra/settings";
 import {
   todayWorkspace,
@@ -77,11 +81,25 @@ export const alertsRouter = createTRPCRouter({
           symbol: snapshot.symbol,
           bar: bar.date,
         };
-        const event: AlertEvent = {
+        const signalBar = snapshot.bars.at(-1);
+        if (
+          signalBar?.date !== bar.date ||
+          !Number.isFinite(signalBar.close) ||
+          signalBar.close <= 0
+        )
+          throw new Error("快照信号价与原价日期不一致");
+        const event: AlertEvent & {
+          signalPrice: number;
+          signalPriceBasis: Snapshot["adjustment"];
+          executionRawPrice: number;
+        } = {
           ...identity,
           key: alertKey(identity),
           type: "entry",
           price: bar.close,
+          executionRawPrice: bar.close,
+          signalPrice: signalBar.close,
+          signalPriceBasis: snapshot.adjustment,
           stop: null,
           target: null,
           sleeve: strategy.sleeve,
@@ -94,12 +112,11 @@ export const alertsRouter = createTRPCRouter({
           outcomes: [],
         };
         repo.record(strategy, event);
-        return workspaceCandidate(
-          repo.event(event.key)!,
-          repo,
-          now,
-          book.positions,
-        );
+        const saved = repo.event(event.key)!;
+        return {
+          ...workspaceCandidate(saved, repo, now, book.positions),
+          ...storedCandidateEligibility(saved, repo),
+        };
       });
     }),
   todayWorkspace: p("alerts", "read").query(() => todayWorkspace()),
@@ -110,8 +127,7 @@ export const alertsRouter = createTRPCRouter({
         strategy: z.string().max(150).optional(),
         market: z.enum(["cn-equity", "crypto"]).optional(),
         minimumRps: z.number().finite().min(0).max(100).optional(),
-        // Today only: the readiness reference date used to label historical
-        // close-scan sources. Omitted by /scan, which keeps its old output.
+        // Today pins pagination to its original close. Scan uses the local reference.
         scanCloseDate: z
           .string()
           .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -122,19 +138,15 @@ export const alertsRouter = createTRPCRouter({
     .query(async ({ input }) => {
       const { config, repo, book, now, assertCurrent } =
         await planAccountContext(true);
-      // Only the Today pagination branch reads readiness; /scan adds no I/O.
-      let scan:
-        { closeDate: string | null; calendar: readonly string[] } | undefined;
-      if (input.scanCloseDate !== undefined) {
-        const readiness = await equityDailyReadiness(config, now);
-        scan = {
-          closeDate:
-            input.scanCloseDate === readiness.expectedDate
-              ? input.scanCloseDate
-              : null,
-          calendar: readiness.calendar,
-        };
-      }
+      const readiness = await equityDailyReadiness(config, now);
+      const scan = {
+        closeDate:
+          input.scanCloseDate === undefined ||
+          input.scanCloseDate === readiness.expectedDate
+            ? readiness.expectedDate
+            : null,
+        calendar: readiness.calendar,
+      };
       const result = workspaceCandidates(
         input,
         repo,
@@ -148,11 +160,28 @@ export const alertsRouter = createTRPCRouter({
   workspaceCandidate: p("alerts", "read")
     .input(z.string().min(1).max(1000))
     .query(async ({ input }) => {
-      const { repo, book, now, assertCurrent } = await planAccountContext(true);
+      const { config, repo, book, now, assertCurrent } =
+        await planAccountContext(true);
       const event = repo.event(input);
       if (!event || event.type !== "entry" || event.status === "missed")
         throw new Error("入场候选不存在");
-      const result = workspaceCandidate(event, repo, now, book.positions);
+      const readiness =
+        event.market === "cn-equity"
+          ? await equityDailyReadiness(config, now)
+          : null;
+      const result = {
+        ...workspaceCandidate(event, repo, now, book.positions),
+        ...storedCandidateEligibility(
+          event,
+          repo,
+          readiness
+            ? {
+                closeDate: readiness.expectedDate,
+                calendar: readiness.calendar,
+              }
+            : undefined,
+        ),
+      };
       assertCurrent();
       return result;
     }),
@@ -218,7 +247,14 @@ export const alertsRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       const { config, repo, book, now, assertCurrent } =
         await planAccountContext(false);
+      const readiness =
+        repo.event(input.eventKey)?.market === "cn-equity"
+          ? await equityDailyReadiness(config, now)
+          : null;
       return createAlertPlan(input, config, now, repo, {
+        closeReference: readiness
+          ? { closeDate: readiness.expectedDate, calendar: readiness.calendar }
+          : undefined,
         positions: book.positions,
         industryGroups: (symbol) => book.industryBySymbol.get(symbol) ?? [],
         industrySource: book.industrySource,
