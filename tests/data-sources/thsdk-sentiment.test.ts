@@ -354,11 +354,7 @@ it("requests block constituents by block ID and keeps price and percentage unkno
     { security, full_code: "USHA600519", name: "贵州茅台" },
   ]);
   await expect(
-    thsdkBlockConstituents(
-      { blockId: 129, limit: 5 },
-      undefined,
-      invoke,
-    ),
+    thsdkBlockConstituents({ blockId: 129, limit: 5 }, undefined, invoke),
   ).resolves.toMatchObject({
     blockId: 129,
     blockName: null,

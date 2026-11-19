@@ -17,6 +17,8 @@ import {
 import { executeResearchCommand } from "../research/research-command";
 import {
   executeLabBacktest,
+  replayLabBacktest,
+  type FrozenLabBacktest,
   type LabBacktestWork,
 } from "../research/lab-backtest";
 import type { researchCommandSchema } from "~/lib/research/research-command";
@@ -76,6 +78,7 @@ function reportSavedBatch() {
 }
 export type Work =
   | LabBacktestWork
+  | { type: "lab-backtest-replay"; frozen: FrozenLabBacktest }
   | { type: "research-command"; input: z.input<typeof researchCommandSchema> }
   | BinanceArchiveAuditWork
   | PaperWork
@@ -92,6 +95,10 @@ export type Work =
   | { type: "scan"; root: string }
   | { type: "snapshot"; root: string; symbol: string; period: Period };
 async function main(work: Work & { attemptId?: string; jobId?: string }) {
+  if (work.type === "lab-backtest-replay")
+    return replayLabBacktest(work.frozen, (progress, phase) =>
+      parentPort?.postMessage({ progress, phase }),
+    );
   if (work.type === "lab-backtest")
     return executeLabBacktest(work, (progress, phase) =>
       parentPort?.postMessage({ progress, phase }),

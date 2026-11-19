@@ -159,7 +159,12 @@ it("keeps Wencai row values and appends unmatched securities before limiting the
   });
   const result = await thsdkWencaiQuery({ query, limit: 2 }, undefined, invoke);
   expect(result.rows).toEqual([
-    { ...security, symbol: "sz000158", name: "常山北明", values: { [query]: 3 } },
+    {
+      ...security,
+      symbol: "sz000158",
+      name: "常山北明",
+      values: { [query]: 3 },
+    },
     { ...index, symbol: "sh000158", name: null, values: { [query]: null } },
   ]);
 });

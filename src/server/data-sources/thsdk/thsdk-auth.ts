@@ -141,6 +141,8 @@ function asRecord(value: unknown): Record<string, unknown> {
 }
 
 export function readThsdkConfig(): ThsdkConfig {
+  if (!existsSync(join(dataDirectory(), "quant.sqlite")))
+    return defaultConfig();
   const stored = get<unknown>(CONFIG_ID);
   const parsed = thsdkConfigSchema.safeParse({
     ...defaultConfig(),
@@ -162,6 +164,7 @@ export function saveThsdkConfig(
   put(CONFIG_KIND, CONFIG_ID, next);
   if (
     patch.enabled === false ||
+    (patch.guestModeEnabled === false && runtime.activeMode === "guest") ||
     (patch.dllPath !== undefined && patch.dllPath !== current.dllPath) ||
     (patch.authMode !== undefined && patch.authMode !== current.authMode)
   )
@@ -395,7 +398,11 @@ export async function ensureThsdkAuthenticated(
   }
 
   if (config.authMode === "account") await thsdkLoginAccount(signal);
-  else if (config.authMode === "guest") await thsdkLoginGuest(signal);
+  else if (config.authMode === "guest")
+    throw new ThsdkError(
+      "auth_required",
+      "请先在系统设置中手动点击一键游客登录",
+    );
   else throw new ThsdkError("auth_required", "二维码登录需要用户扫码");
 
   if (runtime.authGeneration === generation)
@@ -530,6 +537,14 @@ async function invokeControl<T>(
   }
 }
 
+function qrHttpUrl(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const url = URL.parse(value);
+  return url && (url.protocol === "http:" || url.protocol === "https:")
+    ? url.href
+    : null;
+}
+
 function applyQrState(data: unknown, generation: number): QrSnapshot {
   const parsed = qrStateSchema.safeParse(data);
   if (!parsed.success)
@@ -546,8 +561,14 @@ function applyQrState(data: unknown, generation: number): QrSnapshot {
     runtime.state = "qr_pending";
   }
   return {
-    scanUrl: parsed.data.scan_url ?? null,
-    imageUrl: parsed.data.image_url ?? null,
+    scanUrl: qrHttpUrl(parsed.data.scan_url),
+    imageUrl:
+      parsed.data.image_url &&
+      /^data:image\/(?:png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(
+        parsed.data.image_url,
+      )
+        ? parsed.data.image_url
+        : qrHttpUrl(parsed.data.image_url),
     authenticated,
     state: parsed.data.state ?? (authenticated ? "authenticated" : "pending"),
   };

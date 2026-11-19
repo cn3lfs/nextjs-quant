@@ -46,6 +46,7 @@ it("connects current strategy, connection and evidence controls", () => {
 
 it("allows native form and table controls only in shared UI or existing exemptions", () => {
   const exempt: Record<string, number> = {
+    "backtest/monthly-returns-heatmap.tsx": 1,
     "research/financial-growth-panel.tsx": 1,
     "research/financial-quality-panel.tsx": 2,
     // News workspace: five source/analysis controls, four archive filters.

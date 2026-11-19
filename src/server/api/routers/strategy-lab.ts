@@ -14,7 +14,7 @@ import {
 import { labValidationReport } from "../../research/lab-report";
 import { researchCommandSchema } from "~/lib/research/research-command";
 import { background, runWorker, updateJob } from "../../jobs/jobs";
-import { executeLabBacktest } from "../../research/lab-backtest";
+import { prepareLabBacktest } from "../../research/lab-backtest";
 import { labBacktestSchema } from "~/lib/research/lab-backtest";
 import {
   labPortfolioEvidenceHashSchema,
@@ -57,10 +57,10 @@ export const strategyLabRouter = createTRPCRouter({
       background(
         "backtest",
         { type: "lab-backtest", ...input },
-        (job, signal) => {
+        async (job, signal) => {
           const work = { type: "lab-backtest" as const, input };
           if (input.source !== "thsdk") return runWorker(work, job.id);
-          return executeLabBacktest(
+          const frozen = await prepareLabBacktest(
             work,
             (progress, phase) => {
               signal.throwIfAborted();
@@ -72,6 +72,7 @@ export const strategyLabRouter = createTRPCRouter({
             undefined,
             signal,
           );
+          return runWorker({ type: "lab-backtest-replay", frozen }, job.id);
         },
       ),
     ),

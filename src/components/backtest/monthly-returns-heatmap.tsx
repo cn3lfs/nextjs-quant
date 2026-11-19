@@ -70,7 +70,11 @@ export function MonthlyReturnsHeatmap({
         <h3 className="nc-heatmap-title">月度收益热力图</h3>
         <div className="nc-heatmap-legend">
           <span>
-            <i className="nc-heatmap-swatch" data-tone="up" aria-hidden="true" />
+            <i
+              className="nc-heatmap-swatch"
+              data-tone="up"
+              aria-hidden="true"
+            />
             正收益
           </span>
           <span>

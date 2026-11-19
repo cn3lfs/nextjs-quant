@@ -32,11 +32,7 @@ import {
 } from "../ui/select";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import {
-  FilterDivider,
-  FilterGroup,
-  FilterToolbar,
-} from "~/components/panels";
+import { FilterDivider, FilterGroup, FilterToolbar } from "~/components/panels";
 import { WorkProgressView } from "../screening/screen-task-progress";
 import { useTaskVisible } from "./use-task-visible";
 import { TaskEvidence } from "./task-evidence";
@@ -484,11 +480,7 @@ export function TaskHistory({
                 session.update("typeDraft", value as typeof typeDraft)
               }
             >
-              <SelectTrigger
-                size="sm"
-                aria-label="任务类型"
-                className="w-36"
-              >
+              <SelectTrigger size="sm" aria-label="任务类型" className="w-36">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

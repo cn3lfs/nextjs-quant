@@ -15,6 +15,7 @@ import { thsdkOrderBookToDisplayModel } from "~/lib/market/quote-book-view";
 import { compactNumber } from "~/lib/market/tdx-fundamentals";
 import { quoteRefreshInterval } from "~/lib/market/tdx-quote-view";
 import { useScreenVisible } from "../workbench/use-task-visible";
+import { Button } from "../ui/button";
 import { QuoteBook } from "./quote-book";
 import { useQuoteSession } from "./use-quote-session";
 
@@ -208,20 +209,24 @@ function CallAuctionSection({ symbol }: { symbol: string }) {
       onOpenChange={setOpen}
     >
       <div className="flex items-center gap-1.5">
-        <button
+        <Button
           type="button"
-          className={`rounded px-1.5 py-0.5 text-[11px] ${phase === "opening" ? "bg-nc-accent-900 text-nc-accent-light" : "text-nc-text-3"}`}
+          size="sm"
+          variant={phase === "opening" ? "default" : "plain"}
+          className="h-6 px-1.5 text-[11px]"
           onClick={() => setPhase("opening")}
         >
           开盘
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          className={`rounded px-1.5 py-0.5 text-[11px] ${phase === "closing" ? "bg-nc-accent-900 text-nc-accent-light" : "text-nc-text-3"}`}
+          size="sm"
+          variant={phase === "closing" ? "default" : "plain"}
+          className="h-6 px-1.5 text-[11px]"
           onClick={() => setPhase("closing")}
         >
           收盘
-        </button>
+        </Button>
       </div>
       {data.error ? (
         <p role="alert" className="text-[12px] text-nc-bad">

@@ -13,5 +13,9 @@ export function dataDirectory(): string {
 }
 
 export function thsdkSessionRoot(): string {
-  return join(resolve(dataDirectory()), "runtime-sessions", "thsdk");
+  return join(
+    resolve(/*turbopackIgnore: true*/ dataDirectory()),
+    "runtime-sessions",
+    "thsdk",
+  );
 }

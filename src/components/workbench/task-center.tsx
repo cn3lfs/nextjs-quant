@@ -2,12 +2,7 @@
 import { useRef, useState } from "react";
 import { ListChecks, Queue } from "@phosphor-icons/react/ssr";
 import { TaskHistory } from "./task-history";
-import {
-  MethodologyPopover,
-  PageGrid,
-  Panel,
-  StatsPanel,
-} from "../panels";
+import { MethodologyPopover, PageGrid, Panel, StatsPanel } from "../panels";
 import { taskStamp } from "~/lib/research/workflow/task-history";
 import { useTaskOverview } from "./use-task-overview";
 import { Button } from "../ui/button";
@@ -16,8 +11,7 @@ import { RecentErrors } from "./recent-errors";
 const overviewMethodology = [
   {
     label: "统计口径",
-    detail:
-      "任务概览统计全部已记录任务，独立于下方筛选；时间均为北京时间。",
+    detail: "任务概览统计全部已记录任务，独立于下方筛选；时间均为北京时间。",
   },
   {
     label: "统计刷新",
@@ -29,13 +23,11 @@ const overviewMethodology = [
 const taskListMethodology = [
   {
     label: "任务中断",
-    detail:
-      "退出应用可能中断任务；失败后可核对原因，前往来源页重新配置。",
+    detail: "退出应用可能中断任务；失败后可核对原因，前往来源页重新配置。",
   },
   {
     label: "取消限制",
-    detail:
-      "取消不撤销已经发生的外部请求，也不代表外部资源已全部释放。",
+    detail: "取消不撤销已经发生的外部请求，也不代表外部资源已全部释放。",
   },
 ] as const;
 

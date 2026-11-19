@@ -509,11 +509,13 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.entries(screenSortLabels).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
-                        </SelectItem>
-                      ))}
+                      {Object.entries(screenSortLabels).map(
+                        ([value, label]) => (
+                          <SelectItem key={value} value={value}>
+                            {label}
+                          </SelectItem>
+                        ),
+                      )}
                     </SelectContent>
                   </Select>
                   <Select
@@ -689,7 +691,9 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={exportingScreen || screenJob?.status !== "completed"}
+                  disabled={
+                    exportingScreen || screenJob?.status !== "completed"
+                  }
                   onClick={exportScreen}
                 >
                   <DownloadSimple size={13} />

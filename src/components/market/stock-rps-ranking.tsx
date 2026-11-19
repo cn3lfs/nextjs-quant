@@ -34,11 +34,7 @@ import {
   FilterToolbar,
   MethodologyPopover,
 } from "../panels";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "../ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 
 const rpsRankingMethodology = [
   {
@@ -364,8 +360,9 @@ export function StockRpsRanking() {
               hour12: false,
             },
           )}{" "}
-          · 新价覆盖 {displayNumber(confirmed.rps.observation.coverage * 100, 1)}
-          % · 沿用旧价 {confirmed.rps.observation.reused} 只 · 缺失{" "}
+          · 新价覆盖{" "}
+          {displayNumber(confirmed.rps.observation.coverage * 100, 1)}% ·
+          沿用旧价 {confirmed.rps.observation.reused} 只 · 缺失{" "}
           {confirmed.rps.observation.missing} 只。
         </p>
       )}

@@ -285,17 +285,68 @@ export async function readBars<const T extends ReadBarsInput>(
   if (market !== "cn-equity" && input.adjustment !== "none")
     throw new Error("数字货币不支持复权");
   const base = input.cryptoNative15m ? "15m" : basePeriod(market, input.period);
-  const nativeThs =
+  const explicitThs =
     !frozen && market === "cn-equity" && input.source === "thsdk";
   const root =
     input.root ??
-    (market === "cn-equity" && !nativeThs ? settings().tdxRoot : "");
+    (market === "cn-equity" && !explicitThs ? settings().tdxRoot : "");
   const thsAdjustment = {
     none: "none",
     forward: "qfq",
     backward: "hfq",
   } as const;
-  let thsRawBars: Bar[] | undefined;
+  async function readNativeThs(): Promise<SourceSeries> {
+    const fetchHistory = thsdkFetch ?? thsdkChartHistory;
+    const adjustment = thsAdjustment[input.adjustment];
+    const multiplier = {
+      week: 5,
+      month: 23,
+      "15m": 3,
+      "30m": 6,
+      "60m": 12,
+      day: 1,
+      "5m": 1,
+      "1h": 1,
+      "4h": 1,
+    }[input.period];
+    const count = input.limit
+      ? (input.limit + (multiplier > 1 ? 1 : 0)) * multiplier
+      : 20000;
+    const end = input.to?.slice(0, 10);
+    const remote = await fetchHistory(symbol, base, count, adjustment, end);
+    const bars = remote.bars.filter((bar) => withinEnd(bar.date, input.to));
+    let thsRawBars: Bar[] | undefined;
+    if (input.freezeRaw && adjustment !== "none") {
+      const original = await fetchHistory(symbol, base, count, "none", end);
+      thsRawBars = original.bars.filter((bar) => withinEnd(bar.date, input.to));
+      if (
+        thsRawBars.length !== bars.length ||
+        thsRawBars.some((bar, i) => bar.date !== bars[i]!.date)
+      )
+        throw new Error("同花顺原价与复权序列日期未对齐");
+    }
+    const hash = hashOf({
+      symbol,
+      base,
+      source: remote.source,
+      adjustment,
+      bars,
+      rawBars: thsRawBars,
+    });
+    return {
+      ...remote,
+      bars,
+      ...(thsRawBars ? { rawBars: thsRawBars } : {}),
+      adjustment: input.adjustment,
+      symbol,
+      period: base,
+      hash,
+      id: `snapshot-${symbol}-${hash}`,
+      createdAt: now,
+      requestedSource: input.source,
+    };
+  }
+
   let raw: SourceSeries;
   if (frozen) {
     if (
@@ -334,54 +385,8 @@ export async function readBars<const T extends ReadBarsInput>(
         })
       : null;
     raw = archive ?? (await cryptoBars(input, base, now));
-  } else if (nativeThs) {
-    const fetchHistory = thsdkFetch ?? thsdkChartHistory;
-    const adjustment = thsAdjustment[input.adjustment];
-    const multiplier = {
-      week: 5,
-      month: 23,
-      "15m": 3,
-      "30m": 6,
-      "60m": 12,
-      day: 1,
-      "5m": 1,
-      "1h": 1,
-      "4h": 1,
-    }[input.period];
-    const count = input.limit
-      ? (input.limit + (multiplier > 1 ? 1 : 0)) * multiplier
-      : 20000;
-    const end = input.to?.slice(0, 10);
-    const remote = await fetchHistory(symbol, base, count, adjustment, end);
-    const bars = remote.bars.filter((bar) => withinEnd(bar.date, input.to));
-    if (input.freezeRaw && adjustment !== "none") {
-      const original = await fetchHistory(symbol, base, count, "none", end);
-      thsRawBars = original.bars.filter((bar) => withinEnd(bar.date, input.to));
-      if (
-        thsRawBars.length !== bars.length ||
-        thsRawBars.some((bar, i) => bar.date !== bars[i]!.date)
-      )
-        throw new Error("同花顺原价与复权序列日期未对齐");
-    }
-    const hash = hashOf({
-      symbol,
-      base,
-      source: remote.source,
-      adjustment,
-      bars,
-      rawBars: thsRawBars,
-    });
-    raw = {
-      ...remote,
-      bars,
-      adjustment: input.adjustment,
-      symbol,
-      period: base,
-      hash,
-      id: `snapshot-${symbol}-${hash}`,
-      createdAt: now,
-      requestedSource: "thsdk",
-    };
+  } else if (explicitThs) {
+    raw = await readNativeThs();
   } else {
     const local = () =>
       localBars(root, symbol, base === "day" ? "day" : "5m", input.chartFunds);
@@ -396,17 +401,30 @@ export async function readBars<const T extends ReadBarsInput>(
           Math.min(input.limit ?? 2000, 20000),
           input.source,
         );
-        const hash = hashOf(remote.bars);
-        raw = {
-          ...remote,
-          symbol,
-          period: base,
-          adjustment: "none",
-          hash,
-          id: `snapshot-${symbol}-${hash}`,
-          createdAt: now,
-          dataRoot: root,
-        };
+        if (
+          input.source === "auto" &&
+          remote.source === "thsdk-hq" &&
+          input.adjustment !== "none"
+        ) {
+          raw = await readNativeThs();
+          raw.sourceErrors = remote.sourceErrors;
+          raw.sourceNote = [...(remote.sourceErrors ?? []), raw.sourceNote]
+            .filter(Boolean)
+            .join("；");
+          raw.dataRoot = root;
+        } else {
+          const hash = hashOf(remote.bars);
+          raw = {
+            ...remote,
+            symbol,
+            period: base,
+            adjustment: "none",
+            hash,
+            id: `snapshot-${symbol}-${hash}`,
+            createdAt: now,
+            dataRoot: root,
+          };
+        }
       }
     } else raw = await local();
   }
@@ -448,6 +466,9 @@ export async function readBars<const T extends ReadBarsInput>(
   let adjustmentReference: string | null = null;
   let adjustmentSource: BarMetadata["adjustmentSource"];
   const sourceVersions = [...(raw.sourceVersions ?? [raw.hash])];
+  const nativeThs =
+    !frozen && raw.source === "thsdk-hq" && market === "cn-equity";
+  let thsRawBars = nativeThs ? raw.rawBars : undefined;
   if (nativeThs && input.adjustment !== "none") {
     const version = `thsdk-native:${thsAdjustment[input.adjustment]}`;
     adjustmentSource = "thsdk-native";

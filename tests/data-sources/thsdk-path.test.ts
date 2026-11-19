@@ -8,6 +8,7 @@ import {
   realpathSync,
   rmSync,
   symlinkSync,
+  utimesSync,
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
@@ -126,6 +127,19 @@ describe.skipIf(process.platform !== "win32")("Windows DLL filesystem", () => {
     await expect(staged).rejects.toMatchObject(
       safePathError("io_error", sessionRoot),
     );
+  });
+
+  it("reuses an identical staged DLL without replacing or rewriting it", async () => {
+    writeFileSync(sourcePath, peFixture());
+    const options = { sessionRoot, allowUnlistedHash: true };
+    const first = await stageThsdkDll(sourcePath, options);
+    utimesSync(first.stagedPath, 1000000000, 1000000000);
+    const before = lstatSync(first.stagedPath, { bigint: true });
+    expect(await stageThsdkDll(sourcePath, options)).toEqual(first);
+    expect(lstatSync(first.stagedPath, { bigint: true })).toMatchObject({
+      ino: before.ino,
+      mtimeNs: before.mtimeNs,
+    });
   });
 
   it("stages an explicitly allowed x64 DLL by content hash and prunes the previous hash", async () => {

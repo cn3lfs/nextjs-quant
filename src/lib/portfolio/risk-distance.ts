@@ -57,6 +57,8 @@ export function computeRiskDistance({
     markerPosition: Math.max(0, Math.min(1, position)),
     hasTarget,
     rMultiple:
-      isPositivePrice(cost) && cost > stop ? (price - cost) / (cost - stop) : null,
+      isPositivePrice(cost) && cost > stop
+        ? (price - cost) / (cost - stop)
+        : null,
   };
 }

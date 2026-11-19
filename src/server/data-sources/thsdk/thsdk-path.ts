@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   closeSync,
   lstatSync,
@@ -210,24 +210,42 @@ export async function stageThsdkDll(
     throw new ThsdkPathError("io_error", "DLL 暂存目录不可写");
   }
 
-  if (sourcePath.toLowerCase() !== stagedPath.toLowerCase()) {
-    const temporary = join(
-      dllRoot,
-      inspected.sha256,
-      `.hq.dll.tmp-${process.pid}-${Date.now()}`,
+  const matchesStaged = () => {
+    const existing = lstatSync(stagedPath, { throwIfNoEntry: false });
+    return (
+      existing?.isFile() &&
+      existing.size === inspected.bytes &&
+      sha256File(stagedPath) === inspected.sha256
     );
-    try {
-      await copyFile(sourcePath, temporary);
-      // The staging root may legitimately be junctioned; only the source path
-      // is held to the no-links rule, so verify the copy by hash alone.
-      if (sha256File(temporary) !== inspected.sha256)
-        throw new ThsdkPathError("hash_mismatch", "DLL 复制后哈希不一致");
-      await rename(temporary, stagedPath);
-    } catch (error) {
-      await rm(temporary, { force: true }).catch(() => {});
-      if (error instanceof ThsdkPathError) throw error;
-      throw new ThsdkPathError("io_error", "DLL 复制失败");
+  };
+  try {
+    if (!matchesStaged()) {
+      const temporary = join(
+        dllRoot,
+        inspected.sha256,
+        `.hq.dll.tmp-${randomUUID()}`,
+      );
+      try {
+        await copyFile(sourcePath, temporary);
+        // The staging root may legitimately be junctioned; only the source path
+        // is held to the no-links rule, so verify the copy by hash alone.
+        if (sha256File(temporary) !== inspected.sha256)
+          throw new ThsdkPathError("hash_mismatch", "DLL 复制后哈希不一致");
+        // Another caller may have staged and loaded the DLL during the copy.
+        if (!matchesStaged()) {
+          try {
+            await rename(temporary, stagedPath);
+          } catch (error) {
+            if (!matchesStaged()) throw error;
+          }
+        }
+      } finally {
+        await rm(temporary, { force: true }).catch(() => {});
+      }
     }
+  } catch (error) {
+    if (error instanceof ThsdkPathError) throw error;
+    throw new ThsdkPathError("io_error", "DLL 复制失败");
   }
 
   await pruneStagedDlls(dllRoot, inspected.sha256);

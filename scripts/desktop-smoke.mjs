@@ -143,7 +143,7 @@ const text = await readFile(join(data, "smoke.txt"), "utf8").catch(() => ""),
     "今日计划",
     "今日决策",
     "市场状态",
-    "明日计划",
+    "明日交易候选",
     "数据与连接",
   ],
   forbiddenLabels = [

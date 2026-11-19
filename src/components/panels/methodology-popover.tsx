@@ -2,11 +2,7 @@
 import { Info } from "@phosphor-icons/react/ssr";
 import type { JSX } from "react";
 import { Button } from "../ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "../ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 
 export type MethodologyItem = { label: string; detail: string };
 

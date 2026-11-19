@@ -1706,3 +1706,13 @@ P5在原799只池、2020–2026窗口的三成本各两次真实执行均因魔�
 ## 2026-11-19 工作台界面偏好
 
 壳层先读取有效的本机缓存，SQLite 负责恢复缺少缓存的窗口。一次挂载期间的偏好改动即时生效，按操作顺序向 SQLite 写入变化字段。读取迟到或持久化失败时保留本机选择。专注模式仅在当前会话生效。
+
+## 2026-11-19 同花顺 `thsdk-hq` 数据源架构与正确性边界
+
+同花顺 `hq.dll` 以独立 Node 子进程 + `koffi` 接入，主进程不绑定原生库：DLL 只在 `fork()` 的 `runtime/thsdk-worker.cjs` 内加载，`CallAlloc` 返回值按 `void *` 声明，响应用 `koffi.decode(ptr,"char",-1)` 解码并限制 8 MiB，`FreeResult` 放在 `finally`。Go `c-shared` 运行时不调用 `library.unload()`，驱动退役直接终止子进程；父进程看门狗负责回收。会话目录单进程独占，同目录并发返回 `session_locked`，因此 THS 公式选股与实验室回测在主进程执行并把分片线程压到 1，不交给 `worker_threads`。
+
+原生 80 个方法按清单拆成 70 个只读与 10 个自选股写方法；写方法在进入 FFI 前直接拒绝，新增只读方法必须先登记白名单。二进制只从用户指定路径暂存，校验盘符绝对路径（拒绝网络共享、符号链接/目录联接、备用数据流）与已知 SHA-256；仓库和安装包不分发闭源 DLL、会话或凭据。
+
+东财情绪链路保持独立：`LimitSentimentCore` 与前端 IndexedDB 缓存不因接入 THS 改变，同花顺参考作为追加面板分源展示，不静默合并去重。复权只允许一个来源：THS 信号价使用 `adjustmentSource: "thsdk-native"` 的原生 `qfq`/`hfq`，成交冻结同源 `rawBars` 未复权原价，不再叠加本地 GBBQ；盘中北京时间 15:00 前当日 bar 一律进 `formingDates`，不冒充已完成历史。
+
+本轮零数据库迁移，`PRAGMA user_version` 保持 20；仅把 `dataDirectory()` 抽到 `src/server/infra/paths.ts` 以避免路径消费者加载 `better-sqlite3`。凭据走仓库外 Windows DPAPI，默认个人账号（扫码或账密），游客模式是显式开关且失败不静默降级。THS 研究输入标注为延迟行情、未认证公司行动与历史 ST/IPO，只作规则自检，不作可信业绩。交付细节见 [THSDK 交付记录](data-sources/2026-11-19-thsdk-delivery.md)。

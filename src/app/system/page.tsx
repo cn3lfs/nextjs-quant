@@ -12,7 +12,11 @@ import { FilterToolbar, MethodologyPopover } from "~/components/panels";
 const settingTabs = [
   { key: "data", label: "数据与连接", href: "/system" },
   { key: "paper", label: "本地模拟盘设置", href: "/system?tab=paper" },
-  { key: "account-risk", label: "账户风控设置", href: "/system?tab=account-risk" },
+  {
+    key: "account-risk",
+    label: "账户风控设置",
+    href: "/system?tab=account-risk",
+  },
 ] as const;
 
 const systemMethodology = [
@@ -50,7 +54,11 @@ function SettingsBody() {
   const search = useSearchParams();
   const tab = search.get("tab");
   const activeTab =
-    tab === "paper" ? "paper" : tab === "account-risk" ? "account-risk" : "data";
+    tab === "paper"
+      ? "paper"
+      : tab === "account-risk"
+        ? "account-risk"
+        : "data";
   return (
     <div className="space-y-4">
       <FilterToolbar label="系统设置分类">

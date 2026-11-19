@@ -69,7 +69,10 @@ export function TodayIntel({ all = false }: { all?: boolean }) {
                     {m.name ? `${m.name}（${m.symbol}）` : m.symbol}
                     <span className="text-nc-text-3">
                       {" "}
-                      · {m.sources.map((source) => intelSources[source]).join("、")}
+                      ·{" "}
+                      {m.sources
+                        .map((source) => intelSources[source])
+                        .join("、")}
                     </span>
                   </span>
                 ))}

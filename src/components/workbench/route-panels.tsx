@@ -2,12 +2,7 @@
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { Ranking } from "@phosphor-icons/react/ssr";
-import {
-  MethodologyPopover,
-  PageGrid,
-  Panel,
-  Segmented,
-} from "../panels";
+import { MethodologyPopover, PageGrid, Panel, Segmented } from "../panels";
 import { PanelVisibility } from "./keep-alive";
 
 // Panels load on first visit: the root layout would otherwise ship every
@@ -61,7 +56,8 @@ const rpsMethodology = [
   },
   {
     label: "基准日",
-    detail: "始终展示最近一个已完成结果日；历史日期的排名请到行情图表页按证券查看 RPS 曲线。",
+    detail:
+      "始终展示最近一个已完成结果日；历史日期的排名请到行情图表页按证券查看 RPS 曲线。",
   },
 ];
 

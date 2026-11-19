@@ -67,6 +67,29 @@ const maskError = (message: string) => {
   return line.length > 200 ? `${line.slice(0, 200)}…` : line;
 };
 
+/** 扫码链接只放行 http/https；javascript:、data: 等协议一律丢弃。 */
+function safeHref(value: string | null | undefined) {
+  if (!value) return null;
+  try {
+    const { protocol } = new URL(value);
+    return protocol === "http:" || protocol === "https:" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 二维码只放行 http/https 与 base64 编码的 png/jpeg/webp/gif 数据；其余丢弃。 */
+function safeImageSrc(value: string | null | undefined) {
+  if (!value) return null;
+  if (value.startsWith("data:"))
+    return /^data:image\/(?:png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/i.test(
+      value,
+    )
+      ? value
+      : null;
+  return safeHref(value);
+}
+
 function statusText(status: ThsdkStatusView | undefined) {
   if (!status) return { label: "读取状态…", tone: "idle" as Tone };
   return { label: stateLabels[status.state], tone: stateTones[status.state] };
@@ -209,6 +232,8 @@ export function ThsdkSection() {
     cancelQrcode.isPending ||
     logout.isPending;
   const qrWaiting = Boolean(qr && !qr.authenticated);
+  const scanHref = safeHref(qr?.scanUrl);
+  const qrImageSrc = safeImageSrc(qr?.imageUrl);
   // 只在面板可见且仍有待完成二维码时轮询；隐藏或完成即零请求。
   const pollNow = useRef(pollQrcode.mutate);
   pollNow.current = pollQrcode.mutate;
@@ -498,27 +523,35 @@ export function ThsdkSection() {
               </div>
               {qr && (
                 <div className="flex flex-wrap items-start gap-3 rounded-lg border border-nc-border-soft p-2">
-                  {qr.imageUrl ? (
+                  {qrImageSrc ? (
                     // 二维码由源返回的 data/HTTP 图片，尺寸固定，不走 next/image 优化。
                     <img
-                      src={qr.imageUrl}
+                      src={qrImageSrc}
                       alt="同花顺扫码登录二维码"
                       className="h-36 w-36 rounded-md border border-nc-border-soft bg-card object-contain"
                     />
+                  ) : qr.imageUrl ? (
+                    <p className="text-[11px] text-nc-warn">
+                      二维码图片协议不受信任，已隐藏。
+                    </p>
                   ) : null}
                   <div className="min-w-0 space-y-1 text-[12px]">
                     <p>扫码状态：{qr.authenticated ? "已认证" : qr.state}</p>
-                    {qr.scanUrl ? (
+                    {scanHref ? (
                       <a
                         className="break-all text-nc-accent-light underline"
-                        href={qr.scanUrl}
+                        href={scanHref}
                         target="_blank"
                         rel="noreferrer"
                       >
                         在新窗口打开扫码链接
                       </a>
                     ) : (
-                      <p className="text-nc-text-4">源未返回扫码链接</p>
+                      <p className="text-nc-text-4">
+                        {qr.scanUrl
+                          ? "扫码链接协议不受信任，已隐藏"
+                          : "源未返回扫码链接"}
+                      </p>
                     )}
                     <p className="text-[11px] text-nc-text-4">
                       二维码只用于本次登录；完成后自动停止轮询。

@@ -11,6 +11,7 @@ import type { Bar } from "~/lib/domain";
 import { labBacktestSchema } from "~/lib/research/lab-backtest";
 import { sqlite } from "~/server/db";
 import { saveSettings, settings } from "~/server/infra/settings";
+import { runWorker } from "~/server/jobs/jobs";
 import type {
   BarSeries,
   ReadBarsInput,
@@ -18,6 +19,7 @@ import type {
 } from "~/server/market/bar-store/read-bars";
 import {
   executeLabBacktest,
+  prepareLabBacktest,
   type LabBacktestWork,
 } from "~/server/research/lab-backtest";
 
@@ -220,6 +222,33 @@ describe("THSDK lab execution", () => {
       expect(firstFill?.price).toBeCloseTo(200.1, 8);
     },
   );
+
+  it("replays the prepared THSDK prices in the bundled worker with the same results and evidence", async () => {
+    const { read } = fixtures();
+    const frozen = await prepareLabBacktest(thsdkWork, undefined, read);
+    const replay = await runWorker({ type: "lab-backtest-replay", frozen });
+    expect(replay).toEqual(
+      await executeLabBacktest(thsdkWork, undefined, read),
+    );
+  });
+
+  it("rejects an index anywhere in the THSDK universe before fetching any bars", async () => {
+    const { read, request } = fixtures();
+    const mixed = {
+      ...strategy,
+      universe: { ...strategy.universe, symbols: [symbol, "sh000001"] },
+    };
+    await expect(
+      prepareLabBacktest(
+        { ...thsdkWork, input: { ...thsdkWork.input, strategy: mixed } },
+        undefined,
+        read,
+      ),
+    ).rejects.toThrow(
+      "同花顺回测仅支持 A 股股票标的，不支持指数或非股票代码：sh000001",
+    );
+    expect(request).not.toHaveBeenCalled();
+  });
 
   it("rejects snapshots with forming bars before replay", async () => {
     const { read } = fixtures([fields.end]);

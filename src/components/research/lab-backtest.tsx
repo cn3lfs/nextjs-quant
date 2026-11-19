@@ -140,6 +140,11 @@ function costScenarioLabel(value: CostScenario) {
     costScenarioOptions.find((option) => option.value === value)?.label ?? value
   );
 }
+/** 默认来源在 A 股读取本地通达信，在 crypto 读取本地归档；显式 THS 单独标注。 */
+function dataSourceLabel(receipt: LabBacktestReceipt) {
+  if (receipt.source === "thsdk") return "同花顺 (THSDK)";
+  return receipt.market === "crypto" ? "本地归档" : "本地通达信";
+}
 
 /** Missing `strategy` means the ordinary entry; any present but invalid pair is an invalid link. */
 function labIdentityFromSearch(search: URLSearchParams) {
@@ -611,7 +616,7 @@ function LabEditor({
         <div role="status" className="space-y-1 text-sm">
           <p>最近一次已创建的回测任务</p>
           <p className="text-nc-text-3">
-            {`${receipt.strategyId} v${receipt.strategyVersion} · ${marketLabels[receipt.market]} · ${receipt.start} 至 ${receipt.end} · 本金 ${String(receipt.initial)} · 交易成本 ${costScenarioLabel(receipt.costScenario)} · 数据源：${receipt.source === "thsdk" ? "同花顺 (THSDK)" : "本地通达信"}`}
+            {`${receipt.strategyId} v${receipt.strategyVersion} · ${marketLabels[receipt.market]} · ${receipt.start} 至 ${receipt.end} · 本金 ${String(receipt.initial)} · 交易成本 ${costScenarioLabel(receipt.costScenario)} · 数据源：${dataSourceLabel(receipt)}`}
           </p>
           <Link
             href={taskHistoryHref({ id: receipt.jobId })}

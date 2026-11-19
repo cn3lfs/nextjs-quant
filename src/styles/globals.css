@@ -1421,11 +1421,8 @@ table:not([data-sortable="false"]) > thead > tr:last-child > th,
   min-width: 0;
   max-width: 100%;
 }
-.nc-filter-toolbar :where(
-  input:not([type="checkbox"]):not([type="radio"]),
-  select,
-  textarea
-) {
+.nc-filter-toolbar
+  :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
   width: auto;
   max-width: 220px;
 }

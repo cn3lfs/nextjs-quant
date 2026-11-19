@@ -15,7 +15,11 @@ export function FilterToolbar({
   children: ReactNode;
 }) {
   return (
-    <div role="toolbar" aria-label={label} className={cn("nc-filter-toolbar", className)}>
+    <div
+      role="toolbar"
+      aria-label={label}
+      className={cn("nc-filter-toolbar", className)}
+    >
       {children}
     </div>
   );
@@ -32,7 +36,11 @@ export function FilterGroup({
   children: ReactNode;
 }) {
   return (
-    <div role="group" aria-label={typeof label === "string" ? label : undefined} className={cn("nc-filter-group", className)}>
+    <div
+      role="group"
+      aria-label={typeof label === "string" ? label : undefined}
+      className={cn("nc-filter-group", className)}
+    >
       {label !== undefined && label !== null && label !== "" && (
         <span className="nc-filter-label">{label}</span>
       )}

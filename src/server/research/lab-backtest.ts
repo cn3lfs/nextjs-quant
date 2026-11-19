@@ -25,6 +25,7 @@ import {
 import { settings } from "../infra/settings";
 import { cryptoPeriodMs } from "~/lib/market/crypto-aggregation";
 import { dailyEquity } from "~/lib/backtest/daily-equity";
+import { isAShareStockSymbol } from "~/lib/market/security-classification";
 
 function isExecutionFact(
   value: PortfolioInstrument["execution"],
@@ -93,9 +94,11 @@ export type LabBacktestWork = {
   type: "lab-backtest";
   input: z.input<typeof labBacktestSchema>;
 };
-export async function executeLabBacktest(
+type LabProgress = (n: number, phase: string) => void;
+
+export async function prepareLabBacktest(
   work: LabBacktestWork,
-  progress: (n: number, phase: string) => void = () => {},
+  progress: LabProgress = () => {},
   read = readBars,
   signal?: AbortSignal,
 ) {
@@ -118,6 +121,14 @@ export async function executeLabBacktest(
     );
   if (!symbols.length || symbols.length > 6000)
     throw new Error("证券池须为1至6000只");
+  if (input.source === "thsdk") {
+    for (const symbol of symbols) {
+      if (!isAShareStockSymbol(symbol))
+        throw new Error(
+          `同花顺回测仅支持 A 股股票标的，不支持指数或非股票代码：${symbol}`,
+        );
+    }
+  }
   if (
     strategy.market === "crypto" &&
     symbols.some((s) => !["cxBTCUSDT", "cxETHUSDT"].includes(s))
@@ -253,7 +264,11 @@ export async function executeLabBacktest(
       adjustment: snapshot.barStore.adjustmentReference,
       adjustmentSource:
         snapshot.barStore.adjustmentSource ??
-        (input.source === "thsdk" ? "thsdk-native" : "local-gbbq"),
+        (strategy.market === "crypto"
+          ? null
+          : input.source === "thsdk"
+            ? "thsdk-native"
+            : "local-gbbq"),
       volumeUnit: snapshot.volumeUnit ?? null,
       dataAsOf: snapshot.barStore.coverage?.to ?? null,
     });
@@ -301,17 +316,29 @@ export async function executeLabBacktest(
         ? "规则自检；同花顺延迟行情，信号采用原生前复权 qfq，成交采用同源未复权原价；未计入公司行动分红送转，历史ST/IPO/排队未认证；非可信策略业绩"
         : "规则自检；当前证券池、历史ST/IPO/排队及到账日未认证；公司行动沿R2a-5研究情景，币种数量网格未认证；非可信策略业绩",
   };
+  if (signal) await new Promise<void>((resolve) => setImmediate(resolve));
+  signal?.throwIfAborted();
+  return frozen;
+}
+
+export type FrozenLabBacktest = Awaited<ReturnType<typeof prepareLabBacktest>>;
+
+export function replayLabBacktest(
+  frozen: FrozenLabBacktest,
+  progress: LabProgress = () => {},
+  signal?: AbortSignal,
+) {
+  signal?.throwIfAborted();
+  const { request } = frozen;
   const inputHash = createHash("sha256")
     .update(JSON.stringify(frozen))
     .digest("hex");
-  if (signal) await new Promise<void>((resolve) => setImmediate(resolve));
-  signal?.throwIfAborted();
   const result = runPortfolio(request, (done, count) => {
     signal?.throwIfAborted();
     progress(70 + Math.floor((done / Math.max(1, count)) * 30), "组合回放");
   });
   const performance = createPerformanceReport(
-    input.initial,
+    request.initial,
     dailyEquity(result.curve),
   );
   const evidence = labBacktestEvidence(request, result);
@@ -323,4 +350,14 @@ export async function executeLabBacktest(
     signalEvidence: evidence.signals,
     inputDiagnostics: evidence.diagnostics,
   };
+}
+
+export async function executeLabBacktest(
+  work: LabBacktestWork,
+  progress: LabProgress = () => {},
+  read = readBars,
+  signal?: AbortSignal,
+) {
+  const frozen = await prepareLabBacktest(work, progress, read, signal);
+  return replayLabBacktest(frozen, progress, signal);
 }
