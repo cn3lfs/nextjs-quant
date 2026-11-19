@@ -18,6 +18,7 @@ import {
   readNewsMemory,
   rememberNews,
 } from "./news-workspace-fields";
+import { NewsTime } from "./news-time";
 import { NewsAnalysisDetail } from "./news-analysis-detail";
 import { NewsArchiveList } from "./news-archive-list";
 const localInput = (value = Date.now()) =>
@@ -474,8 +475,8 @@ export function NewsPanel() {
                     </Button>
                   </div>
                   <p>
-                    {newsTime(item.publishedAt)} · 采集：
-                    {newsTime(item.collectedAt)}
+                    <NewsTime value={item.publishedAt} /> · 采集：
+                    <NewsTime value={item.collectedAt} />
                   </p>
                   <p className="line-clamp-2 break-all text-nc-text-3">
                     {item.preview}
@@ -604,8 +605,10 @@ function Original({
         <div className="mx-auto min-w-0 max-w-[840px] space-y-4 text-sm leading-7">
           <h2>{query.data.item.title}</h2>
           <p>
-            发布：{newsTime(query.data.item.publishedAt)} · 采集：
-            {newsTime(query.data.item.collectedAt)} · ID {query.data.item.id}
+            发布：
+            <NewsTime value={query.data.item.publishedAt} /> · 采集：
+            <NewsTime value={query.data.item.collectedAt} /> · ID{" "}
+            {query.data.item.id}
           </p>
           <ArchiveText text={query.data.item.content} />
           <details>

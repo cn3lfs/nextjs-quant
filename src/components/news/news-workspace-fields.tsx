@@ -66,10 +66,4 @@ export function readNewsMemory(key: string): unknown {
     return null;
   }
 }
-export const newsTime = (value: number | string | null | undefined) =>
-  value == null
-    ? "未知"
-    : new Date(value).toLocaleString("zh-CN", {
-        timeZone: "Asia/Shanghai",
-        hour12: false,
-      });
+export { newsTime } from "~/lib/news/news-time";

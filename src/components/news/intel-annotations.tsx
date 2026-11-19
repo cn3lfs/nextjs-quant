@@ -6,6 +6,7 @@ import type { IntelEvent } from "~/lib/news/intel-events";
 import type { Bar } from "~/lib/domain";
 import { usePanelVisible } from "../workbench/keep-alive";
 import { Button } from "../ui/button";
+import { NewsTime } from "./news-time";
 import {
   Dialog,
   DialogContent,
@@ -72,7 +73,7 @@ export function IntelAnnotations({
               key={e.id}
               onClick={() => setSelected(e.id)}
             >
-              {new Date(e.publishedAt).toLocaleString("zh-CN")} · {e.title}
+              <NewsTime value={e.publishedAt} short /> · {e.title}
             </Button>
           ))}
         </div>
@@ -86,8 +87,13 @@ export function IntelAnnotations({
         <DialogContent>
           <DialogTitle>{event?.title}</DialogTitle>
           <DialogDescription>
-            {event ? new Date(event.publishedAt).toLocaleString("zh-CN") : ""} ·
-            原文节选
+            {event ? (
+              <>
+                <NewsTime value={event.publishedAt} /> · 原文节选
+              </>
+            ) : (
+              ""
+            )}
           </DialogDescription>
           <p className="whitespace-pre-wrap text-sm">{event?.preview}</p>
           {event && (

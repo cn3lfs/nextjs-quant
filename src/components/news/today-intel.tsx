@@ -3,6 +3,7 @@ import Link from "next/link";
 import { api } from "~/trpc/react";
 import { Button } from "../ui/button";
 import { usePanelVisible } from "../workbench/keep-alive";
+import { NewsTime } from "./news-time";
 
 const intelSources = { position: "持仓", plan: "未完成计划" } as const;
 
@@ -39,9 +40,12 @@ export function TodayIntel({ all = false }: { all?: boolean }) {
           {query.data.events.slice(0, all ? 100 : 6).map((e) => (
             <details key={e.id}>
               <summary>
-                {new Date(e.publishedAt).toLocaleTimeString("zh-CN")} ·{" "}
-                {e.title}
+                <NewsTime value={e.publishedAt} short /> · {e.title}
               </summary>
+              <p className="text-xs text-nc-text-3">
+                发布时间：
+                <NewsTime value={e.publishedAt} />
+              </p>
               {e.matches.length > 0 && (
                 <div className="space-y-1 text-sm">
                   <p className="text-nc-text-3">匹配标的</p>
