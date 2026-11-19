@@ -28,6 +28,7 @@ import {
 } from "../ui/select";
 import { EquityChart } from "./equity-chart";
 import { MaEvaluationPanel } from "./ma-evaluation-panel";
+import { MonthlyReturnsHeatmap } from "./monthly-returns-heatmap";
 
 export type BaselineReport = NonNullable<RouterOutputs["maBaselineResult"]>;
 type Pagination = { pageIndex: number; pageSize: number };
@@ -162,6 +163,11 @@ export function MaReportOverview({ data }: { data: BaselineReport }) {
           </span>
         </div>
         <EquityChart equity={summary.equity} initial={summary.input.initial} />
+        <MonthlyReturnsHeatmap
+          equity={summary.equity}
+          initial={summary.input.initial}
+          className="mt-3"
+        />
         <p className="mt-2 text-xs leading-relaxed text-nc-text-3">
           图中按日末净值绘制收益与回撤；上方最大回撤按五分钟逐根估值计算，两者观察频率不同。窗口结束不强制平仓。
         </p>

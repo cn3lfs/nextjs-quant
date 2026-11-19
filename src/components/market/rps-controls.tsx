@@ -23,9 +23,10 @@ export function RpsControls() {
   const cancel = api.rpsCancel.useMutation({ onSuccess, onError });
   const running = query.data?.progress?.status === "running";
   return (
-    <section className="space-y-4" aria-label="个股RPS数据管理">
-      <div className="flex flex-wrap items-center gap-3">
+    <section className="space-y-3" aria-label="个股RPS数据管理">
+      <div className="flex flex-wrap items-center gap-2">
         <Button
+          size="sm"
           disabled={
             running || start.isPending || query.isPending || query.isError
           }
@@ -34,6 +35,7 @@ export function RpsControls() {
           回填最近250个交易日
         </Button>
         <Button
+          size="sm"
           disabled={
             running || start.isPending || query.isPending || query.isError
           }
@@ -42,6 +44,7 @@ export function RpsControls() {
           计算今日（15:05后）
         </Button>
         <Button
+          size="sm"
           variant="outline"
           disabled={!running || cancel.isPending}
           onClick={() => cancel.mutate()}
@@ -59,9 +62,11 @@ export function RpsControls() {
           </Button>
         </div>
       )}
-      <details className="rounded-lg border border-nc-border p-3">
-        <summary className="cursor-pointer text-sm">计算批次与数据覆盖</summary>
-        <div className="mt-3">
+      <details>
+        <summary className="cursor-pointer text-xs text-nc-text-3">
+          计算批次与数据覆盖
+        </summary>
+        <div className="mt-2">
           {query.data && <RpsStatus latest={query.data.latest} />}
         </div>
       </details>

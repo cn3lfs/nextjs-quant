@@ -274,33 +274,43 @@ test("提醒六阶段诊断、双账重叠与汇总视角只读切换且零外�
     await expect(
       page.getByRole("heading", { name: /统一持仓与风险/ }),
     ).toBeVisible();
+    const holdings = page.getByRole("region", {
+      name: "统一持仓",
+      exact: true,
+    });
+    const filters = holdings.getByRole("toolbar", { name: "持仓筛选" });
+    await expect(
+      filters.getByRole("radio", { name: "本地模拟", exact: true }),
+    ).toBeVisible();
     const reconciliation = page.getByRole("region", { name: "双账重叠核对" });
     await expect(reconciliation).toBeVisible();
     await expect(
-      page
-        .getByRole("status")
-        .filter({ hasText: "检测到 1 只标的同时存在于券商交割单与手工记账" }),
+      reconciliation.getByText("检测到 1 只标的券商/手工同时存在", {
+        exact: true,
+      }),
     ).toBeVisible();
-    const view = page.getByRole("radiogroup", { name: "汇总视角" });
+    const view = reconciliation.getByRole("radiogroup", { name: "汇总视角" });
     await expect(
       view.getByRole("radio", { name: "含重叠上限", exact: true }),
     ).toHaveAttribute("aria-checked", "true");
-    await expect(reconciliation).toContainText("去重区间 [下限, 上限]");
+    await expect(holdings).toContainText(
+      /去重区间 \[[\d,.]+, [\d,.]+\] · 1 笔重叠/,
+    );
     await reconciliation
       .getByRole("button", { name: "展开重叠明细", exact: true })
       .click();
     const overlaps = reconciliation.getByRole("table");
     await expect(overlaps).toContainText("sh600000");
     await expect(overlaps).toContainText("去重区间");
-    await view
-      .getByRole("radio", { name: "券商优先预览", exact: true })
-      .click();
+    await view.getByRole("radio", { name: "券商优先", exact: true }).click();
     await expect(
-      view.getByRole("radio", { name: "券商优先预览", exact: true }),
+      view.getByRole("radio", { name: "券商优先", exact: true }),
     ).toHaveAttribute("aria-checked", "true");
-    await expect(reconciliation).toContainText("券商账本合计（预览）");
     await expect(
-      reconciliation.getByRole("radio", { name: "手工优先预览", exact: true }),
+      holdings.getByText("券商账本合计（预览）", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      view.getByRole("radio", { name: "手工优先", exact: true }),
     ).toBeVisible();
 
     expect(outbound).toEqual([]);

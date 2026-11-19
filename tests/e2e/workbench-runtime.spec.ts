@@ -137,7 +137,10 @@ test("after touring every page, hidden panels stay quiet", async ({
   // including every retained Scan mode, rather than treating old tab URLs as
   // sidebar links. Keep this tour local; other legacy tests own their routes.
   const switchView = async (group: string, name: string, path: string) => {
-    await page
+    const scope = path.startsWith("/scan")
+      ? page.getByRole("toolbar", { name: "行情视图", exact: true })
+      : page;
+    await scope
       .getByRole("radiogroup", { name: group, exact: true })
       .getByRole("radio", { name, exact: true })
       .click();
@@ -157,8 +160,8 @@ test("after touring every page, hidden panels stay quiet", async ({
     ["打板情绪", "sentiment"],
   ] as const)
     await switchView("扫描视图", name, `/scan?tab=${tab}`);
-  await switchView("扫描市场", "BTC / ETH", "/scan?tab=crypto");
-  await switchView("扫描市场", "期货浏览", "/scan?tab=futures");
+  await switchView("扫描市场", "数字货币", "/scan?tab=crypto");
+  await switchView("扫描市场", "期货", "/scan?tab=futures");
   for (const path of [
     "/lab",
     "/lab/backtest",

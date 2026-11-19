@@ -83,7 +83,7 @@ createRoot(document.getElementById('root')).render(<App/>);`,
   format: "iife",
   jsx: "automatic",
   alias: { "~": "./src" },
-  define: { "process.env.NODE_ENV": '"production"' },
+  define: { "process.env.NODE_ENV": '"production"', "process.env": "{}" },
   plugins: [
     {
       name: "fixtures",

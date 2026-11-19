@@ -15,8 +15,8 @@ it("shows the per-unit cost and valuation price with the price's own date in CNY
     at: "2026-11-18",
   });
   expect(html).toContain("成本 9.80 CNY");
-  expect(html).toContain("估值价 12.35 CNY");
-  expect(html).toContain("原价时点 2026-11-18");
+  expect(html).toContain("现价 12.35 CNY");
+  expect(html).toContain('title="原价时点 2026-11-18"');
 });
 
 it("keeps the ETF's third price decimal from the existing chart precision", () => {
@@ -28,7 +28,7 @@ it("keeps the ETF's third price decimal from the existing chart precision", () =
     at: "2026-11-18",
   });
   expect(html).toContain("成本 3.900 CNY");
-  expect(html).toContain("估值价 3.876 CNY");
+  expect(html).toContain("现价 3.876 CNY");
 });
 
 it("keeps a missing cost explicit instead of deriving it from the fractional USDT price", () => {
@@ -40,8 +40,8 @@ it("keeps a missing cost explicit instead of deriving it from the fractional USD
     at: "2026-11-19T08:00:00.000Z",
   });
   expect(html).toContain("成本 缺失");
-  expect(html).toContain("估值价 0.00012345 USDT");
-  expect(html).toContain("原价时点 2026-11-19T08:00:00.000Z");
+  expect(html).toContain("现价 0.00012345 USDT");
+  expect(html).toContain('title="原价时点 2026-11-19T08:00:00.000Z"');
   expect(html).not.toContain("成本 0");
 });
 
@@ -54,6 +54,6 @@ it("keeps a missing price and its date independent of the recorded cost", () => 
     at: null,
   });
   expect(html).toContain("成本 100.00 CNY");
-  expect(html).toContain("估值价 缺失");
-  expect(html).toContain("原价时点 未知");
+  expect(html).toContain("现价 缺失");
+  expect(html).toContain('title="原价时点 未知"');
 });

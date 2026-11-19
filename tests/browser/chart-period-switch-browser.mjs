@@ -171,7 +171,7 @@ try {
   );
   assert.equal(initial.chartMode, "k");
   assert.equal(initial.chartPeriod, "day");
-  assert.match(await period.innerText(), /更多周期/);
+  assert.match(await period.innerText(), /更多 ·/);
   assert.match(await period.innerText(), /日 K/);
 
   // 更多周期 is a visible entry, and the dropdown is driven with the keyboard.
@@ -194,7 +194,7 @@ try {
   // 分时 is a mode, not a period value.
   await group.getByRole("button", { name: "分时", exact: true }).click();
   await page.getByTestId("intraday-chart").waitFor();
-  assert.match(await period.innerText(), /更多周期/);
+  assert.match(await period.innerText(), /更多 ·/);
   assert.match(await period.innerText(), /分时/);
   let state = await session();
   assert.equal(state.chartMode, "intraday");
@@ -214,7 +214,7 @@ try {
     "week",
   );
   assert.equal(await page.getByTestId("intraday-chart").count(), 0);
-  assert.match(await period.innerText(), /更多周期/);
+  assert.match(await period.innerText(), /更多 ·/);
   assert.match(await period.innerText(), /周线/);
   state = await session();
   assert.equal(state.chartMode, "k");
@@ -232,7 +232,7 @@ try {
     await page.getByTestId("market-chart").first().getAttribute("data-period"),
     "5m",
   );
-  assert.match(await period.innerText(), /更多周期/);
+  assert.match(await period.innerText(), /更多 ·/);
   assert.match(await period.innerText(), /5 分钟/);
   state = await session();
   assert.equal(state.chartMode, "k");
@@ -252,7 +252,7 @@ try {
     "5m",
   );
   assert.equal(await page.getByTestId("intraday-chart").count(), 0);
-  assert.match(await period.innerText(), /更多周期/);
+  assert.match(await period.innerText(), /更多 ·/);
   assert.match(await period.innerText(), /5 分钟/);
   state = await session();
   assert.equal(state.chartMode, "k");

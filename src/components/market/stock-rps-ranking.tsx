@@ -28,6 +28,40 @@ import {
 import { BrowseSource } from "./open-chart";
 import { MarketPoolAvailabilityNote } from "./market-pool-availability";
 import { RpsConditionEditor } from "./rps-condition-editor";
+import {
+  FilterDivider,
+  FilterGroup,
+  FilterToolbar,
+  MethodologyPopover,
+} from "../panels";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../ui/popover";
+
+const rpsRankingMethodology = [
+  {
+    label: "排名口径",
+    detail:
+      "各条件来自同一批次，过滤不重新排名，排名分母始终是全市场。条件命中数只来自当前条件的成功查询结果。",
+  },
+  {
+    label: "基准日",
+    detail:
+      "始终展示最近一个已完成结果日；历史日期的排名请在行情图表页按证券查看 RPS 曲线。",
+  },
+  {
+    label: "换股",
+    detail:
+      "点击股票名跳转到行情图表页查看 K 线；图表中 PageUp/PageDown 按本页顺序换股。",
+  },
+  {
+    label: "结果语义",
+    detail:
+      "批次、基数、命中数与分页只来自当前条件的成功查询结果；草稿修改不会改变上表。",
+  },
+];
 
 /** A close observation is only a confirmed persistent close when the same day
  *  also exists in the RPS store; otherwise it is still a close-time snapshot. */
@@ -58,6 +92,7 @@ export function StockRpsRanking() {
   const [conditions, setConditions] = useState<RpsCondition[]>([]);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 20 });
   const [order, setOrder] = useState<TableSort>(null);
+  const [conditionsOpen, setConditionsOpen] = useState(false);
   // Ranks only change when an RPS batch writes a new day: poll while one runs.
   const job = api.rpsStatus.useQuery(undefined, {
     enabled: visible,
@@ -118,6 +153,7 @@ export function StockRpsRanking() {
           : ["当前批次缺少条件周期信息"]
       : [];
   const conditionUnavailable = unavailablePeriods.length > 0;
+  const conditionCounts = confirmed?.rps?.conditions ?? [];
   const columns: DataTableColumn<MarketPoolRow>[] = [
     {
       id: "symbol",
@@ -187,24 +223,17 @@ export function StockRpsRanking() {
   ];
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3">
-        <label className="space-y-1 text-sm">
-          <span className="block">代码或名称</span>
-          <Input
-            className="w-48"
-            aria-label="搜索股票代码或名称"
-            placeholder="600519 或 贵州茅台"
-            value={search}
-            onChange={(e) => reset(setSearch)(e.target.value)}
-          />
-        </label>
-        <div className="space-y-1 text-sm">
-          <span className="block">展示周期（主表）</span>
+      <FilterToolbar label="个股 RPS 筛选">
+        <FilterGroup>
           <Select
             value={String(period)}
             onValueChange={reset((value: string) => setPeriod(Number(value)))}
           >
-            <SelectTrigger aria-label="个股RPS周期">
+            <SelectTrigger
+              size="sm"
+              aria-label="个股RPS周期"
+              className="w-28 shrink-0"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -215,92 +244,131 @@ export function StockRpsRanking() {
               ))}
             </SelectContent>
           </Select>
-        </div>
+        </FilterGroup>
+        <FilterGroup>
+          <Input
+            className="h-8 w-44"
+            aria-label="搜索股票代码或名称"
+            placeholder="搜代码/名称"
+            value={search}
+            onChange={(e) => reset(setSearch)(e.target.value)}
+          />
+        </FilterGroup>
+        <Popover open={conditionsOpen} onOpenChange={setConditionsOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant={conditions.length ? "default" : "outline"}
+              size="sm"
+            >
+              RPS 条件{conditions.length ? ` · ${conditions.length}` : ""}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-[24rem]">
+            <RpsConditionEditor
+              applied={conditions}
+              onApply={(next) => {
+                setConditions(next);
+                setPagination({ pageIndex: 0, pageSize: 20 });
+                setConditionsOpen(false);
+              }}
+              onClear={() => {
+                setConditions([]);
+                setPagination({ pageIndex: 0, pageSize: 20 });
+                setConditionsOpen(false);
+              }}
+            />
+          </PopoverContent>
+        </Popover>
+        <FilterDivider />
         <Button
           variant="outline"
+          size="sm"
           disabled={page.isFetching}
           onClick={() => void page.refetch()}
         >
           刷新
         </Button>
-        <RpsConditionEditor
-          applied={conditions}
-          onApply={(next) => {
-            setConditions(next);
-            setPagination({ pageIndex: 0, pageSize: 20 });
-          }}
-          onClear={() => {
-            setConditions([]);
-            setPagination({ pageIndex: 0, pageSize: 20 });
-          }}
-        />
-      </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={order === null}
+          onClick={() => reset(setOrder)(null)}
+        >
+          重置排序
+        </Button>
+        <div className="ml-auto shrink-0">
+          <MethodologyPopover
+            title="个股 RPS 口径"
+            items={rpsRankingMethodology}
+          />
+        </div>
+      </FilterToolbar>
       <div
-        className="space-y-1 text-sm text-muted-foreground"
+        className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"
         role="status"
         aria-live="polite"
       >
-        <p>
+        <span>
           已生效条件：
           <span className="text-foreground">{appliedText}</span>
+        </span>
+        <span aria-hidden="true">·</span>
+        <span>
           {conditionUnavailable
-            ? " · 条件不可用"
+            ? "条件不可用"
             : confirmed
-              ? ` · 命中 ${confirmed.total} 只`
-              : " · 等待当前条件的成功查询结果"}
-        </p>
-        {confirmed ? (
-          <p>
-            RPS基准日：{confirmed.rps?.date ?? "未计算"} · 展示周期{" "}
-            {rpsPeriodLabel(confirmed.period)} 排名基数：
-            {confirmed.rps?.count ?? "—"} ·{" "}
-            {confirmed.rps?.mode === "backfill"
-              ? "回填数据（存在生存者偏差）"
-              : confirmed.rps
-                ? "向前数据"
-                : "无RPS数据"}
-            {confirmed.rps?.conditions?.length
-              ? ` · 条件周期有效排名基数：${confirmed.rps.conditions
-                  .map(
-                    (condition) =>
-                      `${rpsPeriodLabel(condition.period)} ${
-                        condition.count === null ? "未计算" : condition.count
-                      }`,
-                  )
-                  .join(" / ")}`
-              : ""}
-            。各条件来自同一批次，过滤不重新排名。
-            始终展示最近一个已完成结果日；历史日期的排名请在行情图表页按证券查看RPS曲线。
-            点击股票名跳转到行情图表页查看K线，图表中 PageUp/PageDown
-            按本页顺序换股。
-            {page.isFetching && <span role="status"> 正在刷新…</span>}
-          </p>
-        ) : (
-          <p>
-            批次、基数、命中数与分页只来自当前条件的成功查询结果；草稿修改不会改变上表。
-          </p>
+              ? `命中 ${confirmed.total} 只`
+              : "等待当前条件的成功查询结果"}
+        </span>
+        {confirmed && (
+          <>
+            <span aria-hidden="true">·</span>
+            <span>
+              RPS基准日：{confirmed.rps?.date ?? "未计算"} · 展示周期{" "}
+              {rpsPeriodLabel(confirmed.period)} 排名基数：
+              {confirmed.rps?.count ?? "—"} ·{" "}
+              {confirmed.rps?.mode === "backfill"
+                ? "回填数据（存在生存者偏差）"
+                : confirmed.rps
+                  ? "向前数据"
+                  : "无RPS数据"}
+            </span>
+          </>
         )}
-        {confirmed?.rps?.observation && (
-          <p>
-            {observationLabel(
-              confirmed.rps.observation.phase,
-              confirmed.rps.observation.persistedClose === true,
-            )}{" "}
-            ·{" "}
-            {new Date(confirmed.rps.observation.createdAt).toLocaleTimeString(
-              "zh-CN",
-              {
-                timeZone: "Asia/Shanghai",
-                hour12: false,
-              },
-            )}{" "}
-            · 新价覆盖{" "}
-            {displayNumber(confirmed.rps.observation.coverage * 100, 1)}% ·
-            沿用旧价 {confirmed.rps.observation.reused} 只 · 缺失{" "}
-            {confirmed.rps.observation.missing} 只。
-          </p>
-        )}
+        {page.isFetching && <span role="status">正在刷新…</span>}
       </div>
+      {conditionCounts.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          条件周期有效排名基数：
+          {conditionCounts
+            .map(
+              (condition) =>
+                `${rpsPeriodLabel(condition.period)} ${
+                  condition.count === null ? "未计算" : condition.count
+                }`,
+            )
+            .join(" / ")}
+        </p>
+      )}
+      {confirmed?.rps?.observation && (
+        <p className="text-xs text-muted-foreground">
+          {observationLabel(
+            confirmed.rps.observation.phase,
+            confirmed.rps.observation.persistedClose === true,
+          )}{" "}
+          ·{" "}
+          {new Date(confirmed.rps.observation.createdAt).toLocaleTimeString(
+            "zh-CN",
+            {
+              timeZone: "Asia/Shanghai",
+              hour12: false,
+            },
+          )}{" "}
+          · 新价覆盖 {displayNumber(confirmed.rps.observation.coverage * 100, 1)}
+          % · 沿用旧价 {confirmed.rps.observation.reused} 只 · 缺失{" "}
+          {confirmed.rps.observation.missing} 只。
+        </p>
+      )}
       {confirmed && (
         <MarketPoolAvailabilityNote
           availability={confirmed.availability}

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import { EquityChart } from "../backtest/equity-chart";
+import { MonthlyReturnsHeatmap } from "../backtest/monthly-returns-heatmap";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 
@@ -44,6 +45,75 @@ const money = (value: number) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+/** A 股口径：红涨绿跌；缺失保持中性，不伪装成 0。 */
+function trendTone(value: number | null) {
+  return value === null
+    ? "text-nc-text"
+    : value > 0
+      ? "text-nc-up"
+      : value < 0
+        ? "text-nc-down"
+        : "text-nc-text";
+}
+function Kpi({
+  label,
+  tone = "text-nc-text",
+  note,
+  children,
+}: {
+  label: string;
+  tone?: string;
+  note?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="min-w-0 rounded-lg border border-nc-border-soft bg-nc-inset px-3 py-2">
+      <dt className="text-sub text-nc-text-3">{label}</dt>
+      <dd
+        className={`mt-0.5 truncate text-base font-semibold tabular-nums ${tone}`}
+      >
+        {children}
+      </dd>
+      {note && <dd className="mt-0.5 text-sub text-nc-text-4">{note}</dd>}
+    </div>
+  );
+}
+function SummaryKpis({ summary }: { summary: PortfolioResultSummary }) {
+  const performance = summary.performance;
+  return (
+    <dl className="grid gap-2 [grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]">
+      <Kpi
+        label="累计收益"
+        tone={trendTone(performance.totalReturn.value)}
+        note="相对期初本金"
+      >
+        {percent(performance.totalReturn.value)}
+      </Kpi>
+      <Kpi label="年化收益" tone={trendTone(performance.annualReturn.value)}>
+        {percent(performance.annualReturn.value)}
+      </Kpi>
+      <Kpi label="最大回撤">{percent(performance.maxDrawdown.value)}</Kpi>
+      <Kpi label="夏普">
+        {performance.sharpe.value === null
+          ? "—"
+          : displayNumber(performance.sharpe.value, 2)}
+      </Kpi>
+      <Kpi label="成交 / 费用">
+        成交 {summary.buys + summary.sells}
+        <span className="text-sub font-normal text-nc-text-3">
+          （费用 {money(summary.fees)} 元）
+        </span>
+      </Kpi>
+      <Kpi label="拒绝 / 持仓" note={`观察 ${summary.observations}`}>
+        拒绝 {summary.rejections}
+        <span className="text-sub font-normal text-nc-text-3">
+          {" "}
+          · 期末持仓 {summary.openPositions}
+        </span>
+      </Kpi>
+    </dl>
+  );
+}
 const fillColumns: DataTableColumn<PortfolioResultFill>[] = [
   {
     id: "date",
@@ -131,19 +201,10 @@ export function PortfolioResultView({
   const pagination = (page: number) => ({ pageIndex: page, pageSize });
   return (
     <div className="space-y-3">
+      {summary && <SummaryKpis summary={summary} />}
       {equity.length > 0 && <EquityChart equity={equity} initial={initial} />}
-      {summary && (
-        <p className="text-sm">
-          累计收益 {percent(summary.performance.totalReturn.value)} · 年化{" "}
-          {percent(summary.performance.annualReturn.value)} · 最大回撤{" "}
-          {percent(summary.performance.maxDrawdown.value)} · 夏普{" "}
-          {summary.performance.sharpe.value === null
-            ? "—"
-            : displayNumber(summary.performance.sharpe.value, 2)}{" "}
-          · 成交 {summary.buys + summary.sells}（费用 {money(summary.fees)} 元）
-          · 拒绝 {summary.rejections} · 期末持仓 {summary.openPositions} · 观察{" "}
-          {summary.observations}
-        </p>
+      {equity.length > 0 && (
+        <MonthlyReturnsHeatmap equity={equity} initial={initial} />
       )}
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>

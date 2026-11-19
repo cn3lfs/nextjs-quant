@@ -36,8 +36,17 @@ import { FormulaScreen } from "../screening/formula-screen";
 import { FactorEvaluationPanel } from "../research/factor-evaluation-panel";
 import { ScreenTaskProgress } from "../screening/screen-task-progress";
 import { Button } from "../ui/button";
-import { DownloadSimple, Gauge, ListDashes } from "@phosphor-icons/react/ssr";
-import { PageGrid, Panel, Segmented, StatsPanel } from "../panels";
+import { DownloadSimple, ListDashes } from "@phosphor-icons/react/ssr";
+import {
+  FilterDivider,
+  FilterGroup,
+  FilterToolbar,
+  MethodologyPopover,
+  PageGrid,
+  Panel,
+  Pill,
+  Segmented,
+} from "../panels";
 
 import { Empty, fmt, ResultPager } from "./shared";
 import type { ScreenViewState } from "../screening/screen-workspace";
@@ -79,6 +88,11 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
     screenResult,
   } = state;
   const [formulaView, setFormulaView] = useState<"screen" | "factor">("screen");
+  // Null follows the default: a finished result collapses the editor, no result
+  // keeps it open. An explicit choice survives re-renders and task changes.
+  const [editorToggle, setEditorToggle] = useState<"open" | "closed" | null>(
+    null,
+  );
   // This panel stays mounted behind other tabs. Leaving the formula workspace
   // discards the confirmed page, any pending read and its error.
   const visible = usePanelVisible();
@@ -268,26 +282,116 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
     if (!screenMonitorCaptureMatches(capture, latest)) return;
     router.push(capture.href, { scroll: false });
   }
+  // A completed result collapses the entry form into a one-line summary; the
+  // form stays mounted (hidden) so drafts and gate state survive.
+  const formulaCollapsed =
+    formulaView === "screen" &&
+    !!screenResult &&
+    (editorToggle ?? "closed") === "closed";
+  const runElapsed = screenResult
+    ? screenResult.elapsedMs !== undefined
+      ? `耗时 ${formatNumber(screenResult.elapsedMs / 1000, 2)} 秒`
+      : "耗时未记录"
+    : "";
+  const resultMethodology = screenResult
+    ? [
+        {
+          label: "公式口径与描述指标",
+          detail: screenResult.formula
+            ? `公式「${screenResult.formula.name}」参数：${formatEvidenceText(screenResult.formula.parameters)}。下表均线差与量比仅作描述，不参与公式选中判定。`
+            : "下表均线差与量比仅作描述，不参与公式选中判定。",
+        },
+        {
+          label: "本地日线时点与研究警示",
+          detail: `行情来源为本地已完成日线。${screenResult.asOf ?? "无可用基准日"} 为本次选股基准日；本地数据可能落后于今天，不自动生成分析，也不承诺为当前交易日。${
+            screenResult.researchWarnings.length
+              ? `研究警示：${screenResult.researchWarnings.join("；")}。`
+              : ""
+          }`,
+        },
+        ...(screenResult.formula
+          ? [
+              {
+                label: "本次执行公式源码快照",
+                detail: screenResult.formula.source,
+              },
+            ]
+          : []),
+      ]
+    : [];
   return (
     <PageGrid>
       {/* Keep forms mounted so switching preserves drafts, validation and pending submissions. */}
       <div id="screen-entry-formula" className="nc-span-12 min-w-0">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <Segmented
-            label="公式工作区"
-            value={formulaView}
-            onChange={setFormulaView}
-            options={[
-              { value: "screen", label: "公式筛选" },
-              { value: "factor", label: "单因子评估" },
-            ]}
-          />
-          <Button asChild variant="ghost" size="sm">
-            <a href="/lab/reports">财务研究与筛选 →</a>
-          </Button>
-        </div>
+        {formulaView === "screen" && screenResult ? (
+          <div className="mb-4 flex min-h-12 flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-border bg-card px-3 py-1.5">
+            <Pill tone="accent">已执行公式</Pill>
+            <strong className="min-w-0 truncate text-sm">
+              {screenResult.formula?.name ?? "公式任务"}
+            </strong>
+            {screenResult.formula && (
+              <span className="min-w-0 truncate text-xs text-nc-text-3">
+                参数 {formatEvidenceText(screenResult.formula.parameters)}
+              </span>
+            )}
+            <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs tabular-nums text-nc-text-2">
+              <span>命中 {screenResult.candidateTotal}</span>
+              <span aria-hidden="true">/</span>
+              <span>检查 {screenResult.total}</span>
+              <span aria-hidden="true">·</span>
+              <span>隔离 {screenResult.excludedTotal}</span>
+              <span aria-hidden="true">·</span>
+              <span>基准日 {screenResult.asOf ?? "无"}</span>
+              <span aria-hidden="true">·</span>
+              <span>{runElapsed}</span>
+            </span>
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  setEditorToggle(formulaCollapsed ? "open" : "closed")
+                }
+              >
+                {formulaCollapsed ? "展开编辑公式" : "收拢条件摘要"}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setFormulaView("factor")}
+              >
+                切换单因子评估
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            {formulaView === "factor" ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setFormulaView("screen")}
+              >
+                ← 返回公式筛选
+              </Button>
+            ) : (
+              <Segmented
+                label="公式工作区"
+                value={formulaView}
+                onChange={setFormulaView}
+                options={[
+                  { value: "screen", label: "公式筛选" },
+                  { value: "factor", label: "单因子评估" },
+                ]}
+              />
+            )}
+            <Button asChild variant="ghost" size="sm">
+              <a href="/lab/reports">财务研究与筛选 →</a>
+            </Button>
+          </div>
+        )}
         <PanelVisibility visible={formulaView === "screen"}>
-          <div hidden={formulaView !== "screen"}>
+          <div hidden={formulaView !== "screen" || formulaCollapsed}>
             <FormulaScreen onStarted={state.selectFormulaJob} />
           </div>
         </PanelVisibility>
@@ -321,42 +425,6 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
         {selectedScreen?.data && !selectedScreen.data.isFormulaScreen && (
           <p role="alert">所选任务不是公式选股任务，请到任务中心重新选择。</p>
         )}
-        {screenResult && (
-          <StatsPanel
-            icon={Gauge}
-            title="本次运行"
-            meta={`基准日 ${screenResult.asOf ?? "无可用基准日"} · ${
-              screenResult.elapsedMs !== undefined
-                ? `本地计算 ${formatNumber(screenResult.elapsedMs / 1000, 2)} 秒`
-                : "耗时未记录"
-            }`}
-            items={[
-              {
-                label: "候选",
-                value: screenResult.candidateTotal,
-                note: screenSortLabels[screenSort],
-              },
-              { label: "已检查", value: screenResult.total },
-              {
-                label: "已隔离",
-                value: screenResult.excludedTotal,
-                note: "停牌 / ST / 次新等",
-                tone: screenResult.excludedTotal ? "warn" : "neutral",
-              },
-              {
-                label: "读取异常",
-                value: screenResult.errorTotal,
-                note: screenResult.errorTotal ? "见下方明细" : undefined,
-                tone: screenResult.errorTotal ? "bad" : "neutral",
-              },
-              {
-                label: "数据模式",
-                value: "本地已完成日线",
-                note: "不承诺为当前交易日",
-              },
-            ]}
-          />
-        )}
         <Panel
           icon={ListDashes}
           title="候选结果"
@@ -369,15 +437,12 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
                 : "运行后显示真实结果"
           }
           actions={
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={exportingScreen || screenJob?.status !== "completed"}
-              onClick={exportScreen}
-            >
-              <DownloadSimple size={13} />
-              {exportingScreen ? "导出中…" : "导出本次完整结果"}
-            </Button>
+            screenResult ? (
+              <MethodologyPopover
+                title="候选结果口径"
+                items={resultMethodology}
+              />
+            ) : undefined
           }
         >
           {screenJob?.id && <ScreenTaskProgress id={screenJob.id} />}
@@ -415,168 +480,131 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
               {screenResult.formula && (
                 <ResearchUsageContainer key={screenJob?.id} />
               )}
-              {screenResult.formula && (
-                <div className="notice">
-                  <strong>公式：{screenResult.formula.name}</strong>
-                  <p>
-                    参数：{formatEvidenceText(screenResult.formula.parameters)}
-                    。下表均线差与量比仅作描述，不参与公式选中判定。
-                  </p>
-                  <details>
-                    <summary>本次执行公式快照</summary>
-                    <pre>{screenResult.formula.source}</pre>
-                  </details>
-                </div>
-              )}
-              <p className="muted">
-                选股基准日：
-                {screenResult.asOf ?? "无可用基准日"} ·{" "}
-                {screenResult.elapsedMs !== undefined
-                  ? `本地计算 ${formatNumber(screenResult.elapsedMs / 1000, 2)} 秒`
-                  : "耗时未记录"}
-                。本地数据可能落后于今天，不自动生成分析。
-              </p>
-              <p className="muted">
-                {screenResult.researchWarnings.join("；")}
-              </p>
-              <div className="inline-form">
-                <Input
-                  aria-label="筛选候选名称或代码"
-                  placeholder="搜索候选名称或代码"
-                  value={screenQuery}
-                  onChange={(e) => {
-                    setScreenQuery(e.target.value);
-                    setScreenPage(0);
-                  }}
-                />
-                <Select
-                  value={screenSort}
-                  onValueChange={(selected) => {
-                    setScreenSort(selected as ScreenSort);
-                    setScreenPage(0);
-                  }}
-                >
-                  <SelectTrigger
-                    aria-label="候选排序字段"
-                    className="w-40 shrink-0"
+              <FilterToolbar label="候选结果工具栏">
+                <FilterGroup>
+                  <Input
+                    aria-label="筛选候选名称或代码"
+                    placeholder="搜代码/名称"
+                    className="h-8 w-44"
+                    value={screenQuery}
+                    onChange={(e) => {
+                      setScreenQuery(e.target.value);
+                      setScreenPage(0);
+                    }}
+                  />
+                </FilterGroup>
+                <FilterGroup>
+                  <Select
+                    value={screenSort}
+                    onValueChange={(selected) => {
+                      setScreenSort(selected as ScreenSort);
+                      setScreenPage(0);
+                    }}
                   >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(screenSortLabels).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={screenDirection}
-                  disabled={screenSort === "original"}
-                  onValueChange={(selected) => {
-                    setScreenDirection(selected as "asc" | "desc");
-                    setScreenPage(0);
-                  }}
-                >
-                  <SelectTrigger
-                    aria-label="候选排序方向"
-                    className="w-40 shrink-0"
+                    <SelectTrigger
+                      size="sm"
+                      aria-label="候选排序字段"
+                      className="w-32 shrink-0"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(screenSortLabels).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={screenDirection}
+                    disabled={screenSort === "original"}
+                    onValueChange={(selected) => {
+                      setScreenDirection(selected as "asc" | "desc");
+                      setScreenPage(0);
+                    }}
                   >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="desc">从高到低</SelectItem>
-                    <SelectItem value="asc">从低到高</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  variant="outline"
-                  disabled={screenPage === 0 || screened.isFetching}
-                  onClick={() => setScreenPage(screenPage - 1)}
-                >
-                  上一页
-                </Button>
-                <span className="shrink-0 whitespace-nowrap">
-                  第 {screenPage + 1} /{" "}
-                  {Math.max(1, Math.ceil(screenResult.count / 50))} 页 ·{" "}
-                  {screenResult.count} 条
-                </span>
-                <Button
-                  variant="outline"
-                  disabled={
-                    (screenPage + 1) * 50 >= screenResult.count ||
-                    screened.isFetching
-                  }
-                  onClick={() => setScreenPage(screenPage + 1)}
-                >
-                  下一页
-                </Button>
-              </div>
-              <div
-                className="inline-form"
-                role="group"
-                aria-label="本页候选翻只"
-              >
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!navReady || candidateIndex <= 0}
-                  onClick={() => {
-                    const target = candidates[candidateIndex - 1];
-                    if (target) void openCandidate(target);
-                  }}
-                >
-                  上一只
-                </Button>
-                <span
-                  role="status"
-                  className="shrink-0 whitespace-nowrap"
-                  title="当前冻结候选在本页候选中的位置"
-                >
-                  本页 {positionText}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={
-                    !navReady || candidateIndex >= candidates.length - 1
-                  }
-                  onClick={() => {
-                    const target = candidates[candidateIndex + 1];
-                    if (target) void openCandidate(target);
-                  }}
-                >
-                  下一只
-                </Button>
-                {opening && (
-                  <span className="text-xs text-nc-text-3">
-                    正在读取候选快照…
-                  </span>
-                )}
-              </div>
-              {openError && (
-                <div role="alert" className="notice">
-                  <p>
-                    读取候选快照失败：{openError.message}
-                    。当前图表和地址未改变。
-                  </p>
+                    <SelectTrigger
+                      size="sm"
+                      aria-label="候选排序方向"
+                      className="w-28 shrink-0"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="desc">从高到低</SelectItem>
+                      <SelectItem value="asc">从低到高</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FilterGroup>
+                <FilterDivider />
+                <FilterGroup>
                   <Button
-                    disabled={pageUnavailable}
-                    onClick={() => void openCandidate(openError.candidate)}
+                    size="sm"
+                    variant="ghost"
+                    aria-label="上一页"
+                    disabled={screenPage === 0 || screened.isFetching}
+                    onClick={() => setScreenPage(screenPage - 1)}
                   >
-                    重试读取候选
+                    ‹
                   </Button>
-                </div>
-              )}
-              {screened.isFetching && !firstScreenPage && (
-                <p role="status">
-                  {screened.isPlaceholderData
-                    ? "正在更新查询，表格暂时保留上次结果，请等待更新完成。"
-                    : "正在更新候选结果…"}
-                </p>
-              )}
-              {screenResult.candidates.length > 0 && (
-                <div className="inline-form">
+                  <span className="whitespace-nowrap text-xs tabular-nums">
+                    第 {screenPage + 1}/
+                    {Math.max(1, Math.ceil(screenResult.count / 50))} 页 ·{" "}
+                    {screenResult.count} 条
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    aria-label="下一页"
+                    disabled={
+                      (screenPage + 1) * 50 >= screenResult.count ||
+                      screened.isFetching
+                    }
+                    onClick={() => setScreenPage(screenPage + 1)}
+                  >
+                    ›
+                  </Button>
+                </FilterGroup>
+                <FilterDivider />
+                <FilterGroup>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!navReady || candidateIndex <= 0}
+                    onClick={() => {
+                      const target = candidates[candidateIndex - 1];
+                      if (target) void openCandidate(target);
+                    }}
+                  >
+                    上一只
+                  </Button>
+                  <span
+                    role="status"
+                    className="whitespace-nowrap text-xs tabular-nums"
+                    title="当前冻结候选在本页候选中的位置"
+                  >
+                    本页 {positionText}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={
+                      !navReady || candidateIndex >= candidates.length - 1
+                    }
+                    onClick={() => {
+                      const target = candidates[candidateIndex + 1];
+                      if (target) void openCandidate(target);
+                    }}
+                  >
+                    下一只
+                  </Button>
+                  {opening && (
+                    <span className="text-xs text-nc-text-3">读取中…</span>
+                  )}
+                </FilterGroup>
+                <FilterDivider />
+                {screenResult.candidates.length > 0 && (
                   <PanelPopover
                     open={monitorOpen && previewCurrent}
                     onOpenChange={(next) => {
@@ -657,7 +685,37 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
                       </PopoverContent>
                     )}
                   </PanelPopover>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={exportingScreen || screenJob?.status !== "completed"}
+                  onClick={exportScreen}
+                >
+                  <DownloadSimple size={13} />
+                  {exportingScreen ? "导出中…" : "导出结果"}
+                </Button>
+              </FilterToolbar>
+              {openError && (
+                <div role="alert" className="notice">
+                  <p>
+                    读取候选快照失败：{openError.message}
+                    。当前图表和地址未改变。
+                  </p>
+                  <Button
+                    disabled={pageUnavailable}
+                    onClick={() => void openCandidate(openError.candidate)}
+                  >
+                    重试读取候选
+                  </Button>
                 </div>
+              )}
+              {screened.isFetching && !firstScreenPage && (
+                <p role="status">
+                  {screened.isPlaceholderData
+                    ? "正在更新查询，表格暂时保留上次结果，请等待更新完成。"
+                    : "正在更新候选结果…"}
+                </p>
               )}
               <div
                 className="table-wrap"

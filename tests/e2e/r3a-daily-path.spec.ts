@@ -120,7 +120,7 @@ for (const width of [1440, 1024]) {
     });
     await expect(tomorrow).toBeVisible();
     // Tomorrow is on the landing screen: zero interactions, budget <=3.
-    await expect(tomorrow).toContainText("影子前推中 · 研究中");
+    await expect(tomorrow).toContainText("观察前推 · 研究中");
     await expect(
       page.getByRole("navigation", { name: "工作台导航" }).getByRole("link"),
     ).toHaveCount(6);
@@ -202,9 +202,13 @@ for (const width of [1440, 1024]) {
     await expect(
       page.getByRole("application", { name: /行情图：/ }),
     ).toBeVisible();
-    await expect(page.getByRole("region", { name: "候选图表" })).toContainText(
-      "参考线均为原价",
-    );
+    const planRail = page.getByRole("complementary", { name: "盘口与计划" });
+    await expect(
+      planRail.getByRole("tab", { name: "计划双价" }),
+    ).toHaveAttribute("aria-selected", "true");
+    await expect(
+      planRail.getByText(/入场 .*止损 .*目标 .* · 原价/),
+    ).toBeVisible();
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth > window.innerWidth + 1,
@@ -235,9 +239,7 @@ for (const width of [1440, 1024]) {
     await expect(
       page.getByText("数字货币行情读取失败", { exact: false }),
     ).toBeVisible();
-    await markets
-      .getByRole("radio", { name: "BTC / ETH", exact: true })
-      .focus();
+    await markets.getByRole("radio", { name: "数字货币", exact: true }).focus();
     await page.keyboard.press("ArrowLeft");
     await expect(
       markets.getByRole("radio", { name: "A 股", exact: true }),

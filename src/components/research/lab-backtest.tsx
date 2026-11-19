@@ -141,13 +141,33 @@ function presetStrategy(preset: string | null) {
   if (preset === "utc-orb") return utcOrbStrategy();
   return null;
 }
-function LabFrame({ open, children }: { open: boolean; children: ReactNode }) {
+function LabFrame({
+  defaultOpen,
+  collapsible = false,
+  children,
+}: {
+  defaultOpen: boolean;
+  collapsible?: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <details open={open} className="mb-4 space-y-3 rounded border p-4">
-      <summary className="cursor-pointer font-semibold">
-        策略对象组合回测（A股 / BTC、ETH）
+    <details
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+      className="mb-4 rounded-lg border border-nc-border bg-nc-card"
+    >
+      <summary className="flex cursor-pointer flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-nc-border-soft px-4 py-2.5">
+        <span className="text-base font-semibold">
+          策略对象组合回测（A股 / BTC、ETH）
+        </span>
+        {collapsible && (
+          <span className="text-sub text-nc-text-3">
+            {open ? "收起参数" : "展开参数"}
+          </span>
+        )}
       </summary>
-      {children}
+      <div className="space-y-3 p-4">{children}</div>
     </details>
   );
 }
@@ -164,7 +184,7 @@ export function LabBacktest() {
     source = labIdentityFromSearch(search);
   if (source.kind === "invalid")
     return (
-      <LabFrame open>
+      <LabFrame defaultOpen>
         <div role="alert" className="space-y-2 text-sm text-nc-warn">
           <p>
             链接中的策略身份无效：id 不能为空，version 必须是正整数（缺省为
@@ -176,12 +196,12 @@ export function LabBacktest() {
     );
   if (source.kind === "valid")
     return (
-      <LabFrame open>
+      <LabFrame defaultOpen>
         <LabStrategySource identity={source.identity} enabled={visible} />
       </LabFrame>
     );
   return (
-    <LabFrame open={search.get("mode") === "object"}>
+    <LabFrame defaultOpen={search.get("mode") === "object"} collapsible>
       <LabEditor preset={search.get("preset")} />
     </LabFrame>
   );
@@ -419,69 +439,75 @@ function LabEditor({
           className="min-h-64 font-mono text-xs"
         />
       </label>
-      <div className="flex flex-wrap gap-3">
-        <label>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <label className="block text-sm">
           开始日期
           <Input
             aria-label="对象回测开始日期"
             type="date"
+            className="mt-1"
             value={start}
             onChange={(e) => setStart(e.target.value)}
             required
           />
         </label>
-        <label>
+        <label className="block text-sm">
           结束日期
           <Input
             aria-label="对象回测结束日期"
             type="date"
+            className="mt-1"
             value={end}
             onChange={(e) => setEnd(e.target.value)}
             required
           />
         </label>
-        <label>
+        <label className="block text-sm">
           独立本金
           <Input
             aria-label="对象回测本金"
             type="number"
             min={1}
             max={1e9}
+            className="mt-1"
             value={initial}
             onChange={(e) => setInitial(Number(e.target.value))}
             required
           />
         </label>
+        <label className="block text-sm">
+          交易成本情景
+          <Select
+            value={costScenario}
+            onValueChange={(value) => {
+              if (
+                value === "fixed" ||
+                value === "base" ||
+                value === "double-cost"
+              )
+                setCostScenario(value);
+            }}
+          >
+            <SelectTrigger
+              aria-label="交易成本情景"
+              className="mt-1 max-w-full"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {costScenarioOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </label>
       </div>
-      <label className="block max-w-sm text-sm">
-        <span className="mb-2 block">交易成本情景</span>
-        <Select
-          value={costScenario}
-          onValueChange={(value) => {
-            if (
-              value === "fixed" ||
-              value === "base" ||
-              value === "double-cost"
-            )
-              setCostScenario(value);
-          }}
-        >
-          <SelectTrigger aria-label="交易成本情景" className="max-w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {costScenarioOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <span className="mt-2 block text-nc-text-3">
-          仅影响费用假设，不改变信号、复权、数量网格或成交顺序；默认 fixed
-          保持原实验室行为。
-        </span>
-      </label>
+      <p className="text-sub text-nc-text-3">
+        仅影响费用假设，不改变信号、复权、数量网格或成交顺序；默认 fixed
+        保持原实验室行为。
+      </p>
       <Button disabled={run.isPending} aria-busy={run.isPending}>
         {run.isPending ? "正在创建回测任务…" : "提交策略对象回测"}
       </Button>

@@ -451,7 +451,18 @@ test("C1 actual formula result retains counts, date and source", async ({
       .nth(1),
   ).toBeVisible();
   await expect(page.locator("main")).toContainText("2026-11-12");
-  await expect(page.locator("main")).toContainText("本地已完成日线");
+  await page
+    .getByRole("region", { name: "候选结果", exact: true })
+    .filter({
+      has: page.getByRole("heading", { name: "候选结果", exact: true }),
+    })
+    .getByRole("button", { name: "口径说明", exact: true })
+    .click();
+  const methodology = page
+    .getByRole("dialog")
+    .filter({ hasText: "候选结果口径" });
+  await expect(methodology).toContainText("本地已完成日线");
+  await page.keyboard.press("Escape");
   await checkOverlays(page);
   await fits(page);
 });

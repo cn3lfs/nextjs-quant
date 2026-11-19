@@ -1396,3 +1396,344 @@ table:not([data-sortable="false"]) > thead > tr:last-child > th,
     max-height: 240px;
   }
 }
+
+/* ============================================================
+   Wave A2 shared primitives: toolbar, market terminal, cockpit,
+   heatmap and risk distance. All values come from tokens.css so
+   the comfort ⇄ compact switch scales rhythm automatically.
+   ============================================================ */
+
+/* Filter toolbar: one horizontal row on desktop, graceful wrap on
+   narrow screens; no single control takes a whole row. */
+.nc-filter-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 6px 10px;
+  background: var(--nc-card);
+  border: 1px solid var(--nc-border);
+  border-radius: var(--nc-radius);
+}
+.nc-filter-toolbar > * {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+.nc-filter-toolbar :where(
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea
+) {
+  width: auto;
+  max-width: 220px;
+}
+.nc-filter-toolbar button {
+  white-space: nowrap;
+}
+.nc-filter-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+}
+.nc-filter-label {
+  font-size: var(--nc-font-size-sub);
+  color: var(--nc-text-4);
+  white-space: nowrap;
+}
+.nc-filter-divider {
+  flex: none;
+  align-self: center;
+  width: 1px;
+  height: 16px;
+  background: var(--nc-border);
+}
+html[data-density="compact"] .nc-filter-toolbar,
+body[data-density="compact"] .nc-filter-toolbar {
+  min-height: 36px;
+  padding: 4px 8px;
+  gap: 6px;
+}
+@media (max-width: 640px) {
+  .nc-filter-toolbar {
+    gap: 6px 8px;
+  }
+  .nc-filter-divider {
+    display: none;
+  }
+}
+
+/* Market terminal: collapsible left rail · chart · right rail. */
+.nc-market-terminal {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 268px;
+  gap: 10px;
+  align-items: start;
+}
+.nc-market-terminal[data-left-collapsed="true"] {
+  grid-template-columns: minmax(0, 1fr) 268px;
+}
+.nc-market-terminal[data-right-collapsed="true"] {
+  grid-template-columns: 240px minmax(0, 1fr);
+}
+.nc-market-terminal[data-left-collapsed="true"][data-right-collapsed="true"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+.nc-market-terminal[data-left-collapsed="true"] > .nc-market-rail:first-child,
+.nc-market-terminal[data-right-collapsed="true"] > .nc-market-rail:last-child {
+  display: none;
+}
+.nc-market-rail {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  position: sticky;
+  top: calc(var(--nc-topbar-h, 56px) + 8px);
+  max-height: calc(100vh - var(--nc-topbar-h, 56px) - 24px);
+  overflow: hidden;
+  background: var(--nc-card);
+  border: 1px solid var(--nc-border);
+  border-radius: var(--nc-radius);
+}
+@media (max-width: 1200px) {
+  .nc-market-terminal,
+  .nc-market-terminal[data-right-collapsed="true"] {
+    grid-template-columns: 216px minmax(0, 1fr);
+  }
+  .nc-market-terminal[data-left-collapsed="true"],
+  .nc-market-terminal[data-left-collapsed="true"][data-right-collapsed="true"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .nc-market-terminal > .nc-market-rail:last-child {
+    grid-column: 1 / -1;
+    position: static;
+    max-height: none;
+  }
+}
+@media (max-width: 1024px) {
+  .nc-market-terminal,
+  .nc-market-terminal[data-left-collapsed="true"],
+  .nc-market-terminal[data-right-collapsed="true"],
+  .nc-market-terminal[data-left-collapsed="true"][data-right-collapsed="true"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .nc-market-terminal > .nc-market-rail {
+    grid-column: auto;
+    position: static;
+    max-height: none;
+  }
+}
+
+/* Today cockpit: 7:3 columns, single column below 1120px. */
+.nc-cockpit-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 3fr);
+  gap: var(--nc-gap);
+  align-items: start;
+}
+@media (max-width: 1120px) {
+  .nc-cockpit-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Monthly returns heatmap (A-share convention: red up, green down). */
+.nc-heatmap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.nc-heatmap-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+}
+.nc-heatmap-title {
+  margin: 0;
+  font-size: var(--nc-font-size-body);
+  font-weight: 600;
+  color: var(--nc-text);
+}
+.nc-heatmap-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  font-size: var(--nc-font-size-sub);
+  color: var(--nc-text-4);
+}
+.nc-heatmap-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.nc-heatmap-swatch {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border: 1px solid var(--nc-border-soft);
+  border-radius: 2px;
+}
+.nc-heatmap-swatch[data-tone="up"] {
+  background: color-mix(in srgb, var(--nc-up) 18%, var(--nc-card));
+}
+.nc-heatmap-swatch[data-tone="down"] {
+  background: color-mix(in srgb, var(--nc-down) 18%, var(--nc-card));
+}
+.nc-heatmap-swatch[data-tone="empty"] {
+  background: var(--nc-inset);
+}
+.nc-heatmap-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  font-size: var(--nc-font-size-sub);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.nc-heatmap-table th,
+.nc-heatmap-table td {
+  padding: 4px 6px;
+  border: 1px solid var(--nc-border-soft);
+  text-align: center;
+  white-space: nowrap;
+}
+.nc-heatmap-table thead th {
+  background: var(--nc-inset);
+  color: var(--nc-text-4);
+  font-weight: 500;
+}
+.nc-heatmap-table tbody th {
+  background: var(--nc-inset);
+  color: var(--nc-text);
+  font-weight: 600;
+}
+.nc-heatmap-table td {
+  color: var(--nc-text);
+}
+.nc-heatmap-table td[data-tone="flat"] {
+  color: var(--nc-text-4);
+}
+.nc-heatmap-table td[data-empty="true"] {
+  color: var(--nc-text-4);
+}
+.nc-heatmap-drawdowns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.nc-heatmap-drawdown {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--nc-border-soft);
+  border-radius: var(--nc-pill);
+  background: var(--nc-inset);
+  font-size: var(--nc-font-size-sub);
+  color: var(--nc-text-3);
+}
+.nc-heatmap-drawdown b {
+  color: var(--nc-bad);
+  font-weight: 600;
+}
+.nc-heatmap-unrecovered {
+  color: var(--nc-warn);
+}
+
+/* Risk distance: textual distance plus a thin stop-to-target track. */
+.nc-risk-distance {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 132px;
+}
+.nc-risk-distance-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  font-size: var(--nc-font-size-sub);
+  color: var(--nc-text-3);
+  white-space: nowrap;
+}
+.nc-risk-distance-head b {
+  color: var(--nc-text);
+  font-weight: 600;
+}
+.nc-risk-track {
+  position: relative;
+  height: 6px;
+  border-radius: var(--nc-pill);
+  background: var(--nc-inset);
+}
+.nc-risk-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+.nc-risk-zone-stop {
+  left: 0;
+  width: 16%;
+  border-radius: var(--nc-pill) 0 0 var(--nc-pill);
+  background: color-mix(in srgb, var(--nc-bad) 26%, var(--nc-inset));
+}
+.nc-risk-zone-safe {
+  right: 0;
+  left: 16%;
+  border-radius: 0 var(--nc-pill) var(--nc-pill) 0;
+  background: color-mix(in srgb, var(--nc-accent) 15%, var(--nc-inset));
+}
+.nc-risk-distance[data-status="near"] .nc-risk-zone-safe {
+  background: color-mix(in srgb, var(--nc-warn) 15%, var(--nc-inset));
+}
+.nc-risk-marker {
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  width: 9px;
+  height: 9px;
+  margin-left: -4.5px;
+  transform: translateY(-50%);
+  border: 2px solid var(--nc-accent);
+  border-radius: var(--nc-pill);
+  background: var(--nc-card);
+  box-shadow: 0 0 0 1px var(--nc-card);
+}
+.nc-risk-distance[data-status="near"] .nc-risk-marker {
+  border-color: var(--nc-warn);
+}
+.nc-risk-distance[data-compact="true"] .nc-risk-track {
+  height: 4px;
+}
+.nc-risk-distance[data-compact="true"] .nc-risk-marker {
+  width: 7px;
+  height: 7px;
+  margin-left: -3.5px;
+}
+.nc-risk-flag {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: baseline;
+  gap: 5px;
+  padding: 1px 8px;
+  border: 1px solid var(--nc-border);
+  border-radius: var(--nc-pill);
+  background: var(--nc-inset);
+  font-size: var(--nc-font-size-sub);
+  line-height: 18px;
+  color: var(--nc-text-4);
+  white-space: nowrap;
+}
+.nc-risk-flag[data-status="touched"] {
+  border-color: var(--nc-bad-edge);
+  background: color-mix(in srgb, var(--nc-bad) 7%, var(--nc-card));
+  color: var(--nc-bad);
+}

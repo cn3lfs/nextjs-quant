@@ -2,7 +2,12 @@
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { Ranking } from "@phosphor-icons/react/ssr";
-import { PageGrid, Panel, Segmented } from "../panels";
+import {
+  MethodologyPopover,
+  PageGrid,
+  Panel,
+  Segmented,
+} from "../panels";
 import { PanelVisibility } from "./keep-alive";
 
 // Panels load on first visit: the root layout would otherwise ship every
@@ -40,6 +45,26 @@ const rpsTabs = [
   { value: "concept", label: "概念" },
 ] as const;
 
+const rpsMethodology = [
+  {
+    label: "任务队列",
+    detail: "个股、行业、概念共用同一任务队列，同一时间只运行一个任务。",
+  },
+  {
+    label: "用途",
+    detail: "高 RPS 是候选过滤，不是买入指令。",
+  },
+  {
+    label: "排名口径",
+    detail:
+      "RPS 为全市场排名分位（0–100）；条件过滤不重新排名，分母始终是全市场。回填批次存在生存者偏差。",
+  },
+  {
+    label: "基准日",
+    detail: "始终展示最近一个已完成结果日；历史日期的排名请到行情图表页按证券查看 RPS 曲线。",
+  },
+];
+
 /**
  * RPS page: 运行状态 and 历史日志 panels on top, then one ranking panel whose
  * segmented control switches population. Bodies stay mounted so pagination and
@@ -53,16 +78,17 @@ export function RpsPanel() {
       <Panel
         icon={Ranking}
         title="排名"
-        meta="三者共用同一任务队列，同一时间只运行一个任务"
         actions={
-          <Segmented
-            label="RPS排名口径"
-            value={tab}
-            onChange={setTab}
-            options={rpsTabs}
-          />
+          <div className="flex items-center gap-2">
+            <Segmented
+              label="RPS排名口径"
+              value={tab}
+              onChange={setTab}
+              options={rpsTabs}
+            />
+            <MethodologyPopover title="RPS 排名口径" items={rpsMethodology} />
+          </div>
         }
-        note="高 RPS 是候选过滤，不是买入指令。"
       >
         <div hidden={tab !== "stock"}>
           <PanelVisibility visible={tab === "stock"}>

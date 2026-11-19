@@ -1,7 +1,23 @@
 import { MarketSourceSelect } from "../market/market-source-select";
 import { ChartAdjustmentSelect } from "../market/chart-adjustment-select";
-import { ArrowUpRight, Plus, X } from "@phosphor-icons/react/ssr";
-import { useEffect, useState } from "react";
+import {
+  ArrowClockwise,
+  ArrowUpRight,
+  Broadcast,
+  CaretRight,
+  Flask,
+  ListDashes,
+  Plus,
+  SidebarSimple,
+  Sparkle,
+  X,
+} from "@phosphor-icons/react/ssr";
+import {
+  useEffect,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import {
   chartPeriodSchema,
   periodLabels,
@@ -17,17 +33,13 @@ import { isMarketIndex } from "~/lib/market/market-indices";
 import { isSectorChartSymbol } from "~/lib/chart/chart-symbol";
 import { Button } from "../ui/button";
 import { Select, SelectTrigger, SelectContent, SelectItem } from "../ui/select";
+import { Input } from "../ui/input";
 import { PopoverTrigger, PopoverContent, PopoverClose } from "../ui/popover";
 import { PanelPopover as Popover } from "./panel-popover";
 import Link from "next/link";
-import {
-  ArrowClockwise,
-  Broadcast,
-  Flask,
-  Sparkle,
-  Star,
-} from "@phosphor-icons/react/ssr";
-import { GridTable, PageGrid, Panel, SecurityCell, Segmented } from "../panels";
+import { GridTable, SecurityCell } from "../panels";
+import { MethodologyPopover } from "../panels/methodology-popover";
+import { termLabel } from "~/lib/common/ui-glossary";
 import { TdxSidePanel, tradableSymbol } from "../market/tdx-side-panel";
 import { SymbolRpsBars } from "../market/symbol-rps-bars";
 
@@ -75,13 +87,17 @@ export function ChartPeriodControl({
   const moreValue = intraday ? "__intraday__" : period;
   return (
     <>
-      <span role="group" aria-label="常用图表周期" className="segmented">
+      <span
+        role="group"
+        aria-label="常用图表周期"
+        className="segmented shrink-0 flex-nowrap! whitespace-nowrap"
+      >
         {choices.map((choice) => (
           <Button
             key={choice.value}
             variant="plain"
             type="button"
-            className={choice.value === selected ? "selected" : ""}
+            className={`px-2! text-xs! ${choice.value === selected ? "selected" : ""}`}
             aria-pressed={choice.value === selected}
             disabled={disabled}
             onClick={() => onSelect(choice.value)}
@@ -98,10 +114,10 @@ export function ChartPeriodControl({
         <SelectTrigger
           aria-label="行情周期"
           title="更多周期 · F8 切换周期"
-          className="w-auto min-w-28"
+          className="w-auto min-w-20 max-w-28 px-2 text-xs"
         >
           <span className="truncate">
-            更多周期 ·{" "}
+            更多 ·{" "}
             {intraday
               ? "分时"
               : period === "day"
@@ -123,16 +139,81 @@ export function ChartPeriodControl({
   );
 }
 
+/** 紧凑签组：复用 .segmented 的视觉，不引入大号分段控件。 */
+function RailTabs<T extends string>({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: T;
+  onChange: (value: T) => void;
+  options: readonly { value: T; label: string }[];
+}) {
+  return (
+    <span role="tablist" aria-label={label} className="segmented min-w-0">
+      {options.map((option) => (
+        <Button
+          key={option.value}
+          variant="plain"
+          type="button"
+          role="tab"
+          aria-selected={value === option.value}
+          className={value === option.value ? "selected" : ""}
+          onClick={() => onChange(option.value)}
+        >
+          {option.label}
+        </Button>
+      ))}
+    </span>
+  );
+}
+
+const methodologyItems = [
+  {
+    label: "数据源与单位",
+    detail:
+      "行情来自所选本地或通达信数据源，读取失败不会静默换源。指数价格单位为点；板块与数字货币不计算个股 RPS。",
+  },
+  {
+    label: "复权与双价",
+    detail:
+      "复权仅用于连续比较；入场、止损与目标始终使用原价，缺失时显示不可用，不由复权价推算。复权快照同时带原价时，图表可双价对照。",
+  },
+  {
+    label: "通知边界",
+    detail: "历史导入与回测不会发送通知；只有启用订阅的正式提醒才会推送。",
+  },
+] as const;
+
+const narrowMarketQuery = "(max-width: 1024px)";
+
+function subscribeNarrowMarket(callback: () => void) {
+  const media = window.matchMedia(narrowMarketQuery);
+  media.addEventListener("change", callback);
+  return () => media.removeEventListener("change", callback);
+}
+
 export function MarketView({
   state,
   notify,
   embedded = false,
   frozen = false,
+  leftCandidatesSlot,
+  rightPlanSlot,
+  hasActivePlan = false,
 }: {
   notify: (text: string) => void;
   embedded?: boolean;
   /** A saved formula candidate owns the chart; the old list must not step it. */
   frozen?: boolean;
+  /** 扫描候选筛选与列表，显示在左轨「扫描候选」签内。 */
+  leftCandidatesSlot?: ReactNode;
+  /** 双价锁与交易计划，显示在右轨「计划双价」签内。 */
+  rightPlanSlot?: ReactNode;
+  /** 有选中候选时默认展开右轨计划签。 */
+  hasActivePlan?: boolean;
   state: Pick<
     MarketState,
     | "marketSource"
@@ -175,7 +256,7 @@ export function MarketView({
   } = state;
   const visible = useTaskVisible();
   const router = useRouter();
-  // 专注看盘 hides the candidate/watchlist rail and gives the chart full width.
+  // 专注看盘 hides both rails and gives the chart full width.
   const zenMode = useWorkbenchUiStore((state) => state.zenMode);
   // Frozen candidate evidence owns the chart until an ordinary read succeeds,
   // including while the ordinary route is pending or failed.
@@ -248,23 +329,31 @@ export function MarketView({
     availableChartPeriods,
   );
   const [browseEdge, setBrowseEdge] = useState("");
-  const [listSource, setListSource] = useState<"candidates" | "watch">(
-    "candidates",
+  const hasScanSlot = leftCandidatesSlot !== undefined;
+  const [leftTab, setLeftTab] = useState<"watch" | "scan">(
+    hasScanSlot ? "scan" : "watch",
   );
-  const [candidatePage, setCandidatePage] = useState(1);
-  const [listsOpen, setListsOpen] = useState(false);
+  const narrowMarket = useSyncExternalStore(
+    subscribeNarrowMarket,
+    () => window.matchMedia(narrowMarketQuery).matches,
+    () => false,
+  );
+  const [leftCollapsedPreference, setLeftCollapsed] = useState<boolean>();
+  const leftCollapsed = leftCollapsedPreference ?? narrowMarket;
+  const [rightCollapsed, setRightCollapsed] = useState(false);
+  const [rightTabPreference, setRightTab] = useState<"quote" | "plan">();
+  const rightTab = rightTabPreference ?? (hasActivePlan ? "plan" : "quote");
+  const [watchQuery, setWatchQuery] = useState("");
+  useEffect(() => {
+    if (hasScanSlot) setLeftTab("scan");
+  }, [hasScanSlot]);
+  useEffect(() => {
+    if (hasActivePlan) setRightTab("plan");
+  }, [hasActivePlan]);
   // A frozen candidate is stepped by the screening result controls. Keeping the
   // stale browse list out of both the UI and the hotkey prevents PageUp/PageDown
   // from replacing the frozen chart with a live load.
   const activeBrowse = holdFrozen ? null : browse;
-  useEffect(() => {
-    setCandidatePage(Math.floor((activeBrowse?.index ?? 0) / 50) + 1);
-  }, [activeBrowse?.index, activeBrowse?.label]);
-  const candidatePages = Math.max(
-    1,
-    Math.ceil((activeBrowse?.symbols.length ?? 0) / 50),
-  );
-  const displayedCandidatePage = Math.min(candidatePage, candidatePages);
   useBrowseHotkey(
     activeBrowse,
     (next) => {
@@ -278,299 +367,344 @@ export function MarketView({
     // skim a list, and only the last mutate call's callbacks apply.
     (first) => setBrowseEdge(first ? "已是第一只" : "已是最后一只"),
   );
+  const showLeftRail = !embedded && !zenMode;
+  const showRightRail = !embedded && !zenMode;
+  const leftIsCollapsed = !showLeftRail || leftCollapsed;
+  const rightIsCollapsed = !showRightRail || rightCollapsed;
+  const watchFilter = watchQuery.trim().toLowerCase();
+  const watchRows = watchFilter
+    ? watchlist.filter(
+        (value) =>
+          value.toLowerCase().includes(watchFilter) ||
+          (names[value] ?? "").toLowerCase().includes(watchFilter),
+      )
+    : watchlist;
+  // 复权快照同时带原价时，图表可双价对照；冻结证据用「选股当时快照」标识。
+  const dualPrice =
+    !frozenEvidence &&
+    loaded?.adjustment !== "none" &&
+    (loaded?.rawBars?.length ?? 0) > 0;
   return (
     <div
-      className="nc-market-workspace"
-      style={
-        embedded || zenMode
-          ? { gridTemplateColumns: "minmax(0,1fr)" }
-          : undefined
-      }
+      className="nc-market-terminal"
+      data-left-collapsed={leftIsCollapsed}
+      data-right-collapsed={rightIsCollapsed}
     >
-      {!zenMode && (
-        <aside
-          className={
-            embedded
-              ? "nc-market-candidates static! max-h-none!"
-              : "nc-market-candidates"
-          }
-        >
-          <Button
-            variant="outline"
-            className={
-              embedded
-                ? "nc-market-list-toggle inline-flex!"
-                : "nc-market-list-toggle"
-            }
-            aria-expanded={listsOpen}
-            aria-controls="market-candidate-lists"
-            onClick={() => setListsOpen((open) => !open)}
-          >
-            自选与候选
-          </Button>
-          <div
-            id="market-candidate-lists"
-            className="nc-market-list-content space-y-3"
-            data-expanded={listsOpen}
-            style={embedded && !listsOpen ? { display: "none" } : undefined}
-          >
-            {activeBrowse && (
-              <Segmented
-                label="行情候选来源"
-                value={listSource}
-                onChange={setListSource}
+      {showLeftRail && (
+        <aside className="nc-market-rail" aria-label="自选与扫描候选">
+          <div className="flex items-center gap-1 border-b border-nc-border px-2 py-1.5">
+            {hasScanSlot ? (
+              <RailTabs
+                label="列表来源"
+                value={leftTab}
+                onChange={setLeftTab}
                 options={[
-                  { value: "candidates", label: "来源列表" },
-                  { value: "watch", label: "我的自选" },
+                  {
+                    value: "watch",
+                    label: `我的自选 (${savedWatchlist.data ? watchlist.length : "—"})`,
+                  },
+                  { value: "scan", label: "扫描候选" },
                 ]}
               />
+            ) : (
+              <span className="min-w-0 flex-1 truncate text-xs font-medium text-nc-text-2">
+                我的自选 ({savedWatchlist.data ? watchlist.length : "—"})
+              </span>
             )}
-            <div hidden={!activeBrowse || listSource !== "candidates"}>
-              {activeBrowse && (
-                <Panel
-                  title={activeBrowse.label}
-                  meta={`${activeBrowse.index + 1} / ${activeBrowse.symbols.length} · PgUp/PgDn连续翻股`}
-                >
-                  <GridTable
-                    label="来源候选"
-                    rows={activeBrowse.symbols.slice(
-                      (displayedCandidatePage - 1) * 50,
-                      displayedCandidatePage * 50,
-                    )}
-                    rowKey={(value) => value}
-                    columns={[
-                      {
-                        key: "security",
-                        header: "证券",
-                        cell: (value) => (
-                          <Button
-                            variant="plain"
-                            className="w-full text-left"
-                            aria-current={symbol === value ? "true" : undefined}
-                            onClick={() => {
-                              const index = activeBrowse.symbols.indexOf(value);
-                              setBrowse({ ...activeBrowse, index });
-                              setBrowseEdge("");
-                              setSymbol(value);
-                              load.mutate({
-                                symbol: value,
-                                period,
-                                source: marketSource,
-                              });
-                            }}
-                          >
-                            <SecurityCell
-                              name={securityDisplayName(value, names)}
-                              code={value.toUpperCase()}
-                            />
-                          </Button>
-                        ),
-                      },
-                    ]}
-                    rowClassName={(value) =>
-                      symbol === value ? "bg-nc-accent-900" : undefined
-                    }
-                  />
-                  <nav
-                    aria-label="候选列表分页"
-                    className="mt-3 flex items-center justify-between gap-2"
+            <Button
+              variant="plain"
+              type="button"
+              className="icon-button shrink-0"
+              aria-label="收起列表"
+              aria-expanded="true"
+              title="收起列表"
+              onClick={() => setLeftCollapsed(true)}
+            >
+              <CaretRight size={13} />
+            </Button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-auto p-2">
+            {hasScanSlot && (
+              <div hidden={leftTab !== "scan"}>{leftCandidatesSlot}</div>
+            )}
+            <div
+              className="space-y-2"
+              hidden={hasScanSlot && leftTab === "scan"}
+            >
+              {savedWatchlist.error && (
+                <p role="alert" className="text-xs text-nc-bad">
+                  自选列表未刷新：{savedWatchlist.error.message}{" "}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void savedWatchlist.refetch()}
                   >
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={displayedCandidatePage === 1}
-                      onClick={() =>
-                        setCandidatePage(displayedCandidatePage - 1)
-                      }
-                    >
-                      上一页
-                    </Button>
-                    <span className="text-[13px]">
-                      {displayedCandidatePage}/{candidatePages}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={displayedCandidatePage === candidatePages}
-                      onClick={() =>
-                        setCandidatePage(displayedCandidatePage + 1)
-                      }
-                    >
-                      下一页
-                    </Button>
-                  </nav>
-                </Panel>
+                    重试
+                  </Button>
+                </p>
               )}
-            </div>
-            <div hidden={!!activeBrowse && listSource === "candidates"}>
-              <Panel
-                span={8}
-                icon={Star}
-                title="我的自选"
-                actions={
-                  <span className="muted">
-                    {savedWatchlist.data
-                      ? `${watchlist.length} 个标的`
-                      : "尚未读取"}
-                  </span>
+              <Input
+                aria-label="搜索我的自选"
+                placeholder="代码 / 名称"
+                className="h-8"
+                value={watchQuery}
+                onChange={(event) => setWatchQuery(event.target.value)}
+              />
+              <GridTable
+                label="我的自选"
+                rows={watchRows}
+                rowKey={(value) => value}
+                empty={
+                  savedWatchlist.error
+                    ? "暂时无法读取自选列表"
+                    : !savedWatchlist.data
+                      ? "正在读取自选列表…"
+                      : watchFilter
+                        ? "没有匹配的自选标的"
+                        : "加载证券后加入自选"
                 }
-              >
-                {savedWatchlist.error && (
-                  <p role="alert">
-                    自选列表未刷新：{savedWatchlist.error.message}{" "}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void savedWatchlist.refetch()}
-                    >
-                      重试自选列表
-                    </Button>
-                  </p>
-                )}
-                <GridTable
-                  label="我的自选"
-                  rows={watchlist}
-                  rowKey={(s) => s}
-                  empty={
-                    savedWatchlist.error
-                      ? "暂时无法读取自选列表"
-                      : !savedWatchlist.data
-                        ? "正在读取自选列表…"
-                        : "在上方加载证券后加入自选"
-                  }
-                  columns={[
-                    {
-                      key: "security",
-                      header: "证券",
-                      width: "3fr",
-                      cell: (s) => (
-                        <Button
-                          variant="plain"
-                          className="flex items-center gap-[9px] text-left"
-                          disabled={holdFrozen}
-                          onClick={() => {
-                            setSymbol(s);
-                            load.mutate({
-                              symbol: s,
-                              period,
-                              source: marketSource,
-                            });
-                          }}
-                        >
-                          <span className="stock-avatar">
-                            {s.slice(0, 2).toUpperCase()}
-                          </span>
-                          <SecurityCell
-                            name={securityDisplayName(s, names)}
-                            code={s.toUpperCase()}
-                          />
-                          <ArrowUpRight size={14} className="text-nc-text-4" />
-                        </Button>
-                      ),
-                    },
-                    {
-                      key: "actions",
-                      header: "",
-                      width: "1fr",
-                      align: "right",
-                      cell: (s) => (
-                        <Button
-                          variant="plain"
-                          className="icon-button"
-                          aria-label={`移除 ${s}`}
-                          disabled={watchUnavailable}
-                          onClick={() =>
-                            watch.mutate(watchlist.filter((v) => v !== s))
-                          }
-                        >
-                          <X size={13} />
-                        </Button>
-                      ),
-                    },
-                  ]}
-                />
-              </Panel>
+                columns={[
+                  {
+                    key: "security",
+                    header: "证券",
+                    width: "3fr",
+                    cell: (value) => (
+                      <Button
+                        variant="plain"
+                        className="flex w-full min-w-0 items-center gap-2 text-left"
+                        disabled={holdFrozen}
+                        onClick={() => {
+                          setSymbol(value);
+                          load.mutate({
+                            symbol: value,
+                            period,
+                            source: marketSource,
+                          });
+                        }}
+                      >
+                        <SecurityCell
+                          name={securityDisplayName(value, names)}
+                          code={value.toUpperCase()}
+                        />
+                        <ArrowUpRight
+                          size={13}
+                          className="shrink-0 text-nc-text-4"
+                        />
+                      </Button>
+                    ),
+                  },
+                  {
+                    key: "actions",
+                    header: "",
+                    width: "28px",
+                    align: "right",
+                    cell: (value) => (
+                      <Button
+                        variant="plain"
+                        className="icon-button"
+                        aria-label={`移除 ${value}`}
+                        disabled={watchUnavailable}
+                        onClick={() =>
+                          watch.mutate(watchlist.filter((v) => v !== value))
+                        }
+                      >
+                        <X size={13} />
+                      </Button>
+                    ),
+                  },
+                ]}
+              />
             </div>
           </div>
         </aside>
       )}
-      <div className="min-w-0 space-y-4">
+      <div className="min-w-0 space-y-3">
         <section className="panel chart-panel nc-span-12">
-          <div className="panel-toolbar">
-            <SecuritySelect
-              symbol={symbol}
-              name={
-                loaded?.symbol === symbol
-                  ? securityDisplayName(symbol, names, loaded.name)
-                  : names[symbol]
-              }
-              period={period}
-              disabled={holdFrozen || load.isPending}
-              onPeriod={selectChart}
-              onSelect={(next) => {
-                setSymbol(next);
-                load.mutate({
-                  symbol: next,
-                  period,
-                  source: marketSource,
-                });
-              }}
-            />
-            {activeBrowse && (
-              <>
-                <span
-                  role="status"
-                  className="flex items-center gap-1 text-xs text-nc-text-3"
-                  title="PageUp/PageDown 切换上一只/下一只"
-                >
-                  {activeBrowse.label} {activeBrowse.index + 1}/
-                  {activeBrowse.symbols.length} · PgUp/PgDn 换股
-                  {browseEdge && ` · ${browseEdge}`}
-                  <Button
-                    size="sm"
-                    variant="plain"
-                    aria-label="退出列表翻股"
-                    onClick={() => {
-                      setBrowse(null);
-                      setBrowseEdge("");
-                    }}
-                  >
-                    ×
-                  </Button>
-                </span>
-                {/* The ranking panel keeps its search/period/page in the
-                    existing panel cache, so returning continues that list. */}
-                {activeBrowse.origin === "stock-rps" &&
-                  activeBrowse.symbols.includes(symbol) && (
-                    <Button asChild size="sm" variant="ghost">
-                      <Link href="/scan?tab=rps" scroll={false}>
-                        返回个股 RPS 排名
-                      </Link>
-                    </Button>
-                  )}
-              </>
+          <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto border-b border-nc-border-soft px-3 py-1.5">
+            {showLeftRail && leftCollapsed && (
+              <Button
+                size="sm"
+                variant="ghost"
+                type="button"
+                className="shrink-0 px-1.5"
+                aria-label="展开列表"
+                aria-expanded="false"
+                title="展开列表"
+                onClick={() => setLeftCollapsed(false)}
+              >
+                <ListDashes size={16} />
+              </Button>
             )}
-            <MarketSourceSelect
-              value={marketSource}
+            <div className="w-[210px] min-w-[150px] max-w-[280px] shrink-0">
+              <SecuritySelect
+                symbol={symbol}
+                name={
+                  loaded?.symbol === symbol
+                    ? securityDisplayName(symbol, names, loaded.name)
+                    : names[symbol]
+                }
+                period={period}
+                disabled={holdFrozen || load.isPending}
+                onPeriod={selectChart}
+                onSelect={(next) => {
+                  setSymbol(next);
+                  load.mutate({
+                    symbol: next,
+                    period,
+                    source: marketSource,
+                  });
+                }}
+              />
+            </div>
+            {activeBrowse && (
+              <span
+                role="status"
+                className="flex shrink-0 items-center gap-1 whitespace-nowrap text-xs text-nc-text-3"
+                title="PageUp/PageDown 切换上一只/下一只"
+              >
+                {activeBrowse.label} {activeBrowse.index + 1}/
+                {activeBrowse.symbols.length} · PgUp/PgDn 换股
+                {browseEdge && ` · ${browseEdge}`}
+                <Button
+                  size="sm"
+                  variant="plain"
+                  type="button"
+                  aria-label="退出列表翻股"
+                  onClick={() => {
+                    setBrowse(null);
+                    setBrowseEdge("");
+                  }}
+                >
+                  ×
+                </Button>
+              </span>
+            )}
+            {frozenEvidence && (
+              <span className="tag shrink-0">
+                {termLabel("frozenSnapshot")}
+              </span>
+            )}
+            {dualPrice && (
+              <span
+                className="tag shrink-0"
+                title="复权与原价同时在快照内，图表可切换对照"
+              >
+                {termLabel("dualPriceSync")}
+              </span>
+            )}
+            <div className="ml-auto flex shrink-0 items-center gap-1">
+              {activeBrowse?.origin === "stock-rps" &&
+                activeBrowse.symbols.includes(symbol) && (
+                  <Button asChild size="sm" variant="ghost">
+                    <Link href="/scan?tab=rps" scroll={false}>
+                      返回个股 RPS 排名
+                    </Link>
+                  </Button>
+                )}
+              <Button
+                size="sm"
+                variant="ghost"
+                type="button"
+                onClick={() =>
+                  loaded && watch.mutate([...watchlist, loaded.symbol])
+                }
+                disabled={
+                  !loaded ||
+                  watchUnavailable ||
+                  load.isPending ||
+                  isSectorChartSymbol(loaded.symbol) ||
+                  watchlist.includes(loaded.symbol)
+                }
+                title={watchActionLabel}
+              >
+                <Plus size={13} />
+                {watchActionLabel}
+              </Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button size="sm" variant="ghost" type="button">
+                    继续研究
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent aria-label="继续研究">
+                  <nav aria-label="继续研究" className="flex flex-col gap-2">
+                    {(
+                      [
+                        ["/lab/analysis", Sparkle, "证据分析"],
+                        ["/lab/backtest", Flask, "策略回测"],
+                        ["/system/notifications", Broadcast, "监控配置"],
+                      ] as const
+                    ).map(([href, Glyph, label]) => (
+                      <PopoverClose key={href} asChild>
+                        <Button asChild size="sm" variant="ghost">
+                          <Link href={href} scroll={false}>
+                            <Glyph size={12} />
+                            {label}
+                          </Link>
+                        </Button>
+                      </PopoverClose>
+                    ))}
+                  </nav>
+                </PopoverContent>
+              </Popover>
+              {showRightRail && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  type="button"
+                  aria-label={rightCollapsed ? "展开盘口" : "收起盘口"}
+                  aria-expanded={!rightCollapsed}
+                  onClick={() => setRightCollapsed((collapsed) => !collapsed)}
+                >
+                  <SidebarSimple size={14} />
+                  {rightCollapsed ? "展开盘口" : "收起盘口"}
+                </Button>
+              )}
+              <MethodologyPopover items={methodologyItems} />
+            </div>
+          </div>
+          <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto border-b border-nc-border-soft px-3 py-1.5">
+            <ChartPeriodControl
+              period={displayedPeriod}
+              intraday={showIntraday}
+              canIntraday={canIntraday}
               disabled={holdFrozen || load.isPending}
-              onChange={(source) => {
-                setMarketSource(source);
-                load.mutate({ symbol, period, source });
-              }}
+              periods={availableChartPeriods}
+              onSelect={selectChart}
             />
-            <ChartAdjustmentSelect
-              value={effectiveAdjustment}
-              disabled={
-                holdFrozen ||
-                load.isPending ||
-                isMarketIndex(symbol) ||
-                isSectorChartSymbol(symbol)
-              }
-              onChange={setChartAdjustment}
+            <span
+              className="h-4 w-px shrink-0 bg-nc-border"
+              aria-hidden="true"
             />
+            <span className="min-w-0 shrink-0 [&>button]:min-w-0 [&>button]:max-w-24 [&>button]:px-2 [&>button]:text-xs">
+              <ChartAdjustmentSelect
+                value={effectiveAdjustment}
+                disabled={
+                  holdFrozen ||
+                  load.isPending ||
+                  isMarketIndex(symbol) ||
+                  isSectorChartSymbol(symbol)
+                }
+                onChange={setChartAdjustment}
+              />
+            </span>
+            <span className="min-w-0 shrink-0 [&>button]:min-w-0 [&>button]:max-w-28 [&>button]:px-2 [&>button]:text-xs">
+              <MarketSourceSelect
+                value={marketSource}
+                disabled={holdFrozen || load.isPending}
+                onChange={(source) => {
+                  setMarketSource(source);
+                  load.mutate({ symbol, period, source });
+                }}
+              />
+            </span>
             <Button
               size="sm"
               variant="outline"
+              type="button"
+              className="shrink-0 px-2"
+              aria-label="刷新行情"
+              title="刷新行情"
               disabled={holdFrozen || load.isPending}
               onClick={() =>
                 load.mutate(
@@ -580,16 +714,8 @@ export function MarketView({
               }
             >
               <ArrowClockwise size={13} />
-              刷新行情
+              <span className="hidden sm:inline">刷新</span>
             </Button>
-            <ChartPeriodControl
-              period={displayedPeriod}
-              intraday={showIntraday}
-              canIntraday={canIntraday}
-              disabled={holdFrozen || load.isPending}
-              periods={availableChartPeriods}
-              onSelect={selectChart}
-            />
           </div>
           {frozenEvidence && loaded && (
             <div
@@ -676,7 +802,7 @@ export function MarketView({
               view={marketView}
               onViewChange={setMarketView}
               heading={
-                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
                   <h2 className="text-[15px] font-medium">
                     {securityDisplayName(loaded.symbol, names, loaded.name)}
                   </h2>
@@ -686,36 +812,13 @@ export function MarketView({
                       历史快照 · 截至 {loaded.historicalAsOf}
                     </span>
                   )}
+                  <span className="text-[11px] text-nc-text-4 tabular">
+                    {marketSourceLabel(loaded.source)} ·{" "}
+                    {new Date(loaded.createdAt).toLocaleString("zh-CN", {
+                      hour12: false,
+                    })}
+                  </span>
                 </div>
-              }
-              actions={
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button size="sm" variant="ghost" className="ml-auto">
-                      继续研究
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent aria-label="继续研究">
-                    <nav aria-label="继续研究" className="flex flex-col gap-2">
-                      {(
-                        [
-                          ["/lab/analysis", Sparkle, "证据分析"],
-                          ["/lab/backtest", Flask, "策略回测"],
-                          ["/system/notifications", Broadcast, "监控配置"],
-                        ] as const
-                      ).map(([href, Glyph, label]) => (
-                        <PopoverClose key={href} asChild>
-                          <Button asChild size="sm" variant="ghost">
-                            <Link href={href} scroll={false}>
-                              <Glyph size={12} />
-                              {label}
-                            </Link>
-                          </Button>
-                        </PopoverClose>
-                      ))}
-                    </nav>
-                  </PopoverContent>
-                </Popover>
               }
             />
           ) : (
@@ -725,58 +828,52 @@ export function MarketView({
                 : "输入 sh600519 等证券代码加载本地行情"}
             </Empty>
           )}
-          <div className="source-line">
-            {loaded
-              ? `数据源 ${marketSourceLabel(loaded.source)} · 快照于 ${new Date(loaded.createdAt).toLocaleString("zh-CN", { hour12: false })} · 历史导入与回测不会发送通知`
-              : "历史导入与回测不会发送通知"}
-            {(isMarketIndex(chartSymbol) || isSectorChartSymbol(chartSymbol)) &&
-              " · 指数行情 · 价格单位：点"}
+        </section>
+      </div>
+      {showRightRail && (
+        <aside className="nc-market-rail" aria-label="盘口与计划">
+          <div className="flex items-center gap-1 border-b border-nc-border px-2 py-1.5">
+            <RailTabs
+              label="右侧栏"
+              value={rightTab}
+              onChange={setRightTab}
+              options={[
+                { value: "quote", label: "盘口指标" },
+                { value: "plan", label: "计划双价" },
+              ]}
+            />
             <Button
-              size="sm"
-              variant="ghost"
-              onClick={() =>
-                loaded && watch.mutate([...watchlist, loaded.symbol])
-              }
-              disabled={
-                !loaded ||
-                watchUnavailable ||
-                load.isPending ||
-                isSectorChartSymbol(loaded.symbol) ||
-                watchlist.includes(loaded.symbol)
-              }
-              title={watchActionLabel}
+              variant="plain"
+              type="button"
+              className="icon-button shrink-0"
+              aria-label="收起盘口"
+              title="收起盘口"
+              onClick={() => setRightCollapsed(true)}
             >
-              <Plus size={13} />
-              {watchActionLabel}
+              <CaretRight size={13} />
             </Button>
           </div>
-        </section>
-        <details className="rounded-lg border border-nc-border bg-nc-card p-4">
-          <summary className="cursor-pointer text-sm font-medium">
-            盘口、基本面与RPS · 展开查看
-          </summary>
-          <PageGrid>
-            <Panel
-              span={12}
-              icon={Broadcast}
-              title={
-                loaded
-                  ? securityDisplayName(loaded.symbol, names, loaded.name)
-                  : "盘口"
-              }
-              meta={loaded?.symbol.toUpperCase()}
-              className="self-start"
-            >
+          <div className="min-h-0 flex-1 overflow-auto p-2">
+            <div className="space-y-2" hidden={rightTab !== "plan"}>
+              {rightPlanSlot ?? (
+                <p className="text-xs text-nc-text-3">
+                  从扫描候选或公式结果选择个股后，这里显示双价锁与交易计划。
+                </p>
+              )}
+            </div>
+            <div className="space-y-2" hidden={rightTab !== "quote"}>
               {loaded ? (
-                <TdxSidePanel symbol={loaded.symbol} />
+                <>
+                  <TdxSidePanel symbol={loaded.symbol} />
+                  <SymbolRpsBars symbol={loaded.symbol} />
+                </>
               ) : (
                 <Empty>先加载一只证券</Empty>
               )}
-            </Panel>
-            <SymbolRpsBars symbol={loaded?.symbol ?? symbol} />
-          </PageGrid>
-        </details>
-      </div>
+            </div>
+          </div>
+        </aside>
+      )}
     </div>
   );
 }

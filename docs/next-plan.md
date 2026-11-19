@@ -1,12 +1,20 @@
 # 当前实施计划
 
-## 下一阶段：UI 布局与信息噪音深度重设计（待启动 · Google Stitch 多轮评审）
+## 当前阶段：UI 布局与信息噪音深度重设计（全站 7/7 工作区已完成并验收，待用户审阅反馈）
 
-基于 2026-11-19 实机体验，用户明确提出下一阶段界面专项改造的三项核心原则，**先以现有页面为基础调用 Google Stitch 进行多轮设计评审并定稿，再落地代码**：
+2026-11-19 按「Google Stitch 浅色定稿 → 多 Agent 互斥实施 → 全站 7/7 隔离实机验收与清理」闭环完成全部七大语义工作区重构（分支 `feat/global-optimization-20261119`，未提交、未打包）：
 
-1. **按交易习惯重塑布局与空间利用率**：消除自选股/信号列表占据图表上方大片空间的问题（改为左右停靠侧轨或高效分栏），消除单个筛选条件独占一整行的空间浪费（收拢为紧凑单行工具栏）。
-2. **大幅削减重复提示词与视觉噪音**：禁止在每个面板、每一行反复堆叠用户不关心的免责/工程说明文字；数据与主操作优先，口径与合规说明收敛到统一可展开「口径说明」弹层或图标 Tooltip。
-3. **设计先行**：使用 Google Stitch MCP（基于现状页面截图/结构 + `DESIGN.md`）做多轮变体对比与设计评审，确认满意版本后再派多 Agent 实施。
+1. **Google Stitch 浅色定稿**：基于 `DESIGN.md` 建立唯一浅色 Design System，逐页生成并经视觉质检锁定 5 张核心桌面主稿（行情看盘 v2、持仓复盘、今日交易、选股筛选、策略回测）。
+2. **Wave A 公共降噪原语与 Phase 2 纯计算层**：新增 `MethodologyPopover`（全站统一口径说明弹层）、`FilterToolbar`（单行紧凑筛选栏）、`RiskDistanceBar`（止损/目标距离进度条）、`MonthlyReturnsHeatmap`（月度收益热力图与 Top 3 水下回撤），以及 `risk-distance.ts` / `monthly-heatmap.ts` 纯函数（24 项手算与缺失留空单测通过）。
+3. **Wave B & D 全站 7/7 工作区重构与精修**：
+   - **行情看盘（`/scan`）**：彻底移除图上大列表，重构为 `.nc-market-terminal` 可折叠三栏终端（左 240px 自选/扫描候选轨 + 中央最大化 K 线/缠论主图 + 右 268px 盘口/RPS/计划双价轨），Row 2 周期条实测高 30px 严格单行不折行；
+   - **持仓复盘（`/accounts`）**：5 行纵向筛选收拢为单行 `FilterToolbar`（实测高 50px），新增紧凑分币种 KPI 卡（触及止损以整数显示）与 36px 双账重叠横条，持仓表接入 `RiskDistanceBar`，`CryptoRiskNotes` 收至底部折叠区；
+   - **今日交易（`/`）**：压缩首屏堆叠横幅，重构为单行页头 + 6 格 Ribbon + `.nc-cockpit-grid` 7:3 驾驶舱（左：明日候选与进行中计划；右：持仓止损监控、市场温度分仓、关联快讯），次要模拟/系统明细收至底部折叠区；
+   - **选股筛选（`/scan?tab=formula|rps`）**：运行结果后公式表单自动收拢为 48px 条件摘要条，结果操作收拢进单行 `FilterToolbar`，选中个股展开 60/40 右侧冻结图表抽屉；
+   - **策略回测（`/lab`, `/lab/backtest`）**：单行 `FilterToolbar`、`PaperForwardStatus` 紧凑单行降噪、`LabDetail` 6 阶段流水线 + 7:3 双栏布局，回测报告接入 `MonthlyReturnsHeatmap`；
+   - **资讯研报（`/intel`）与系统设置/后台任务（`/system`, `/system/tasks`）**：统一升级单行 `FilterToolbar`（新闻检索 52px、系统分类胶囊 46px、任务筛选 50px）与右上角 `MethodologyPopover`，全站免责与工程说明全部收敛。
+4. **Wave C & E 最终验证与清理**：Wave C1 定向 Vitest 2,710 通过（宿主复验 `market-data` 56 文件 444 项全绿）+ Wave E1 31 文件 170 项通过 + 3 个独立浏览器脚本（资讯/任务/图表周期）全通过；`pnpm exec tsc --noEmit` exit 0、隔离 `pnpm build` exit 0、`git diff --check` exit 0、`src/server/mcp.ts` 零改动；真实 Chromium 全站 7/7 最终 44/44 实机断言与 1440/1024 双密度截图验收通过（0 `pageerror`、0 `console.error`、0 横向溢出）；所有临时服务已停、端口已释放，`.test-data/ui-redesign-20261119/`（142 文件 / ~150MB）已预演并 `-Apply` 精确清理（独立核验 `Test-Path=False`）。
+5. **后续排队规划（未实施）**：独立架构子代理已完成同花顺行情 SDK 调研与观澜自有适配方案，落盘于 [2026-11-19-thsdk-data-source-plan.md](data-sources/2026-11-19-thsdk-data-source-plan.md)，待用户审阅本轮 UI 成果并拍板 3 项关键架构决策后再行启动。
 
 ## 当前优化交付状态（2026-11-19）
 

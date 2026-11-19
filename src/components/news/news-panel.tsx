@@ -7,7 +7,14 @@ import {
   type NewsWorkspaceInput,
 } from "~/lib/news/news-workspace";
 import type { NewsArchiveOption } from "~/lib/news/news-archives";
-import { PageGrid, Panel, Segmented } from "../panels";
+import {
+  FilterGroup,
+  FilterToolbar,
+  MethodologyPopover,
+  PageGrid,
+  Panel,
+  Segmented,
+} from "../panels";
 import { Button } from "../ui/button";
 import { useTaskVisible } from "../workbench/use-task-visible";
 import { ArchiveText } from "../research/archive-evidence";
@@ -33,6 +40,30 @@ const initial = () => ({
   historical: true,
 });
 const pageKey = (filter: Filter) => `news-pages:${JSON.stringify(filter)}`;
+const newsMethodology = [
+  {
+    label: "查询范围",
+    detail:
+      "时间均为北京时间。默认以当前时间为截止、回看前七天；关键词匹配标题和完整正文。",
+  },
+  {
+    label: "截止时已采集",
+    detail:
+      "勾选后只显示截止时间之前已经采集入库的新闻；取消勾选会包含截止之后补采的新闻。",
+  },
+  {
+    label: "档案边界",
+    detail: "主档案可提交模型分析；互补档案仅供阅读与打开原文，不提交模型分析。",
+  },
+  {
+    label: "空结果",
+    detail: "所选范围没有新闻，不代表该时期没有事件。",
+  },
+  {
+    label: "模型解读",
+    detail: "模型分类与影响解读不代表实际涨跌。",
+  },
+] as const;
 export function NewsPanel() {
   const visible = useTaskVisible(),
     utils = api.useUtils();
@@ -398,91 +429,94 @@ export function NewsPanel() {
         />
       ) : (
         <>
-          <Panel
-            title="检索新闻"
-            note="默认截止前七天；关键词匹配标题和完整正文。"
-          >
-            <form
-              className="form-grid items-end"
-              onSubmit={(e) => {
-                e.preventDefault();
-                apply();
-              }}
-            >
-              <label>
-                截止时间（北京时间）
-                <input
-                  aria-label="新闻截止时间"
-                  type="datetime-local"
-                  value={draft.until}
-                  onChange={(e) =>
-                    setDraft({ ...draft, until: e.target.value })
-                  }
-                />
-              </label>
-              <label>
-                关键词
-                <input
-                  aria-label="新闻关键词"
-                  maxLength={100}
-                  value={draft.query}
-                  onChange={(e) =>
-                    setDraft({ ...draft, query: e.target.value })
-                  }
-                />
-              </label>
-              <Button type="submit">查询新闻</Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => apply(true)}
+          <div className="nc-span-12 space-y-2">
+            <FilterToolbar label="新闻检索">
+              <form
+                className="contents"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  apply();
+                }}
               >
-                刷新至当前时间
-              </Button>
-            </form>
-            {archives && (
-              <NewsArchiveSwitch
-                options={archives.options}
-                value={selectedKey}
-                unconfigured={archives.unconfigured}
-                note={archives.note}
-                onSelect={selectArchive}
-              />
-            )}
-            {selectedArchive && (
-              <p className="text-sm">
-                当前来源：
-                {selectedArchive.primary ? "主档案" : "互补档案"} ·{" "}
-                {selectedArchive.label}
-                {selectedArchive.primary
-                  ? ""
-                  : "；互补档案仅供阅读与打开原文，不提交模型分析。"}
-              </p>
-            )}
-            <label className="my-3 flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={draft.historical}
-                onChange={(e) =>
-                  setDraft({ ...draft, historical: e.target.checked })
-                }
-              />
-              仅显示截止时已经采集的新闻
-            </label>
-            {dirty && (
-              <p role="status">条件已修改，提交查询后生效；暂不能分析。</p>
-            )}
-            <p className="text-sm">
-              已应用：{newsTime(filter.cutoff - 7 * 86400000)} 至{" "}
-              {newsTime(filter.cutoff)} · {filter.query || "全部关键词"} ·{" "}
-              {filter.historical ? "截止时已采集" : "包含后续补采"}
-            </p>
+                <FilterGroup label="截止">
+                  <input
+                    aria-label="新闻截止时间"
+                    type="datetime-local"
+                    value={draft.until}
+                    onChange={(e) =>
+                      setDraft({ ...draft, until: e.target.value })
+                    }
+                  />
+                </FilterGroup>
+                <FilterGroup label="关键词">
+                  <input
+                    aria-label="新闻关键词"
+                    className="w-44"
+                    maxLength={100}
+                    value={draft.query}
+                    onChange={(e) =>
+                      setDraft({ ...draft, query: e.target.value })
+                    }
+                  />
+                </FilterGroup>
+                <label className="flex items-center gap-1.5 text-sm whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    checked={draft.historical}
+                    onChange={(e) =>
+                      setDraft({ ...draft, historical: e.target.checked })
+                    }
+                  />
+                  仅截止时已采集
+                </label>
+                <Button type="submit" size="sm">
+                  查询新闻
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => apply(true)}
+                >
+                  刷新至当前时间
+                </Button>
+              </form>
+              <div className="ml-auto shrink-0">
+                <MethodologyPopover
+                  title="新闻检索口径"
+                  items={newsMethodology}
+                />
+              </div>
+            </FilterToolbar>
+            <div className="flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1 rounded border border-nc-border bg-nc-card px-2.5 py-1 text-xs text-nc-text-3">
+              {archives && (
+                <div className="contents [&>div]:my-0 [&>div]:space-y-1 [&_p]:text-xs">
+                  <NewsArchiveSwitch
+                    options={archives.options}
+                    value={selectedKey}
+                    unconfigured={archives.unconfigured}
+                    note={archives.note}
+                    onSelect={selectArchive}
+                  />
+                </div>
+              )}
+              <span role="status" className={archives ? "" : "ml-auto"}>
+                已应用：{newsTime(filter.cutoff - 7 * 86400000)} 至{" "}
+                {newsTime(filter.cutoff)} · {filter.query || "全部关键词"} ·{" "}
+                {filter.historical ? "截止时已采集" : "包含后续补采"}
+              </span>
+              {dirty && (
+                <span role="status" className="text-nc-warn">
+                  条件已修改，提交查询后生效；暂不能分析。
+                </span>
+              )}
+            </div>
             <NewsError
               message={news.error?.message}
               retry={() => void news.refetch()}
               stale={!!news.data}
             />
-          </Panel>
+          </div>
           <Panel
             title="新闻列表"
             note={
@@ -497,9 +531,7 @@ export function NewsPanel() {
             }
           >
             {news.isLoading && <p>正在读取新闻…</p>}
-            {news.data?.total === 0 && (
-              <p>所选范围没有新闻，不代表该时期没有事件。</p>
-            )}
+            {news.data?.total === 0 && <p>所选范围没有新闻。</p>}
             <div className="space-y-2">
               {news.data?.items.map((item) => (
                 <article

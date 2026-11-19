@@ -19,6 +19,7 @@ import {
   futureFunctions,
 } from "trading-strategies/formula/tdx-formula-check";
 import { usePanelVisible } from "~/components/workbench/keep-alive";
+import { MethodologyPopover } from "~/components/panels";
 const subscribeToReady = () => () => {};
 const clientReady = () => true;
 const serverReady = () => false;
@@ -99,11 +100,30 @@ export function FormulaScreen({
   }
   return (
     <section className="panel" aria-label="通达信公式选股" aria-busy={!ready}>
-      <h3>通达信公式选股</h3>
-      <p>
-        本地全 A 股 · 已完成日线 · 前复权信号价；成交与账户保留原价。参数使用
-        N1/N2…；恰有一个输出，中间变量用 :=。
-      </p>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <h3 className="m-0">通达信公式选股</h3>
+        <MethodologyPopover
+          title="公式选股口径"
+          buttonLabel="口径说明"
+          items={[
+            {
+              label: "数据范围与价格",
+              detail:
+                "本地全 A 股 · 已完成日线 · 前复权信号价；成交与账户保留原价。",
+            },
+            {
+              label: "参数与语法",
+              detail:
+                "参数使用 N1/N2…；恰有一个输出，中间变量用 :=。语法检查与未来函数门禁通过后才能保存或执行。",
+            },
+            {
+              label: "执行边界",
+              detail:
+                "未来函数命中即拒绝执行；REF 负偏移或无法证明非负整数时拒绝。窗口不足、除零和无效定义域返回空值。暂不支持财务、即时行情、绘图或随机函数。",
+            },
+          ]}
+        />
+      </div>
       <div className="inline-form">
         <label>
           已保存公式

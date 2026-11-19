@@ -4,6 +4,7 @@ import {
   Children,
   createElement,
   isValidElement,
+  type ComponentProps,
   type ReactElement,
   type ReactNode,
 } from "react";
@@ -42,6 +43,7 @@ const wiring = vi.hoisted(() => ({
       (content: () => string, filename: string, mediaType: string) => void
     >(),
   expandEvidence: false,
+  expandMethodology: false,
 }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -74,6 +76,17 @@ vi.mock("~/components/workbench/news-source-diagnostics", () => ({
 vi.mock("~/components/research/use-archive-download", () => ({
   useArchiveDownload: () => ({ error: "", save: wiring.archive }),
 }));
+vi.mock("~/components/ui/popover", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("~/components/ui/popover")>();
+  return {
+    ...actual,
+    PopoverContent: (props: ComponentProps<typeof actual.PopoverContent>) =>
+      wiring.expandMethodology
+        ? createElement("section", null, props.children)
+        : createElement(actual.PopoverContent, props),
+  };
+});
 vi.mock("~/components/research/archive-evidence", async (importOriginal) => {
   const actual =
     await importOriginal<
@@ -97,6 +110,7 @@ beforeEach(() => {
   wiring.policy.mockClear();
   wiring.archive.mockClear();
   wiring.expandEvidence = false;
+  wiring.expandMethodology = false;
 });
 
 const render = (node: ReactElement) => renderToStaticMarkup(node);
@@ -141,35 +155,44 @@ function renderScreen(result?: ReturnType<typeof screenResult>) {
 }
 
 it("routes FormulaScreen starts to job selection and discloses the selected formula snapshot and its parameters", () => {
-  const { html, selectFormulaJob } = renderScreen(
-    screenResult({
-      name: "历史参数测试",
-      parameters: { fast: 5 },
-      source: "XG:C<MA(C,5);",
-    }),
-  );
+  const result = screenResult({
+    name: "历史参数测试",
+    parameters: { fast: 5 },
+    source: "XG:C<MA(C,5);",
+  });
+  const { html, selectFormulaJob } = renderScreen(result);
   expect(html).toContain("运行公式");
   expect(wiring.formula).toHaveBeenCalledExactlyOnceWith({
     onStarted: selectFormulaJob,
   });
   wiring.formula.mock.calls[0]![0].onStarted("next-formula-job");
   expect(selectFormulaJob).toHaveBeenCalledExactlyOnceWith("next-formula-job");
-  expect(html).toContain("公式：历史参数测试");
+  expect(html).toContain("已执行公式");
+  expect(html).toContain("历史参数测试");
   expect(html).toContain("短周期：5");
-  expect(html).toContain("下表均线差与量比仅作描述，不参与公式选中判定。");
-  expect(html).toMatch(
-    /<summary(?:\s[^>]*)?>本次执行公式快照<\/summary>\s*<pre(?:\s[^>]*)?>XG:C&lt;MA\(C,5\);<\/pre>/,
+  expect(html).toContain("口径说明");
+  expect(html).not.toContain("XG:C&lt;MA(C,5);");
+  expect(html).toContain("研究用量探针");
+
+  wiring.expandMethodology = true;
+  const { html: methodology } = renderScreen(result);
+  expect(methodology).toContain("本次执行公式源码快照");
+  expect(methodology).toContain("XG:C&lt;MA(C,5);");
+  expect(methodology).toContain(
+    "下表均线差与量比仅作描述，不参与公式选中判定。",
   );
-  expect(html.match(/研究用量探针/g)).toHaveLength(1);
+  expect(methodology).toContain("2026-11-19 为本次选股基准日");
+  expect(methodology).toContain("行情来源为本地已完成日线");
 });
 
 it.each([
   { label: "results have not loaded", result: undefined },
   { label: "results contain no formula", result: screenResult() },
 ])("hides the snapshot and research usage when $label", ({ result }) => {
+  wiring.expandMethodology = true;
   const { html } = renderScreen(result);
   expect(html).toContain("候选结果");
-  expect(html).not.toContain("本次执行公式快照");
+  expect(html).not.toContain("本次执行公式源码快照");
   expect(html).not.toContain("研究用量探针");
 });
 

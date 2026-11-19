@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { api, type RouterOutputs } from "~/trpc/react";
 import {
   accountKindLabels,
@@ -14,7 +14,16 @@ import {
   type HoldingsFilters,
 } from "~/lib/portfolio/account-holdings-url";
 import { formatNumber } from "trading-strategy-core/format-number";
-import { MetricStrip, Segmented, StateBanner } from "../../panels";
+import {
+  FilterDivider,
+  FilterGroup,
+  FilterToolbar,
+  MethodologyPopover,
+  MetricCard,
+  Pill,
+  Segmented,
+  type MethodologyItem,
+} from "../../panels";
 import {
   Table,
   TableHeader,
@@ -24,11 +33,20 @@ import {
   TableCell,
 } from "../../ui/table";
 import { Input } from "../../ui/input";
+import { Button } from "../../ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../ui/select";
 import { DataTable, type DataTableColumn } from "../../ui/data-table";
 import { CryptoRiskNotes } from "../crypto-risk-notes";
 import { PositionCostPrice } from "../position-cost-price";
+import { RiskDistanceBar } from "../risk-distance-bar";
 import { AccountPositionDetail } from "./position-detail";
-import { pct, sourceLabels, type Position } from "./shared";
+import { sourceLabels, type Position } from "./shared";
 
 /**
  * The URL is the only list state. Filter changes replace the current entry and
@@ -61,10 +79,7 @@ export function HoldingsExplorer({
       filters={filters}
     />
   ) : (
-    <>
-      <CryptoRiskNotes />
-      <UnifiedPositions search={search} filters={filters} update={update} />
-    </>
+    <UnifiedPositions search={search} filters={filters} update={update} />
   );
 }
 
@@ -74,12 +89,23 @@ const exposureDimensionLabels: Record<string, string> = {
   industry: "行业",
 };
 
+const kindLabels: Record<HoldingsFilters["kind"], string> = {
+  real: "真实账户",
+  paper: "本地模拟",
+  "exchange-simulation": "币圈模拟",
+  all: "全部",
+};
+
 const reconciliationModes = {
   "upper-bound": "含重叠上限",
-  "delivery-first": "券商优先预览",
-  "local-first": "手工优先预览",
+  "delivery-first": "券商优先",
+  "local-first": "手工优先",
 } as const;
 type ReconciliationMode = keyof typeof reconciliationModes;
+
+type Reconciliation = NonNullable<
+  RouterOutputs["accountPositions"]["reconciliation"]
+>;
 
 const known = (value: number | null | undefined) =>
   value == null || !Number.isFinite(value) ? "—" : formatNumber(value);
@@ -92,142 +118,116 @@ const rangeText = (
     ? "—"
     : `[${formatNumber(lower)}, ${formatNumber(upper)}]`;
 
+/** `currency:group` is the exposure key shape; the group may itself contain
+ *  separators, so only the first colon is the currency boundary. */
+function splitExposureKey(key: string) {
+  const index = key.indexOf(":");
+  return index < 0
+    ? { currency: "", group: key }
+    : { currency: key.slice(0, index), group: key.slice(index + 1) };
+}
+
+function previewValue(
+  summary: Reconciliation["summaryByCurrency"][number],
+  mode: ReconciliationMode,
+) {
+  return mode === "delivery-first"
+    ? summary.deliveryTotal
+    : mode === "local-first"
+      ? summary.localTotal
+      : summary.grossTotal;
+}
+
+function previewLabel(mode: ReconciliationMode) {
+  return mode === "delivery-first"
+    ? "券商账本合计（预览）"
+    : mode === "local-first"
+      ? "手工账本合计（预览）"
+      : "毛合计（保守上限）";
+}
+
 /**
- * Two real ledgers can describe the same fill. This read-only block shows the
- * gross total, the deduplicated interval and the per-symbol overlap instead of
- * guessing which ledger wins; switching the view never edits either ledger.
+ * Two real ledgers can describe the same fill. This read-only strip keeps the
+ * gross preview, the deduplicated interval and the per-symbol overlap on one
+ * thin row; switching the view never edits either ledger.
  */
-function HoldingsReconciliation({
+function ReconciliationStrip({
   reconciliation,
+  mode,
+  onModeChange,
+  preferenceError,
+  saveError,
 }: {
-  reconciliation: NonNullable<
-    RouterOutputs["accountPositions"]["reconciliation"]
-  >;
+  reconciliation: Reconciliation;
+  mode: ReconciliationMode;
+  onModeChange: (mode: ReconciliationMode) => void;
+  preferenceError?: string;
+  saveError?: string;
 }) {
-  const preferences = api.workspacePreferences.useQuery();
-  const save = api.saveWorkspacePreferences.useMutation({
-    onSuccess: () => void preferences.refetch(),
-  });
   const [showOverlaps, setShowOverlaps] = useState(false);
-  const mode: ReconciliationMode =
-    preferences.data?.holdingsReconciliation ?? "upper-bound";
+  const helpId = useId();
   const overlaps = reconciliation.overlapSymbols;
   return (
     <section
       aria-label="双账重叠核对"
-      className="space-y-3 rounded-lg border border-nc-border-soft p-3"
+      aria-describedby={helpId}
+      className="rounded-lg border border-nc-border-soft bg-nc-card px-2.5"
     >
-      {overlaps.length > 0 && (
-        <StateBanner
-          state="warn"
-          title={`检测到 ${overlaps.length} 只标的同时存在于券商交割单与手工记账，合计可能重复`}
-          action={{
-            label: showOverlaps ? "收起重叠明细" : "展开重叠明细",
-            onClick: () => setShowOverlaps((value) => !value),
-          }}
-        >
-          区间下限取两账较大者，上限为两账相加；不自动去重，也不修改原始账本。
-        </StateBanner>
-      )}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold">分币种汇总与重叠区间</h3>
-        <Segmented
-          label="汇总视角"
-          value={mode}
-          options={(
-            Object.keys(reconciliationModes) as ReconciliationMode[]
-          ).map((key) => ({ value: key, label: reconciliationModes[key] }))}
-          onChange={(value) => {
-            save.reset();
-            save.mutate({ holdingsReconciliation: value });
-          }}
-        />
+      <div className="flex min-h-9 flex-wrap items-center gap-x-3 gap-y-1 py-1">
+        {overlaps.length > 0 ? (
+          <span className="text-sub whitespace-nowrap text-nc-warn">
+            检测到 {overlaps.length} 只标的券商/手工同时存在
+          </span>
+        ) : (
+          <span className="text-sub whitespace-nowrap text-nc-text-3">
+            双账无重叠标的
+          </span>
+        )}
+        {overlaps.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-1.5"
+            aria-expanded={showOverlaps}
+            onClick={() => setShowOverlaps((value) => !value)}
+          >
+            {showOverlaps ? "收起重叠明细" : "展开重叠明细"}
+          </Button>
+        )}
+        <div className="ml-auto flex items-center gap-2">
+          <Segmented
+            label="汇总视角"
+            value={mode}
+            options={(
+              Object.keys(reconciliationModes) as ReconciliationMode[]
+            ).map((key) => ({ value: key, label: reconciliationModes[key] }))}
+            onChange={onModeChange}
+          />
+        </div>
       </div>
-      <p className="text-sub text-nc-text-3">
+      <p id={helpId} className="sr-only">
         仅切换预览口径，不修改原始账本。人民币与 USDT
-        分币种核对，绝不相加；缺失价格显示为「—」。
-      </p>
-      {preferences.error && (
-        <p role="alert" className="text-sm">
-          汇总视角偏好读取失败：{preferences.error.message}
-          。当前按含重叠上限显示。
-        </p>
-      )}
-      {save.error && (
-        <p role="alert" className="text-sm">
-          汇总视角未保存：{save.error.message}
-          。当前页仍按上次口径显示，原始账本未变化。
-        </p>
-      )}
-      {reconciliation.summaryByCurrency.map((summary) => {
-        const previewValue =
-          mode === "delivery-first"
-            ? summary.deliveryTotal
-            : mode === "local-first"
-              ? summary.localTotal
-              : summary.grossTotal;
-        const previewLabel =
-          mode === "delivery-first"
-            ? "券商账本合计（预览）"
-            : mode === "local-first"
-              ? "手工账本合计（预览）"
-              : "毛合计（保守上限）";
-        return (
-          <div key={summary.currency} className="space-y-2">
-            <p className="text-sub text-nc-text-3">
-              {summary.currency} · 重叠 {summary.overlapCount} 只
-            </p>
-            <MetricStrip
-              items={[
-                {
-                  id: `${summary.currency}-preview`,
-                  label: previewLabel,
-                  value: previewValue,
-                  unit: summary.currency,
-                  size: "compact",
-                  note:
-                    mode === "upper-bound"
-                      ? "券商 + 手工，含重复部分"
-                      : "仅预览口径，不改账本",
-                },
-                {
-                  id: `${summary.currency}-range`,
-                  label: "去重区间 [下限, 上限]",
-                  value: rangeText(
-                    summary.deduplicatedLowerBound,
-                    summary.grossTotal,
-                  ),
-                  size: "compact",
-                  note: "下限=两账取大；上限=两账相加",
-                },
-                {
-                  id: `${summary.currency}-delivery`,
-                  label: "券商交割单",
-                  value: summary.deliveryTotal,
-                  unit: summary.currency,
-                  size: "compact",
-                },
-                {
-                  id: `${summary.currency}-local`,
-                  label: "手工账本",
-                  value: summary.localTotal,
-                  unit: summary.currency,
-                  size: "compact",
-                },
-              ]}
-            />
-          </div>
-        );
-      })}
-      <p className="text-sub text-nc-text-3">
-        行业 30% 限额按保守上限核对（当前口径：
+        分币种核对，绝不相加；缺失价格显示为「—」。行业 30%
+        限额按保守上限核对（当前口径：
         {reconciliation.industryLimitBasis === "upper-bound"
           ? "含重叠上限"
           : reconciliation.industryLimitBasis}
-        ）。若两账记录的是同一持仓，按上限可能显示超限，实际未必超限。
+        ）。
       </p>
+      {preferenceError && (
+        <p role="alert" className="pb-1 text-sub text-nc-warn">
+          汇总视角偏好读取失败：{preferenceError}
+          。当前按含重叠上限显示。
+        </p>
+      )}
+      {saveError && (
+        <p role="alert" className="pb-1 text-sub text-nc-warn">
+          汇总视角未保存：{saveError}
+          。当前页仍按上次口径显示，原始账本未变化。
+        </p>
+      )}
       {showOverlaps && overlaps.length > 0 && (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto pb-2">
           <Table className="w-full text-sm">
             <TableHeader>
               <TableRow>
@@ -293,6 +293,75 @@ function UnifiedPositions({
     stopStatus,
     page,
   });
+  // The reconciliation preview is only meaningful for the real ledger.
+  const preferences = api.workspacePreferences.useQuery(undefined, {
+    enabled: kind === "real",
+  });
+  const save = api.saveWorkspacePreferences.useMutation({
+    onSuccess: () => void preferences.refetch(),
+  });
+  const mode: ReconciliationMode =
+    preferences.data?.holdingsReconciliation ?? "upper-bound";
+  const reconciliation =
+    kind === "real" ? query.data?.reconciliation : undefined;
+
+  const rows = query.data?.items ?? [];
+  const missingAccounts = query.data?.missingAccounts ?? [];
+  const stopCounts = rows.reduce(
+    (counts, row) => {
+      counts[stopStatusFor(row)] += 1;
+      return counts;
+    },
+    { touched: 0, above: 0, unknown: 0 },
+  );
+  const exposures = query.data?.exposure ?? [];
+  const knownExposures = exposures.filter(
+    (item): item is typeof item & { value: number } =>
+      item.value !== null && Number.isFinite(item.value),
+  );
+  const topExposure = knownExposures.reduce<
+    (typeof knownExposures)[number] | null
+  >((top, item) => (!top || item.value > top.value ? item : top), null);
+  const unknownExposureCount = exposures.length - knownExposures.length;
+  const exposureMeta = (["market", "sleeve", "industry"] as const).flatMap(
+    (dimension) => {
+      const best = knownExposures
+        .filter((item) => item.dimension === dimension)
+        .sort((a, b) => b.value - a.value)[0];
+      return best
+        ? [
+            <Pill key={dimension}>
+              {exposureDimensionLabels[dimension]}/
+              {splitExposureKey(best.key).group} {formatNumber(best.value)}
+            </Pill>,
+          ]
+        : [];
+    },
+  );
+
+  const methodologyItems: readonly MethodologyItem[] = [
+    {
+      label: "账户范围",
+      detail:
+        "默认只看真实账户；本地模拟与币圈模拟单独标记，不混入真实持仓，切换账户类型时来源条件会重置为全部来源。",
+    },
+    {
+      label: "币种与双账",
+      detail:
+        "人民币与 USDT 分币种显示、绝不相加。券商交割单与手工账本是两本独立账本，同一笔成交可能两边都有；页面给出重叠区间，不会自动去重，也不修改原始账本。",
+    },
+    {
+      label: "汇总口径",
+      detail:
+        "汇总视角只切换预览口径，不改账本：区间下限取两账较大者，上限为两账相加，默认真实持仓市值按含重叠上限（保守）展示。行业 30% 限额按保守上限核对（当前口径：含重叠上限）；若两账记录的是同一持仓，按上限可能显示超限，实际未必超限。行业组可重叠，各组独立校验，行业市值不相加为账户总额。",
+    },
+    {
+      label: "止损核对",
+      detail:
+        "按已读取的价格与记录的止损比较：缺少有效价格或止损的持仓显示「未设止损」或「待核对」，绝不按 0 处理；所示价格已到止损位只表示读取时点，不是实时触发。",
+    },
+  ];
+
   const columns: DataTableColumn<Position>[] = [
     {
       id: "symbol",
@@ -328,29 +397,32 @@ function UnifiedPositions({
     },
     {
       id: "value",
-      header: "市值",
-      cell: ({ row }) =>
-        `${formatNumber(row.original.value)} ${row.original.currency}`,
+      header: () => <span className="block text-right">市值</span>,
+      cell: ({ row }) => (
+        <span className="block text-right tabular-nums">
+          {formatNumber(row.original.value)} {row.original.currency}
+        </span>
+      ),
     },
     {
       id: "costPrice",
-      header: "成本 / 估值价",
+      header: () => <span className="block text-right">成本 / 现价</span>,
       cell: ({ row }) => <PositionCostPrice {...row.original} />,
     },
     {
       id: "stop",
-      header: "距止损 / R",
-      cell: ({ row }) => {
-        const status = stopStatusFor(row.original);
-        return status === "unknown" ? (
-          <span>待核对</span>
-        ) : (
-          <span className={status === "touched" ? "text-nc-bad" : ""}>
-            {pct(row.original.stopDistance)} /{" "}
-            {formatNumber(row.original.rMultiple)}
-          </span>
-        );
-      },
+      header: () => <span className="block text-right">距止损 / R</span>,
+      cell: ({ row }) => (
+        <div className="flex justify-end tabular-nums">
+          <RiskDistanceBar
+            price={row.original.price}
+            stop={row.original.stop}
+            cost={row.original.cost}
+            rMultiple={row.original.rMultiple}
+            compact
+          />
+        </div>
+      ),
     },
     {
       id: "chart",
@@ -373,123 +445,241 @@ function UnifiedPositions({
   ];
   return (
     <section aria-label="统一持仓" className="space-y-4">
-      <h2 className="text-xl font-semibold">
-        统一持仓与风险
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <h2 className="text-xl font-semibold">统一持仓与风险</h2>
+        <Pill>{kind === "real" ? sourceLabels[source] : kindLabels[kind]}</Pill>
+        <div className="ml-auto flex items-center gap-3">
+          <MethodologyPopover items={methodologyItems} align="end" />
+          <Link
+            className="text-sub whitespace-nowrap text-nc-text-3 underline hover:text-nc-text"
+            href="/accounts?tab=ledger"
+          >
+            手工记账
+          </Link>
+          <Link
+            className="text-sub whitespace-nowrap text-nc-text-3 underline hover:text-nc-text"
+            href="/accounts/review"
+          >
+            交割单复盘
+          </Link>
+        </div>
+      </header>
+
+      <FilterToolbar label="持仓筛选">
+        <FilterGroup>
+          <Segmented
+            label="账户类型"
+            value={kind}
+            options={[
+              { value: "real", label: "真实账户" },
+              { value: "paper", label: "本地模拟" },
+              { value: "exchange-simulation", label: "币圈模拟" },
+              { value: "all", label: "全部" },
+            ]}
+            onChange={(v) => {
+              // Sources only exist on real accounts; leaving real resets to all.
+              update({
+                kind: v,
+                page: 0,
+                ...(v === "real" ? {} : { source: "all" as const }),
+              });
+            }}
+          />
+        </FilterGroup>
+        <FilterDivider />
         {kind === "real" && (
-          <span className="ml-2 text-sm font-normal text-nc-text-3">
-            来源：{sourceLabels[source]}
-          </span>
+          <FilterGroup>
+            <Select
+              value={source}
+              onValueChange={(value) =>
+                update({
+                  source: value as HoldingsFilters["source"],
+                  page: 0,
+                })
+              }
+            >
+              <SelectTrigger size="sm" aria-label="持仓来源">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部来源</SelectItem>
+                <SelectItem value="delivery">券商交割单</SelectItem>
+                <SelectItem value="local">手工账本</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterGroup>
         )}
-      </h2>
-      <p className="text-sm text-nc-text-3">
-        默认只看真实账户；模拟盘与模拟交易所单独标记。人民币与 USDT
-        分币种显示、绝不相加。券商交割单与手工账本是两本独立账本，同一笔成交可能两边都有；页面给出重叠区间，不会自动删除或合并。
-      </p>
-      <p className="text-sm text-nc-text-3">
-        按已读取的价格与记录的止损比较。缺少有效价格或止损的持仓显示为「待核对」。
-      </p>
-      <Segmented
-        label="账户类型"
-        value={kind}
-        options={[
-          { value: "real", label: "真实账户" },
-          { value: "paper", label: "纸面账户" },
-          { value: "exchange-simulation", label: "模拟交易所" },
-          { value: "all", label: "全部类型" },
-        ]}
-        onChange={(v) => {
-          // Sources only exist on real accounts; leaving real resets to all.
-          update({
-            kind: v,
-            page: 0,
-            ...(v === "real" ? {} : { source: "all" as const }),
-          });
-        }}
-      />
-      {kind === "real" && (
-        <Segmented
-          label="持仓来源"
-          value={source}
-          options={[
-            { value: "all", label: "全部来源" },
-            { value: "delivery", label: "券商交割单" },
-            { value: "local", label: "手工账本" },
-          ]}
-          onChange={(v) => update({ source: v, page: 0 })}
+        <FilterGroup>
+          <Select
+            value={market}
+            onValueChange={(value) =>
+              update({
+                market: value as HoldingsFilters["market"],
+                page: 0,
+              })
+            }
+          >
+            <SelectTrigger size="sm" aria-label="市场">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部市场</SelectItem>
+              <SelectItem value="cn-equity">A股</SelectItem>
+              <SelectItem value="crypto">数字货币</SelectItem>
+            </SelectContent>
+          </Select>
+        </FilterGroup>
+        <FilterGroup>
+          <Select
+            value={stopStatus}
+            onValueChange={(value) =>
+              update({
+                stopStatus: value as HoldingsFilters["stopStatus"],
+                page: 0,
+              })
+            }
+          >
+            <SelectTrigger size="sm" aria-label="止损状态">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部状态</SelectItem>
+              <SelectItem value="touched">已触及止损</SelectItem>
+              <SelectItem value="unknown">待核对</SelectItem>
+            </SelectContent>
+          </Select>
+        </FilterGroup>
+        <FilterGroup>
+          <Select
+            value={group}
+            onValueChange={(value) =>
+              update({
+                group: value as HoldingsFilters["group"],
+                page: 0,
+              })
+            }
+          >
+            <SelectTrigger size="sm" aria-label="分组方式">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="market">按市场</SelectItem>
+              <SelectItem value="sleeve">按分仓</SelectItem>
+              <SelectItem value="kind">按类型</SelectItem>
+            </SelectContent>
+          </Select>
+        </FilterGroup>
+        <FilterGroup>
+          <Input
+            aria-label="分仓筛选"
+            placeholder="筛选分仓ID..."
+            value={sleeve}
+            onChange={(e) => update({ sleeve: e.target.value, page: 0 })}
+            className="h-8 w-40"
+          />
+        </FilterGroup>
+      </FilterToolbar>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {(["CNY", "USDT"] as const).map((currency) => {
+          const summary = reconciliation?.summaryByCurrency.find(
+            (item) => item.currency === currency,
+          );
+          const totals = query.data?.totals.find(
+            (item) => item.currency === currency,
+          );
+          const value = summary
+            ? previewValue(summary, mode)
+            : (totals?.value ?? null);
+          return (
+            <MetricCard
+              key={currency}
+              label={summary ? previewLabel(mode) : "持仓市值"}
+              value={value}
+              unit={currency}
+              note={
+                summary
+                  ? mode === "upper-bound"
+                    ? `${currency} 真实持仓 · 含重叠上限（保守）`
+                    : `${currency} · 仅预览口径，不改账本`
+                  : `${currency} · ${totals?.count ?? 0} 笔持仓 · ${totals?.missing ?? 0} 笔估值未知`
+              }
+              meta={
+                summary && summary.overlapCount > 0 ? (
+                  <span>
+                    去重区间{" "}
+                    {rangeText(
+                      summary.deduplicatedLowerBound,
+                      summary.grossTotal,
+                    )}{" "}
+                    · {summary.overlapCount} 笔重叠
+                  </span>
+                ) : undefined
+              }
+            />
+          );
+        })}
+        <MetricCard
+          label="止损状态（本页）"
+          value={query.data ? String(stopCounts.touched) : null}
+          unit="笔已触及"
+          tone={stopCounts.touched > 0 ? "warn" : "neutral"}
+          note={
+            query.data
+              ? `安全 ${stopCounts.above} · 待核对 ${stopCounts.unknown}`
+              : "正在读取…"
+          }
+          meta={
+            missingAccounts.length > 0 ? (
+              <span>钱包快照缺失 {missingAccounts.length} 个</span>
+            ) : undefined
+          }
+        />
+        <MetricCard
+          label="最高敞口"
+          value={topExposure?.value ?? null}
+          unit={
+            topExposure ? splitExposureKey(topExposure.key).currency : undefined
+          }
+          note={
+            topExposure
+              ? `${exposureDimensionLabels[topExposure.dimension] ?? topExposure.dimension} / ${splitExposureKey(topExposure.key).group}`
+              : "暂无已知估值持仓"
+          }
+          meta={
+            exposureMeta.length > 0 || unknownExposureCount > 0 ? (
+              <>
+                {exposureMeta}
+                {unknownExposureCount > 0 && (
+                  <span>另有 {unknownExposureCount} 项估值未知</span>
+                )}
+              </>
+            ) : undefined
+          }
+        />
+      </div>
+
+      {reconciliation && (
+        <ReconciliationStrip
+          reconciliation={reconciliation}
+          mode={mode}
+          onModeChange={(value) => {
+            save.reset();
+            save.mutate({ holdingsReconciliation: value });
+          }}
+          preferenceError={preferences.error?.message}
+          saveError={save.error?.message}
         />
       )}
-      <Segmented
-        label="市场"
-        value={market}
-        options={[
-          { value: "all", label: "全部市场" },
-          { value: "cn-equity", label: "A股" },
-          { value: "crypto", label: "数字货币" },
-        ]}
-        onChange={(v) => update({ market: v, page: 0 })}
-      />
-      <Segmented
-        label="止损状态"
-        value={stopStatus}
-        options={[
-          { value: "all", label: "全部" },
-          { value: "touched", label: "所示价格已到止损位" },
-          { value: "unknown", label: "待核对" },
-        ]}
-        onChange={(v) => update({ stopStatus: v, page: 0 })}
-      />
-      <div className="flex flex-wrap items-center gap-3">
-        <Segmented
-          label="分组方式"
-          value={group}
-          options={[
-            { value: "market", label: "按市场" },
-            { value: "sleeve", label: "按分仓" },
-            { value: "kind", label: "按类型" },
-          ]}
-          onChange={(v) => update({ group: v, page: 0 })}
-        />
-        <Input
-          aria-label="分仓筛选"
-          placeholder="分仓ID，空为全部"
-          value={sleeve}
-          onChange={(e) => update({ sleeve: e.target.value, page: 0 })}
-          className="max-w-56"
-        />
-      </div>
-      {kind === "real" && query.data?.reconciliation && (
-        <HoldingsReconciliation reconciliation={query.data.reconciliation} />
-      )}
-      <div className="grid gap-3 lg:grid-cols-2">
-        {query.data?.totals.map((t) => (
-          <p key={t.currency} className="rounded border p-3">
-            {t.currency} 持仓市值 {formatNumber(t.value)} · {t.count} 笔持仓 ·{" "}
-            {t.missing} 笔估值未知
-          </p>
-        ))}
-      </div>
-      <div className="flex flex-wrap gap-3 text-sm">
-        <p>行业组可重叠，各组独立校验；行业市值不相加为账户总额。</p>
-        {query.data?.exposure.map((e) => (
-          <p key={`${e.dimension}:${e.key}`}>
-            {exposureDimensionLabels[e.dimension] ?? e.dimension} / {e.key}：
-            {formatNumber(e.value)}
-          </p>
-        ))}
-      </div>
-      {query.data?.missingAccounts.map((m) => (
-        <p key={m} role="status">
-          {m}
-        </p>
-      ))}
+
       <DataTable
         label="统一持仓列表"
         columns={columns}
-        data={query.data?.items ?? []}
+        data={rows}
         rowCount={query.data?.total ?? 0}
         emptyMessage={
           stopStatus === "touched"
-            ? "当前范围没有所示价格已到止损位的持仓；按已读取价格与记录止损比较。"
+            ? "当前范围没有已触及止损的持仓；按已读取价格与记录止损比较。"
             : stopStatus === "unknown"
               ? "当前范围没有待核对的持仓。"
               : kind === "real" && source !== "all"
@@ -512,6 +702,22 @@ function UnifiedPositions({
         error={query.error?.message}
         onRetry={() => void query.refetch()}
       />
+
+      {(market === "crypto" || market === "all") && (
+        <details className="rounded-lg border border-nc-border-soft bg-nc-card px-3 py-2">
+          <summary className="cursor-pointer text-sub text-nc-text-3">
+            数字货币资金与机器人风控状态
+          </summary>
+          <div className="mt-2 space-y-2">
+            {missingAccounts.map((message) => (
+              <p key={message} role="status" className="text-sub">
+                {message}
+              </p>
+            ))}
+            <CryptoRiskNotes />
+          </div>
+        </details>
+      )}
     </section>
   );
 }

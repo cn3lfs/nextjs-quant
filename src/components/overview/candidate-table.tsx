@@ -4,12 +4,13 @@ import { DataTable } from "../ui/data-table";
 import { formatNumber } from "trading-strategy-core/format-number";
 import type { RouterOutputs } from "~/trpc/react";
 import { Button } from "../ui/button";
+import { glossary } from "~/lib/common/ui-glossary";
 
 export type WorkspaceCandidate =
   RouterOutputs["workspaceCandidates"]["items"][number];
 export const qualificationLabel = {
   research: "未晋级 · 研究中",
-  shadow: "影子前推中 · 研究中",
+  shadow: `${glossary.shadowForward} · 研究中`,
   promoted: "已晋级",
 };
 /** One vocabulary for how old a candidate is, shared by list and detail. */
@@ -101,7 +102,7 @@ export function CandidateTable({
   onSelect,
   onPlan,
   canPlan,
-  emptyMessage = "尚无收盘扫描或影子入场候选。先补齐数据并登记策略；缺失不会生成计划。",
+  emptyMessage = `尚无收盘扫描或${glossary.shadowForward}候选。先补齐数据并登记策略；缺失不会生成计划。`,
 }: {
   data: WorkspaceCandidate[];
   total: number;
@@ -146,8 +147,11 @@ export function CandidateTable({
                   row: { original: WorkspaceCandidate };
                 }) =>
                   canPlan && !canPlan(r) ? (
-                    <span className="text-xs text-nc-text-3">
-                      历史来源 · 仅查看
+                    <span
+                      className="text-sub text-nc-text-4"
+                      title="历史来源 · 仅查看；不开放新建计划，打开图表核对行情"
+                    >
+                      仅查看
                     </span>
                   ) : (
                     <Button onClick={() => onPlan(r)}>加入计划</Button>
@@ -160,8 +164,37 @@ export function CandidateTable({
           header: "标的 / 来源策略",
           cell: ({ row: { original: r } }) => {
             const freshness = rowFreshness(r);
+            const shortDate = (iso: string | number | null) =>
+              iso === null
+                ? "时点未记录"
+                : new Date(iso).toLocaleDateString("zh-CN", {
+                    month: "2-digit",
+                    day: "2-digit",
+                  });
+            // Reasons stay available on hover; the row itself carries only the
+            // strategy names and their observation dates.
+            const reasonTitle = r.sources
+              .map((s) => {
+                const sourceFreshness = candidateFreshness(s);
+                return [
+                  `${s.strategyId}：${s.reason}`,
+                  `扫描 ${s.scanAt === null ? "时点未记录" : new Date(s.scanAt).toLocaleString("zh-CN")}`,
+                  `bar ${s.bar}`,
+                  sourceFreshness ? freshnessLabels[sourceFreshness] : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ");
+              })
+              .join("\n");
+            const warnings = [
+              r.scan?.hasHistorical ? "含历史来源" : "",
+              r.scan?.hasUnverified ? "来源待核验" : "",
+              r.tradingStatusEvidence?.status === "unknown"
+                ? "交易状态待核验"
+                : "",
+            ].filter(Boolean);
             return (
-              <div>
+              <div className="max-w-[26rem] min-w-0">
                 <span className="flex flex-wrap items-center gap-1.5">
                   <Link
                     href={candidateHref(r)}
@@ -184,49 +217,22 @@ export function CandidateTable({
                     />
                   )}
                 </span>
-                <p className="text-xs text-nc-text-3">
+                <p
+                  className="truncate text-sub text-nc-text-3"
+                  title={reasonTitle}
+                >
                   {r.sources
-                    .map((s) => `${s.strategyId} v${s.version}`)
+                    .map(
+                      (s) =>
+                        `${s.strategyId} v${s.version} · ${shortDate(s.scanAt)}`,
+                    )
                     .join(" / ")}{" "}
                   · {r.bar}
                 </p>
-                {r.sources.map((s) => {
-                  const sourceFreshness = candidateFreshness(s);
-                  return (
-                    <p key={s.key} className="max-w-80 text-xs text-nc-text-3">
-                      {s.strategyId}：{s.reason}
-                      {sourceFreshness && (
-                        <span
-                          className={
-                            sourceFreshness === "stale"
-                              ? "text-nc-warn"
-                              : "text-nc-text-3"
-                          }
-                        >
-                          {" "}
-                          · <FreshnessBadge freshness={sourceFreshness} /> ·
-                          扫描{" "}
-                          {s.scanAt === null
-                            ? "时点未记录"
-                            : new Date(s.scanAt).toLocaleString("zh-CN")}{" "}
-                          · bar {s.bar}
-                        </span>
-                      )}
-                    </p>
-                  );
-                })}
-                {r.scan && (r.scan.hasHistorical || r.scan.hasUnverified) && (
-                  <p className="text-xs text-nc-warn">
-                    {[
-                      r.scan.hasHistorical ? "含历史来源" : "",
-                      r.scan.hasUnverified ? "来源待核验" : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
+                {warnings.length > 0 && (
+                  <p className="truncate text-sub text-nc-warn">
+                    {warnings.join(" · ")}
                   </p>
-                )}
-                {r.tradingStatusEvidence?.status === "unknown" && (
-                  <p className="text-xs text-nc-warn">交易状态未知，请核验</p>
                 )}
               </div>
             );
@@ -234,47 +240,54 @@ export function CandidateTable({
         },
         {
           id: "levels",
-          header: "入场 / 止损 / 目标",
+          header: () => (
+            <span className="block text-right">入场 / 止损 / 目标</span>
+          ),
           cell: ({ row: { original: r } }) => (
-            <div>
+            <div
+              className="text-right tabular-nums"
+              title={`复权口径：${r.adjustment}`}
+            >
               {formatNumber(r.price)} / {formatNumber(r.stop)} /{" "}
               {formatNumber(r.target)}
-              <p className="text-xs text-nc-text-3">{r.adjustment}</p>
             </div>
           ),
         },
         {
           id: "quantity",
-          header: "建议数量",
-          cell: ({ row: { original: r } }) => (
-            <span
-              title={r.quantityReason ?? "已预留撮合费用；实际成交与滑点需核对"}
-            >
-              {formatNumber(r.quantity, r.market === "crypto" ? 6 : 0)}
-              {r.quantityReason && (
-                <p className="max-w-64 text-xs text-nc-text-3">
-                  {r.quantityReason}
-                </p>
-              )}
-              {r.positionSnapshot && (
-                <p className="max-w-64 text-xs text-nc-text-3">
-                  {r.positionSnapshot.basis === "post-close"
-                    ? "收盘快照"
-                    : "盘中核对"}{" "}
-                  · {new Date(r.positionSnapshot.at).toLocaleString("zh-CN")}
-                  {r.positionSnapshot.unassignedValue > 0
-                    ? ` · 未分配分仓 ${formatNumber(r.positionSnapshot.unassignedValue)}，已计入市场占用，请分配`
-                    : ""}
-                </p>
-              )}
-            </span>
-          ),
+          header: () => <span className="block text-right">建议数量</span>,
+          cell: ({ row: { original: r } }) => {
+            const snapshot = r.positionSnapshot;
+            const title = [
+              r.quantityReason ?? "已预留撮合费用；实际成交与滑点需核对",
+              snapshot
+                ? `${snapshot.basis === "post-close" ? "收盘快照" : "盘中核对"} · ${new Date(snapshot.at).toLocaleString("zh-CN")}${
+                    snapshot.unassignedValue > 0
+                      ? ` · 未分配分仓 ${formatNumber(snapshot.unassignedValue)}，已计入市场占用，请分配`
+                      : ""
+                  }`
+                : null,
+            ]
+              .filter(Boolean)
+              .join("\n");
+            return (
+              <span className="block text-right tabular-nums" title={title}>
+                {formatNumber(r.quantity, r.market === "crypto" ? 6 : 0)}
+                {snapshot && snapshot.unassignedValue > 0 && (
+                  <span className="ml-1 text-sub text-nc-warn">未分配</span>
+                )}
+              </span>
+            );
+          },
         },
         {
           id: "rps",
-          header: "RPS20",
+          header: () => <span className="block text-right">RPS20</span>,
           cell: ({ row: { original: r } }) => (
-            <span title={`后复权横截面排名 · ${r.rpsDate ?? "未发布"}`}>
+            <span
+              className="block text-right tabular-nums"
+              title={`后复权横截面排名 · ${r.rpsDate ?? "未发布"}`}
+            >
               {formatNumber(r.rps20, 1)}
             </span>
           ),

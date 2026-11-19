@@ -18,7 +18,15 @@ import {
   DialogTitle,
   DialogDescription,
 } from "../ui/dialog";
-import { Segmented } from "../panels";
+import {
+  FilterDivider,
+  FilterGroup,
+  FilterToolbar,
+  MethodologyPopover,
+  Pill,
+  Segmented,
+  type MethodologyItem,
+} from "../panels";
 import { StrategyCenter } from "./strategy-center";
 import { PortfolioEvidencePanel } from "./portfolio-evidence-panel";
 import { PaperForwardStatus } from "../portfolio/paper-forward-status";
@@ -47,6 +55,29 @@ const defaultLabListFilter: LabListFilter = {
   query: "",
   page: 0,
 };
+/** 生命周期、成绩口径与正式提醒边界，收进标题旁的口径说明。 */
+const labMethodology: readonly MethodologyItem[] = [
+  {
+    label: "生命周期",
+    detail:
+      "研究中 → 观察前推 → 模拟前推 → 手动晋级。六个阶段依次进行；测试通过与工程检查不代表策略盈利。",
+  },
+  {
+    label: "成绩单口径",
+    detail:
+      "留出收益、最大回撤、成交数与 walk-forward 达标窗口取自冻结回测；市场 DSR 用于同口径诊断，全局 DSR 只作参考。",
+  },
+  {
+    label: "留出窗口",
+    detail:
+      "留出诊断与滚动样本外重叠，不是独立的未来样本；缺证据时保持空值，不补造数值。",
+  },
+  {
+    label: "正式提醒",
+    detail:
+      "正式提醒独立于晋级阶段，需人工确认开启；仍受全局提醒模式、启用订阅与渠道约束，不会自动下单。",
+  },
+];
 export function StrategyLab() {
   const search = useSearchParams(),
     id = search.get("strategy");
@@ -63,7 +94,6 @@ export function StrategyLab() {
   if (search.get("tab") === "tasks") return <ResearchTasks />;
   return (
     <>
-      <PaperShadowPrompt />
       <LabList
         filter={filter}
         onMarketChange={(market) =>
@@ -72,8 +102,56 @@ export function StrategyLab() {
         onQueryChange={(query) => setFilter((f) => ({ ...f, query, page: 0 }))}
         onPageChange={(page) => setFilter((f) => ({ ...f, page }))}
       />
-      <PaperForwardStatus />
+      <LabGovernance />
     </>
+  );
+}
+/** 前推状态保留精简横条；纸面候选、组合证据与提醒模式收进可折叠区。 */
+function LabGovernance() {
+  return (
+    <div className="space-y-3">
+      <PaperForwardStatus compact />
+      <details className="rounded-lg border border-nc-border-soft bg-nc-card">
+        <summary className="cursor-pointer px-3 py-2 text-sm font-medium text-nc-text-2">
+          纸面候选、组合证据与全局提醒模式
+        </summary>
+        <div className="space-y-3 border-t border-nc-border-soft p-3">
+          <PaperShadowPrompt />
+          <PortfolioEvidencePanel />
+          <AlertModeControl />
+        </div>
+      </details>
+    </div>
+  );
+}
+function LabStatusCell({
+  status,
+  unvalidatedLive,
+  sleeve,
+}: {
+  status: string;
+  unvalidatedLive: boolean;
+  sleeve: string;
+}) {
+  const label = unvalidatedLive
+    ? "未验证提醒已开"
+    : status === "promoted"
+      ? "已晋级"
+      : status === "shadow"
+        ? "观察前推中"
+        : "研究中";
+  const tone = unvalidatedLive
+    ? "warn"
+    : status === "promoted"
+      ? "ok"
+      : status === "shadow"
+        ? "accent"
+        : "neutral";
+  return (
+    <span className="flex flex-wrap items-center gap-1">
+      <Pill tone={tone}>{label}</Pill>
+      <Pill>{sleeve}</Pill>
+    </span>
   );
 }
 function LabList({
@@ -95,26 +173,41 @@ function LabList({
   );
   return (
     <section aria-label="实验室策略列表" className="mb-4 space-y-4">
-      <h1 className="text-xl font-semibold">策略实验室</h1>
-      <p className="text-sm text-nc-text-3">
-        研究中 → 影子前推 → 手动晋级 →
-        手动开启提醒。成绩单、前推与真实成交各有证据，测试通过不表示策略盈利。
-      </p>
-      <Segmented
-        label="实验室市场"
-        value={market}
-        options={[
-          { value: "cn-equity", label: "A股中证800" },
-          { value: "crypto", label: "BTC / ETH" },
-        ]}
-        onChange={onMarketChange}
-      />
-      <Input
-        aria-label="搜索实验室策略"
-        value={query}
-        onChange={(e) => onQueryChange(e.target.value)}
-        placeholder="名称、规则或分仓"
-      />
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <h1 className="text-xl font-semibold">策略实验室</h1>
+        <div className="ml-auto">
+          <MethodologyPopover title="策略实验室口径" items={labMethodology} />
+        </div>
+      </header>
+      <FilterToolbar label="策略库筛选">
+        <FilterGroup label="市场">
+          <Segmented
+            label="实验室市场"
+            value={market}
+            options={[
+              { value: "cn-equity", label: "A股中证800" },
+              { value: "crypto", label: "BTC / ETH" },
+            ]}
+            onChange={onMarketChange}
+          />
+        </FilterGroup>
+        <FilterDivider />
+        <Input
+          aria-label="搜索实验室策略"
+          className="w-60"
+          value={query}
+          onChange={(e) => onQueryChange(e.target.value)}
+          placeholder="名称、规则或分仓"
+        />
+        <div className="ml-auto flex items-center gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link href="/lab/backtest">新建组合回测 →</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link href="/lab?tab=catalog">策略对比 →</Link>
+          </Button>
+        </div>
+      </FilterToolbar>
       <DataTable
         label="实验室策略"
         data={list.data?.items ?? []}
@@ -148,14 +241,24 @@ function LabList({
           {
             id: "status",
             header: "状态 / 分仓",
-            cell: ({ row: { original: r } }) =>
-              `${r.unvalidatedLive ? "未验证提醒已开" : r.status === "promoted" ? "已晋级" : r.status === "shadow" ? "影子前推中" : "研究中"} · ${r.sleeve}`,
+            cell: ({ row: { original: r } }) => (
+              <LabStatusCell
+                status={r.status}
+                unvalidatedLive={r.unvalidatedLive}
+                sleeve={r.sleeve}
+              />
+            ),
           },
           {
             id: "return",
-            header: "留出收益 / 回撤",
-            cell: ({ row: { original: r } }) =>
-              `${pct(r.row?.return)} / ${pct(r.row?.drawdown)}`,
+            header: () => (
+              <span className="block text-right">留出收益 / 回撤</span>
+            ),
+            cell: ({ row: { original: r } }) => (
+              <span className="block text-right tabular-nums">
+                {`${pct(r.row?.return)} / ${pct(r.row?.drawdown)}`}
+              </span>
+            ),
           },
           {
             id: "forward",
@@ -169,25 +272,29 @@ function LabList({
           },
           {
             id: "oos",
-            header: "达标窗口 / 成交",
-            cell: ({ row: { original: r } }) =>
-              r.row
-                ? `${r.row.positiveWindows}/${r.row.oosWindows} · ${r.row.trades}`
-                : "尚无验证",
+            header: () => (
+              <span className="block text-right">达标窗口 / 成交</span>
+            ),
+            cell: ({ row: { original: r } }) => (
+              <span className="block text-right tabular-nums">
+                {r.row
+                  ? `${r.row.positiveWindows}/${r.row.oosWindows} · ${r.row.trades}`
+                  : "尚无验证"}
+              </span>
+            ),
           },
           {
             id: "dsr",
-            header: "市场DSR",
-            cell: ({ row }) => formatNumber(row.original.row?.dsr?.value, 3),
+            header: () => <span className="block text-right">市场DSR</span>,
+            cell: ({ row }) => (
+              <span className="block text-right tabular-nums">
+                {formatNumber(row.original.row?.dsr?.value, 3)}
+              </span>
+            ),
           },
         ]}
         emptyMessage="尚未登记策略。可查看方法目录，或从扫描/研究登记策略对象。"
       />
-      <Link href="/lab?tab=catalog" className="underline">
-        全部方法目录、现行日线研究与运行比较
-      </Link>
-      <PortfolioEvidencePanel />
-      <AlertModeControl />
     </section>
   );
 }
@@ -212,9 +319,11 @@ function RuleFields({
       </>
     );
   return (
-    <div className="flex flex-wrap gap-3 text-sm">
-      <dt className="text-nc-text-3">{prefix}</dt>
-      <dd>
+    <div className="flex min-w-0 items-baseline justify-between gap-2 border-b border-nc-border-soft py-1 text-sm">
+      <dt className="min-w-0 truncate text-nc-text-3" title={prefix}>
+        {prefix}
+      </dt>
+      <dd className="min-w-0 break-all text-right tabular-nums text-nc-text-2">
         {typeof value === "number"
           ? formatNumber(value, Number.isInteger(value) ? 0 : 4)
           : String(value)}
@@ -286,20 +395,29 @@ function LabDetail({ id, version }: { id: string; version: number }) {
         <p role="status">正在读取策略详情…</p>
       </>
     );
+  const stateLabel =
+    d.eligible && d.promotion
+      ? "已晋级"
+      : d.shadow?.active
+        ? "观察前推中"
+        : "研究中";
+  const stateTone =
+    d.eligible && d.promotion ? "ok" : d.shadow?.active ? "accent" : "neutral";
   return (
     <section aria-label="实验室策略详情" className="space-y-4">
-      <LabDetailBackLink />
-      <h1 className="text-xl font-semibold">
-        {d.row?.rule ?? id} · v{version}
-      </h1>
-      <p>
-        {d.eligible && d.promotion
-          ? "已晋级观察"
-          : d.shadow?.active
-            ? "观察前推中"
-            : "研究中"}{" "}
-        · 正式提醒：{d.live ? "已开启" : "未开启"}
-      </p>
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <LabDetailBackLink />
+        <h1 className="text-xl font-semibold">
+          {d.row?.rule ?? id} · v{version}
+        </h1>
+        <Pill tone={stateTone}>{stateLabel}</Pill>
+        <Pill tone={d.live ? "accent" : "neutral"}>
+          正式提醒：{d.live ? "已开启" : "未开启"}
+        </Pill>
+        <div className="ml-auto">
+          <MethodologyPopover title="策略详情口径" items={labMethodology} />
+        </div>
+      </header>
       <LifecyclePipeline
         detail={d}
         onLiveAction={() => {
@@ -308,149 +426,179 @@ function LabDetail({ id, version }: { id: string; version: number }) {
           setRiskAccepted(false);
         }}
       />
-      {d.strategy ? (
-        <details open>
-          <summary>规则与参数</summary>
-          <dl className="space-y-1">
-            <RuleFields value={d.strategy} />
-          </dl>
-        </details>
-      ) : (
-        <p>
-          缺少对应版本的策略对象；历史成绩保留，只可阅读，不能开启观察或提醒。
-        </p>
-      )}
-      <h2 className="text-lg font-semibold">验证报告与门槛</h2>
-      <GateStatus detail={d} />
-      {d.row && (
-        <>
-          <p>
-            留出收益 {pct(d.row.return)} · 最大回撤 {pct(d.row.drawdown)} · 成交{" "}
-            {d.row.trades} · walk-forward 达标 {d.row.positiveWindows}/
-            {d.row.oosWindows}
-          </p>
-          <p>
-            市场DSR {formatNumber(d.row.dsr?.value, 3)} · 全局DSR{" "}
-            {formatNumber(d.row.globalDsr?.value, 3)}（诊断）
-          </p>
-          <p className="text-sm">{Object.values(d.row.bias).join("；")}</p>
-          {d.row.biasTags?.map((b) => (
-            <p key={b.code} className="text-sm">
-              {b.severity === "high" ? "高" : "中"}偏差：{b.detail}
+      {d.row && <LabMetrics row={d.row} />}
+      <div className="nc-cockpit-grid">
+        <div className="min-w-0 space-y-3">
+          <section
+            aria-label="验证报告与留出窗口"
+            className="space-y-2 rounded-lg border border-nc-border-soft bg-nc-card p-3"
+          >
+            <h2 className="text-sm font-semibold">验证报告与留出窗口</h2>
+            {report.error && (
+              <p role="status" className="text-sub text-nc-text-2">
+                详细冻结报告不可读取：{report.error.message}
+                。保留已有成绩单和前推证据，不补造明细。
+              </p>
+            )}
+            {report.data ? (
+              <ValidationWindows report={report.data} />
+            ) : (
+              <p className="text-sub text-nc-text-3">
+                walk-forward、成本×2、延后一根、留出细项
+                {report.isFetching ? "读取中" : "未提供"}
+                。纸面账户中已冻结的期望另列于账户详情。
+              </p>
+            )}
+            {d.row && (
+              <>
+                <p className="border-t border-nc-border-soft pt-2 text-sub text-nc-text-3">
+                  {Object.values(d.row.bias).join("；")}
+                </p>
+                {d.row.biasTags?.map((b) => (
+                  <p key={b.code} className="text-sub text-nc-text-2">
+                    {b.severity === "high" ? "高" : "中"}偏差：{b.detail}
+                  </p>
+                ))}
+              </>
+            )}
+          </section>
+          <section
+            aria-label="观察前推与模拟盘前推"
+            className="space-y-2 rounded-lg border border-nc-border-soft bg-nc-card p-3"
+          >
+            <h2 className="text-sm font-semibold">观察前推与模拟盘前推</h2>
+            <p className="text-sm">
+              观察样本 {d.forward?.signals ?? 0} 信号 / {d.forward?.days ?? 0}{" "}
+              实际观察市场日；
+              {d.forward?.assessment?.recommendation ??
+                "缺少同版本冻结分布或前推样本；继续观察"}
             </p>
-          ))}
-        </>
-      )}
-      {report.error && (
-        <p role="status">
-          详细冻结报告不可读取：{report.error.message}
-          。保留已有成绩单和前推证据，不补造明细。
-        </p>
-      )}
-      {report.data ? (
-        <ValidationWindows report={report.data} />
-      ) : (
-        <p className="text-sm">
-          walk-forward、成本×2、延后一根、留出细项
-          {report.isFetching ? "读取中" : "未提供"}
-          。纸面账户中已冻结的期望另列于账户详情。
-        </p>
-      )}
-      <h2 className="text-lg font-semibold">观察前推与模拟盘前推</h2>
-      <p>
-        观察样本 {d.forward?.signals ?? 0} 信号 / {d.forward?.days ?? 0}{" "}
-        实际观察市场日；
-        {d.forward?.assessment?.recommendation ??
-          "缺少同版本冻结分布或前推样本；继续观察"}
-      </p>
-      <p className="text-sm text-nc-text-3">
-        模拟盘撮合一致性按模型滑点估算；真实执行尚未验证。
-      </p>
-      {review.error && (
-        <p role="status">
-          二十日选择归因与复盘建议暂不可读：{review.error.message}
-          <Button variant="outline" onClick={() => void review.refetch()}>
-            重试复盘建议
-          </Button>
-        </p>
-      )}
-      {pauseSuggestion && d.live && (
-        <section
-          aria-label="策略暂停建议"
-          className="space-y-2 rounded border p-3"
-        >
-          <p>{pauseSuggestion.suggestion.reason}</p>
-          <p className="text-sm text-nc-text-3">
-            同策略同版本的账户复盘建议；仅供人工核对，暂停后保留观察时钟与历史证据。
-          </p>
-          {pauseSuggestion.current ? (
-            <Button
-              disabled={change.isPending}
-              onClick={() => {
-                change.reset();
-                setAction("pause-live");
-                setRiskAccepted(false);
-              }}
-            >
-              按复盘建议暂停 live 提醒
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              onClick={() => {
-                void query.refetch();
-                void review.refetch();
-              }}
-            >
-              证据版本已更新，刷新复盘建议
-            </Button>
-          )}
-        </section>
-      )}
-      {d.accounts.map((a) => (
-        <p key={a.id}>
-          {a.id}：{a.summary?.signals ?? 0} 信号 / {a.summary?.days ?? 0} 日 ·{" "}
-          {a.lastBar ?? "尚未推进"}
-        </p>
-      ))}
-      <div className="flex flex-wrap gap-3 text-sm">
-        <Link href="/accounts?tab=paper" className="underline">
-          模拟盘账户与期望对照
-        </Link>
-        <Link
-          href={`/accounts/alerts?strategy=${encodeURIComponent(id)}`}
-          className="underline"
-        >
-          该策略提醒记录
-        </Link>
-        <Link
-          href={`/lab/backtest?strategy=${encodeURIComponent(id)}&version=${version}`}
-          className="underline"
-        >
-          用此策略对象回测
-        </Link>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {(Object.keys(labActionLabels) as (keyof typeof labActionLabels)[]).map(
-          (a) => (
-            <Button
-              key={a}
-              variant={a === "live" ? "default" : "outline"}
-              disabled={
-                !d.strategy ||
-                change.isPending ||
-                (a === "promote" && !d.eligible)
-              }
-              onClick={() => {
-                change.reset();
-                setAction(a);
-                setRiskAccepted(false);
-              }}
-            >
-              {labActionLabels[a]}
-            </Button>
-          ),
-        )}
+            <p className="text-sub text-nc-text-3">
+              模拟盘撮合一致性按模型滑点估算；真实执行尚未验证。
+            </p>
+            {review.error && (
+              <p role="status" className="text-sub">
+                二十日选择归因与复盘建议暂不可读：{review.error.message}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void review.refetch()}
+                >
+                  重试复盘建议
+                </Button>
+              </p>
+            )}
+            {pauseSuggestion && d.live && (
+              <section
+                aria-label="策略暂停建议"
+                className="space-y-2 rounded-lg border border-nc-warn-edge bg-nc-inset p-2.5"
+              >
+                <p className="text-sm">{pauseSuggestion.suggestion.reason}</p>
+                <p className="text-sub text-nc-text-3">
+                  同策略同版本的账户复盘建议；仅供人工核对，暂停后保留观察时钟与历史证据。
+                </p>
+                {pauseSuggestion.current ? (
+                  <Button
+                    size="sm"
+                    disabled={change.isPending}
+                    onClick={() => {
+                      change.reset();
+                      setAction("pause-live");
+                      setRiskAccepted(false);
+                    }}
+                  >
+                    按复盘建议暂停 live 提醒
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      void query.refetch();
+                      void review.refetch();
+                    }}
+                  >
+                    证据版本已更新，刷新复盘建议
+                  </Button>
+                )}
+              </section>
+            )}
+            {d.accounts.length > 0 && (
+              <ul className="space-y-0.5 text-sub text-nc-text-3">
+                {d.accounts.map((a) => (
+                  <li key={a.id}>
+                    {a.id}：{a.summary?.signals ?? 0} 信号 /{" "}
+                    {a.summary?.days ?? 0} 日 · {a.lastBar ?? "尚未推进"}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+        <aside className="min-w-0 space-y-3">
+          <section
+            aria-label="当前阻断与人工审批"
+            className="space-y-2 rounded-lg border border-nc-border-soft bg-nc-card p-3"
+          >
+            <h2 className="text-sm font-semibold">当前阻断与人工审批</h2>
+            <GateStatus detail={d} />
+            <div className="flex flex-wrap gap-2">
+              {(
+                Object.keys(labActionLabels) as (keyof typeof labActionLabels)[]
+              ).map((a) => (
+                <Button
+                  key={a}
+                  size="sm"
+                  variant={a === "live" ? "default" : "outline"}
+                  disabled={
+                    !d.strategy ||
+                    change.isPending ||
+                    (a === "promote" && !d.eligible)
+                  }
+                  onClick={() => {
+                    change.reset();
+                    setAction(a);
+                    setRiskAccepted(false);
+                  }}
+                >
+                  {labActionLabels[a]}
+                </Button>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-x-3 gap-y-1 border-t border-nc-border-soft pt-2 text-sub">
+              <Link
+                href={`/lab/backtest?strategy=${encodeURIComponent(id)}&version=${version}`}
+                className="underline"
+              >
+                用此策略对象回测
+              </Link>
+              <Link href="/accounts?tab=paper" className="underline">
+                模拟盘对照
+              </Link>
+              <Link
+                href={`/accounts/alerts?strategy=${encodeURIComponent(id)}`}
+                className="underline"
+              >
+                提醒记录
+              </Link>
+            </div>
+          </section>
+          <section
+            aria-label="策略规则与参数"
+            className="space-y-2 rounded-lg border border-nc-border-soft bg-nc-card p-3"
+          >
+            <h2 className="text-sm font-semibold">策略规则与参数</h2>
+            {d.strategy ? (
+              <dl className="grid gap-x-4 [grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]">
+                <RuleFields value={d.strategy} />
+              </dl>
+            ) : (
+              <p className="text-sm text-nc-text-3">
+                缺少对应版本的策略对象；历史成绩保留，只可阅读，不能开启观察或提醒。
+              </p>
+            )}
+          </section>
+        </aside>
       </div>
       <Dialog
         open={!!action}
@@ -538,15 +686,39 @@ function LifecyclePipeline({
   return (
     <section
       aria-label="晋级流水线"
-      className="space-y-3 rounded-lg border border-nc-border-soft bg-nc-card p-4"
+      className="space-y-2 rounded-lg border border-nc-border-soft bg-nc-card p-3"
     >
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-lg font-semibold">六阶段晋级流水线</h2>
-        <span className="text-sub text-nc-text-3">
-          各阶段依次进行；正式提醒开关独立于阶段之外
-        </span>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+        <h2 className="text-sm font-semibold">六阶段晋级流水线</h2>
+        <div
+          aria-label="当前主阻断原因"
+          className={`flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 rounded-md border bg-nc-inset px-2 py-1 text-sub ${
+            blocker
+              ? "border-nc-warn-edge text-nc-warn"
+              : "border-nc-ok-edge text-nc-ok"
+          }`}
+        >
+          {blocker ? (
+            <>
+              <Warning size={14} aria-hidden="true" className="flex-none" />
+              <span className="font-semibold">
+                卡在第 {blocker.stage} 阶段 ·{" "}
+                {lifecycleStageNames[blocker.key] ?? blocker.key}
+              </span>
+              <span className="text-nc-text-2">{blocker.reason}</span>
+            </>
+          ) : (
+            <>
+              <CheckCircle size={14} aria-hidden="true" className="flex-none" />
+              <span className="font-semibold">已满足晋级门槛</span>
+              <span className="text-nc-text-3">
+                六个阶段均通过；仍需人工确认晋级与正式提醒开关。
+              </span>
+            </>
+          )}
+        </div>
       </div>
-      <ol className="grid gap-2 md:grid-cols-3 xl:grid-cols-6">
+      <ol className="grid gap-1.5 sm:grid-cols-3 lg:grid-cols-6">
         {detail.lifecycleGates.map((gate, index) => {
           const stageName = lifecycleStageNames[gate.key] ?? gate.label;
           const status = lifecycleStatus[gate.status];
@@ -559,15 +731,15 @@ function LifecyclePipeline({
                 type="button"
                 aria-expanded={open}
                 onClick={() => setExpanded(open ? null : gate.key)}
-                className={`flex w-full flex-col items-start gap-1 whitespace-normal rounded-lg border p-2.5 text-left transition-colors ${
+                className={`flex w-full flex-col items-start gap-0.5 whitespace-normal rounded-md border px-2 py-1.5 text-left transition-colors ${
                   open
                     ? "border-nc-accent bg-nc-accent-900"
                     : "border-nc-border-soft hover:border-nc-accent-800"
                 }`}
               >
-                <span className="flex items-center gap-1.5">
+                <span className="flex w-full items-center gap-1.5">
                   <Icon
-                    size={16}
+                    size={14}
                     aria-hidden="true"
                     className={`flex-none ${status.tone} ${
                       gate.status === "current"
@@ -578,12 +750,18 @@ function LifecyclePipeline({
                   <span className="text-[11px] text-nc-text-4">
                     第 {index + 1} 阶段
                   </span>
+                  <span className={`ml-auto text-[11px] ${status.tone}`}>
+                    {status.label}
+                  </span>
                 </span>
                 <strong className="text-sm font-semibold text-nc-text">
                   {stageName}
                 </strong>
-                <span className="text-sub text-nc-text-3">
-                  {status.label} · {gate.summary}
+                <span
+                  className="w-full truncate text-[11px] text-nc-text-4"
+                  title={gate.summary}
+                >
+                  {gate.summary}
                 </span>
               </Button>
             </li>
@@ -593,14 +771,14 @@ function LifecyclePipeline({
       {openGate && (
         <div
           aria-label={`${lifecycleStageNames[openGate.key] ?? openGate.label}证据`}
-          className="rounded-lg border border-nc-border-soft p-3"
+          className="rounded-md border border-nc-border-soft p-2.5"
         >
           <p className="text-sub font-medium text-nc-text">
             {lifecycleStageNames[openGate.key] ?? openGate.label} · 证据明细
           </p>
           <p className="mt-1 text-sub text-nc-text-3">{openGate.summary}</p>
           {openGate.evidence.length ? (
-            <ul className="mt-2 space-y-1">
+            <ul className="mt-1.5 space-y-1">
               {openGate.evidence.map((item) => (
                 <li key={item} className="break-all font-mono text-sub">
                   {item}
@@ -608,81 +786,100 @@ function LifecyclePipeline({
               ))}
             </ul>
           ) : (
-            <p className="mt-2 text-sub text-nc-text-4">
+            <p className="mt-1.5 text-sub text-nc-text-4">
               尚未留下该阶段证据；补齐后重新读取本页即可核对。
             </p>
           )}
         </div>
       )}
-      <div className="grid gap-3 lg:grid-cols-2">
-        <div
-          aria-label="当前主阻断原因"
-          className={`rounded-lg border p-3 ${
-            blocker ? "border-nc-warn-edge" : "border-nc-ok-edge"
-          }`}
-        >
-          <p className="text-sub text-nc-text-3">当前主阻断原因</p>
-          {blocker ? (
-            <>
-              <p className="mt-1 font-semibold text-nc-warn">
-                卡在第 {blocker.stage} 阶段 ·{" "}
-                {lifecycleStageNames[blocker.key] ?? blocker.key}
-              </p>
-              <p className="mt-1 text-sub text-nc-text-2">{blocker.reason}</p>
-              <p className="mt-1 text-sub text-nc-text-3">
-                下一步：先补齐第 {blocker.stage}{" "}
-                阶段证据；点击上方对应节点可展开明细，完成后刷新本页。
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="mt-1 font-semibold text-nc-ok">已满足晋级门槛</p>
-              <p className="mt-1 text-sub text-nc-text-3">
-                六个阶段均通过；仍需人工确认晋级与正式提醒开关。
-              </p>
-            </>
-          )}
-        </div>
-        <div
-          aria-label="正式提醒开关"
-          className="rounded-lg border border-nc-border-soft p-3"
-        >
-          <p className="flex items-center gap-1.5 text-sub font-medium text-nc-text">
-            <ShieldCheck
-              size={16}
-              aria-hidden="true"
-              className="flex-none text-nc-accent"
-            />
-            正式提醒开关（人工授权）
-          </p>
-          <p
-            className={`mt-1 font-semibold ${
-              detail.liveSwitch.enabled ? "text-nc-ok" : "text-nc-text-2"
-            }`}
+      <div
+        aria-label="正式提醒开关"
+        className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-nc-border-soft pt-2 text-sub"
+      >
+        <span className="inline-flex items-center gap-1.5">
+          <ShieldCheck
+            size={14}
+            aria-hidden="true"
+            className="flex-none text-nc-accent"
+          />
+          正式提醒（人工授权）：
+          <b
+            className={
+              detail.liveSwitch.enabled
+                ? "font-semibold text-nc-ok"
+                : "font-semibold text-nc-text-2"
+            }
           >
-            {detail.liveSwitch.enabled ? "已人工开启" : "未开启"}
-          </p>
-          <p className="mt-1 text-sub text-nc-text-3">
-            {detail.liveSwitch.enabled
-              ? "此版本的正式提醒已开启；仍受全局提醒模式、启用订阅和渠道约束。"
-              : "此版本的正式提醒未开启，不会自动推送。"}
-          </p>
-          <p className="mt-1 text-sub text-nc-warn">
-            晋级通过不等于自动推送，正式提醒需人工确认开启。
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-2"
-            disabled={!detail.strategy}
-            onClick={onLiveAction}
-          >
-            {detail.liveSwitch.enabled
-              ? "人工核对提醒开关"
-              : "人工开启正式提醒"}
-          </Button>
-        </div>
+            {detail.liveSwitch.enabled ? "已开启" : "未开启"}
+          </b>
+        </span>
+        <span className="text-nc-text-3">
+          {detail.liveSwitch.enabled
+            ? "仍受全局提醒模式、启用订阅和渠道约束。"
+            : "不会自动推送。"}
+        </span>
+        <span className="text-nc-warn">晋级通过不等于自动推送。</span>
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-auto"
+          disabled={!detail.strategy}
+          onClick={onLiveAction}
+        >
+          {detail.liveSwitch.enabled ? "人工核对提醒开关" : "人工开启正式提醒"}
+        </Button>
       </div>
+    </section>
+  );
+}
+
+/** 一行六格核心指标；缺失保持「—」，数值列等宽。 */
+function LabMetrics({
+  row,
+}: {
+  row: NonNullable<RouterOutputs["strategyLabDetail"]["row"]>;
+}) {
+  const tone =
+    row.return == null
+      ? "text-nc-text"
+      : row.return > 0
+        ? "text-nc-up"
+        : row.return < 0
+          ? "text-nc-down"
+          : "text-nc-text";
+  const items = [
+    { label: "留出收益", value: pct(row.return), tone },
+    { label: "最大回撤", value: pct(row.drawdown), tone: "text-nc-text" },
+    { label: "成交数", value: String(row.trades) },
+    {
+      label: "达标窗口",
+      value: `${row.positiveWindows}/${row.oosWindows}`,
+    },
+    { label: "市场DSR", value: formatNumber(row.dsr?.value, 3) },
+    {
+      label: "全局DSR",
+      value: `${formatNumber(row.globalDsr?.value, 3)}（诊断）`,
+    },
+  ];
+  return (
+    <section
+      aria-label="核心指标"
+      className="grid gap-1.5 [grid-template-columns:repeat(auto-fit,minmax(132px,1fr))]"
+    >
+      {items.map((item) => (
+        <div
+          key={item.label}
+          className="min-w-0 rounded-md border border-nc-border-soft bg-nc-card px-2.5 py-1.5"
+        >
+          <p className="text-[11px] text-nc-text-3">{item.label}</p>
+          <p
+            className={`mt-0.5 truncate text-base font-semibold tabular-nums ${item.tone ?? "text-nc-text"}`}
+            title={item.value}
+          >
+            {item.value}
+          </p>
+        </div>
+      ))}
     </section>
   );
 }

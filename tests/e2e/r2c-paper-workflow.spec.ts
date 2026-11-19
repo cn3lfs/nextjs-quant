@@ -7,38 +7,46 @@ for (const width of [1440, 1024]) {
   }) => {
     await page.setViewportSize({ width, height: 1000 });
     await page.goto("/");
+    await page
+      .locator("summary")
+      .filter({ hasText: /^模拟盘与系统明细$/ })
+      .click();
     await expect(
       page.getByRole("heading", { name: "今日模拟账户变化" }),
     ).toBeVisible();
-    await page
-      .getByRole("region", { name: "明日计划", exact: true })
-      .getByRole("link", { name: /sh600000 · 打开图表/ })
-      .click();
+    const candidates = page.getByRole("region", {
+      name: "明日计划",
+      exact: true,
+    });
+    await expect(
+      candidates.getByRole("columnheader", { name: "入场 / 止损 / 目标" }),
+    ).toBeVisible();
+    await candidates.getByRole("link", { name: /sh600000 · 打开图表/ }).click();
     await expect(
       page.getByRole("application", { name: /行情图：/ }),
     ).toBeVisible();
-    const table = page.getByRole("table", { name: "明日计划候选" });
-    await expect(
-      table.getByRole("columnheader", { name: "入场 / 止损 / 目标" }),
-    ).toBeVisible();
-    const geometry = await table.evaluate((element) => {
-      const rect = element.getBoundingClientRect();
-      const wrapper = element.closest('[data-slot="table-container"]')!;
+    const levels = page
+      .getByRole("complementary", { name: "盘口与计划" })
+      .getByText(/入场 .*止损 .*目标 .* · 原价/);
+    await expect(levels).toBeVisible();
+    const geometry = await levels.evaluate((element) => {
+      const workspace = element.closest(".nc-market-terminal")!;
+      const rect = workspace.getBoundingClientRect();
       const sidebar = document.querySelector(".sidebar")!;
       const shell = document.querySelector(".app-shell")!;
       return {
-        tableWidth: rect.width,
-        tableRight: rect.right,
+        workspaceWidth: rect.width,
+        workspaceRight: rect.right,
         viewport: window.innerWidth,
-        clip: wrapper.scrollWidth - wrapper.clientWidth,
+        clip: element.scrollWidth - element.clientWidth,
         sidebarHeight: sidebar.getBoundingClientRect().height,
         pageHeight: shell.getBoundingClientRect().height,
         overflow: document.documentElement.scrollWidth - window.innerWidth,
       };
     });
-    expect(geometry.tableWidth).toBeGreaterThan(width === 1440 ? 900 : 600);
+    expect(geometry.workspaceWidth).toBeGreaterThan(width === 1440 ? 900 : 600);
     expect(geometry.clip).toBeLessThanOrEqual(1);
-    expect(geometry.tableRight).toBeLessThanOrEqual(geometry.viewport);
+    expect(geometry.workspaceRight).toBeLessThanOrEqual(geometry.viewport);
     expect(geometry.sidebarHeight).toBeGreaterThanOrEqual(
       geometry.pageHeight - 1,
     );

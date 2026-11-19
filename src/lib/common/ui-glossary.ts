@@ -20,6 +20,11 @@ export const glossary = {
   outbox: "推送队列",
   decay: "表现下滑预警",
   protection: "止损保护价",
+  shadowForward: "观察前推",
+  paperForward: "模拟前推",
+  notSetStop: "未设止损",
+  touchedStop: "已触及止损",
+  dualPriceSync: "双价同步",
 } as const;
 export type GlossaryTerm = keyof typeof glossary;
 

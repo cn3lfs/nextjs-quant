@@ -44,3 +44,8 @@ export {
   type MetricValue,
 } from "./metric-card";
 export { WorkspaceHeader, type WorkspaceHeaderProps } from "./workspace-header";
+export {
+  MethodologyPopover,
+  type MethodologyItem,
+} from "./methodology-popover";
+export { FilterToolbar, FilterGroup, FilterDivider } from "./filter-toolbar";

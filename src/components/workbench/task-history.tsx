@@ -32,6 +32,11 @@ import {
 } from "../ui/select";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import {
+  FilterDivider,
+  FilterGroup,
+  FilterToolbar,
+} from "~/components/panels";
 import { WorkProgressView } from "../screening/screen-task-progress";
 import { useTaskVisible } from "./use-task-visible";
 import { TaskEvidence } from "./task-evidence";
@@ -436,9 +441,9 @@ export function TaskHistory({
         按创建时间倒序，每页 20
         条；时间均为北京时间。点击任务展开详情，再次点击收起。
       </p>
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <FilterToolbar label="任务筛选">
         <form
-          className="flex flex-wrap items-center gap-3"
+          className="flex min-w-0 flex-wrap items-center gap-2"
           onSubmit={(event) => {
             event.preventDefault();
             applyFilter({
@@ -448,44 +453,55 @@ export function TaskHistory({
             });
           }}
         >
-          <span className="text-sm">任务状态</span>
-          <Select
-            value={statusDraft}
-            onValueChange={(value) =>
-              session.update("statusDraft", value as typeof statusDraft)
-            }
-          >
-            <SelectTrigger aria-label="历史任务状态">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部</SelectItem>
-              {Object.entries(taskStatusLabels).map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={typeDraft}
-            onValueChange={(value) =>
-              session.update("typeDraft", value as typeof typeDraft)
-            }
-          >
-            <SelectTrigger aria-label="任务类型">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部类型</SelectItem>
-              {Object.entries(taskTypeLabels).map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <div className="flex flex-wrap gap-2">
+          <FilterGroup label="状态">
+            <Select
+              value={statusDraft}
+              onValueChange={(value) =>
+                session.update("statusDraft", value as typeof statusDraft)
+              }
+            >
+              <SelectTrigger
+                size="sm"
+                aria-label="历史任务状态"
+                className="w-36"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部</SelectItem>
+                {Object.entries(taskStatusLabels).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FilterGroup>
+          <FilterGroup label="类型">
+            <Select
+              value={typeDraft}
+              onValueChange={(value) =>
+                session.update("typeDraft", value as typeof typeDraft)
+              }
+            >
+              <SelectTrigger
+                size="sm"
+                aria-label="任务类型"
+                className="w-36"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部类型</SelectItem>
+                {Object.entries(taskTypeLabels).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FilterGroup>
+          <FilterGroup>
             <Input
               aria-label="精确任务编号"
               placeholder="输入完整任务编号"
@@ -494,29 +510,32 @@ export function TaskHistory({
               onChange={(event) =>
                 session.update("idDraft", event.target.value)
               }
-              className="min-w-0 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              className="h-8 w-48"
             />
-            <Button type="submit" variant="outline">
+            <Button type="submit" variant="outline" size="sm">
               查询任务
             </Button>
             <Button
               type="button"
               variant="ghost"
+              size="sm"
               onClick={() => applyFilter({})}
             >
               清除筛选
             </Button>
-          </div>
+          </FilterGroup>
         </form>
+        <FilterDivider />
         <Button
           variant="outline"
+          size="sm"
           disabled={history.isFetching || !!location.error}
           onClick={refresh}
         >
           <RefreshCw size={14} />
           刷新任务
         </Button>
-      </div>
+      </FilterToolbar>
       {location.error && <p role="alert">{location.error}</p>}
       {!location.error && (
         <p className="text-sm text-muted-foreground" role="status">

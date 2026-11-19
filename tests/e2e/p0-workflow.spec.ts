@@ -582,7 +582,7 @@ test("formula save and execution open a clean candidate chart with real breakout
   await expect(
     page.getByText("本次规则任务尚未创建自动快评任务。"),
   ).toHaveCount(0);
-  const exported = await download(page, "导出本次完整结果");
+  const exported = await download(page, "导出结果");
   expect(exported.format).toBe("quant-formula-screen-export-1");
   expect(exported.candidates).toHaveLength(1);
   expect(exported.candidates[0].symbol).toBe("sh600000");
@@ -683,28 +683,28 @@ test("older formula results reopen from task history and survive refresh without
     page.getByRole("table", { name: "候选结果", exact: true }),
   ).toContainText("P0_FIXTURE");
   await page.reload();
-  const restored = await download(page, "导出本次完整结果");
+  const restored = await download(page, "导出结果");
   expect(restored.jobId).toBe(older);
   expect(restored.parameters.formula.name).toBe("P0 历史候选");
   expect(restored.candidates).toHaveLength(1);
   await page.goto(`/scan?tab=formula&job=${newer}`);
-  const empty = await download(page, "导出本次完整结果");
+  const empty = await download(page, "导出结果");
   expect(empty.jobId).toBe(newer);
   expect(empty.candidates).toHaveLength(0);
   await expect(
     page.getByRole("table", { name: "候选结果", exact: true }),
   ).not.toContainText("P0_FIXTURE");
   await page.goBack();
-  expect((await download(page, "导出本次完整结果")).jobId).toBe(older);
+  expect((await download(page, "导出结果")).jobId).toBe(older);
   await page.goForward();
-  expect((await download(page, "导出本次完整结果")).jobId).toBe(newer);
+  expect((await download(page, "导出结果")).jobId).toBe(newer);
   await page.goto("/scan?tab=formula&job=p0-retired-screen");
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
     "不是公式选股任务",
   );
   await expect(
-    page.getByRole("button", { name: "导出本次完整结果", exact: true }),
-  ).toBeDisabled();
+    page.getByRole("button", { name: "导出结果", exact: true }),
+  ).toBeHidden();
   await expect(
     page.getByRole("table", { name: "候选结果", exact: true }),
   ).toHaveCount(0);
@@ -714,8 +714,8 @@ test("older formula results reopen from task history and survive refresh without
     "任务不存在",
   );
   await expect(
-    page.getByRole("button", { name: "导出本次完整结果", exact: true }),
-  ).toBeDisabled();
+    page.getByRole("button", { name: "导出结果", exact: true }),
+  ).toBeHidden();
   await expect(
     page.getByRole("table", { name: "候选结果", exact: true }),
   ).toHaveCount(0);
@@ -727,8 +727,8 @@ test("older formula results reopen from task history and survive refresh without
   await page.goto(`/scan?tab=formula&job=${failed}`);
   await expect(page.getByRole("main").getByRole("alert")).toContainText("DMA");
   await expect(
-    page.getByRole("button", { name: "导出本次完整结果", exact: true }),
-  ).toBeDisabled();
+    page.getByRole("button", { name: "导出结果", exact: true }),
+  ).toBeHidden();
   await expect(
     page.getByRole("table", { name: "候选结果", exact: true }),
   ).toHaveCount(0);
@@ -807,16 +807,17 @@ test("formula result pages search and sort the whole persisted result and export
     ).toBeVisible();
     await page.getByRole("button", { name: "下一页", exact: true }).click();
     await expect(table.getByRole("row").nth(1)).toContainText("sh610050");
-    await page.getByRole("combobox", { name: "候选排序字段" }).click();
+    const filters = page.getByRole("toolbar", { name: "候选结果工具栏" });
+    await filters.getByRole("combobox", { name: "候选排序字段" }).click();
     await page.getByRole("option", { name: "收盘价", exact: true }).click();
     await expect(table.getByRole("row").nth(1)).toContainText("sh610200");
-    await page.getByLabel("筛选候选名称或代码").fill("归档候选200");
+    await filters.getByLabel("筛选候选名称或代码").fill("归档候选200");
     await expect(table.getByRole("row")).toHaveCount(2);
     await expect(table).toContainText("sh610200");
     await expect(
       page.getByText("第 1 / 1 页 · 1 条", { exact: true }),
     ).toBeVisible();
-    const exported = await download(page, "导出本次完整结果");
+    const exported = await download(page, "导出结果");
     expect(
       exported.candidates.map(
         (candidate: { symbol: string }) => candidate.symbol,
@@ -932,9 +933,10 @@ test("market watchlist updates reach the monitor page and preserve chart selecti
   const add = page.getByRole("button", { name: "加入自选", exact: true });
   await expect(add).toBeEnabled();
   await add.click();
-  await page.getByRole("button", { name: "自选与候选", exact: true }).click();
+  const rail = page.getByRole("complementary", { name: "自选与扫描候选" });
+  await rail.getByRole("tab", { name: /^我的自选 \(/ }).click();
   await expect(
-    page.getByRole("button", { name: "移除 sh600000", exact: true }),
+    rail.getByRole("button", { name: "移除 sh600000", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "已在自选", exact: true }),
@@ -951,7 +953,8 @@ test("market watchlist updates reach the monitor page and preserve chart selecti
   await expect(
     page.getByRole("combobox", { name: "搜索品种名称或代码", exact: true }),
   ).toHaveValue("P0_FIXTURE · SH600000");
-  await page
+  await rail.getByRole("tab", { name: /^我的自选 \(/ }).click();
+  await rail
     .getByRole("button", { name: "移除 sh600000", exact: true })
     .click();
   await expect(add).toBeEnabled();
