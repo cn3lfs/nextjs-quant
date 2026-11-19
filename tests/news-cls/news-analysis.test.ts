@@ -14,6 +14,9 @@ const state = vi.hoisted(() => ({
   model: vi.fn(),
   news: vi.fn(),
   path: "fixture",
+  clsDbRole: "unspecified" as "unspecified" | "all" | "red",
+  clsComplementDbPath: "",
+  clsComplementDbRole: "" as "" | "all" | "red",
   flights: [] as string[],
 }));
 vi.mock("../../src/server/db/index", () => ({
@@ -43,30 +46,32 @@ vi.mock("../../src/server/db/news-analysis-history", () => ({
 vi.mock("../../src/server/data-sources/cls/cls-news", () => ({
   readClsNews: state.news,
 }));
-vi.mock(
-  "../../src/server/infra/shared-read",
-  async (importOriginal) => {
-    const actual =
-      (await importOriginal()) as typeof import("../../src/server/infra/shared-read");
-    return {
-      // Delegate unchanged; only record entries so tests can observe that a
-      // second caller has joined the same in-flight archive.
-      sharedRead: <T,>() => {
-        const read = actual.sharedRead<T>();
-        return (
-          key: string,
-          load: (signal: AbortSignal) => Promise<T>,
-          signal?: AbortSignal,
-        ) => {
-          state.flights.push(key);
-          return read(key, load, signal);
-        };
-      },
-    };
-  },
-);
+vi.mock("../../src/server/infra/shared-read", async (importOriginal) => {
+  const actual =
+    (await importOriginal()) as typeof import("../../src/server/infra/shared-read");
+  return {
+    // Delegate unchanged; only record entries so tests can observe that a
+    // second caller has joined the same in-flight archive.
+    sharedRead: <T>() => {
+      const read = actual.sharedRead<T>();
+      return (
+        key: string,
+        load: (signal: AbortSignal) => Promise<T>,
+        signal?: AbortSignal,
+      ) => {
+        state.flights.push(key);
+        return read(key, load, signal);
+      };
+    },
+  };
+});
 vi.mock("../../src/server/infra/settings", () => ({
-  settings: () => ({ clsDbPath: state.path }),
+  settings: () => ({
+    clsDbPath: state.path,
+    clsDbRole: state.clsDbRole,
+    clsComplementDbPath: state.clsComplementDbPath,
+    clsComplementDbRole: state.clsComplementDbRole,
+  }),
 }));
 vi.mock("../../src/server/research/research", () => ({
   researchModel: () => "codex:default",
@@ -79,10 +84,19 @@ import {
   type NewsAnalysis,
 } from "../../src/server/news/news-analysis";
 const input = { cutoff: 1000, page: 0, query: "", historical: true };
+const config = (path: string) => ({
+  clsDbPath: path,
+  clsDbRole: "unspecified" as const,
+  clsComplementDbPath: "",
+  clsComplementDbRole: "" as const,
+});
 let guidePath: string, guide: string;
 beforeEach(async () => {
   state.records.clear();
   state.path = "fixture";
+  state.clsDbRole = "unspecified";
+  state.clsComplementDbPath = "";
+  state.clsComplementDbRole = "";
   state.model.mockReset();
   state.flights.length = 0;
   const root = await mkdtemp(join(tmpdir(), "quant-news-method-"));
@@ -131,8 +145,8 @@ it("analyzes the exact displayed cursor page and rejects drift before any model 
     seedNewsSource(db, 121, true);
     db.prepare("UPDATE news SET content=? WHERE id=49").run("长".repeat(2501));
     const filter = { cutoff: newsFixtureCutoff, historical: true, query: "" };
-    const first = newsWorkspacePage(state.path, filter);
-    const second = newsWorkspacePage(state.path, {
+    const first = newsWorkspacePage(config(state.path), filter);
+    const second = newsWorkspacePage(config(state.path), {
       ...filter,
       cursor: first.nextCursor!,
     });
@@ -171,6 +185,47 @@ it("analyzes the exact displayed cursor page and rejects drift before any model 
     expect(state.model).toHaveBeenCalledTimes(count);
   } finally {
     db.close();
+  }
+});
+it("rejects a complementary page selection before any model call", async () => {
+  const root = await mkdtemp(join(tmpdir(), "quant-news-complement-"));
+  const primaryPath = join(root, "primary.sqlite"),
+    complementPath = join(root, "complement.sqlite"),
+    primary = new Database(primaryPath),
+    complement = new Database(complementPath);
+  try {
+    seedNewsSource(primary, 121, true);
+    seedNewsSource(complement, 121, true);
+    complement.prepare("UPDATE news SET content='备用正文'").run();
+    state.path = primaryPath;
+    state.clsComplementDbPath = complementPath;
+    state.clsComplementDbRole = "red";
+    const complementPage = newsWorkspacePage(
+      {
+        clsDbPath: primaryPath,
+        clsDbRole: "unspecified",
+        clsComplementDbPath: complementPath,
+        clsComplementDbRole: "red",
+      },
+      { cutoff: newsFixtureCutoff, historical: true, role: "red" },
+    );
+    await expect(
+      analyzeNews({
+        cutoff: newsFixtureCutoff,
+        historical: true,
+        query: "",
+        scope: "page",
+        pageSelection: {
+          source: complementPage.source,
+          fingerprint: complementPage.fingerprint,
+          role: "red",
+        },
+      }),
+    ).rejects.toThrow(/备用档案/);
+    expect(state.model).not.toHaveBeenCalled();
+  } finally {
+    primary.close();
+    complement.close();
   }
 });
 it("archives source and rule hashes, aggregates deterministically and invalidates cache on method changes", async () => {
@@ -700,7 +755,14 @@ it("never associates an archive that was not persisted", async () => {
   const archived = vi.fn();
   state.model.mockRejectedValueOnce(new Error("quota fixture"));
   await expect(
-    analyzeNews(input, undefined, undefined, "interactive", undefined, archived),
+    analyzeNews(
+      input,
+      undefined,
+      undefined,
+      "interactive",
+      undefined,
+      archived,
+    ),
   ).rejects.toThrow("quota fixture");
   expect(archived).not.toHaveBeenCalled();
   expect(state.records.size).toBe(0);

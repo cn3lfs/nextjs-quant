@@ -1,15 +1,19 @@
 import Database from "better-sqlite3";
 import { createHash } from "node:crypto";
-import { statSync } from "node:fs";
-import { resolve } from "node:path";
 import {
   newsWorkspaceSchema,
   newsPageSelectionSchema,
   newsArchiveQuerySchema,
   type NewsWorkspaceInput,
 } from "~/lib/news/news-workspace";
+import type {
+  NewsArchiveSourceRole,
+  NewsArchiveView,
+} from "~/lib/news/news-archives";
+import type { NewsArchiveSettings } from "~/lib/settings/news-source-settings";
 import type { z } from "zod";
 import type { ClsNewsItem } from "../data-sources/cls/cls-news";
+import { newsSourceIdentity, resolveNewsArchive } from "../news/news-archives";
 
 const digest = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -44,13 +48,7 @@ function readSource<T>(
   if (!path) throw new Error("尚未配置新闻存档，请前往数据与连接设置");
   let db: Database.Database | undefined;
   try {
-    const file = statSync(path);
-    const source = digest([
-      resolve(path).toLowerCase(),
-      file.dev,
-      file.ino,
-      file.birthtimeMs,
-    ]);
+    const source = newsSourceIdentity(path);
     db = new Database(path, { readonly: true, fileMustExist: true });
     return db.transaction(() => fn(db!, source))();
   } catch (error) {
@@ -67,6 +65,19 @@ function readSource<T>(
   } finally {
     db?.close();
   }
+}
+function archiveView(archive: {
+  key: "primary" | "complement";
+  role: NewsArchiveSourceRole;
+  label: string;
+  primary: boolean;
+}): NewsArchiveView {
+  return {
+    key: archive.key,
+    role: archive.role,
+    label: archive.label,
+    primary: archive.primary,
+  };
 }
 function scope(input: ReturnType<typeof newsWorkspaceSchema.parse>) {
   const where = ["ctime>=?", "ctime<=?"];
@@ -141,15 +152,20 @@ function page(db: Database.Database, source: string, raw: NewsWorkspaceInput) {
         : null,
   };
 }
-export function newsWorkspacePage(path: string, raw: NewsWorkspaceInput) {
+export function newsWorkspacePage(
+  config: NewsArchiveSettings,
+  raw: NewsWorkspaceInput,
+) {
   const input = newsWorkspaceSchema.parse(raw);
-  return readSource(path, (db, source) => {
+  const archive = resolveNewsArchive(config, input.role);
+  return readSource(archive.path, (db, source) => {
     const result = page(db, source, input);
     const latest = db
       .prepare("SELECT max(ctime) time FROM news WHERE ctime<=?")
       .get(Math.floor(Date.now() / 1000)) as { time: number | null };
     return {
       ...result,
+      archive: archiveView(archive),
       items: result.items.map(({ content, title, ...rest }) => ({
         ...rest,
         title: title.slice(0, 200),
@@ -262,14 +278,15 @@ export function relatedNewsEvents(
   });
 }
 export function newsWorkspaceDetail(
-  path: string,
+  config: NewsArchiveSettings,
   raw: NewsWorkspaceInput,
   id: number,
   expectedSource: string,
 ) {
   const input = newsWorkspaceSchema.parse(raw);
   if (!Number.isSafeInteger(id) || id < 1) throw new Error("新闻ID无效");
-  return readSource(path, (db, source) => {
+  const archive = resolveNewsArchive(config, input.role);
+  return readSource(archive.path, (db, source) => {
     if (source !== expectedSource)
       throw new Error("新闻来源已改变，请返回列表重新查询");
     const base = scope(input);
@@ -279,7 +296,12 @@ export function newsWorkspaceDetail(
       )
       .get(...base.values, id) as NewsRow | undefined;
     if (!row) throw new Error("新闻已不存在或不在当前查询范围内");
-    return { item: item(row), source, readAt: Date.now() };
+    return {
+      item: item(row),
+      source,
+      readAt: Date.now(),
+      archive: archiveView(archive),
+    };
   });
 }
 export function freezeNewsWorkspacePage(

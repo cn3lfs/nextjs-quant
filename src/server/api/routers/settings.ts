@@ -2,7 +2,7 @@ import { z } from "zod";
 import { settingsSchema } from "~/lib/domain";
 import { connectionCheckSchema } from "~/lib/settings/connection-check";
 import { checkConnection } from "../../market/connection-check";
-import { newsSourceSettingsSchema } from "~/lib/settings/news-source-settings";
+import { newsSourceSettingsRefinedSchema } from "~/lib/settings/news-source-settings";
 import { checkNewsSources } from "../../news/news-source-check";
 import { saveSettings, settings } from "../../infra/settings";
 import {
@@ -99,7 +99,7 @@ export const settingsRouter = createTRPCRouter({
       checkConnection(settings(), input, signal),
     ),
   checkNewsSources: p("settings", "compute")
-    .input(newsSourceSettingsSchema)
+    .input(newsSourceSettingsRefinedSchema)
     .mutation(({ input }) => checkNewsSources(settings(), input)),
   // Dedicated panels own crypto connection and account-review settings.
   saveSettings: p("settings", "configure")

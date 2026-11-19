@@ -27,24 +27,32 @@ function fixture() {
   seedNewsSource(db, 121, true);
   return { path, db };
 }
+const config = (path: string) => ({
+  clsDbPath: path,
+  clsDbRole: "unspecified" as const,
+  clsComplementDbPath: "",
+  clsComplementDbRole: "" as const,
+});
 const input = { cutoff: newsFixtureCutoff, historical: true };
 it("reports missing and incompatible sources without exposing the local path", () => {
   const dir = mkdtempSync(join(tmpdir(), "quant-news-invalid-"));
   const missing = join(dir, "missing.sqlite");
-  expect(() => newsWorkspacePage(missing, input)).toThrow(
-    "新闻存档不可读取或格式不兼容",
+  expect(() => newsWorkspacePage(config(missing), input)).toThrow(
+    /新闻主档案不可读取/,
   );
   const empty = join(dir, "empty.sqlite");
   new Database(empty).close();
-  expect(() => newsWorkspacePage(empty, input)).toThrow(
+  expect(() => newsWorkspacePage(config(empty), input)).toThrow(
     "新闻存档不可读取或格式不兼容",
   );
-  expect(() => newsWorkspacePage("", input)).toThrow("尚未配置新闻存档");
+  expect(() => newsWorkspacePage(config(""), input)).toThrow(
+    "尚未配置新闻存档",
+  );
 });
 it("pages all source rows with whole-filter totals and exact original hashes; frozen page rejects changes", () => {
   const { path, db } = fixture();
   try {
-    const first = newsWorkspacePage(path, input),
+    const first = newsWorkspacePage(config(path), input),
       old = readClsNews(path, input);
     expect(first.items.map((n) => n.hash)).toEqual(
       old.items.map((n) => n.hash),
@@ -53,20 +61,23 @@ it("pages all source rows with whole-filter totals and exact original hashes; fr
     expect(first.items).toHaveLength(50);
     expect(first.items[0]).not.toHaveProperty("content");
     expect(
-      newsWorkspacePage(path, { ...input, query: "不存在的正文" }),
+      newsWorkspacePage(config(path), { ...input, query: "不存在的正文" }),
     ).toMatchObject({ total: 0, items: [], nextCursor: null });
     expect(
-      newsWorkspacePage(path, {
+      newsWorkspacePage(config(path), {
         ...input,
         cursor: { ...first.nextCursor!, time: 0 },
       }),
     ).toMatchObject({ total: 121, items: [], nextCursor: null });
     expect(Buffer.byteLength(JSON.stringify(first))).toBeLessThan(65536);
-    const second = newsWorkspacePage(path, {
+    const second = newsWorkspacePage(config(path), {
         ...input,
         cursor: first.nextCursor!,
       }),
-      third = newsWorkspacePage(path, { ...input, cursor: second.nextCursor! });
+      third = newsWorkspacePage(config(path), {
+        ...input,
+        cursor: second.nextCursor!,
+      });
     expect(second.total).toBe(121);
     expect(third.items).toHaveLength(21);
     expect(third.nextCursor).toBeNull();
@@ -86,22 +97,22 @@ it("pages all source rows with whole-filter totals and exact original hashes; fr
     );
     expect(frozen.items[0]!.content.length).toBeGreaterThan(1000);
     const detail = newsWorkspaceDetail(
-      path,
+      config(path),
       input,
       first.items[0]!.id,
       first.source,
     );
     expect(detail.item).toEqual(old.items[0]);
     expect(() =>
-      newsWorkspacePage(path, {
+      newsWorkspacePage(config(path), {
         ...input,
         query: "另一个条件",
         cursor: first.nextCursor!,
       }),
     ).toThrow(/分页/);
-    expect(() => newsWorkspaceDetail(path, input, 1, "0".repeat(64))).toThrow(
-      /来源/,
-    );
+    expect(() =>
+      newsWorkspaceDetail(config(path), input, 1, "0".repeat(64)),
+    ).toThrow(/来源/);
     db.prepare("UPDATE news SET content='修订正文' WHERE id=?").run(
       second.items[0]!.id,
     );
@@ -116,23 +127,23 @@ it("searches full content and respects publication and collection cutoff, includ
   const { path, db } = fixture();
   try {
     expect(
-      newsWorkspacePage(path, { ...input, query: "末尾关键词" }).total,
+      newsWorkspacePage(config(path), { ...input, query: "末尾关键词" }).total,
     ).toBe(13);
     db.prepare("UPDATE news SET collected_at=? WHERE id=?").run(
       "2025-01-08 00:00:00",
       1,
     );
     db.prepare("UPDATE news SET collected_at=NULL WHERE id=2").run();
-    expect(newsWorkspacePage(path, input).total).toBe(119);
-    expect(newsWorkspacePage(path, { ...input, historical: false }).total).toBe(
-      121,
-    );
+    expect(newsWorkspacePage(config(path), input).total).toBe(119);
+    expect(
+      newsWorkspacePage(config(path), { ...input, historical: false }).total,
+    ).toBe(121);
     expect(() =>
       newsWorkspaceDetail(
-        path,
+        config(path),
         input,
         1,
-        newsWorkspacePage(path, input).source,
+        newsWorkspacePage(config(path), input).source,
       ),
     ).toThrow(/范围/);
     expect(

@@ -4,7 +4,10 @@ import { marketSourceSchema, type MarketSource } from "./market/market-source";
 import type { FuturesSource } from "./market/futures";
 import { researchDateSchema } from "trading-strategies/research/contracts/date";
 import { z } from "zod";
-import { newsSourceSettingsSchema } from "./settings/news-source-settings";
+import {
+  newsSourceSettingsIssues,
+  newsSourceSettingsSchema,
+} from "./settings/news-source-settings";
 import { localDirectorySchema } from "./settings/local-source-settings";
 import { notificationPolicySchema } from "./strategy-facts/notification-policy";
 import { alertsSchema } from "./strategy-facts/alerts";
@@ -271,33 +274,38 @@ export type Monitor = {
   lastCheck?: number;
   error?: string;
 };
-export const settingsSchema = z.object({
-  alerts: alertsSchema,
-  accountReview: accountReviewSettingsSchema,
-  marketDataSource: marketSourceSchema.default("auto"),
-  holdoutStart: researchDateSchema.nullable().default(null),
-  notificationPolicy: notificationPolicySchema,
-  llmProvider: z.enum(["codex", "claude", "deepseek"]).default("codex"),
-  codexModel: z.string().trim().max(100).default(""),
-  claudeModel: z.string().trim().max(100).default(""),
-  industryBlocksRoot: z.string().trim().max(2048).default(""),
-  industryMembershipSource: z.enum(["blocks", "tdx"]).default("blocks"),
-  tdxRoot: localDirectorySchema.default(""),
-  ...newsSourceSettingsSchema.shape,
-  autoNewsAnalysis: z.boolean().default(false),
-  autoNewsDailyBatches: z.number().int().min(1).max(100).default(8),
-  fastModel: z.string().default("deepseek-v4-flash"),
-  deepModel: z.string().default("deepseek-v4-pro"),
-  proxy: z.string().default(""),
-  /** Fallback route for overseas data (crypto): direct first, then this proxy. */
-  outboundProxy: z
-    .string()
-    .trim()
-    .max(200)
-    .regex(/^$|^(socks5h?|socks4|https?):\/\/[^\s/]+$/, "代理地址格式无效")
-    .default("socks5://127.0.0.1:10808"),
-  binanceTestnet: z.boolean().default(true),
-  binancePublicDataRoot: localDirectorySchema.default(""),
-  calendar: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).default([]),
-});
+export const settingsSchema = z
+  .object({
+    alerts: alertsSchema,
+    accountReview: accountReviewSettingsSchema,
+    marketDataSource: marketSourceSchema.default("auto"),
+    holdoutStart: researchDateSchema.nullable().default(null),
+    notificationPolicy: notificationPolicySchema,
+    llmProvider: z.enum(["codex", "claude", "deepseek"]).default("codex"),
+    codexModel: z.string().trim().max(100).default(""),
+    claudeModel: z.string().trim().max(100).default(""),
+    industryBlocksRoot: z.string().trim().max(2048).default(""),
+    industryMembershipSource: z.enum(["blocks", "tdx"]).default("blocks"),
+    tdxRoot: localDirectorySchema.default(""),
+    ...newsSourceSettingsSchema.shape,
+    autoNewsAnalysis: z.boolean().default(false),
+    autoNewsDailyBatches: z.number().int().min(1).max(100).default(8),
+    fastModel: z.string().default("deepseek-v4-flash"),
+    deepModel: z.string().default("deepseek-v4-pro"),
+    proxy: z.string().default(""),
+    /** Fallback route for overseas data (crypto): direct first, then this proxy. */
+    outboundProxy: z
+      .string()
+      .trim()
+      .max(200)
+      .regex(/^$|^(socks5h?|socks4|https?):\/\/[^\s/]+$/, "代理地址格式无效")
+      .default("socks5://127.0.0.1:10808"),
+    binanceTestnet: z.boolean().default(true),
+    binancePublicDataRoot: localDirectorySchema.default(""),
+    calendar: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).default([]),
+  })
+  .superRefine((value, context) => {
+    for (const issue of newsSourceSettingsIssues(value))
+      context.addIssue(issue);
+  });
 export type Settings = z.infer<typeof settingsSchema>;

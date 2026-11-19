@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { newsArchiveRoleSchema } from "../settings/news-source-settings";
 
 export const newsPageCursorSchema = z.object({
   time: z.number().int().nonnegative(),
@@ -13,12 +14,16 @@ export const newsWorkspaceSchema = z.object({
     .refine((value) => value <= Date.now(), "截止时间不能晚于当前时间"),
   query: z.string().trim().max(100).default(""),
   historical: z.boolean().default(true),
+  /** Selected archive role. Absent keeps the original primary-archive link. */
+  role: newsArchiveRoleSchema.optional(),
   cursor: newsPageCursorSchema.optional(),
 });
 export type NewsWorkspaceInput = z.input<typeof newsWorkspaceSchema>;
 export const newsPageSelectionSchema = z.object({
   source: z.string().regex(/^[a-f0-9]{64}$/),
   fingerprint: z.string().regex(/^[a-f0-9]{64}$/),
+  /** Only set for a declared role; absent keeps the original primary page. */
+  role: newsArchiveRoleSchema.optional(),
   cursor: newsPageCursorSchema.optional(),
 });
 export const newsArchiveIdSchema = z

@@ -12,6 +12,7 @@ import { sharedRead } from "../infra/shared-read";
 import { keyedSlots } from "../infra/keyed-slots";
 import { newsPageSelectionSchema } from "~/lib/news/news-workspace";
 import { freezeNewsWorkspacePage } from "../db/news-workspace-query";
+import { resolveNewsArchive } from "./news-archives";
 const claimNews = keyedSlots();
 export const newsMethodFiles = ["SKILL.md", "references/sw-industries.md"];
 const sharedAnalysis = sharedRead<NewsAnalysis>();
@@ -297,11 +298,22 @@ export async function analyzeNews(
   const news: NewsAnalysis["news"] = frozen ? [...frozen.news] : [];
   let totalMatches = frozen?.totalMatches ?? news.length;
   if (!frozen) {
+    const pageRole = input.pageSelection?.role;
+    if (pageRole) {
+      const archive = resolveNewsArchive(settings(), pageRole);
+      if (!archive.primary)
+        throw new Error("备用档案仅供阅读与打开原文，不提交模型分析");
+    }
     // One read-only SQLite transaction freezes count and all selected rows together.
     const selectedPage = input.pageSelection
       ? freezeNewsWorkspacePage(
           settings().clsDbPath,
-          input,
+          {
+            cutoff: input.cutoff,
+            query: input.query,
+            historical: input.historical,
+            ...(pageRole ? { role: pageRole } : {}),
+          },
           input.pageSelection,
         )
       : undefined;

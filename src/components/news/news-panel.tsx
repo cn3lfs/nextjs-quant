@@ -6,12 +6,14 @@ import {
   newsArchiveIdSchema,
   type NewsWorkspaceInput,
 } from "~/lib/news/news-workspace";
+import type { NewsArchiveOption } from "~/lib/news/news-archives";
 import { PageGrid, Panel, Segmented } from "../panels";
 import { Button } from "../ui/button";
 import { useTaskVisible } from "../workbench/use-task-visible";
 import { ArchiveText } from "../research/archive-evidence";
 import { useArchiveDownload } from "../research/use-archive-download";
 import {
+  NewsArchiveSwitch,
   NewsError,
   NewsPaging,
   newsTime,
@@ -122,6 +124,14 @@ export function NewsPanel() {
   const context = api.newsAnalysisContext.useQuery(undefined, {
     enabled: visible && ready,
   });
+  const archives = context.data?.archives;
+  const selectedArchive = news.data?.archive;
+  const selectedKey =
+    selectedArchive?.key ?? (filter.role ? "complement" : "primary");
+  // Older/offline page models may not carry archive metadata; keep the
+  // existing primary-archive analysis behavior for those responses.
+  const analysisAllowed = selectedArchive ? selectedArchive.primary : true;
+  const complementSelected = selectedArchive ? !selectedArchive.primary : false;
   const task = api.newsTaskState.useQuery(jobId || "none", {
     enabled: visible && !!jobId,
     refetchInterval: (q) =>
@@ -238,6 +248,7 @@ export function NewsPanel() {
         : Date.parse(`${draft.until}:00+08:00`),
       query: draft.query,
       historical: draft.historical,
+      role: filter.role,
     };
     const parsed = newsWorkspaceSchema.safeParse(input);
     if (!parsed.success) {
@@ -258,6 +269,23 @@ export function NewsPanel() {
     setError("");
     urlSelection(null, null, "news", parsed.data);
     if (unchanged) void news.refetch();
+  }
+  function selectArchive(option: NewsArchiveOption) {
+    if (selectedKey === option.key) return;
+    const next: Filter = {
+      cutoff: filter.cutoff,
+      query: filter.query,
+      historical: filter.historical,
+      role:
+        option.key === "complement" && option.role !== "unspecified"
+          ? option.role
+          : undefined,
+    };
+    setFilter(next);
+    setPages([undefined]);
+    rememberNews(pageKey(next), [null]);
+    setError("");
+    urlSelection(null, null, "news", next);
   }
   function move(next: Cursor[]) {
     setPages(next);
@@ -412,6 +440,25 @@ export function NewsPanel() {
                 刷新至当前时间
               </Button>
             </form>
+            {archives && (
+              <NewsArchiveSwitch
+                options={archives.options}
+                value={selectedKey}
+                unconfigured={archives.unconfigured}
+                note={archives.note}
+                onSelect={selectArchive}
+              />
+            )}
+            {selectedArchive && (
+              <p className="text-sm">
+                当前来源：
+                {selectedArchive.primary ? "主档案" : "互补档案"} ·{" "}
+                {selectedArchive.label}
+                {selectedArchive.primary
+                  ? ""
+                  : "；互补档案仅供阅读与打开原文，不提交模型分析。"}
+              </p>
+            )}
             <label className="my-3 flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -438,9 +485,14 @@ export function NewsPanel() {
           </Panel>
           <Panel
             title="新闻列表"
+            note={
+              complementSelected
+                ? "当前为互补档案，仅供阅读与打开原文；模型分析仍使用设置中的主档案。"
+                : undefined
+            }
             meta={
               news.data
-                ? `匹配 ${news.data.total} 条 · 库中最新发布 ${newsTime(news.data.latestPublishedAt)}${news.isFetching ? " · 更新中" : ""}`
+                ? `${selectedArchive ? `${selectedArchive.primary ? "主档案" : "互补档案"} · ${selectedArchive.label} · ` : ""}匹配 ${news.data.total} 条 · 库中最新发布 ${newsTime(news.data.latestPublishedAt)}${news.isFetching ? " · 更新中" : ""}`
                 : undefined
             }
           >
@@ -500,7 +552,7 @@ export function NewsPanel() {
                 分析范围
                 <select
                   aria-label="新闻分析范围"
-                  disabled={busy}
+                  disabled={!analysisAllowed || busy}
                   value={scope}
                   onChange={(e) => setScope(e.target.value as typeof scope)}
                 >
@@ -513,7 +565,7 @@ export function NewsPanel() {
                   最多条数
                   <select
                     aria-label="新闻分析上限"
-                    disabled={busy}
+                    disabled={!analysisAllowed || busy}
                     value={maxItems}
                     onChange={(e) => setMaxItems(Number(e.target.value))}
                   >
@@ -527,6 +579,7 @@ export function NewsPanel() {
               )}
               <Button
                 disabled={
+                  !analysisAllowed ||
                   busy ||
                   dirty ||
                   news.isFetching ||
@@ -547,24 +600,32 @@ export function NewsPanel() {
                         ? {
                             source: news.data.source,
                             fingerprint: news.data.fingerprint,
+                            role: filter.role,
                             cursor: pages.at(-1),
                           }
                         : undefined,
                   });
                 }}
               >
-                AI 分类与影响分析（{scope === "page" ? "本页全部" : "查询范围"}
-                ）
+                {complementSelected
+                  ? "备用档案仅供阅读与打开原文"
+                  : `AI 分类与影响分析（${scope === "page" ? "本页全部" : "查询范围"}）`}
               </Button>
             </div>
-            <p className="mt-2 text-sm">
-              模型：{context.data?.model ?? "读取中"} · 匹配
-              {news.data?.total ?? 0}条 · 将选择
-              {scope === "page"
-                ? (news.data?.items.length ?? 0)
-                : Math.min(maxItems, news.data?.total ?? 0)}
-              条。每25条保存成功批次；模型每条最多读取2000字符，完整原文保留。
-            </p>
+            {complementSelected ? (
+              <p className="mt-2 text-sm">
+                互补档案不提交模型分析；如需分析，请切换到主档案，或在设置中调整主档案。
+              </p>
+            ) : (
+              <p className="mt-2 text-sm">
+                模型：{context.data?.model ?? "读取中"} · 匹配
+                {news.data?.total ?? 0}条 · 将选择
+                {scope === "page"
+                  ? (news.data?.items.length ?? 0)
+                  : Math.min(maxItems, news.data?.total ?? 0)}
+                条。每25条保存成功批次；模型每条最多读取2000字符，完整原文保留。
+              </p>
+            )}
             <NewsError
               message={context.error?.message}
               retry={() => void context.refetch()}
@@ -610,6 +671,14 @@ function Original({
             <NewsTime value={query.data.item.collectedAt} /> · ID{" "}
             {query.data.item.id}
           </p>
+          {query.data.archive && (
+            <p className="text-nc-text-3">
+              档案：
+              {query.data.archive.primary ? "主档案" : "互补档案"} ·{" "}
+              {query.data.archive.label}
+              {query.data.archive.primary ? "" : "（只读，不参与模型分析）"}
+            </p>
+          )}
           <ArchiveText text={query.data.item.content} />
           <details>
             <summary className="cursor-pointer text-sm text-nc-text-3">

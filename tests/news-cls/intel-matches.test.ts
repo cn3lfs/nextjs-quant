@@ -8,6 +8,13 @@ import {
   seedNewsSource,
 } from "../helpers/news-workspace-fixture";
 
+const config = (path: string) => ({
+  clsDbPath: path,
+  clsDbRole: "unspecified" as const,
+  clsComplementDbPath: "",
+  clsComplementDbRole: "" as const,
+});
+
 const state = vi.hoisted(() => ({
   clsDbPath: "",
   positions: [] as { symbol: string; quantity: number }[],
@@ -203,7 +210,7 @@ it("maps literal SQLite matches to deduplicated held/open-plan securities", asyn
   expect(aliasFilter.query).toBe("丙公司");
   expect(
     newsWorkspaceDetail(
-      path,
+      config(path),
       aliasFilter,
       6,
       aliasHref.searchParams.get("newsSource")!,
@@ -221,9 +228,9 @@ it("maps literal SQLite matches to deduplicated held/open-plan securities", asyn
     query: "sh600000",
   });
   // The existing literal-case original link still opens the exact detail.
-  expect(newsWorkspaceDetail(path, filter, 1, source).item.content).toContain(
-    "浦发银行与 600519 贵州茅台",
-  );
+  expect(
+    newsWorkspaceDetail(config(path), filter, 1, source).item.content,
+  ).toContain("浦发银行与 600519 贵州茅台");
 
   // Preserve the existing case-sensitive detail query: a news item matched only
   // case-insensitively keeps its literal filter and does not open here.
@@ -232,7 +239,7 @@ it("maps literal SQLite matches to deduplicated held/open-plan securities", asyn
   expect(btcFilter.query).toBe("BTC");
   expect(() =>
     newsWorkspaceDetail(
-      path,
+      config(path),
       btcFilter,
       3,
       btcHref.searchParams.get("newsSource")!,

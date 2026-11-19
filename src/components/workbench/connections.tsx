@@ -404,7 +404,76 @@ export function Connections({
               </Field>
               {fieldError("clsDbPath")}
               <p className="mb-3 text-[13px] text-nc-text-3">
-                填写已有新闻数据库的绝对路径；留空表示尚未接入，不会自动创建数据库。
+                填写已有新闻数据库的绝对路径；留空表示尚未接入，不会自动创建数据库。主档案继续承接模型分析、日任务和图表情报。
+              </p>
+              <Field label="主档案类型">
+                <Select
+                  value={config.clsDbRole}
+                  onValueChange={(value) =>
+                    setConfig({
+                      ...config,
+                      clsDbRole: value as Settings["clsDbRole"],
+                    })
+                  }
+                >
+                  <SelectTrigger
+                    {...fieldProps("clsDbRole")}
+                    aria-label="主档案类型"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unspecified">未注明</SelectItem>
+                    <SelectItem value="all">全部电报</SelectItem>
+                    <SelectItem value="red">加红电报</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              {fieldError("clsDbRole")}
+              <p className="mb-3 text-[13px] text-nc-text-3">
+                由你声明该档案的类型；未注明不会按路径、level 或 bold
+                字段自动识别。新闻页只在已声明类型之间切换。
+              </p>
+              <Field label="互补新闻档案路径">
+                <Input
+                  {...fieldProps("clsComplementDbPath")}
+                  value={config.clsComplementDbPath}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      clsComplementDbPath: e.target.value,
+                    })
+                  }
+                />
+              </Field>
+              {fieldError("clsComplementDbPath")}
+              <Field label="互补档案类型">
+                <Select
+                  value={config.clsComplementDbRole || "unset"}
+                  onValueChange={(value) =>
+                    setConfig({
+                      ...config,
+                      clsComplementDbRole:
+                        value === "unset" ? "" : (value as "all" | "red"),
+                    })
+                  }
+                >
+                  <SelectTrigger
+                    {...fieldProps("clsComplementDbRole")}
+                    aria-label="互补档案类型"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unset">未配置</SelectItem>
+                    <SelectItem value="all">全部电报</SelectItem>
+                    <SelectItem value="red">加红电报</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              {fieldError("clsComplementDbRole")}
+              <p className="mb-3 text-[13px] text-nc-text-3">
+                互补档案仅用于新闻页阅读和打开原文，不参与模型分析、日任务或图表情报。两个档案不能声明同一类型，也不能指向同一路径；指向同一真实文件时新闻页只显示一个来源。
               </p>
               <Field label="新闻 Python 可执行文件">
                 <Input

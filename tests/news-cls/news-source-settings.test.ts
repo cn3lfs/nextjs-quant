@@ -22,10 +22,20 @@ function fixture(name: string) {
   database.close();
   return path;
 }
+const source = (clsDbPath: string, newsPythonExecutable = "python") => ({
+  clsDbPath,
+  clsDbRole: "unspecified" as const,
+  clsComplementDbPath: "",
+  clsComplementDbRole: "" as const,
+  newsPythonExecutable,
+});
 
 it("uses portable defaults and keeps a stored source path", () => {
   expect(newsSourceConfiguration(settingsSchema.parse({}))).toEqual({
     clsDbPath: "",
+    clsDbRole: "unspecified",
+    clsComplementDbPath: "",
+    clsComplementDbRole: "",
     newsPythonExecutable: "python",
   });
   expect(
@@ -35,10 +45,66 @@ it("uses portable defaults and keeps a stored source path", () => {
   expect(() => settingsSchema.parse({ clsDbPath: "C:/bad\0.db" })).toThrow();
 });
 
+it("requires explicit, non-conflicting archive roles", () => {
+  expect(
+    settingsSchema.parse({ clsDbPath: "C:/a.db", clsDbRole: "red" }),
+  ).toMatchObject({ clsDbRole: "red" });
+  expect(() => settingsSchema.parse({ clsDbRole: "red" })).toThrow();
+  expect(() =>
+    settingsSchema.parse({
+      clsDbPath: "C:/a.db",
+      clsComplementDbPath: "C:/b.db",
+    }),
+  ).toThrow();
+  expect(() =>
+    settingsSchema.parse({
+      clsDbPath: "C:/a.db",
+      clsComplementDbRole: "red",
+    }),
+  ).toThrow();
+  expect(() =>
+    settingsSchema.parse({
+      clsComplementDbPath: "C:/b.db",
+      clsComplementDbRole: "red",
+    }),
+  ).toThrow();
+  expect(() =>
+    settingsSchema.parse({
+      clsDbPath: "C:/a.db",
+      clsDbRole: "all",
+      clsComplementDbPath: "C:/b.db",
+      clsComplementDbRole: "all",
+    }),
+  ).toThrow();
+  expect(
+    settingsSchema.parse({
+      clsDbPath: "C:/a.db",
+      clsDbRole: "all",
+      clsComplementDbPath: "C:/b.db",
+      clsComplementDbRole: "red",
+    }),
+  ).toMatchObject({ clsDbRole: "all", clsComplementDbRole: "red" });
+  expect(
+    settingsSchema.parse({
+      clsDbPath: "C:/a.db",
+      clsComplementDbPath: "C:/b.db",
+      clsComplementDbRole: "red",
+    }),
+  ).toMatchObject({ clsDbRole: "unspecified", clsComplementDbRole: "red" });
+  expect(() =>
+    settingsSchema.parse({
+      clsDbPath: "C:/a.db",
+      clsDbRole: "all",
+      clsComplementDbPath: "C:/A.DB",
+      clsComplementDbRole: "red",
+    }),
+  ).toThrow();
+});
+
 it("checks only the saved snapshot, opens a valid source read-only, and preserves file bytes", async () => {
   const path = fixture("valid source.db");
   const before = readFileSync(path);
-  const config = { clsDbPath: path, newsPythonExecutable: "custom-python" };
+  const config = source(path, "custom-python");
   const result = await checkNewsSources(config, config);
   expect(result).toMatchObject({
     configuration: config,
@@ -78,7 +144,7 @@ it("reports unconfigured, missing, relative, non-file and invalid-schema paths w
     [invalid, "SQLite"],
     [incomplete, "格式不符"],
   ]) {
-    const config = { clsDbPath: path!, newsPythonExecutable: "python" };
+    const config = source(path!);
     expect((await checkNewsSources(config, config)).database).toMatchObject({
       ok: false,
       message: expect.stringContaining(message!),
@@ -90,7 +156,7 @@ it("reports unconfigured, missing, relative, non-file and invalid-schema paths w
 it("reports Python failures separately from the database result", async () => {
   const path = fixture("python-failure.db");
   python.mockRejectedValue(new Error("Python 不可执行"));
-  const config = { clsDbPath: path, newsPythonExecutable: "missing-python" };
+  const config = source(path, "missing-python");
   expect(await checkNewsSources(config, config)).toMatchObject({
     database: { ok: true },
     python: { ok: false, message: "Python 不可执行" },

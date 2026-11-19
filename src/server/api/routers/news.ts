@@ -36,6 +36,7 @@ import {
 import { verifyClsSample } from "../../news/cls-verification";
 import { sqlite as chartSqlite } from "../../db";
 import { newsBudget } from "../../news/news-budget";
+import { newsArchiveOptions } from "../../news/news-archives";
 import { readClsNews } from "../../data-sources/cls/cls-news";
 import { newsSectorHistory } from "../../db/news-sector-history";
 import { aggregateNewsDay } from "../../news/news-day";
@@ -104,6 +105,7 @@ export const newsRouter = createTRPCRouter({
     .query(({ input }) => clsReportSamples(chartSqlite(), input)),
   newsAnalysisContext: p("news", "read").query(() => ({
     model: researchModel(false),
+    archives: newsArchiveOptions(settings()),
   })),
   newsTaskState: p("news", "read")
     .input(z.string().min(1).max(200))
@@ -129,7 +131,7 @@ export const newsRouter = createTRPCRouter({
     }),
   newsWorkspace: p("news", "read")
     .input(newsWorkspaceSchema)
-    .query(({ input }) => newsWorkspacePage(settings().clsDbPath, input)),
+    .query(({ input }) => newsWorkspacePage(settings(), input)),
   newsOriginal: p("news", "read")
     .input(
       z.object({
@@ -139,12 +141,7 @@ export const newsRouter = createTRPCRouter({
       }),
     )
     .query(({ input }) =>
-      newsWorkspaceDetail(
-        settings().clsDbPath,
-        input.filter,
-        input.id,
-        input.source,
-      ),
+      newsWorkspaceDetail(settings(), input.filter, input.id, input.source),
     ),
   newsArchiveHistory: p("news", "read")
     .input(newsArchiveQuerySchema)

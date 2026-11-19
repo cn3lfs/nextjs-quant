@@ -11,6 +11,12 @@ import {
   seedNewsAnalyses,
   newsFixtureCutoff,
 } from "../helpers/news-workspace-fixture";
+const config = (path: string) => ({
+  clsDbPath: path,
+  clsDbRole: "unspecified" as const,
+  clsComplementDbPath: "",
+  clsComplementDbRole: "" as const,
+});
 const logs = join(tmpdir(), "logs", "quant-news");
 const before = JSON.parse(readFileSync(join(logs, "sql-before.json"), "utf8"));
 const results: unknown[] = [];
@@ -58,7 +64,7 @@ for (const old of before.results.filter(
   const explain = queryPlan(
     db,
     () =>
-      newsWorkspacePage(path, {
+      newsWorkspacePage(config(path), {
         cutoff: newsFixtureCutoff,
         historical: true,
         query: old.query,
@@ -78,7 +84,7 @@ for (const old of before.results.filter(
     query: old.query,
     before: { p50: old.p50, p95: old.p95, bytes: old.bytes },
     after: measure(() =>
-      newsWorkspacePage(path, {
+      newsWorkspacePage(config(path), {
         cutoff: newsFixtureCutoff,
         historical: true,
         query: old.query,
