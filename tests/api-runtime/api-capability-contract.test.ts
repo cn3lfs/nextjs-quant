@@ -1,21 +1,25 @@
 import { initTRPC } from "@trpc/server";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import {
-  capabilities,
   capabilityAllows,
   isCapabilityBinding,
 } from "~/lib/common/capabilities";
 import { appRouter } from "~/server/api/root";
+import { capabilityProcedure, createTRPCRouter } from "~/server/api/trpc";
+
+vi.mock("~/lib/common/capabilities", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("~/lib/common/capabilities")>();
+  return { ...actual, capabilityAllows: vi.fn(actual.capabilityAllows) };
+});
 
 type Procedure = { _def: { meta?: unknown } };
 function assertDeclaredCapabilities(procedures: Record<string, Procedure>) {
   for (const [name, procedure] of Object.entries(procedures)) {
-    expect(procedure._def.meta, `${name} must declare its capability`).toEqual({
-      capability: expect.stringMatching(
-        new RegExp(`^(${Object.keys(capabilities).join("|")})$`),
-      ),
-      operation: expect.stringMatching(/^(read|configure|compute|schedule)$/),
-    });
+    expect(
+      isCapabilityBinding(procedure._def.meta),
+      `${name} must declare its capability and operation`,
+    ).toBe(true);
   }
 }
 
@@ -23,17 +27,40 @@ it("every registered API explicitly declares a known capability and operation", 
   assertDeclaredCapabilities(appRouter._def.procedures);
 });
 
-it("only the explicitly paused intraday execution is denied in the current API", () => {
-  const denied = Object.entries(appRouter._def.procedures)
-    .filter(([, procedure]) => {
-      const binding = procedure._def.meta;
-      return (
-        !isCapabilityBinding(binding) ||
-        !capabilityAllows(binding.capability, binding.operation)
-      );
-    })
-    .map(([name]) => name);
-  expect(denied).toEqual(["intradayRun"]);
+it.each(["query", "mutation"] as const)(
+  "checks policy before executing a %s handler",
+  async (kind) => {
+    const handler = vi.fn(() => "executed");
+    const policy = vi.mocked(capabilityAllows);
+    const caller = createTRPCRouter({
+      run: capabilityProcedure("market", "compute")[kind](handler),
+    }).createCaller({ headers: new Headers() });
+
+    policy.mockClear();
+    policy.mockReturnValueOnce(false);
+    await expect(caller.run()).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+    });
+    expect(policy).toHaveBeenCalledExactlyOnceWith("market", "compute");
+    expect(handler).not.toHaveBeenCalled();
+
+    policy.mockClear();
+    policy.mockReturnValueOnce(true);
+    await expect(caller.run()).resolves.toBe("executed");
+    expect(policy).toHaveBeenCalledExactlyOnceWith("market", "compute");
+    expect(handler).toHaveBeenCalledTimes(1);
+  },
+);
+
+it.each([
+  { capability: "future-capability", operation: "read" },
+  { capability: "market", operation: "future-operation" },
+  { capability: "constructor", operation: "read" },
+  { capability: "__proto__", operation: "read" },
+])("rejects an invalid capability binding %o", (meta) => {
+  expect(() =>
+    assertDeclaredCapabilities({ invalidMetadata: { _def: { meta } } }),
+  ).toThrow("invalidMetadata must declare its capability and operation");
 });
 
 it.each([

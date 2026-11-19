@@ -13,15 +13,15 @@ tRPC API 验证输入并调用用例，client/server adapter 负责传输；jobs
 
 ## 契约与依赖
 
-root router 平面合并当前 procedure；当前清单以 `tests/api-runtime/api-router-contract.test.ts` 为准。`mergeTRPCRouters` 平面合并，保持名称、输入输出 schema、错误语义、授权检查位置与客户端推断；禁止将域 router 嵌套导致 wire path 改名。运行依赖方向为 transport → API/domain use case → db repository/data-source；runtime 只做生命周期组装。
+`src/server/api/routers/` 的域 router 是 procedure 的注册来源；root 只做平面合并。`tests/api-runtime/api-router-contract.test.ts` 独立发现域 router，验证平面装配、跨域重名、关键 wire path 与 query/mutation 类型。`mergeTRPCRouters` 保持名称、输入输出 schema、错误语义、授权检查位置与客户端推断；禁止将域 router 嵌套导致 wire path 改名。运行依赖方向为 transport → API/domain use case → db repository/data-source；runtime 只做生命周期组装。
 
 ## 状态、副作用与验证
 
-调 API 可能创建 SQLite 任务、启动 worker、访问文件/网络、调用 DLL 或排队通知。worker 的取消、进度、错误、重启恢复和实际构建路径均为运行契约。代表验证：[api-router-contract](../../tests/api-runtime/api-router-contract.test.ts)、[server-layout](../../tests/engineering-validation/server-layout.test.ts)、[jobs](../../tests/persistence-infrastructure/jobs.test.ts)、[worker-pool](../../tests/engineering-validation/worker-pool.test.ts)、[intraday-worker](../../tests/strategy-signals/intraday/intraday-worker.test.ts)。改动 API/runtime 后须相关测试、typecheck、全量 test/build，并重建/检查受影响 worker。
+调 API 可能创建 SQLite 任务、启动 worker、访问文件/网络、调用 DLL 或排队通知。worker 的取消、进度、错误、重启恢复和实际构建路径均为运行契约。代表验证：[api-router-contract](../../tests/api-runtime/api-router-contract.test.ts)、[server-layout](../../tests/engineering-validation/server-layout.test.ts)、[jobs](../../tests/persistence-infrastructure/jobs.test.ts)、[worker-pool](../../tests/engineering-validation/worker-pool.test.ts)、[intraday-worker](../../tests/strategy-signals/intraday/intraday-worker.test.ts)。按改动影响执行定向测试与 typecheck；完整 test/build 在集成交付点执行，涉及 worker 时重建并检查受影响入口。
 
 ## 维护指南
 
-新 procedure 放所属域 router，不加回组合根；域 router 仅连接 schema 与用例。新增 worker 要同时更新构建清单、runtime 消费路径和专属生命周期测试；不要把 transport 结构复制进服务层。
+新 procedure 放所属域 router，不在组合根手写展开；域 router 仅连接 schema 与用例。新增 worker 同步其构建入口与 runtime 消费路径，并补专属生命周期测试；不要把 transport 结构复制进服务层。
 
 ## 任务概览与取消受理
 

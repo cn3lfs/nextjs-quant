@@ -1,68 +1,30 @@
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { dirname, resolve, relative, join } from "node:path";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { posix, relative, resolve } from "node:path";
+import { build, type BuildOptions } from "esbuild";
 import ts from "typescript";
-import { expect, it } from "vitest";
-const root = process.cwd();
-const slash = (p: string) => p.replaceAll("\\", "/");
-const files = readdirSync("src/server", { recursive: true })
-  .map(String)
-  .filter((p) => p.endsWith(".ts"))
-  .map((p) => `src/server/${slash(p)}`);
-function resolveLocal(file: string, id: string) {
-  const base = id.startsWith("~/")
-    ? resolve("src", id.slice(2))
-    : id.startsWith(".")
-      ? resolve(dirname(file), id)
-      : null;
-  if (!base) return null;
-  return [
-    base,
-    `${base}.ts`,
-    `${base}.tsx`,
-    `${base}.js`,
-    join(base, "index.ts"),
-  ].find((p) => existsSync(p) && statSync(p).isFile());
+import { beforeAll, expect, it } from "vitest";
+import { checkDependencies } from "../../scripts/lib/dependency-check";
+
+const slash = (path: string) => path.replaceAll("\\", "/");
+const normalized = (path: string) => posix.normalize(slash(path));
+const parse = (file: string) =>
+  ts.createSourceFile(
+    file,
+    readFileSync(file, "utf8"),
+    ts.ScriptTarget.Latest,
+    true,
+  );
+
+function walk(node: ts.Node, visit: (node: ts.Node) => void) {
+  visit(node);
+  ts.forEachChild(node, (child) => walk(child, visit));
 }
-function graph() {
-  const missing: string[] = [];
-  const edges = new Map<string, string[]>();
-  for (const file of files) {
-    const ast = ts.createSourceFile(
-      file,
-      readFileSync(file, "utf8"),
-      ts.ScriptTarget.Latest,
-      true,
-    );
-    const dependencies: string[] = [];
-    function visit(node: ts.Node) {
-      if (
-        (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
-        node.moduleSpecifier &&
-        ts.isStringLiteral(node.moduleSpecifier)
-      ) {
-        const id = node.moduleSpecifier.text;
-        const target = resolveLocal(file, id);
-        if ((id.startsWith(".") || id.startsWith("~/")) && !target)
-          missing.push(`${file}: ${id}`);
-        const typeOnly = ts.isImportDeclaration(node)
-          ? node.importClause?.isTypeOnly ||
-            (!node.importClause?.name &&
-              node.importClause?.namedBindings &&
-              ts.isNamedImports(node.importClause.namedBindings) &&
-              node.importClause.namedBindings.elements.every(
-                (e) => e.isTypeOnly,
-              ))
-          : node.isTypeOnly;
-        if (target && !typeOnly)
-          dependencies.push(slash(relative(root, target)));
-      }
-      ts.forEachChild(node, visit);
-    }
-    visit(ast);
-    edges.set(file, dependencies);
-  }
-  return { edges, missing };
-}
+
+let modules: Awaited<ReturnType<typeof checkDependencies>>["modules"];
+beforeAll(async () => {
+  ({ modules } = await checkDependencies());
+}, 60_000);
+
 function upwardDataDependencies(edges: Map<string, string[]>) {
   const violations: string[] = [];
   for (const file of edges.keys()) {
@@ -79,25 +41,47 @@ function upwardDataDependencies(edges: Map<string, string[]>) {
   }
   return violations;
 }
-it("keeps only the composition root and protected MCP modules at server root", () => {
-  expect(
-    readdirSync("src/server")
-      .filter((p) => p.endsWith(".ts"))
-      .sort(),
-  ).toEqual([
-    "connection-pool.ts",
-    "mcp-health.ts",
-    "mcp-session.ts",
-    "mcp.ts",
-    "runtime.ts",
-    "vault.ts",
-  ]);
+
+it("resolves the runtime and API composition roots and the protected MCP module", () => {
+  const indexed = new Set(modules.map(({ source }) => source));
+  for (const file of [
+    "src/server/runtime.ts",
+    "src/server/api/root.ts",
+    "src/server/mcp.ts",
+  ]) {
+    expect(statSync(file).isFile(), file).toBe(true);
+    expect(indexed.has(file), file).toBe(true);
+    expect(
+      parse(file).statements.some(
+        (statement) =>
+          ts.canHaveModifiers(statement) &&
+          ts
+            .getModifiers(statement)
+            ?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword),
+      ),
+      file,
+    ).toBe(true);
+  }
 });
-it("resolves service imports and keeps providers below strategy/backtest orchestration", () => {
-  const { edges, missing } = graph();
+
+it("resolves service imports and bars indirect provider dependencies on orchestration", () => {
+  const missing: string[] = [];
+  const edges = new Map<string, string[]>();
+  for (const { source, dependencies } of modules) {
+    if (source.startsWith("src/server/"))
+      for (const dep of dependencies)
+        if (dep.couldNotResolve) missing.push(`${source}: ${dep.module}`);
+    edges.set(
+      source,
+      dependencies
+        .filter((dep) => !dep.dependencyTypes.includes("type-only"))
+        .map((dep) => dep.resolved),
+    );
+  }
   expect(missing).toEqual([]);
   expect(upwardDataDependencies(edges)).toEqual([]);
 });
+
 it("detects indirect provider dependencies on orchestration", () => {
   const bad = new Map([
     [
@@ -115,23 +99,218 @@ it("detects indirect provider dependencies on orchestration", () => {
     "src/server/data-sources/test/performance-provider.ts -> src/server/performance/backtest-evaluation.ts",
   ]);
 });
-it("keeps every worker source entry resolvable and emitted runtime filenames stable", () => {
-  const source = readFileSync("scripts/build-runtime.mjs", "utf8");
-  const entries = [...source.matchAll(/entryPoints: \["([^"]+)"\]/g)].map(
-    (m) => m[1]!,
+
+type RuntimeFormat = "cjs" | "esm";
+type RuntimeBuild = BuildOptions & {
+  entryPoints: string[];
+  outfile: string;
+  format: RuntimeFormat;
+};
+
+function stringLiteral(node: ts.Node | undefined) {
+  return node && ts.isStringLiteralLike(node) ? node.text : undefined;
+}
+
+function runtimeBuilds() {
+  const script = parse("scripts/build-runtime.mjs");
+  const options: RuntimeBuild[] = [];
+  walk(script, (node) => {
+    if (!ts.isCallExpression(node) || node.expression.getText() !== "build")
+      return;
+    const declaration = node.arguments[0];
+    if (!declaration || !ts.isObjectLiteralExpression(declaration))
+      throw new Error(`Expected an esbuild options object: ${node.getText()}`);
+    const fields = new Map(
+      declaration.properties
+        .filter(ts.isPropertyAssignment)
+        .map(({ name, initializer }) => [
+          stringLiteral(name) ?? name.getText(),
+          initializer,
+        ]),
+    );
+    const entry = fields.get("entryPoints");
+    const outfile = stringLiteral(fields.get("outfile"));
+    const format = stringLiteral(fields.get("format"));
+    if (
+      !entry ||
+      !ts.isArrayLiteralExpression(entry) ||
+      !outfile ||
+      (format !== "cjs" && format !== "esm")
+    )
+      throw new Error(
+        `Declare explicit entryPoints, outfile and format: ${node.getText()}`,
+      );
+    expect(fields.get("write")?.kind, outfile).not.toBe(
+      ts.SyntaxKind.FalseKeyword,
+    );
+    const entryPoints = entry.elements.map((value) => {
+      const path = stringLiteral(value);
+      if (!path)
+        throw new Error(`Expected a literal build entry: ${value.getText()}`);
+      return path;
+    });
+    const external = fields.get("external");
+    const platform = stringLiteral(fields.get("platform"));
+    options.push({
+      entryPoints,
+      outfile: normalized(outfile),
+      format,
+      bundle: fields.get("bundle")?.kind === ts.SyntaxKind.TrueKeyword,
+      platform: platform as BuildOptions["platform"],
+      target: stringLiteral(fields.get("target")),
+      external:
+        external && ts.isArrayLiteralExpression(external)
+          ? external.elements.map((value) => {
+              const name = stringLiteral(value);
+              if (!name)
+                throw new Error(
+                  `Expected a literal external package: ${value.getText()}`,
+                );
+              return name;
+            })
+          : undefined,
+    });
+  });
+  return options;
+}
+
+function formatFromPath(path: string): RuntimeFormat | undefined {
+  if (path.endsWith(".cjs")) return "cjs";
+  if (path.endsWith(".mjs")) return "esm";
+  return undefined;
+}
+
+function runtimeConsumers(entries: readonly RuntimeBuild[]) {
+  const consumers: { file: string; path: string; format?: RuntimeFormat }[] =
+    [];
+  const add = (file: string, path: string, format?: RuntimeFormat) =>
+    consumers.push({ file, path: normalized(path), format });
+  const packageMain = (
+    JSON.parse(readFileSync("package.json", "utf8")) as { main: string }
+  ).main;
+  expect(normalized(packageMain), "Electron package main").toMatch(
+    /^desktop\//,
   );
-  expect(entries.length).toBeGreaterThanOrEqual(8);
-  for (const entry of entries) expect(existsSync(entry), entry).toBe(true);
-  const outputs = [...source.matchAll(/outfile: "(runtime\/[^\"]+)"/g)]
-    .map((m) => m[1]!)
-    .sort();
-  expect(outputs).toEqual([
-    "runtime/czsc-worker.cjs",
-    "runtime/discipline-worker.cjs",
-    "runtime/intraday-worker.cjs",
-    "runtime/rps-worker.cjs",
-    "runtime/westock-preload.mjs",
-    "runtime/worker.cjs",
-    "runtime/workflow-runner.cjs",
-  ]);
+  add("package.json", packageMain);
+
+  const byPath = new Map(modules.map((module) => [module.source, module]));
+  const visited = new Set<string>();
+  function visit(file: string) {
+    if (visited.has(file)) return;
+    visited.add(file);
+    const ast = parse(file);
+    walk(ast, (node) => {
+      let target: ts.Node | undefined;
+      let format: RuntimeFormat | undefined;
+      let directory: "runtime" | "desktop" = "runtime";
+      if (ts.isNewExpression(node) && node.expression.getText() === "Worker") {
+        target = node.arguments?.[0];
+      } else if (
+        ts.isCallExpression(node) &&
+        node.expression.getText() === "fork"
+      ) {
+        target = node.arguments[0];
+      } else if (
+        ts.isCallExpression(node) &&
+        node.expression.getText() === "Reflect.construct" &&
+        node.arguments[0]?.getText() === "Worker"
+      ) {
+        const args = node.arguments[1];
+        if (args && ts.isArrayLiteralExpression(args))
+          target = args.elements[0];
+      } else if (ts.isArrayLiteralExpression(node)) {
+        const preloadFlags = ["--import", "--require", "-r"];
+        const index = node.elements.findIndex((value) =>
+          preloadFlags.includes(stringLiteral(value) ?? ""),
+        );
+        if (index !== -1) {
+          target = node.elements[index + 1];
+          format =
+            stringLiteral(node.elements[index]) === "--import" ? "esm" : "cjs";
+        }
+      } else if (
+        file.startsWith("electron/") &&
+        ts.isPropertyAssignment(node) &&
+        (stringLiteral(node.name) ?? node.name.getText()) === "preload"
+      ) {
+        target = node.initializer;
+        directory = "desktop";
+        format = "cjs";
+      }
+      if (!target) return;
+      walk(target, (value) => {
+        const path = stringLiteral(value);
+        if (path && /\.(?:[cm]?js)$/.test(path))
+          add(
+            file,
+            path.includes("/") || path.includes("\\")
+              ? path
+              : `${directory}/${path}`,
+            format,
+          );
+      });
+    });
+    for (const dep of byPath.get(file)?.dependencies ?? [])
+      if (
+        dep.resolved.startsWith("src/") &&
+        !dep.dependencyTypes.includes("type-only")
+      )
+        visit(dep.resolved);
+  }
+
+  // Follow production entry points. Retired clients still used by test fixtures
+  // are not active hosts and must not require shipping their old bundles.
+  visit("src/server/runtime.ts");
+  visit("src/server/api/root.ts");
+  for (const { source } of modules)
+    if (/^src\/(app\/|instrumentation\.)/.test(source)) visit(source);
+  for (const entry of entries.flatMap(({ entryPoints }) => entryPoints))
+    if (!visited.has(normalized(entry))) visit(normalized(entry));
+  for (const script of readdirSync("scripts").filter((file) =>
+    file.endsWith(".ps1"),
+  )) {
+    const file = `scripts/${script}`;
+    for (const match of readFileSync(file, "utf8").matchAll(
+      /\bruntime[\\/][\w./\\-]+\.[cm]?js\b/g,
+    ))
+      add(file, match[0]);
+  }
+  return consumers;
+}
+
+it("builds runtime and desktop entries without collisions and satisfies their production loaders", async () => {
+  const entries = runtimeBuilds();
+  const outputs = new Map<string, RuntimeFormat>();
+  for (const { entryPoints, outfile, format } of entries) {
+    expect(entryPoints, outfile).not.toHaveLength(0);
+    for (const entry of entryPoints)
+      expect(statSync(entry).isFile(), entry).toBe(true);
+    expect(outfile, `output for ${entryPoints.join(", ")}`).toMatch(
+      /^(runtime|desktop)\/.+/,
+    );
+    expect(formatFromPath(outfile), outfile).toBe(format);
+    expect(
+      outputs.has(outfile.toLowerCase()),
+      `duplicate output: ${outfile}`,
+    ).toBe(false);
+    outputs.set(outfile.toLowerCase(), format);
+  }
+
+  const emitted = new Map<string, RuntimeFormat>();
+  for (const entry of entries) {
+    // Emit into memory from the current sources; old files cannot satisfy a loader.
+    const { outputFiles } = await build({ ...entry, write: false });
+    const paths = outputFiles.map((file) =>
+      slash(relative(resolve("."), file.path)),
+    );
+    expect(paths, entry.outfile).toContain(entry.outfile);
+    emitted.set(entry.outfile, entry.format);
+  }
+  for (const { file, path, format } of runtimeConsumers(entries)) {
+    expect(emitted.has(path), `${file} loads missing ${path}`).toBe(true);
+    if (format)
+      expect(emitted.get(path), `${file} loads ${path} as ${format}`).toBe(
+        format,
+      );
+  }
 });

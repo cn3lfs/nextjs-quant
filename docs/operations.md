@@ -15,15 +15,14 @@ pnpm dev
 
 ## 验证分层
 
-| 层级     | 自动检查                                                               | 交互与交付检查                                                         |
-| -------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| 改动级   | `pnpm exec vitest run --changed` + `pnpm typecheck`                    | 不跑桌面或 Playwright                                                  |
-| 子任务级 | `pnpm test`                                                            | 仅针对新增失败补查，不循环全套                                         |
-| 里程碑级 | `pnpm typecheck` → `pnpm test` → `pnpm build` → `pnpm desktop:prepare` | 有环境能力时运行受影响桌面/浏览器验证；打包按授权，用户做 B 层人工核对 |
+| 层级       | 自动检查                                            | 交互与交付检查                                                           |
+| ---------- | --------------------------------------------------- | ------------------------------------------------------------------------ |
+| 改动级     | `pnpm exec vitest run --changed` + `pnpm typecheck` | 只跑受影响的桌面/浏览器路径                                              |
+| 集成交付点 | `pnpm typecheck` → `pnpm test` → `pnpm build`       | 涉及桌面宿主或打包时再执行 `desktop:prepare`；打包按授权，用户做人工核对 |
 
-纯文档任务检查内容、链接和diff；不因手册列出命令就运行应用全套。测试数量以当前实际输出为准，不靠删测试对齐历史数字。
+纯文档任务检查内容、链接和 diff；不因手册列出命令就运行应用全套。测试数量以当前实际输出为准，不靠删测试对齐历史数字。
 
-[vitest.config.ts](../vitest.config.ts) 已挂 [tests/setup-data-dir.ts](../tests/setup-data-dir.ts)，未设变量时每测试文件创建 `quant-test-*` 临时目录；它使用 `??=`，**不会覆盖已有 QUANT_DATA_DIR**。全量测试前查看并清除当前 shell 的继承值，让默认隔离生效：
+[vitest.config.ts](../vitest.config.ts) 已挂 [tests/setup-data-dir.ts](../tests/setup-data-dir.ts)：它把已有 `QUANT_DATA_DIR` 视为安全的父目录，在其下为每个测试文件新建 `quant-test-*` 子目录；未设置时使用系统临时目录。**不会把多个测试文件放进同一个可写库**。全量测试前查看并清除当前 shell 的继承值，让默认隔离生效：
 
 ```powershell
 Get-Item Env:QUANT_DATA_DIR -ErrorAction SilentlyContinue
@@ -63,7 +62,7 @@ node scripts/desktop-smoke.mjs --packaged
 
 `.npmrc` 固定 `node-linker=hoisted`，已安装旧布局的工作区需先重新执行 `pnpm install --frozen-lockfile`。准备阶段实体化 standalone 模块链接，打包阶段检查服务入口依赖与残留链接；不满足时保留旧包并停止。独立交付检查需将整个 `win-unpacked` 放到无父级 `node_modules` 的目录，令原构建路径不可用，清空 `NODE_PATH`，再验证 EXE 和 bundled server；仅在源码树内启动可能掩盖缺失依赖。此布局依据 [Electron 官方安装说明](https://www.electronjs.org/docs/latest/tutorial/tutorial-first-app)。
 
-新增 migrations.ts 条目就意味着旧打包版落后；获授权后重打包并验收。禁止修改 user_version 或删库让旧 exe 强行启动。本次文档任务无迁移、无打包。
+新增 migrations.ts 条目后，旧打包版会拒绝更高版本库；正式交付时配套更新桌面版本并验收。禁止修改 user_version 或删库让旧 exe 强行启动。
 
 ## 数据、凭证、日志的位置
 
@@ -110,7 +109,7 @@ Get-FileHash vendor/czsc/CZSC64.dll -Algorithm SHA256
 Get-FileHash runtime/czsc/CZSC64.dll -Algorithm SHA256
 ```
 
-若副本不一致，先退出持有 DLL 的应用/worker，再 `pnpm runtime:build`。vendor 本身与 golden 不符应交管理者核对/重建，不调整测试期望或偷偷换 FFI。数据不足明确“无结构”不是 golden 通过。
+若副本不一致，先退出持有 DLL 的应用/worker，再 `pnpm runtime:build`。vendor 本身与 golden 不符时按 vendor 清单核对来源；无法解释时保留失败，不调整测试期望或偷偷换 FFI。数据不足明确“无结构”不是 golden 通过。
 
 ### 测试偶发文件级失败 / DLL EBUSY
 
@@ -135,6 +134,6 @@ Get-FileHash runtime/czsc/CZSC64.dll -Algorithm SHA256
 
 删除前解析完整目标并确认位于预期目录；只用 PowerShell LiteralPath，勿跨 shell 拼接删除。这里不给批量删数据脚本。SQLite 内的“缓存”可能与不可变证据、报告、台账共库，没有经核实的通用安全清库流程；**不要手工删表、quant.sqlite、WAL 或 credentials**。需要备份时停止全部读写进程后完整保留数据目录，恢复须匹配应用版本及 DPAPI 身份，跨 Windows 身份可恢复性未核实。
 
-## 文档与复现脚本的旧路径
+## 文档与复现脚本路径
 
-核对材料已按模块归入 `market-chart`、`strategy-signals`、`screening-rps`、`portfolio-ledger` 等目录；当前待办见 [review-todo.md](market-chart/review-todo.md)。旧持久浏览器/实操脚本仍硬编码原输出路径，属于 tests/，本次不修改也不运行。再次生成证据前需在独立获授权任务中迁移这些路径，不能让脚本重建已删除的 m2-review/n3-review 或 output。两份消息样本现由 `strategy-signals` 模块记录承接。
+核对材料已按模块归入 `market-chart`、`strategy-signals`、`screening-rps`、`portfolio-ledger` 等目录；当前待办见 [review-todo.md](market-chart/review-todo.md)。部分历史脚本仍引用旧输出路径，运行前先核对目标；需要再次生成证据时，按当前任务更新路径，不在仓库根重建旧目录。两份消息样本由 `strategy-signals` 模块记录承接。

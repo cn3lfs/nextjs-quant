@@ -9,7 +9,7 @@
 ## 入口与消费者
 
 - 基础控件入口为 `src/components/ui/`，经 `~/components/ui/<control>` 被业务组件组合。
-- 共享页面示例为 [UI Gallery](../../src/components/common/ui-gallery.tsx)，route 只在 [ui-gallery/page.tsx](../../src/app/ui-gallery/page.tsx) 装配。
+- 共享页面示例为 [UI Gallery](../../src/components/common/ui-gallery.tsx)，route 只在 [ui-gallery/page.tsx](../../src/app/system/ui-gallery/page.tsx) 装配。
 - class merge 辅助为 [classnames.ts](../../src/lib/common/classnames.ts)。
 - `disabled-tdx-connections.tsx` 是未挂载的兼容控件，当前无消费者；它与受保护 MCP UI 保持原样，启用或迁移前需先确认 owner。
 
@@ -19,7 +19,7 @@
 
 ## 状态、副作用与验证
 
-控件只持有短暂交互状态，不拥有业务持久化；UI Gallery 中的表单、对话框和表格为演示数据，不请求 API。代表验证：[UI Gallery route 结构](../../src/app/ui-gallery/page.tsx)、[弹层与导航交互](../../tests/browser/market-toolbar-browser.mjs)、[组件域边界](../../tests/engineering-validation/src-organization.test.ts)。
+控件只持有短暂交互状态，不拥有业务持久化；UI Gallery 中的表单、对话框和表格为演示数据，不请求 API。代表验证：[UI Gallery route 结构](../../src/app/system/ui-gallery/page.tsx)、[弹层与导航交互](../../tests/browser/market-toolbar-browser.mjs)、[组件域边界](../../tests/engineering-validation/src-organization.test.ts)。
 
 ## 维护指南
 
@@ -29,4 +29,4 @@
 
 DataTable 通过唯一 `aria-describedby` 关联键盘排序说明，只给可排序表格提供；现有按钮与表头 `aria-sort` 保持。列适配以调用方 columns 引用为 memo 边界，不接入客户端排序或分页。Gallery 已有正常/加载/空/失败/重试和排序样例；`r1-data-table.test.ts` 与 `news-shared-ui-browser.mjs` 分别验证语义标记和实际 Enter/空格交互。
 
-新增基础控件放 `src/components/ui/`；跨业务稳定复用的展示组件放 `common/`；带业务词汇、API 或领域状态的组件必须归入对应 domain。新增组件补 Gallery 样例或在所属模块文档说明，不将 Gallery 样例数据接入真实服务。
+新增基础控件放 `src/components/ui/`；跨业务稳定复用的展示组件放 `common/`；带业务词汇、API 或领域状态的组件归入对应 domain。共享 token 变更更新 Gallery 展示并按受影响页面验收，不将 Gallery 样例数据接入真实服务。

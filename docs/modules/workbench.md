@@ -22,9 +22,9 @@
 
 首页拥有自己的查询；排名选择保存在 URL 的 rank 参数。设置、证券名称、自选与研究模型由消费页面订阅；外壳只装配导航、toast 和侧栏，不订阅共享行情。
 
-PanelCache 仅记录 panels 中注册的路径；普通路由不生成空缓存位置，也不改变已有面板的 LRU 顺序。普通路由显示时，已有面板全部收到不可见状态。底层通用缓存仍支持六面板 LRU；应用只登记三页，因此正常导航不触发淘汰，生命周期回归见 [panel-cache-browser](../../tests/browser/panel-cache-browser.mjs)。
+PanelCache 仅记录 panels 中注册的路径；普通路由不生成空缓存位置，也不改变已有面板的 LRU 顺序。普通路由显示时，已有面板全部收到不可见状态。当前应用注册三页，底层通用缓存支持六面板 LRU，因此正常导航不触发淘汰；新增或调整页面时按实际存活需求登记。生命周期回归见 [panel-cache-browser](../../tests/browser/panel-cache-browser.mjs)。
 
-路由 query/path 与 client query cache 影响导航和刷新；工作台壳不应自行持久化业务实体。代表性验证：[workbench-refactor.test.ts](../../tests/workbench/workbench-refactor.test.ts)、[t4-desktop-guards.test.ts](../../tests/desktop-build/t4-desktop-guards.test.ts)。涉及真实页面交互时再按受影响路径做浏览器验收；结构指纹失败需精确更新并增加行为断言。
+路由 query/path 与 client query cache 影响导航和刷新；工作台壳不应自行持久化业务实体。代表性验证：[workbench-refactor.test.ts](../../tests/workbench/workbench-refactor.test.ts)、[t4-desktop-guards.test.ts](../../tests/desktop-build/t4-desktop-guards.test.ts)。涉及真实页面交互时按受影响路径做浏览器验收，以渲染与交互行为断言为准。
 
 **客户端缓存持久化**（[persist.ts](../../src/trpc/persist.ts)）：`PersistProvider` 与库自带 `PersistQueryClientProvider` 同一契约（启动恢复一次、恢复期间 `useIsRestoring`），但保存只由"需持久化查询拿到新数据"触发并 2 秒节流。库自带实现在任何查询缓存事件（包括每 4 秒的投递轮询）上 dehydrate，而 `dehydrate.serializeData` 为 SuperJSON，每次都序列化整个证券名录等持久化数据，空闲页面因此长期占用主线程。投递列表只在总览/信号页 4 秒轮询，其他页 30 秒（仅用于侧栏失败角标）。
 
@@ -50,7 +50,7 @@ newsBudget 与研究技能查询按 PanelVisible 暂停；删除本组件未消�
 
 ## 任务中心的状态与恢复（2026-11-13）
 
-任务中心由 [tasks/page.tsx](../../src/app/tasks/page.tsx) 直接承载，已移出外壳面板缓存及预加载队列，不接收 WorkbenchState。`taskOverview` 对全部已记录 Job 聚合计数，今日完成按北京时间日界；失败和取消为历史累计，统计独立于列表筛选。侧栏直接消费全量 taskOverview，筛选页的近期任务列表单独查询，任务中心的刷新频率由自身概览决定。历史列表仍为 20 条游标分页；列表和详情不返回原始 input/result。
+任务中心由 [tasks/page.tsx](../../src/app/system/tasks/page.tsx) 直接承载，已移出外壳面板缓存及预加载队列，不接收 WorkbenchState。`taskOverview` 对全部已记录 Job 聚合计数，今日完成按北京时间日界；失败和取消为历史累计，统计独立于列表筛选。侧栏直接消费全量 taskOverview，筛选页的近期任务列表单独查询，任务中心的刷新频率由自身概览决定。历史列表仍为 20 条游标分页；列表和详情不返回原始 input/result。
 
 [最近错误](../../src/components/workbench/recent-errors.tsx) 通过 `recentErrors` 只读查询展示最近 30 组诊断，显示模块/阶段、固定摘要、错误码、次数、首次/最近时间及已知重试次数；有效任务编号链接到 `/tasks?id=...`。页面可见且聚焦时每 30 秒读取，隐藏停止、返回恢复，手动刷新失败保留上次结果并注明。空记录、日志不可读和本进程漏记分别提示。存储与敏感信息边界见[工程约定](../conventions.md)，不展示供应商原始请求/响应；组件浏览器回归使用受控传输，不代替真实渠道/账户联调。
 

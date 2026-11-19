@@ -1,293 +1,79 @@
 # 当前实施计划
 
-## 当前阶段：UI 布局与信息噪音深度重设计（全站 7/7 工作区已完成并验收，待用户审阅反馈）
+## 当前阶段：THSDK 全量数据源打通（已立项）
 
-2026-11-19 按「Google Stitch 浅色定稿 → 多 Agent 互斥实施 → 全站 7/7 隔离实机验收与清理」闭环完成全部七大语义工作区重构（分支 `feat/global-optimization-20261119`，未提交、未打包）：
+用户已拍板将同花顺 `thsdk-hq` 作为全量数据源打通：全局数据源、看盘五档/分价/竞价/分时、情绪与板块、问财、资讯，以及研究/选股/回测的**可选**输入。实施规格见 [2026-11-19-thsdk-data-source-plan.md](data-sources/2026-11-19-thsdk-data-source-plan.md)。
 
-1. **Google Stitch 浅色定稿**：基于 `DESIGN.md` 建立唯一浅色 Design System，逐页生成并经视觉质检锁定 5 张核心桌面主稿（行情看盘 v2、持仓复盘、今日交易、选股筛选、策略回测）。
-2. **Wave A 公共降噪原语与 Phase 2 纯计算层**：新增 `MethodologyPopover`（全站统一口径说明弹层）、`FilterToolbar`（单行紧凑筛选栏）、`RiskDistanceBar`（止损/目标距离进度条）、`MonthlyReturnsHeatmap`（月度收益热力图与 Top 3 水下回撤），以及 `risk-distance.ts` / `monthly-heatmap.ts` 纯函数（24 项手算与缺失留空单测通过）。
-3. **Wave B & D 全站 7/7 工作区重构与精修**：
-   - **行情看盘（`/scan`）**：彻底移除图上大列表，重构为 `.nc-market-terminal` 可折叠三栏终端（左 240px 自选/扫描候选轨 + 中央最大化 K 线/缠论主图 + 右 268px 盘口/RPS/计划双价轨），Row 2 周期条实测高 30px 严格单行不折行；
-   - **持仓复盘（`/accounts`）**：5 行纵向筛选收拢为单行 `FilterToolbar`（实测高 50px），新增紧凑分币种 KPI 卡（触及止损以整数显示）与 36px 双账重叠横条，持仓表接入 `RiskDistanceBar`，`CryptoRiskNotes` 收至底部折叠区；
-   - **今日交易（`/`）**：压缩首屏堆叠横幅，重构为单行页头 + 6 格 Ribbon + `.nc-cockpit-grid` 7:3 驾驶舱（左：明日候选与进行中计划；右：持仓止损监控、市场温度分仓、关联快讯），次要模拟/系统明细收至底部折叠区；
-   - **选股筛选（`/scan?tab=formula|rps`）**：运行结果后公式表单自动收拢为 48px 条件摘要条，结果操作收拢进单行 `FilterToolbar`，选中个股展开 60/40 右侧冻结图表抽屉；
-   - **策略回测（`/lab`, `/lab/backtest`）**：单行 `FilterToolbar`、`PaperForwardStatus` 紧凑单行降噪、`LabDetail` 6 阶段流水线 + 7:3 双栏布局，回测报告接入 `MonthlyReturnsHeatmap`；
-   - **资讯研报（`/intel`）与系统设置/后台任务（`/system`, `/system/tasks`）**：统一升级单行 `FilterToolbar`（新闻检索 52px、系统分类胶囊 46px、任务筛选 50px）与右上角 `MethodologyPopover`，全站免责与工程说明全部收敛。
-4. **Wave C & E 最终验证与清理**：Wave C1 定向 Vitest 2,710 通过（宿主复验 `market-data` 56 文件 444 项全绿）+ Wave E1 31 文件 170 项通过 + 3 个独立浏览器脚本（资讯/任务/图表周期）全通过；`pnpm exec tsc --noEmit` exit 0、隔离 `pnpm build` exit 0、`git diff --check` exit 0、`src/server/mcp.ts` 零改动；真实 Chromium 全站 7/7 最终 44/44 实机断言与 1440/1024 双密度截图验收通过（0 `pageerror`、0 `console.error`、0 横向溢出）；所有临时服务已停、端口已释放，`.test-data/ui-redesign-20261119/`（142 文件 / ~150MB）已预演并 `-Apply` 精确清理（独立核验 `Test-Path=False`）。
-5. **后续排队规划（未实施）**：独立架构子代理已完成同花顺行情 SDK 调研与观澜自有适配方案，落盘于 [2026-11-19-thsdk-data-source-plan.md](data-sources/2026-11-19-thsdk-data-source-plan.md)，待用户审阅本轮 UI 成果并拍板 3 项关键架构决策后再行启动。
+- 驱动采用方案 B：独立 Node 子进程 + `koffi` 直连外部 `hq.dll`，不依赖 Python/pandas；运行时优先个人账号，显式开启的游客快速体验作为受支持的备选。
+- 按能力分别推进契约、离线 fixture、驱动隔离与字段核对；只有实际使用账号、产生费用、分发二进制或改变远端状态时才处理对应决定。
+- 当前状态：方案未实施。下一步从能力清单与驱动底座开始，不等待其他界面工作收口。
 
-## 当前优化交付状态（2026-11-19）
+## 当前界面与工程状态（2026-11-19）
 
-全局架构 / 功能 / 界面优化已按四个本地提交落地：服务端与组件按职责拆分、Schema v20 `workspace_preferences`、七个语义工作区与两档密度、六个跨模块闭环（含桌面托盘常驻与鉴权优雅关机）。Wave 4 独立终审与五份长期入口文档同步完成；集成工程门禁以本轮收口记录为准，不在此处转抄数字。后续候选能力统一回到[主流交易软件对标](project/2026-11-19-trading-software-benchmark.md)的 Phase 2 / Phase 3 储备池，立项前仍须回答数据能否支撑、是否需要新授权、验收用什么真实样本。
-
-## 全局工作台优化 Wave 2（2026-11-19）
-
-七工作区壳层接入本机标的查询与 SQLite v20 的界面偏好。验收覆盖标的跳转与目录未就绪提示、缓存恢复与偏好写入、侧栏展开和窄轨、原生控件与目录约束，以及 API 契约。Electron 托盘与业务内容页留到 Wave 3。
-
-## 第三方交易系统参考（2026-11-19）
-
-通达信、财联社和同花顺九篇资料的产品方案、每轮验收及数据条件集中记录在[交易参考单点优化计划](project/2026-11-19-trading-reference-iteration-plan.md)。
-
-## 共用工程底座 1/5（2026-11-19）
-
-Electron 仅在自身 Node 服务返回 `{status:"ok",app:"quant-workbench"}` 健康身份后导航；45s 单调截止按实际时钟判定，迟到的健康响应不认，1s 单探针与 100ms 可取消重试分别复核，ready 前后均复核进程退出/信号/quit。
-新增 `electron/startup-health.ts` 与 `tests/desktop-build/desktop-startup.test.ts`（20 项，含 mocked Electron 下 ready 后 child exit、quit 打断 smoke 等待/读取、code 0/信号退出不写 smoke 且不对已终止 PID taskkill 的接线），定向 vitest、`tsc --noEmit`、prettier 与 `git diff --check` 通过；未实机启动、构建或打包，未扩展 health 到 SQLite/调度器或新增依赖。
-
-## 共用工程底座 2/5（2026-11-19）
-
-Windows 托盘的「打开数据与日志目录」在本机服务启动失败时仍可用。非空相对 `QUANT_DATA_DIR` 沿旧版后端服务目录解析。桌面日志、服务与托盘共用该目录，既有库原位使用。目录缺失或打开失败显示固定提示，开始退出后不发起新的打开操作。
-
-模拟 Electron 覆盖正常与失败入口、相对路径、失效目录和退出竞态。专项测试 28 项通过，`tsc --noEmit`、Prettier 和 `git diff --check` 通过。未实机运行 Explorer。
-
-## 共用工程底座 3/5（2026-11-19）
-
-成功创建数据根后，桌面端把最先确认的启动结果追加到 `server.log`。每次最多一条 `[desktop-startup]` 记录，包含 UTC 时间和状态。退出时可附 Windows DWORD 退出码或已知信号。健康确认且首次页面加载完成后记录 `ready`。日志不可写时启动和退出照常。
-
-模拟 Electron 专项测试 38 项通过，覆盖首因、迟到退出、信号、宿主异常和日志写入失败。类型、格式、差异检查与主进程入口内存打包检查通过。未实机启动 Electron。
-
-## 共用工程底座 4/5（2026-11-19）
-
-桌面烟测在原有退出码、页面和行情源检查之外，要求本次隔离 `server.log` 中恰好有一条有效的 `ready` 记录。摘要区分进程结果和启动记录状态。启动异常、超时、信号退出、日志异常或行情源复读失败均判失败。
-
-两个专项测试文件共 45 项通过。另用合成文件和进程替身直接执行烟测入口，核对了正常、记录缺失、提前退出、启动异常、信号退出、行情源复读失败和超时后迟到的零退出码。类型、脚本语法、格式和差异检查通过。未启动实际 Electron 或读取真实通达信行情。
-
-## 共用工程底座 5/5（2026-11-19）
-
-`pnpm desktop:smoke --startup-only` 为显式隔离模式：未知参数在创建 profile、读行情或启动前失败；该模式完全不读 `E:/new_tdx64`，仍走真实 Electron → bundled Node → Today。runner 用现有 `temporaryDirectory` 独占的 mkdtemp profile，直接以本机 Node + tsx 调私有 seed；seed 先核对参数与 `QUANT_DATA_DIR` 一致且绝对、父目录为当前 `os.tmpdir()`、名称/真实路径/空目录/SQLite，再用共享 migrate 与 settings API 写入存在的空 tdxRoot、profile 内 CLS/行业路径、`marketDataSource=local`、空代理和默认空账户渠道，并以仍存活的 runner PID（正整数、活进程、直接父进程）持有 scheduler-owner 租约。默认模式仍做前后源校验与 legacy 字段；摘要新增明确 `mode`/`sourceChecked`，startup-only 的 `expectedRecords`/`expectedDate`/`sourceUnchanged` 为 null，`smokePassed` 分模式判定，不把未检查的源当成通过。
-
-专项测试 71 项（4 个 desktop-build 文件）通过；`pnpm check:dependencies`、脚本语法、Prettier、`git diff --check` 通过。在隔离根 `D:/github/nextjs-quant/.test-data/desktop-startup-only-r5-20261119` 下执行 `pnpm build`（含 runtime 打包与 Next 类型检查）与 `pnpm desktop:prepare`，再实跑 `pnpm desktop:smoke --startup-only`：exit 0、`processState=exited`、`startupState=ready`、页面标签齐全、无错误文本，摘要 `mode=startup-only`、`sourceChecked=false`、`expected*/sourceUnchanged=null`。临时 profile 已清理，无 Electron/服务进程残留。未运行默认实盘行情模式、未打包、未改业务测试；空行情只验证启动与 Today 就绪，不代表行情、SQLite/调度器或策略业务正常。代理为空只是未配置代理，不等于网络封锁。
-
-收尾仅改运行时加载的 runner/seed guard：seed 不再导出、直接读取并校验 `process.env.QUANT_DATA_DIR`（未设或不一致在写文件与开库前失败），失败提示固定中文且不透传 stderr/异常/路径；测试 junction 仅在创建成功后登记清理。门禁因此分开：profile 专项 6 项、`tsc --noEmit`、`node --check`、Prettier 与 `git diff --check` 通过，然后用既有 build/prepare 产物复跑 `--startup-only`（exit 0、`ready`）。startup-only 按定义不读 `E:/new_tdx64`，真实源前后校验只在默认模式进行；本轮未跑默认实盘行情模式。烟测 profile 与隔离根经精确空目录预演后清理。
+七工作区重构已 7/7 实机验收：今日交易、行情看盘、选股筛选、策略回测、持仓复盘、资讯研报、系统设置。统一降噪原语（`MethodologyPopover`、`FilterToolbar`、`RiskDistanceBar`、`MonthlyReturnsHeatmap`）与两档密度已落地；工程门禁与双宽度截图证据见 [优化交付](project/2026-11-19-trading-software-benchmark.md)。后续候选能力回到对标报告的 Phase 2 / Phase 3 储备池，立项前回答数据能否支撑、是否需要新授权、验收用什么真实样本。
 
 ## 工作区功能迭代
 
-工作区功能迭代覆盖七个分支，每个分支五轮。每轮计划经 Claude 审阅后执行，验收并本地提交后再拟下一轮。前五个模块（今日、扫描与图表、策略实验室、账户与复盘、新闻情报）五轮均已完成；「系统」五轮均已提交（第 5 轮基线 7062d86）；「底座」第 5/5 轮验收通过，七分支累计 35/35 轮。
+七个分支各五轮，累计 35/35 轮完成并提交：
 
-- 「今日」五轮（已提交）：以 `todayWorkspace.readiness.equity.expectedDate` 关联持久 `close:<date>` 记录并区分基准未知、等待、未确认、扫描中、已错过与流程结束；A 股候选标注本次收盘/历史/盘中/待核验，历史来源可看图表但不能新建计划；明日计划市场与页码合并切换并回第一页，非首页键走服务端同值筛选与分页；保存成功给出稳定确认与深链，提交期间锁住今日弹窗；open 计划由服务端投影，按期限排序并区分待核验/已到期；候选按 `market/page/date` 键刷新，同键失败保留最近成功数据与图链接并暂停新建计划。计划状态、敞口、校验、提醒和交易均未改变。
-- 「扫描与图表」第 1 轮：公式候选行与「上一只 / 下一只 · 本页 X/Y」共用一个 opener，仅从当前已确认任务与查询页的 `symbol+snapshotId` 顺序、URL 当前候选反查；只读现存快照并校验 id/symbol 后 `router.push` 完整冻结 URL。请求中、错误、URL 目标不在本页及首尾时禁用；迟到或换任务/查询/页面/URL 候选的响应丢弃；失败保留当前图表和地址并提供重试。公式候选不再写入普通 `BrowseList`；冻结 URL 下 `MarketRouteSelection` 不发起普通 load，`MarketView` 隐藏旧列表并停用 PgUp/PgDn 翻股；普通 `/scan`、RPS 与证券池列表热键不变。未改选股规则、服务端、DB、通知或交易。
-- 「扫描与图表」第 2 轮：`loaded` 增加客户端内存 `frozenCandidate` 标记；冻结 URL 按「快照 id + 标记」判定恢复并复用 revision，浏览器后退恢复冻结身份并拒绝旧普通响应，普通读取返回同 id 也不保留冻结身份。普通路由遇冻结证据时由可见 `MarketRouteSelection` 经 `enterMarket` 触发一次 fresh 读取（跳过缓存、同 key 去重）；失败保留冻结快照与确定错误，只有现有「重试」显式走 fresh，成功后自然清除标记。`MarketView` 用实际已加载的证券名称/代码、快照周期、最后实际 bar、数据源、快照复权与既有历史截至标签展示证据，并提供经 `marketSelectionHref` 去除冻结参数、`scroll:false` 的「在普通行情中查看」；持有冻结证据（含普通 URL pending/失败）时禁用证券/来源/刷新/周期/复权/候选热键与自选换股等覆盖入口，主图固定使用存档周期/复权。图表服务对 `snapshot-formula-` 前缀只以存档 bars 为唯一 K 线来源：周期与复权都一致时走共用末段 limit/coverage/content id，不读当前本地/在线、不复权重采样；不一致明确报错。冻结证据下隐藏联动周期且不读取上次联动记忆。
-- 「扫描与图表」第 3 轮：公式候选页的「本页前 N 只加入监控」改为「查看监控名单」→ 受控 `PanelPopover` 预览 → 「打开监控草稿」；预览与既有 `monitorPrefillHref` 由同一份已确认页快照生成，按服务端排序取本页前 20 只，显示名称/代码、基准日、本页/共 M 只（筛选后 `count`，非 `candidateTotal`）以及超限时实际带入 N 只与余数；`router.push` 用 `{scroll:false}`。打开时捕获页键与内容签名（symbol+snapshotId 顺序、asOf、count），确认重验最新 ref 与原生 location，内容变化、重新加载或关闭后旧预览失效且需重新确认；hidden、请求中、placeholder、error、无确认任务/结果时触发与确认均禁用，隐藏页不残留 Portal。零候选无入口；仅新建未保存草稿，不改订阅、不自动启用，冻结候选翻只与草稿保护不变。
-- 「扫描与图表」第 4/5 轮：个股 RPS 排名只由当前成功结果驱动摘要、分页与翻股列表；同周期变更筛选等查询键加载时不再残留上一页证券、旧基准日或“共 0 条”空页，同键后台刷新保留已确认页并标注正在刷新，刷新失败隐藏旧摘要与链接并沿用表格重试。
-- 「扫描与图表」第 5/5 轮：个股 RPS 排名作为 `BrowseSource` 提供内存 `origin: "stock-rps"`，缺省时保持旧列表对象形状；图表翻股保留该来源。`MarketView` 仅在普通、非冻结且当前 `state.symbol` 仍在榜单成员内时显示 `返回个股 RPS 排名`（`/scan?tab=rps`、`scroll:false`），沿用原 PanelCache 恢复同搜索、周期、页码与基准日；名单外独立选股、冻结证据及非 RPS 列表不显示。e2e 覆盖合成 RPS 排名与真实本地行情→打开→PgDn→返回同一榜单，以及冻结证据下普通快照首次失败后重试成功、浏览器后退恢复同快照；RPS 加载期空页断言限定到个股面板，避免隐藏行业/概念页脚误命中。未改选股规则、服务端、DB、通知或交易。
-- 「策略实验室」第 1/5 轮：`/lab/backtest?strategy=` 存在时用 `labIdentitySchema` 校验 id 与 version（缺省 v1；空 strategy、空 version、非正整数与非法字符串均为无效链接，不发详情请求，显示可回 `/lab` 恢复），不再把空 strategy 当普通入口。合法身份读取中显示状态，首次失败给出重试，未找到或返回 id/version 与链接不一致时显示明确状态及返回。只有严格同身份的返回才作为表单初值，来源标注「从 <id> v<n> 载入」；同身份后台刷新失败保留已确认草稿并独立提示，切换身份重挂表单、不沿用旧草稿及提交/登记回执。来源路线隐藏研究预设以保持来源说明准确；普通手填、显式预设、日期/本金、`costScenario` 与既有业务文案不变，无全局或持久化机制、无自动提交。
-- 「策略实验室」第 2/5 轮：入口表单先 `JSON.parse`，再用既有 `labBacktestSchema.safeParse({ strategy, start, end, initial, costScenario })` 作唯一校验；非法 JSON、日期或本金就地提示且不发任务，不另写日期条件。只有校验成功才置 `useRef` 锁并调用 `run.mutate`，按钮与 Enter 同 tick 重复触发只发一次，`onSettled`（含同步异常边界）释放锁；`run.isPending` 控制提交按钮与 `role="status"` 提交中状态，无自动重试或自动提交。per-call `onSuccess` 用本次已校验的策略 id/version/市场、起止日期、本金、成本情景与服务端 `job.id` 生成回执，替换旧的 `run.data` 泛化状态；回执标题始终为「最近一次已创建的回测任务」，改草稿、无效输入或请求失败都不更改回执，失败另给独立提示。深链复用 `taskHistoryHref({ id })` 与既有「查看进度、结果与取消」，登记流不变；回执随 `LabEditor` 按策略身份重挂清理，本金按请求数值直接显示，市场显示名称，不推断费用或收益。目标测试用同一 SSR/harness 覆盖校验合同、回执生成与保留语义；真实交互（重复提交、回执保留）留本模块第 5 轮实测。
-- 「策略实验室」第 3/5 轮：`strategyCenterCompare` 保留原有全部冻结归档校验、归档 schema、上下文等价、数组顺序与指标/失败语义，仅对每行附 `comparisonBasis`，从已通过 `verifyStrategyArchive` 的 `frozen.input` 投影 start、end、initial、symbol（缺为 null）与 poolCount（`symbols?.length ?? null`）；显式空列表为 0，不发送 symbols 列表、哈希或其他隐藏材料。比较区由同一返回数组首行显示共同冻结输入区间、独立本金原值与单一证券代码或「证券池 N 只」、两字段皆缺时「档案未记录证券范围」；每行用已载入目录的可读策略名（缺则 id），直接 `taskHistoryHref({ id })` 定位该次运行，行内小字显示可区分任务信息，顶部改为已提交项数与选择变化提示。比较结果、日期与本金仅由响应驱动，临时勾选不改变展示也不自动提交；RPS、任务、计算、费用与既有交互不变。定向测试补单股、证券池计数、缺省/双字段与口径失配拒绝，以及响应日期金额和重复策略各自任务链接；浏览器交互留第 5 轮。
-- 「策略实验室」第 4/5 轮：`StrategyLab` 在列表→详情→返回期间保持同路由挂载，把市场、搜索与页码从 `LabList` 提升为该组件内的一份受控状态；`LabList` 只接收受控值与变更回调，且仅在其挂载时发起列表查询。市场或搜索变化照旧即时生效并重置 `page=0`，分页交互与默认 A 股空搜索第一页不变；目录/研究任务、同版本详情读取、门槛与操作逻辑不变，无 URL 状态或持久化，冷刷新或直达详情后返回仍为默认列表。详情的 `/lab` 返回链接在加载、错误与成功态同样可见并带 `scroll={false}`，失败重试仍调用原 `refetch`。列表→详情→返回恢复过滤与页码、Back/Forward、直达默认与错误态返回的真实浏览器验收明确并入第 5 轮 Playwright 集成。
-- 「策略实验室」第 5/5 轮（2026-11-18/19）：`同口径比较`新增`导出比较摘要`，复用 `useArchiveDownload.save` 的固定文件名`策略中心-同口径比较.json`并渲染下载错误；只从已显示 `comparison.data` 按原顺序构造`{format:"strategy-center-comparison-1",basis:data[0].comparisonBasis,items:[{id,strategyId,overview}]}`，null 原样、重复同策略不合并、不读草稿勾选或重新请求；比较数据存在但 `isFetching` 或同键 `error` 时按钮禁用，已改草稿仍导出上一份已确认结果，无数据不提供导出。逐任务下载、比较触发与冻结算法未改。定向 `strategy-center-ui.test.ts` 11 项通过，覆盖格式/保序/重复保留/null/哈希不外传/刷新与失败禁用；隔离 `QUANT_DATA_DIR=.../build-data` 下`pnpm build`（含 TypeScript）与`pnpm desktop:prepare`各通过一次，`tsc --noEmit`通过。真实浏览器`--grep 'R3c 实验室集成'`3 passed（29.5s）：A 登记链接与回执（加载/错配不渲染表单且不发 mutation，日期错误不发，同 tick 双提交仅一次 POST，回执按当时输入并定位已完成真实任务，注入下一次失败仍保留首张回执）；B 共同冻结输入下载（经公开本地 tRPC 创建两次同策略小样本任务，UI 比较后取消一个草稿勾选，下载 JSON 的 format/basis/顺序/id/overview 与直接比较响应完全一致，同策略重复保留，无报价/哈希附加字段，文件名固定）；C 列表闭环（合成只读 strategyLab 第二页响应 total=21 并校验 `market=crypto,query=QA,page=1`，真实 r3a-shadow-qa 详情返回及 Back/Forward 保留同挂载筛选/页码，新页面直达详情返回默认，详情加载/错误有返回且重试有效）。未做实机同 key 详情重读（页面无生产 refetch 入口），按合同沿用第 1 轮源状态证据；未运行完整 P1/视觉套件，不把 UI mock 当真实算法验收。任务根`.test-data/lab-optimization-r5-20261118/`保留待收尾清理，3923 已释放。2026-11-19 收尾修正`共同冻结输入下载`的验收路径防护：夹具父目录改由`testInfo.project.outputDir`推导，测试进程不再要求`E2E_DATA_DIR`；复用`fixtureDirectory`校验tdx根与实际写入的两个`.day`目标无链接，并校验`tdxRoot`位于预期父目录下的`fixture-*/tdx`，拒绝任意路径。同一用例定向运行两次均为1 passed：带`E2E_DATA_DIR`指定任务目录，以及不设置该变量走默认目录；`tsc --noEmit`退出0。未改生产代码、验收断言与其他用例。
-- 「账户与复盘」第 4/5 轮（2026-11-19）：`TradeSources` 的建议与手工关联合并到单一 `save` 起点，仍只调用原 `linkAccountTrade` 及既有审计/保护，用户点按后才写入。回执只取真实响应 `TradeLink`，列表与弹窗复用同一 `TradeLinkReceipt`：用操作当刻的标的/日期/方向定位该笔，显示策略版本、分仓、存在时的计划/提醒及响应 `tradeId`（长串可折行，区分同日同标的同方向成交），保留「关联已保存，审计记录保留。」；列表「最近一次」仅成功时更新，失败不覆盖。手工弹窗用打开时冻结的行并在每次打开时清空本次结果，保存成功保持弹窗打开并显示本次回执、失败只显示本次错误，关闭后列表仍显示最近一次成功，不把上次打开的回执投到新开；打开时隐藏列表成功摘要，二者只显示一个。详情后台回读失败不再卸载已加载内容：已有数据时保留 `PositionDetailContent` 于同一树位置并另显「刷新失败，以下为最近一次读取的结果。」与重试，仅首次无数据错误才只显示错误；回读错误期间禁止从 stale 行开启新的手工/建议关联，已打开表单与草稿、回执保留，读取重试成功后恢复。同步 ref 防同 tick 两次请求，未结束时锁住 Esc/遮罩/关闭、手工提交、打开手工、关联按钮与成交翻页；三组 invalidate 保留为尽力刷新，刷新失败不影响已确认回执，不主动重试写请求，未加全局状态或服务端/API。验证：`pnpm exec tsc --noEmit` 退出 0，`git diff --check` 无错误；真实浏览器验收并入第 5 轮。未提交、未推送、未构建或打开应用。
-- 「账户与复盘」第 5/5 轮（2026-11-19）：共享 `TradeLinkReceipt` 新增「复制关联回执」，仅在按钮点按时调用 `navigator.clipboard.writeText`。复制文本由已确认响应 `tradeId`、策略 id/version、分仓、存在时的计划/提醒，以及显示同源的标的/日期/方向组成；空可选项不出现在文本中，指纹、账户、草稿与其他行不外带。成功、不可用与拒绝就地反馈，回执原文始终可读并可再次复制；反馈以回执身份（含响应 `linkedAt`）与尝试序号隔离，列表复用组件时上一回执的迟到反馈不会显示到新回执或新弹窗。未改 server/API/DB/schema。独立 `accounts-r5`（3925、`E2E_R3B=1`、`E2E_R3B_R5=1`）真实浏览器 3 passed（27.7s）：A 用 `DeliveryStore` 导入 21 笔交割单持仓（19 只有值、sh600000 除权未认证留空、sh600020 缺原价日线），加基础手工 sh600000 3000 股；券商交割单/待核对筛选后 21 笔翻页、第二页详情返回与 Back/Forward 保持，进入详情无新增 `accountPositions` GET，直达/首读注入错误可回默认，明细成交分页互不继承；B 建议与手工各真实 `linkAccountTrade` 一次并与本机读 API 比对数量/方向/价格，同日同标的靠响应 id 区分；延迟真实请求下双提交仅 1 个 POST、Esc 不被关闭、页面入口禁用，注入写失败保留草稿可重试，注入 `accountTrades` 同键回读错后成功回执仍可见，新开弹窗无旧回执；C 真实 Chromium 剪贴板正向复制与页面/响应逐字一致且无 null/指纹，注入拒绝与延迟确认拒绝可重试、迟到成功不串到下一回执，外部请求 0。隔离 `QUANT_DATA_DIR=.../build-data` 下 `pnpm build` 与 `pnpm desktop:prepare` 各 exit 0，`tsc --noEmit` exit 0；build 后仅增加回执长 ID 换行样式，无生产逻辑变化。夹具目录 `.test-data/accounts-r5-20261119/` 保留待收尾清理；未提交、推送或打包。2026-11-19 收尾修正两个场景：A 切换标的改走 Next 补丁的同文档 `history.pushState`（仅换 `?position`，非整页加载），断言新详情成交回到第 1 页后，再以真实 `page.goto` 同详情保留「直达返回默认」断言；B 改由真实表单 `requestSubmit()` 在同一同步调用栈连提两次，仍断言只发 1 个 POST，并保留 Esc、pending 禁用、实际响应与失败恢复断言，未改生产代码。定向 `E2E_DATA_DIR=D:/github/nextjs-quant/.test-data/accounts-r5-20261119/e2e pnpm exec playwright test --project=accounts-r5 --grep 'R3b R5 [AB]'` 2 passed（25.8s；A 3.1s、B 11.0s），复用既有构建，未重跑 C；`git diff --check` exit 0（仅 CRLF 提示），`tsc --noEmit` exit 0。
-- 「账户与复盘」第 2/5 轮（2026-11-19）：把统一持仓六项筛选（kind/source/market/group/sleeve/page）从列表组件提升到列表与详情共同挂载的 `HoldingsExplorer`，详情分支不再连带列表状态一起卸载；点「返回统一持仓」（`/accounts`，`scroll={false}`）与浏览器 Back/Forward 均恢复原筛选与页码。列表仍独立查询，进入详情前已发起的读取可完成，返回沿用 30 秒 tRPC query cache、过期按原 key 重取；未隐藏挂载列表、未禁用正常刷新，领域读写、路由和全局缓存策略不变。有意保留默认：硬刷新、离开其他 tab 再回来、从今日或外链直达详情后返回均为真实账户、全部来源、全部市场、按市场分组、空分仓、第一页。详情在首次加载、错误、空数据与成功态都只显示一个「返回统一持仓」，不挡错误重试与原详情语义；仅 `AccountPositionDetail` 按 `position` 作 key，切换明细不继承上一标的的成交页码与草稿。定向验证：`pnpm exec tsc --noEmit` 退出 0，`git diff --check` 无错误；本轮未改测试夹具，未开应用、浏览器、构建或数据库，无临时目录。真实浏览器验收并入第 5 轮：扩充 r3b fixture 为两来源且超过 20 行，覆盖同状态返回、进入详情期间 GET 批量无新增列表读、带原输入返回读取、首次加载/错误返回、直达默认、浏览器前后进与切换明细不串页。未提交、未推送、未打包。
-- 「账户与复盘」第 1/5 轮（2026-11-19）：统一持仓新增 `accountPageSchema.source`（`all/delivery/local`，默认 `all`）。`pageAccountBook` 仅在 `kind=real` 时按持仓 id 的固定 `delivery:` / `local:` 前缀过滤，其余 kind 收到 source 也归一 `all`，不从可变账户显示名推断；筛选落在分页前的同一集合，列表、计数、分页、市值/缺价与敞口共用该集合，币种独立，默认总排序与总值不变，同账户同标的两本账仍可区分。界面仅在真实账户显示来源 `Segmented`，切换来源回第一页，切离真实同事件重置 `all`；标题旁显示当前来源，空来源显示当前范围无持仓并保留筛选。定向 `r3b-accounts.test.ts` 11 项通过（新增 1 项覆盖默认/显式 all 等价、两来源项目与计数、null 缺价、同集合敞口/分页及非真实类型归一），`tsc --noEmit` 通过，`git diff --check` 无错误。未改账户事实、风控额度、归因、导入、通知与下单，无迁移；未提交/推送/打包。
-- 「新闻情报」第 1/5 轮（2026-11-19）：新闻任务终态只按 task id/status 去重刷新 `newsArchiveHistory`/`newsAnalysis`，并仅采用与当前 `newsJob` 一致的 `task.data`；移除终态后台自动 `urlSelection`。仅成功任务的服务端 `result.id` 生成显式「查看分析结果」，failed/cancelled 有安全关联时只以「查看已保存结果」等待点击，无关联保留分析历史提示且不猜 ID；运行中不显示按钮，当前已打开同一档案时隐藏。完成不再改写 URL，原文、搜索、分页游标与 `newsJob` 保持；点击复用 `urlSelection(savedId,null)`，未改服务器、任务执行、模型、预算或取消语义。合成浏览器脚本当前实现 goto `/intel`、baseline 仍 `/news`，stub 扩为可控 `newsTaskState` 与原文/档案空查询，覆盖运行中无按钮、完成后原文与 URL 不变且 invalidation 生效、id/status 去重、显式点击保留 job/已提交条件/分页游标、同档案隐藏、失败/取消不跳转与无效 ID 不出按钮；既有快速搜索与双击断言保留。验证：`pnpm exec tsc --noEmit` exit 0，`node tests/browser/news-shared-ui-browser.mjs` exit 0，`git diff --check` exit 0（仅 CRLF 提示）。未构建、打包、提交、推送或外发。
-- 「新闻情报」第 2/5 轮（2026-11-19）：任务增加可选 `newsAnalysisId`，交互分析在首次持久化非空档案时与任务指针同事务写入，未存档的失败/取消不关联，共享飞行按 archive id 向剩余调用者只广播一次；`newsAnalysisIdForTask` 优先该指针、旧完成记录回退 `result.id`，仅返回真实存在且 `news`/`items` 非空的分析档案，缺失/空档/错 kind/无指针失败记录均为 null。定向 `pnpm exec vitest run tests/news-cls/news-analysis.test.ts tests/persistence-infrastructure/remaining-repositories.test.ts`（2 files/30 tests passed）、`pnpm exec tsc --noEmit`、`git diff --check` 均 exit 0（`QUANT_DATA_DIR=D:/github/nextjs-quant/.test-data/intel-optimization-r2-20261119`，隔离目录 `quant-test-*`）。收尾复核：旧档案迁移在保存事务内对非空档案关联本次任务恰一次，`newsTaskState` 仅在终态查询档案 ID、其余状态保持原形状；复跑 `tests/news-cls/news-analysis.test.ts`（18 tests passed）、`pnpm exec tsc --noEmit`、`git diff --check` 均 exit 0（同一隔离目录，未重跑剩余仓储）。未提交、推送、打包或外发。
-- 「新闻情报」第 3/5 轮（2026-11-19）：`导出报告与全部关联复盘` 在首个 `await` 前用同步 ref 锁住，同 tick 重复触发只发一次导出；捕获发起报告 id/标题，`clsReviewExportAll` 返回空报告或 `report.id` 与请求 id 不一致时，在建 Blob、下载前分别明确报错。只有 `link.click()` 返回后才更新独立的「最近一次已发起下载」回执，标题与版本取服务端确认响应，文件名仍按日期/版本/hash 生成，JSON 内容与对象 URL 释放不变；回执位于页面顶部，另选报告或离开「报告信息」后仍可辨认发起报告，选择报告时既有 `setFeedback('')` 不清回执。失败与缓存清理错误各自点名发起报告，清理错误不覆盖本次主失败消息或上一份回执；`await utils.clsReviewExportAll.reset(id)` 保持原调用，直到清理 settle 才释放 ref 与导出忙碌态，导出锁不影响选择、草稿、导入和清理。导出现在使用独立 `exportError`，开始导出先清前次导出错误，失败与缓存清理只写该状态并保留主失败优先和发起报告标题，成功不再改写共享 `feedback`/`error` 或输出笼统「已导出」；导出错误渲染在「最近一次已发起下载」回执旁，筛选、导入与清理的页面反馈互不覆盖。验证：`node tests/browser/export-cleanup-browser.mjs` exit 0（合成 A/B 补齐 id/标题/详情，保留 resolve/reject/both-fail 三个清理边界与账户侧用例，新增同 tick 连发仅一次 fetch、A 请求中经 popstate 切 B 后回执仍为 A、错 id 与空报告不下载、新失败和清理失败不擦前回执；脚本内过期的账户 actions 别名同步为 `~/app/accounts/actions`，否则无法打包）；`pnpm exec tsc --noEmit` exit 0；`git diff --check` exit 0。未改服务器/API/DB/迁移，未构建、打包、提交、推送或外发。
+- **今日**：就绪度与收盘记录关联、候选来源标注、计划保存回执与深链。
+- **扫描与图表**：冻结候选快照的前后翻股、来源/周期/复权一致性、RPS 榜单返回与恢复。
+- **策略实验室**：深链身份校验、提交锁与回执、同口径比较导出、列表筛选保持。
+- **账户与复盘**：来源筛选、止损状态筛选、详情返回保持、关联回执与复制。
+- **新闻情报**：任务终态去重、分析档案关联、导出回执、跨报告日锚点、核对证据身份。
+- **系统**：最近错误关联、按任务编号精确筛选、同范围来源对照、投递来源跳转、信号/投递互跳。
+- **底座**：启动健康检查、托盘打开目录、启动日志、烟测 `ready` 记录、`--startup-only` 隔离模式。
 
-- 「新闻情报」第 4/5 轮（2026-11-19）：`/intel/review` 的「价格观察」在独立按日查询到归属另一报告的固定样本时，可显式跳转到样本所属报告的同日价格页。服务端 `clsReviewSample` 改由 `clsSampleView` 单条 SQL 投影：同一快照按样本 id/kind 读取原始 payload，并用 id+kind 的 `EXISTS` 判断真实 owner，只追加 `reportAvailable`，不读取或反序列化报告全文，不改样本内容与真实 `reportId`，无样本仍返回 null。前端新增显式跨报告日锚点：点击「查看样本所属报告」先以当前已确认样本日 `replaceState` 当前 B/价格页，再 `pushState` 精确 A 版本/价格页/同日，随后直接设置选中报告、tab 与锚点；`popstate` 严格解析 ISO `clsSample`，组件按 `selected:anchor` 重挂并以锚点为初值。Back 恢复 B 与原查询日，Forward 恢复 A 与同日，深链刷新恢复日；普通选择报告、切换 tab、返回列表、导入/清理会清除锚点，手动按日查询不写 URL。跳转仅在服务端 `reportAvailable=true` 且样本日期与当前查询一致、无读取失败/仍在刷新时可用；所属报告已清理显示「所属报告已清理，样本日期占位保留。」并隐藏跳转与「读取行情并核对」，报告存在但无标的仍显示既有真实原因，另一报告不再显示内部 ID。清理成功后失效 `clsReviewSample` 缓存以刷新占位；核对业务规则、后端拒绝与持久内容不变。验证：定向 `pnpm exec vitest run tests/news-cls/cls-review-workspace.test.ts` 11 passed（新增存在/另一报告真实身份/存在但无标的/清理后 false 且记录零变更/错 kind/日期无样本）；`node tests/browser/export-cleanup-browser.mjs` exit 0（真实 `ClsReviewPrices`+模拟 tRPC：B 按日样本属 A 时显示跳转，点击后 A/同日、Back B/原日、Forward A/同日、刷新恢复、清理占位隐藏两按钮、手动查询不写 `clsSample`、切 tab/回列表清除锚点，既有导出与清理场景保留）；`pnpm exec tsc --noEmit` exit 0；`git diff --check` exit 0。未改 schema、写入路径、调度或其他 API；未构建/打包/提交；隔离目录 `.test-data/intel-optimization-r4-20261119/` 下由测试初始化产生 `quant-test-7pToXY`、`quant-test-Fj3wEs`，已在 PowerShell 预演核对后用 `-Apply` 精确删除（仅这两个空子目录与该根），实际无剩余，未动同级或生产数据。收尾定向修正（管理者复核）：`clsSample` 仅在存在有效报告且当前 URL `clsTab=prices` 时解析保留，无报告或非价格深链的日期锚在状态与地址中一并清除；`openOwnerReport` 增加 `ownerId` 长度上限（与既有 report id 一致）及当前 prices 复核，起始记录仍写精确报告/价格页/同日。清理与导入成功仅在用户仍停留在原操作对象时清日期锚，旧完成不再误清已切换报告的深链日期。合成浏览器补充无报告、非价格深链日期被清除的代表断言；复跑 `node tests/browser/export-cleanup-browser.mjs` exit 0、`pnpm exec tsc --noEmit` exit 0、`git diff --check` exit 0。SQLite 11 项与既有证据未变更，沿用前序通过结果。
-- 「新闻情报」第 5/5 轮（2026-11-19）：价格观察「读取行情并核对」后，`ClsReviewPrices` 实例内独立保留最近一次成功核对回执，只显示**实际后端返回**的样本日、保存版本短 hash 与保存时间，并提供「查看本次核对证据」；服务端 `verifyClsSample`→`saveVerification` 的同内容幂等返回沿用已存在原 `checkedAt`，回执不声称新增、不以当前时间冒充保存时间。仅当响应日期等于提交日、hash 为 64 位小写 hex、`checkedAt` 为实际 number、正数且 `new Date(checkedAt).getTime()` 有限时才更新回执（超出 JS 日期范围的有限值同样无效）；身份不符只显示定向 `role="alert"`，与服务端错误、选样反馈及工作区反馈分离并保留旧回执，下一次点核对先清该本地错误。核对成功不再写共享 `feedback` 的通用「价格核对已完成」，成功回执本身即确认反馈，避免身份失败时同时出现成功与错误，也不覆盖「固定样本」的独立反馈；固定样本反馈、按提交日失效摘要与核对列表的写法不变。核对成功仍只按提交日失效核对列表与摘要，不改变当前查日、分页、选中版本或已打开的证据，不自动读详情。原布尔证据开关改为一份已打开的 `{date,hash,checkedAt}` 身份：历史版本「读取完整核对证据」与回执按钮都设置它，唯一 `clsReviewVerificationDetail` 查询只在已打开且价格页可见时精确传该 date/hash；证据区移出当前版本守卫，当前日无版本或翻页时仍可用，提示所查日期与短 hash 并可收起。历史选择、翻页、刷新与普通改日主动清面板；详情严格互斥为读取错误（同身份重试）/加载中/服务端明确 null（可能报告清理）/有效回读才渲染文本，返回错 date/hash 不渲染错证据；`ClsReviewText` 以 `date:hash` 重挂。回执随既有报告或日锚点 key 重挂清除，不持久化；后端、路由、核对计算、写入、同内容幂等与按钮 pending 禁用不变。验证：`node tests/browser/export-cleanup-browser.mjs` exit 0（真实 `ClsReviewPrices`+可控模拟 tRPC：请求中换日不改回执、完成前无 detail、错 date/hash/时间（含 `Number.MAX_VALUE` 超界保存时间）均保留旧回执并给出定向提示且不出现通用「价格核对已完成」、下次点核对清除提示、detail 错误只显示错误并可重试且不同时显示不存在、明确 null、错身份证据不渲染、历史版本与回执按精确 date/hash 读取、翻页/选版本/改日清面板，既有导出、清理与跨报告日锚点断言保留）；隔离 `QUANT_DATA_DIR=D:/github/nextjs-quant/.test-data/intel-review-r5-20261119/build-data` 下 `pnpm build`（含 runtime/Next 类型检查）与 `pnpm desktop:prepare` 各 exit 0；`E2E_DATA_DIR=D:/github/nextjs-quant/.test-data/intel-review-r5-20261119/e2e pnpm exec playwright test --project=intel` 1 passed（14.2s，端口 3926，`E2E_INTEL_REVIEW=1` 以 `seedClsReview(db,25,25)` 合成夹具）：A 标题筛选后翻报告第 2 页开报告 1，独立查询报告 0 的 2020-01-01 并显式跳到报告 0 同日，核对报告身份，Back 回报告 1 同日且筛选/页码保持，Forward 与深链刷新恢复；B 真实点核对 2020-01-02，回执日期/短 hash/保存时间与 SQLite 持久化版本一致，完成时无 detail 请求，翻到核对第 2 页确认本次 hash 不在本页后由回执按钮用真实 API 读精确 date/hash 并显示完整证据，再点页内历史版本切到该身份；C 在真实应用清理报告 0 后，报告 1 按原日显示「所属报告已清理」占位且两个动作消失，报告切换后旧回执随实例重挂清除，全程收集并阻断非 loopback 请求为零。真实应用用例使用合成夹具数据与本地合成日历/基准，核对不调用模型；合成浏览器测试为 tRPC 模拟前端验证，二者都不构成生产数据或生产环境验证。收尾定向修正后复跑 `node tests/browser/export-cleanup-browser.mjs` exit 0、`pnpm exec tsc --noEmit` exit 0、`git diff --check` exit 0（仅 CRLF 提示）；真实浏览器 1 passed（14.2s）与构建证据沿用本次修正前同一份成功路径，本次仅调整回执校验与重复文案，未重建。未改 server/API/DB/schema/迁移、`src/server/mcp.ts` 或无关文件；未提交、推送或打包。前五个模块（今日、扫描与图表、策略实验室、账户与复盘、新闻情报）均已按轮完成，新闻情报第 1–4 轮已提交（第 4 轮基线 3c6663d），本轮及收尾修正由管理者纳入同一个本地提交。夹具根 `.test-data/intel-review-r5-20261119/`（`build-data/` 为隔离构建数据，`e2e/` 含 Playwright 输出与 `fixture-*` 隔离库/行情目录）当前保留：本次会话的命令自动审查拦截了含递归删除的预演命令，因而未执行清理，也未用其他工具或权限变相删除；管理者已在该根留下仅默认预演的 `cleanup.ps1` 并通过 PowerShell 语法解析，当前会话不执行它，该脚本无需纳入版本控制。3926 无监听、服务端已停止。
-- 「系统」第 1/5 轮（2026-11-19）：`最近错误` 的「查看关联任务」链接改为 `/system/tasks?id=<编码编号>&detail=1`；`readTaskHistoryLocation` 保持既有 `{filter, error}` 返回形状，仅在合法 `id` 且 `detail=1` 时附加可缺省 `detailId`。未改 `taskHistoryInput`/`taskState` 输入、session filter key、查询路由或持久化，`taskHistoryHref` 语义不变，其它 id-only 来源与手工精确筛选仍只过滤。`TaskHistory` 以 canonical filter+detail 作一次性意图：窗口可见、筛选解析有效、当前列表 query 已在本观察者完成后成功且不在 fetching/失败、准确 `total=1` 且唯一项正是该编号时自动展开；成功读到 0 条即消费并显示「没有找到编号 … 的任务」（受状态/类型筛选影响时提示），列表失败沿用原错误与重试且不发 `taskState`，重试到一次成功精确匹配仍可打开。URL key 变化在 render 内清除旧选中，避免返回旧 URL 复活旧详情；未完成初读期间的手动收起优先于自动打开；刷新、概览轮询与可见性恢复不重开，Back 保留原筛选与游标并停止旧活动详情轮询，Forward 可重开。定向 `node tests/browser/task-center-query-browser.mjs` 通过（真实组件+TanStack Query 模拟传输：第 2 页「AI 研究」筛选进入错误链接自动展开、手动折叠/刷新/概览轮询/可见性均不重开、Back 保留分页与旧活动无轮询、Forward 重开、id-only 与缺 id/坏标记/列表失败零自动详情、缓存刷新中手动折叠不重开、缺失编号文案）；`pnpm exec tsc --noEmit` exit 0，`git diff --check` 无错误，纯解析定向 `pnpm exec vitest run tests/workbench/task-history-location.test.ts` 6 项通过。未构建、未连真实服务器或数据库；未提交、推送、打包。
-- 「系统」第 2/5 轮（2026-11-19）：「最近错误」可按任务编号精确筛选。共享 `jobIdPattern` 移至 `src/lib/common/runtime-errors.ts`（保留 `i`），writer/reader、`recentErrors` 输入与客户端复用；仅整个 input 可缺省，传对象时 `jobId` 必填且须匹配 `jobIdPattern`，`{}` 或拼错字段由 zod 拒绝而非静默回退全局，无参仍为全局。`recentRuntimeErrors(jobId?)` 以 `jobId !== undefined` 显式选两条固定 SQL：全局原查询不变，精确支路 `WHERE jobId = ?` 后沿用同排序与 `LIMIT 30`，空/非法内部 id 只按原值精确匹配、不回退全局。任务中心在已确认详情且当前无详情读取错误、id 符合日志规则时显示「查看此任务的最近错误」；点击在同一事件内设置面板 scope 并聚焦面板内 `tabIndex=-1` 持久容器，重复点击仍聚焦且不新增读取。面板显示完整编号（可换行）、scope 说明「按任务编号精确筛选，最多显示最近 30 组。更早的记录可能已滚动清理。」与「查看全部错误」清回全局；scope 下无记录显示「此任务暂无保留的错误记录。」，同 scope 刷新失败仅保留同键旧数据，切键不使用 placeholderData/keepPreviousData；漏记提示在 scope 下明示为全局计数；scope 下说明文案只保留「保留脱敏摘要。」，全局才提示可从关联入口查看；当前编号行不再显示重复的 R1「查看关联任务」链接，全局链接与列表 URL、筛选/游标、当前展开、取消流程不变。验证：隔离 `QUANT_DATA_DIR=D:/github/nextjs-quant/.test-data/system-optimization-r2-20261119`（绝对路径）下 `tests/persistence-infrastructure/runtime-errors.test.ts` 10 项通过，新增用例覆盖目标任务早于全局最近 30 组、同 event/code/同分钟的另一任务与无关联行不混入、精确过滤先于 LIMIT、固定大写含 A–F 的 UUID 原样精确保留、另一固定合法编号不混入、空/非法内部 id 不回退全局、全局前后一致且无业务库；缺文件/损坏场景各补 scope 断言。`node tests/browser/task-center-query-browser.mjs` exit 0（真实 TaskCenter+TanStack 模拟传输，stub 按 `input.jobId` 返回）：点击前零 scope、详情按钮发精确 A 并聚焦、重复点 A 不重复读取仍聚焦、切 B 不出 A 行、刷新仍 B、同 scope 失败保留 B 旧数据、同 scope 空态、清除回 undefined 全局并恢复 R1 链接、URL/展开/列表不变、非 job 编号无入口，R1 全部断言保留。`pnpm exec tsc --noEmit` exit 0，定向 eslint 6 个改动源文件 exit 0，`git diff --check` exit 0（仅 CRLF 提示）。收尾小修后按同一范围复跑：同一隔离目录下 SQLite 10 项通过，同一 `task-center-query-browser.mjs` PASS，`pnpm exec tsc --noEmit` exit 0，`git diff --check` exit 0（仅 CRLF 提示）。未开真实服务器/数据库（仅测试 SQLite 拟态）、未构建/打包。清理：主管交付的 `cleanup.ps1` 默认预演列出 17 files / 37 directories，全部落在限定的 `quant-test-*/errors-*/logs` 模式且无链接或意外输入；`-Apply` 后脚本与独立 `Test-Path` 均为 False，根 `.../system-optimization-r2-20261119` 已不存在（该次 `-Apply` 标准输出因我误接 shell 管道未回显，删除已执行并由 `Test-Path` 确认）。未提交、推送、打包。
-- 「系统」第 3/5 轮（2026-11-19）：`ConnectionDiagnostics` 在本次挂载内按来源（local/pytdx/eastmoney/tencent，固定上限 4）只保留最后一个已确认身份的完整检查响应；`check.onSuccess(response,input)` 以发起 input 的 source/symbol/period 与 `sameSetting(configuration,input.configuration)` 校验，身份不符只显示专用提示且不写入 result/lastSuccess/来源回执，下一次选择或检查清除提示。传输失败沿用 alert 与清空当前卡，来源回执保留。当前已保存配置（tdxRoot/calendar/marketDataSource）加表单证券/周期匹配的回执至少两源时，在当前 aria-live 之外显示「同范围来源对照」：来源名称、连接/样本分类、行情最后时点（null 为未知）、检查时间，并标注历史时点、样本范围与腾讯延迟提示；切换证券、周期或已保存配置只隐藏/恢复表格，迟到的合法 A 响应仍保留 A 的原范围并让当前卡按 stale 标记。重检按来源替换行，不累积证券历史；选择、查看或改草稿均不发请求，未改 server/API/DB/设置写入。验证：`node tests/browser/connections-browser.mjs` exit 0（真实组件+TanStack 模拟传输，stub 新增可控 `resolveCheck(patch)` FIFO 并保留零参用法；覆盖同范围两源不同 dataAsOf/时间、证券/周期/配置切换隐藏与恢复、迟到 A 原身份且 stale、错身份不覆盖不增行、传输失败保留对照、重检替换行、切换不发 `checkConnection`、640px 表格不溢出；既有脚本在基线 HEAD 因 stub 缺少 `AlertControls` 所需 `alertStatus` 而无法加载；已补齐该 fixture，并按既有 `CryptoConnections` 做法在夹具中置空无关 `BinanceHistory` 以恢复脚本可运行）；`pnpm exec tsc --noEmit` exit 0；`pnpm exec eslint src/components/workbench/connection-diagnostics.tsx` exit 0；`git diff --check` exit 0。收尾微调（2026-11-19）：对照表头改为「检查时间」，范围说明拆为「已保存配置 · {symbol} · {periodLabel}」「各来源显示本页最近一次已完成的检查。」；腾讯提示在选中腾讯时只保留上方原文，选中非腾讯且有腾讯历史行时表格才提示一次。`periodLabels` 改用 `as const`，`period` 状态与 Select 收窄为 `keyof typeof periodLabels`，诊断卡复用 `connectionLabels`/`dataLabels` 且保留原精确文字；未改 `periodSchema`、接口或测试断言。按实际变动复跑同一 `node tests/browser/connections-browser.mjs`（`TASK_SHOT_DIR=D:/github/nextjs-quant/.test-data/system-optimization-r3-20261119`）exit 0、`pnpm exec tsc --noEmit` exit 0、定向 eslint exit 0、`git diff --check` exit 0。确认无 connections-browser node 或 playwright chrome 残留进程后，用同一原生 PowerShell 执行任务根 `cleanup.ps1`：默认预演列出 8 个直接文件（after.png、unconfigured.png、news-wide.png、narrow.png、local-narrow.png、result.json、orig-connections-browser.mjs、cleanup.ps1），无文件夹/链接；`-Apply` 删除该根，独立 `Test-Path` 返回 False。未提交、推送、构建或外发。
-- 「系统」第 4/5 轮（2026-11-19）：`/system/notifications` 投递详情中，已加载且 `d.id` 与当前 id 一致的人工重发记录，若 `d.sourceDeliveryId` 通过共享 `monitorWorkspaceId`（trim、1..200）且不等于 `d.id`，显示「查看原投递」。仅在投递详情成功且无读取错误时可用，投递自身 `d.error` 作为业务投递结果不阻止；旧记录无来源保留原文案，自引用/无效来源保留「原投递：…」并显示不可追溯提示且无动作，不自动展开或追链。workspace 的 `openOrigin(sourceId, resendId)` 仅当前路由 `/system/notifications`、`monitorTab=deliveries`、URL 仍选中 `resendId` 时执行，并复验目标；先用已应用 `filters.deliveries` 与 `resendId` 同步当前 history 条目，再以 `history.state` 原生 `pushState` 同路由精确目标，只替换 `selected.deliveries`，不改 applied/draft filter、cursor/sessionStorage、其它 tab、编辑/草稿/发送控制。原记录无需在当前列表，按 id 走既有唯一 detail 读取；缺失/读取失败沿用原空态与重试，能后退，不自动选别的；「返回列表」不变。验证：`node tests/browser/monitor-delivery-origin-browser.mjs` 通过（合成真实 `MonitorWorkspace`/`MonitorDetail` + TanStack Query：失败筛选第 2 页 3 条、人工重发在第 2 页、原记录不在任何列表；点击只新增精确 `d-origin` 的 `deliveryWorkspaceDetail`，列表仍第 2 页/同筛选且无改写请求；Back 回重发同筛选同页、Forward 回源、会话内 reload 直达；源返回 null 显示既有空态且 Back 可回；无来源、自引用记录均无按钮且只读取点击记录；mutation 0、非 loopback 请求 0、无页面异常）。`pnpm exec tsc --noEmit` exit 0，定向 eslint 两文件 exit 0，`git diff --check` exit 0（仅 CRLF 提示）。真实应用集成留第 5 轮，不宣称跨重启保存页码。收尾：`openOrigin` 在实时 URL guard 前校验当前 React `tab=deliveries`、`selected.deliveries===resendId` 与可见性；`originId` 改为单一解析入口后按已加载身份、schema 成功与自身比较判定。未改服务端/DB/schema/通知流程、`src/server/mcp.ts` 或无关文件；未 stage/commit。
-- 「系统」第 5/5 轮（2026-11-19）：`/system/notifications` 的信号详情「查看全部关联投递」改为真实同路由历史跳转。入口仅在 `kind=signal`、详情成功且无读取错误、返回 `s.id` 等于当前 id 时可用；workspace 另校验 `visible`、`tab=signals`、`selected.signals` 与实时 URL 的 `monitorTab=signals`/`monitorRecord` 一致，记录 id 复用 `monitorWorkspaceId`。目标沿用既有 `{query:"",signalId}` scope，首个列表请求从第 1 页开始且不选投递；原 signals 筛选、草稿、游标、页码与详情均不重置。反向在「投递」tab 已应用合法 `signalId` 时于始终露出的 tab 区附近显示唯一「查看关联信号」；显示只由 `ready`、`visible`、当前 tab、`usePathname` 与已应用 `filters.deliveries.signalId` 的共享 schema 成功推导，未应用的草稿无入口，绝不由标题推断；点击再以既有 `liveRelatedSignalId` 核对实时 URL 的 `monitorTab`/`monitorFilters`（复用 `deliveryPageSchema`，坏参数安全退出），并要求 URL `monitorRecord`（空按空串）等于 `selected.deliveries`，防止 pre-popstate 的旧选中改写来源历史；目标复用组件内记忆的 signals 筛选与页码，仅直接设置 tab 与 `selected.signals`，按 id 精确读取详情，即使该信号不在当前列表，缺失沿用既有空态。两个方向与 R4 共用最小三字段 URL 序列化和显式 history push helper：先按已应用 `filters[tab]`/`selected[tab]` 同步 origin 的 `replaceState`，再 `pushState` 到目标，保留 `history.state` 与其他 URL 参数、无新 key；R4 `openOrigin` 仅复用相同 URL 行为，原 guards 与 selected 行为不变。订阅草稿、发送权限、重发与其他写入路径未改。历史语义：同一组件会话的 Back/Forward 恢复已确认的具体记录与按既有 `monitor-pages:<tab>:<filters>` session key 保存的页码，信号 entry 刷新按 URL + session cursor 恢复筛选页并打开该记录；投递 entry 刷新恢复投递范围且反向仍按 signalId 精确打开；另一 tab 的未编码筛选刷新后自然回默认。验证：隔离 `QUANT_DATA_DIR=D:/github/nextjs-quant/.test-data/system-monitor-r5-20261119/build-data` 下 `pnpm build`（含 runtime:build）与 `pnpm desktop:prepare` 各 exit 0；共享 helper 后复跑 `node tests/browser/monitor-delivery-origin-browser.mjs` PASS；`E2E_DATA_DIR=D:/github/nextjs-quant/.test-data/system-monitor-r5-20261119/e2e pnpm exec playwright test --project=system` 1 passed（3.9s，端口 3927，`E2E_SYSTEM_MONITOR=1`，复用 `tests/helpers/signals-fixture` 的 `seedSignals(db,1,21)` 加一条指向原始终态投递的假手工重发，渠道 disabled/未配置）：日期筛选 21 条后翻到第 2 页唯一 `signal-fixture-00000`，打开真实详情与关联投递，校验 URL `monitorTab`/`monitorFilters`/`monitorRecord` 与同 scope 的 5 条 primary、`delivery-fixture-00001-4` summary 及 1 条人工重发，排除无关 summary；1024 窄屏选中投递时反向按钮仍可见；同一 scope 打开人工重发→查看原投递→Back，覆盖 R4 首次真实路径；Back/Forward 保留原信号第 2 页、筛选与记录，信号 entry 刷新恢复同页；反向返回同 id 并可再次前进；投递 entry 刷新直接恢复范围，反向仍按 id 精确读取（信号列表回默认第 1 页 20 条，证明不在当前列表亦可读）。同一 route 在放行前记录并 abort 任意 tRPC POST，`writes` 为空；补充手工 apply 边界：投递 tab 重置筛选后填写「关联信号ID」草稿不显示入口，点「查询历史」后显示 exact scope 并可打开同一 signal（复用已访问的 scope 缓存）。全程 POST mutation 0、非 loopback 请求 0、页面异常 0。`pnpm exec tsc --noEmit` exit 0，定向 eslint 两组件与 Prettier 检查通过，`git diff --check` 无错误（仅 CRLF 提示）。未改 server/API/DB/schema、通知流程或 `src/server/mcp.ts`；未 stage/commit/push/打包。清理：确认 3927 无监听后用同一原生 PowerShell 运行 `.test-data/system-monitor-r5-20261119/cleanup.ps1`，默认预演列出 64 files/68 directories（仅本轮 `build-data`、`e2e` 与脚本自身，无链接），`-Apply` exit 0，独立 `Test-Path` 返回 False，夹具根已删除、`.test-data` 父目录保留。
+上述记录的事实与证据留在各自模块目录，不在此重复测试数字。
 
 ## 策略池量化与十持仓研究
 
 ### 目标
 
-保留全池研究目标：用本地数据把可量化的独立方法变成可回放策略，再统一初筛盈利线索。均线只作系统回归，不作主赛道；八二仅为研发优先顺序，不是小时 KPI，也不进验收标准。
+用本地数据把可量化的独立方法变成可回放策略，再统一初筛盈利线索。均线只作系统回归，不作主赛道；八二仅为研发优先顺序，不是小时 KPI，也不进验收标准。
 
 ### 范围与取舍
 
-- 799 只只作扫描范围；旧全池均摊产物彻底清除，不再作排序依据，也不保留"仅供参考"的旁路。
-- 取消"跨家族基准排序"阶段，降级为冒烟测试：只验证链路可跑通，不产出任何排序。
-- 第一批按条目挑，不按家族挑——判据是输入齐备且入场、退出能写成完整规则。首批只做量价突破 1 条完整策略，用途是验证共享路径端到端，不据此下方法业绩结论。
-- 五根持有期入场实验单列阶段，只记录信号的成交和拒单证据，完整策略的进出场与收益另行回放。
+- 799 只作扫描范围；旧全池均摊产物不再作排序依据。
+- “跨家族基准排序”降级为冒烟测试：只验证链路可跑通，不产出排序。
+- 第一批按条目挑——判据是输入齐备且入场、退出能写成完整规则；先做量价突破 1 条完整策略验证共享路径。
+- 五根持有期入场实验单列阶段，只记录信号成交和拒单证据。
 
 ### 账户与选仓
 
 A 股与 BTC/ETH 分账户，各自独立约束：同时最多 10 个品种、单品种目标 10%，旧仓卖不掉时继续占位、不释放额度。同日候选按原法预先声明的优先级竞争仓位，不按旧历史成绩裁定；原法无评分和优先级时，冻结同日并列的稳定排序，并在结果中披露可能受它影响的成交。
 
-### 执行顺序（防代码顺序主导）
+### 执行顺序
 
 每根 K 线先全量生成候选，再按预先声明优先级统一选仓、统一撮合；禁止边算边占仓。用一个会争抢仓位的小样本调换输入顺序，核对订单与成交一致。匹配用基准独立于代码排序偏好。
 
-### 首批交付
-
-1. 共享适配层最小改动：让现有信号、退出、仓位逻辑接入组合引擎。
-2. 量价突破 1 条完整策略（入场+退出+10 仓/10% 真实约束），A 股开发窗单批。
-3. 交付物：交易明细、信号时点与成交顺序核对、成本与单位核对、缺口清单（逐条写明无法回放的原因）。
-
 ### 必要验证
 
-只查会导致错误决策的风险：信号时间无未来数据、旧仓占位是否被正确计入、成交成本与单位、是否存在有效交易、候选顺序一致性。基准成本批次通过后，才允许对候选跑双倍成本与较晚历史窗。全量回归只在出现具体风险时触发，不为全绿重复执行。
-
-### 推进下一批
-
-共享路径跑通后按家族批量接入：威科夫结构、反转、成长形态、相对强弱依次填充，每批交付"可回放策略+有效交易+缺口"，不阻塞已就绪方法。缺历史成员、财务披露或分钟数据的家族单列跟踪。不回到长期单策略验证。历史结果只作继续追踪的线索，不称策略业绩。
+只查会导致错误决策的风险：信号时间无未来数据、旧仓占位是否正确计入、成交成本与单位、是否存在有效交易、候选顺序一致性。基准成本批次通过后，候选才跑双倍成本与较晚历史窗；全量回归只在出现具体风险时触发。
 
 ### 当前状态
 
-A 股 118 条、BTC/ETH 114 条完整日线规则完成开发窗基准成本回放，包含两市各 28 条技术预设原出场。五根持有期入场实验两市各 32 条。多周期八场景独立完成。周度复合 RPS 和月末低波动组合均已接入并独立复算首次排名和成交。较晚窗与双倍成本只用于已选候选，平底突破和五日反转保留为优先观察对象。金融事实、历史成员、分钟数据和原法出场等缺口仍按对应方法登记。结果见[研究记录](research/theory-study-results.md)。
+A 股 118 条、BTC/ETH 114 条完整日线规则完成开发窗基准成本回放；五根持有期入场两市各 32 条；多周期八场景独立完成。周度复合 RPS 和月末低波动组合已接入并独立复算首次排名和成交。金融事实、历史成员、分钟数据和原法出场等缺口按对应方法登记，结果见[研究记录](research/theory-study-results.md)。
 
-### 首批：实验室与研究 CLI 共用成本情景（2026-11-18）
+### 成本情景与只读重放
 
-- `trading-strategy-core/costs` 提供唯一纯费用构造 `researchExecutionCosts(market, scenario)`：`fixed` 保持实验室原默认（3bp 佣金/5 元最低/5bp 印花税/5bp 滑点，不切换历史税率），`base` 使用 2023-08-28 前后 10→5bp 历史印花税，`double-cost` 将佣金、最低佣金、印花税与滑点同比放大两倍。
-- 实验室 `labBacktestSchema`、对象回测 UI、worker 与冻结导出已接入 `costScenario`，缺省 `fixed`；`scripts/theory-study.ts` 新增显式 `--cost-scenario`（缺省仍按阶段使用既有 base 或 base+double），`scripts/method-pool-technical.ts` 可选第 4 参数（缺省 base，原检查点文件名不变）。
-- 冻结对象明确记录 `costScenario`、`frozen.request.costs`、`frozen.sources[].adjustment`（或 `adjustmentId`）以及 `marketPolicy`：A股信号复权为 forward 或逐证券 GBBQ anchor，成交只用 raw 原价；数量网格为逐日板块情景（主板 100/100、科创板 200/1、创业板 2020-08-24 起 100/100），历史 ST/IPO/排队仍未认证。
-- 可运行案例（输出限定在 `.test-data/` 隔离目录）：
-  `pnpm exec tsx scripts/theory-study.ts --stage path-proof --cost-scenario fixed --output .test-data/cost-scenario-20261118/path-proof`
-- 定向验证入口：`tests/research-backtest/lab-cost-scenarios.test.ts` 复用同一份冻结请求，核对 fixed 与旧默认权益/成交/订单/拒单逐项相同、base 与 double-cost 的跨 2023-08-28 印花税切换，以及逐笔拒单在三种情景下顺序与原因一致。
-- 只读 replay：`scripts/research-lab-replay.ts` 读取应用“导出任务证据”得到的 `{ input, result }`，先校验 `result.inputHash` 与 `result.frozen` 摘要一致，再按冻结请求经 `runPortfolio` 重放，并核对 `fills`/`rejections`/`curve` 与导出结果一致；不重读行情、不改输入、不写数据库。可运行命令：
-  `pnpm exec tsx scripts/research-lab-replay.ts --export .test-data/<任务导出>.json --output .test-data/<回放结果>.json`（省略 `--output` 只输出摘要）。`--output` 使用独占新建（`flag: "wx"`），目标路径已存在时拒绝覆盖，包括经符号链接或硬链接别名指向导出本身的路径。
-  定向验证入口：`tests/research-backtest/lab-replay.test.ts` 从 `executeLabBacktest` 与 CLI 两个真实入口比较 `fills`/`rejections`/`curve`，要求至少一笔成交，并验证篡改冻结请求或导出结果均被拒绝；已存在的同名输出必须保持原内容。
+- `trading-strategy-core/costs` 提供唯一纯费用构造 `researchExecutionCosts(market, scenario)`：`fixed` 为实验室原默认（3bp 佣金/5 元最低/5bp 印花税/5bp 滑点），`base` 使用 2023-08-28 前后 10→5bp 历史印花税，`double-cost` 将各项同比放大两倍。
+- 实验室、对象回测 UI、worker 与冻结导出统一接入 `costScenario`；CLI 的 `--cost-scenario` 缺省沿用各阶段既有 base 或 base+double。
+- 冻结对象记录 `costScenario`、`frozen.request.costs`、复权口径与 `marketPolicy`；A 股信号复权为 forward 或逐证券 GBBQ anchor，成交只用 raw 原价。
+- 只读 replay：`scripts/research-lab-replay.ts` 校验导出摘要后经 `runPortfolio` 重放，不重读行情、不改输入、不写数据库；输出已存在时拒绝覆盖。
 
-### 本轮状态与验收（2026-11-18，最终）
+## 当前待办与剩余验证
 
-本轮四项最终事实：
-
-1. 双端 CLI 冻结重放 4 项通过。
-2. 真实量价 v2 两份导出导入后由新进程读回买 635、卖 628、拒 2107；重复导入为 unchanged，不重写已导入证据。
-3. v3 新生成一只股票，回放得到两买两卖；真实 blocked 无可用样本，不声称已验证。
-4. 共享矩阵与绑定通过，含跨身份去重。
-
-工程门禁：
-
-- 主工程全量 7080 项通过、27 项跳过；唯一共享控件初始失败，修复后 2 文件 7 项通过。
-- 四个包分别 495、21、98、24 项通过。
-- 依赖、runtime、类型、lint 分步通过。
-- 完整 `pnpm check --build` 停在两处 HEAD 已有格式偏差：`b2-structure-study.ts` 与 `method-pool-index-reference.ts`；生产构建由管理端独立验证，本记录不预写结果。
-- 未提交、未推送、未打包部署。以上为工程与规则自检证据，不构成收益资格或可信策略业绩。
-
-## Claude 专家协作入口
-
-按用户批准方案实现 Codex 管理、Claude 六专家执行的项目技能与进程调度入口；沿用 Claude 默认模型。范围、运行和实际验收见[协作入口交付](engineering-validation/2026-11-18-quant-team.md)，不扩展应用页面或真实交易权限。
-
-## 工作流程调整
-
-本次按用户要求完成[历史流程复盘与优化方案](project/2026-11-17-optimization-plan-workflow.md)，通用执行规则已同步到根 [AGENTS.md](../AGENTS.md) 与[执行者说明](executor-brief.md)。后续按用户可用行为组织交付，开发期定向验证、集成交付点集中门禁，复用仍有效的证据；历史计划的逐批全量、固定角色、重复验收安排不再自动生效。既有研究准入与数据/交易边界保持原授权，后续只随对应需求调整。
-
-## 策略闭环自主实施（2026-11-17，工程交付完成）
-
-用户已批准[策略闭环计划](research-backtest/2026-11-17-strategy-closure-plan.md)并授权执行。P0–P4 主要工程路径已验收，真实 ORB 三成本取得执行证据。已接受 19 个纯组件与 1 个 ORB 代理；工程可运行、迁移等价和规则自检不等于收益资格。
-
-最终 `pnpm check --build` exit 0、首次无失败：7641 tests passed/27 skipped，752 files passed/16 skipped；3 条既有 Vite configLoader native tooling 警告，无六条 full-repository trace 警告。`desktop:prepare` exit 0，guard 未拒绝、未打包；worker SHA256 `deb1b5e8c5f6df86df7fcfd452c47a800c8cf85b2427d2147b8f41b639fb67ec`，identity.hash `d95132d7f6d460ee49440a14b9bff6c67f52c73fe6b3d75617a5315f408ed56c`。财务 v2 严格 UNKNOWN 实现完成并通过必要门禁；真实 smoke 仅 sh600008/2020 单年 CLI，exit 2 expected blocked，positions/magicEligible/completeMagic 均为 0，无 portfolio；原四场景/八次 blocked P5 保留历史，不重跑 799×7/F-score。合成三成本各两次 seed exit 0，每场景 28 fills/1 reject/781 curve/6 positions，旧 checkpoint/result 不变、新 journal reused；这是合成认证零成功，不是真实业绩；实际 app UI 验收已通过（三成本历史、28 fills 分页 20+8、1 reject、781 curve、刷新、完整 JSON 下载、1440/1024、ORB 文案/预填，仅合成可用性）。浏览器已关闭、3937 已停止。清理 Apply exit 0（386/386、0 failures/blockers、1,415,022,070 bytes，正常权限、无重试）；工程交付 COMPLETE。根代理只派单/决策，剩余验收与清理由 Claude 正常权限执行。未提交、推送、正式打包部署、生产库和交易授权；数据库隔离在 `.test-data/strategy-closure-20261117/`。详情见[实施记录](research-backtest/2026-11-17-strategy-closure.md)。
-
-## B2 扩展开发（2026-11-17，已验收）
-
-按用户批准的扩展计划，主代理+三个agents、code mode已完成两版三重滤网、结构状态机、离线财务预设、年度研究CLI和应用接入。主工程6,896与包级374项通过，最终构建/desktop准备及两宽度真实数据页面验收完成。研究最终8个多周期、32个结构、3个财务场景完成及恢复核验；CN样本尾部480缺槽/只与完整F-score发行事实缺口明确保留，不作收益晋级。失败修复、最终定向检查、解释元数据修订见[B2交付记录](research-backtest/2026-11-17-b2-development.md)。清理被自动审批拒绝，776.33 MiB临时数据暂留，已交付默认预览脚本；服务和浏览器已停止。未提交、推送、打包部署、改正式库或交易；应用内多年财务回放按钮不在本批交付之列，年度回放入口为CLI。
-
-清理按用户最新要求改为脚本交付 Claude，见[执行单](engineering-validation/2026-11-17-b2-cleanup-claude.md)。本次主代理负责完成交接；实际删除状态以 Claude 执行后的回执为准。后续独立开发子任务可使用 Claude CLI，由主代理统一验收。
-
-## 功能按钮实际验收（2026-11-17，本轮12项修复已验收）
-
-按用户最新授权使用多agents与code-mode排查，由主代理实际验收。B01—B12已修复；最后7167项测试通过、27跳过，生产构建与desktop:prepare通过，新增任务入口及复权说明已在最后构建中复点。截图中的正弦行情来自合成fixture；真实通达信沪深300的2000根OHLC另行只读核验一致。覆盖和未测边界见[按钮验收记录](workbench/2026-11-17-button-audit.md)，不宣称全站所有按钮通过。验收服务已停、超过8GB临时数据已清；67个小文件经用户新授权交由Claude正常权限清理，主代理复核全部删除且必要证据保留。未提交、推送或替换正式release，未操作用户库、原始数据、真实通知、计费或交易。
-
-## 理论策略工程化（2026-11-17，进行中）
-
-按用户新授权融合现有策略，尽量实现数据就绪的机械规则，覆盖A股与BTC/ETH现货；多agents分工开发，由主代理验收。逐卡去向见[228卡工程覆盖](research/theory-implementation/README.md)，真实行情开发验证见[研究记录](research/theory-study-results.md)。原理论文档保留；本轮不自动交易、通知、打包或部署，历史已使用时段不能充当独立留出。工程可运行不等于收益晋级，待开发及数据阻断项逐卡保留。
-
-## 理论研究已交付：理论到伪代码（2026-11-17）
-
-按用户授权完成[主流交易理论研究计划](research/theory-to-pseudocode-plan.md)，停在理论与伪代码。18 章 228 张模型初稿卡已冻结，来源校订、伪代码、全量非作者审查及综合比较已交付；48 张原法来源缺口与人工/条件留项见[研究入口](research/theory-to-pseudocode/README.md)。研究复用已有方法目录，区分证据不足与表现未达标，不以名著或理论完成宣称稳定盈利。本任务停在理论与伪代码，不改应用、数据库、提醒/交易模式或现有自然时间观察安排。
-
-## 当前执行：2026-11-15 优化方案 L0–L5
-
-执行[最新优化计划](project/2026-11-15-optimization-plan.md)。L0 已按收盘时钟、行情/纸面输入、今日与晚间计划拆给三个执行 agent，管理者负责集成和验收；L1–L5 依原依赖继续推进。用户于 2026-11-16 授权完成后分批本地提交，并要求开发期间不做大规模测试、完整测试留到最后；此要求覆盖旧计划每批执行完整门禁的安排。定向行为验证随改动进行，最终统一执行完整检查与构建，提交记录明确当时的验证范围。
-
-开发验证的隔离任务根为 `D:/github/nextjs-quant/.test-data/lifecycle-20261116/`，不使用真实业务库；后续授权部署按下述结果交接。凭证、MCP及通知/交易模式保持原配置。用户已授权本轮打包与真实库部署，现已完成一致备份、隔离接续、打包与真实库迁移，正式应用运行中。各项验收、自然时间观察和未决事项见[交付记录](project/2026-11-16-lifecycle.md)。下文 R1–R3 为历史交付，不代表 L0–L5 已完成。
-
-L0–L5源码已分批提交；最终七阶段工程门禁、生产构建和desktop:prepare通过，主工程6784及包级245项通过。L2两版旧配置精确重放通过；L3事前登记16主配置和104经济邻域，完成480次实际调用及2300检查点恢复复核，晋级0项，成绩行与统计诊断相同。A股及突破族输入缺口仍为证据不足，不用正留出收益替代晋级门槛。真实应用两宽度验收与容量结果见交付记录；CN799×60因sz000959预热缺10个日期而阻断，不能称完整容量通过；数字货币日线与4h均完成120日历史容量/恢复验证，不计自然前推。
-
-L1 的15%单标的、6%组合风险、A股30%行业默认限额已获确认并可调；全部已知行业组独立检查，组合资金不重复计算。schema19已真实部署，正式包已更新；原五账户合同和治理设置保持。每族主配置≤12、邻域完整预登记并计入DSR；旧冻结结果未重写。剩余为源缺口，以及部署后3个完整真实交易日观察（当前0日）；未开启live、订阅或镜像。
-
-最终复核补齐20个冻结回撤窗口、旧影子/纸面建议隔离、实验室复盘暂停入口及同版本分仓品种上限。新构建14项应用验收通过（含两宽度批量关联、日志及确认暂停），原成交和纸面历史哈希不变；取消不写入，确认暂停保留影子。下载任务已定向追加17:40/18:30且保留原17:00；没有运行会同时改CLS的整套安装脚本。缓存/日志按用户要求交Claude执行精确清理脚本，研究与审阅证据保留。
-
-本轮交接入口为[11月16日交接](project/2026-11-16-handoff.md)。真实18库与旧完整包一致备份已完成；原五账户无checkpoint，重放不适用。官方尾档补齐后，正式三CN推进11/16、两crypto推进11/15，五份result与隔离结果完全相同，成交0、错误0；未改本金、登记起点或提醒治理。11/17至11/24已安排20:15只读采样，最多冻结3个真实合格日，今晚不计完整日。
-
-## 当前状态：2026-11-14 优化方案 R1–R3 已完成
-
-全部批次已提交（最后 `ee1374f`）并部署到真实库（schema 18）与 `release/win-unpacked`。5 个影子候选在真实行情上纸面前推，提醒为影子模式、镜像关闭。完成情况、结构与未关闭事项见 [2026-11-15 交接](project/2026-11-15-handoff.md)，方案全文见[优化方案 2026-11-14](project/2026-11-14-optimization-plan.md)。
-
-下一步以前推证据为准：纸面账户达到 30 信号或 60 市场日后逐个评估；数字货币突破 sleeve 份额与数字货币资金由用户在系统页决定。
-
-2026-11-16 财联社时区维护：采集入口的日期、批次与盘前等待截止统一使用北京时间；外部采集器与共享查询脚本同步修复，历史采集时间已备份校正，不调整原始新闻 Unix 时间戳。不重跑历史分析或外发通知。
-
-同日补充完成国家队/通达信子脚本、RPS重装入口、历史报告及9份旧回执的北京时间修复；国家队任务实际运行返回0，数据补至11月13日。Claude日报任务曾被误停用，用户指出后已恢复启用，保留工作日北京时间08:40运行，未立即触发。定向验证与恢复档案见[任务时区交付](news-cls/2026-11-16-task-timezone.md)，本次不参与生命周期改动的提交、打包或真实库迁移。
-
-## 已完成：R3b 统一持仓止损状态筛选（第3/5轮）
-
-按 2026-11-19 账户与复盘第3/5轮，在统一持仓增加「全部 / 所示价格已到止损位 / 待核对」筛选。共用分类只比较已读取的 price 与记录的 stop：任一缺失、非有限或 ≤0 归为待核对；有效且 price ≤ stop 为已到止损位（含等于），其余在止损上方。不从格式化百分比、成本或市值反推。筛选在现有来源/市场/分仓与分页前执行，统计、敞口与页码取筛选后的集合；详情返回沿用 R2 保留的筛选。同账户风险读接口复用同一分类，状态切换回第1页。列表与详情仅对已到止损位标红，待核对显示「待核对」且不显示距止损/R；不追加取价，不扩展风控、提醒或可写路径。
-
-定向 `pnpm exec vitest run tests/portfolio-ledger/r3b-accounts.test.ts` 12 项通过（含等于/低于/上方/缺值/无效及 25 个触及先筛选再分页）；`pnpm exec tsc --noEmit` 退出 0；`git diff --check` 退出 0（仅 CRLF 提示）。测试使用隔离 `QUANT_DATA_DIR=D:/github/nextjs-quant/.test-data/accounts-optimization-r3-20261119`，未打开生产库；浏览器验收留第5轮。未提交、推送、构建或删除数据。
-
-## 已完成：R2a-5
-
-研究实现与数值重跑完成，原价读取性能门禁待处理。非现金公司行动与中证800执行覆盖799/800完成，余下sz000831尾部止于2026-10-30；原生三买仍为固定30只观察子集。BTC/ETH等权1/N及30%波动率两种仓位完成，参数保持，旧对照保留。市场DSR判定、全局DSR诊断并列：609项实际试验、489行结果，晋级0项，影子候选5项。
-
-七阶段检查、desktop:prepare与P0浏览器验收通过；读取性能复测原价8.463秒超过8.4秒预算，前复权13.380秒通过13.5秒预算，不判整批门禁全过。两次原始计时均保留，原因未证实。数值与资源/清理证据见本批delivery及[成绩单](research/2026-11-scoreboard.md)。影子登记仅在隔离研究库，真实前推信号当前为0；固定时钟测试不计入。达到30信号或60个实际观察市场日后同门槛评估，仍只给建议，live及订阅须手动开启。当前成分前视、历史成交/到账与财务版本、低位第三完整周期等缺口仍在。未提交、推送、打包或改默认份额。
-
-## 已完成：R2a-4 引擎核查、敏感性与统一重评
-
-按 `.codex-runs/dispatch-R2a4.md` 接续管理者中止的 R2a-3。先完成逐笔执行核账及8只证券与 `cc934c7` 对账，再用风险调整收益与正绝对收益统一重评；回撤、交易数、窗口、邻域、全族 DSR 和低位周期/置信度门槛不变。原始超额与旧判定并列。
-
-A股主池为当前中证800：800只名单仅258只通过冻结的公司行动执行审查；542只逐项排除（541只有非现金公司行动，另1只sz000831尾部行情止于2026-10-30，不能据此认定退市），不能把258只结果称为完整800成分回测。基准000906，全市场5564只RPS排名保持冻结。标注 high `current-constituents-lookahead`，2025-06起留出为主要参考，早期窗口偏差更大。全市场1638只为对照，恢复337只分别按最后价及零估值检验敏感性，不据此扩大主口径晋级范围。
-
-数字货币主池为用户实际交易的BTC/ETH，从最早官方归档开始；原20币对保留为对照。币安ZIP及CHECKSUM镜像目录是持久行情源，BarStore仅缓存其读取结果。回填按钮和存储目录设置由用户显式触发；启动只提示，不批量下载。实现与真实研究数据全部使用 `.test-data/r2a4/` 隔离目录，不触及生产库或默认通知模式。
-
-原生v22没有追加bar接口；保持串行、逐前缀因果计算，仅解码三买必需结构。固定420只按原顺序运行至预设60分钟预算，之后按预先登记的符号顺序将完成的中证800交集补足30只。三只全历史逐bar与原输出完全相同；实际完成数和耗时以delivery为准。
-
-249行验证结果及旧组合/分仓的12行全期描述已汇总；369项试验共用DSR分布，晋级0项。原生完成固定序列前96只，另补7只，中证800交集30只；六族54个变体的两种终值情景均完成。没有待续候选计算，数据依据与前五名差距见[成绩单](research/2026-11-scoreboard.md)。
-
-后续输入缺口是541只非现金公司行动、1只尾部覆盖异常、历史时点成分、低位第三个完整市场周期及可靠财务/温度版本，以及实际前向影子观察。这些缺口未因本轮程序检查通过而消除。
-
-结果、源哈希、失败与重试、七阶段检查及收尾均记 `.codex-runs/delivery.json`；最终报告覆盖[成绩单](research/2026-11-scoreboard.md)。不提交、推送、stash或正式打包，不打开提醒live模式。
-
-## 已中止：R2a-3 规模化研究
-
-数字货币、A股波段和低位阶段已完成；原生420只约完成21只，最终全族成绩单未完成。代码修改和冻结输入保留，R2a-4先逐个校验再接续。分片无损合并以维持原100文件/4GiB产物预算；不把中止阶段的局部DSR视为最终资格。
-
-## 已完成：R2a 历史验证、分仓候选与成绩单
-
-按 `.codex-runs/dispatch-R2a.md` 推进：包内纯验证窗口与低位检测 → 冻结输入/worker研究任务 → 免费历史池与真实数据候选 → 每市场组合/分仓成绩单 → 中文研究结论与批末门禁。参数只在训练窗选择，样本外不回头调参；晋级门槛保持预先定义，零晋级如实报告。真实数字、输入哈希、缺口和验证结果以 `.codex-runs/delivery.json` 及 [研究结论](research/2026-11-scoreboard.md) 为交接入口。
-
-候选登记 runnable 不等于通过业绩验证。研究资格与实时提醒模式、订阅分开，成绩单发布不外发、不交易。没有新增表，本轮仍为 schema16；旧 exe 的版本限制继续生效，不为研究绕过检查。
-
-## 已完成：R2b 统一提醒、计划与影子模式
-
-派单 `.codex-runs/dispatch-R2b.md` 接续已提交的 R1c。统一引擎接替旧三个调度器；默认影子模式，已登记live策略、已保存持仓止损/目标/移动止损、交易计划、市场状态和分仓偏离进入同一完成bar时钟。设置页显式开启live且订阅启用后才经现有outbox投递；本轮测试全部stub，真实通知数为0。
-
-信号台账默认展示提醒历史及T+5/10/20，旧历史仍可切换查看；交易计划支持候选创建、风险/额度数量和分批档位、到期及取消。完整工作区现见R3c。schema16只在隔离库验证；真实退出码、各项用例与剩余验证记 `.codex-runs/delivery.json`。
-
-尚需真实运行1–2周的影子观察对账，不能用合成fixture或本轮门禁替代。R2a历史策略验证与本单分开，不放宽策略晋级门槛。
-
-## 已完成：优化方案 A–E
-
-A–E 已全部提交（e5063bb、fe73255、67f3e33、ec38764、a77c2e9，另有 WDZ 迁出 f73f7db 与清理 7d10995），状态与接手入口见[2026-11-14 交接](project/2026-11-14-handoff.md)。完整 pnpm check --build 七阶段退出 0：主工程 6,328 + 包级 194 通过、27 既有跳过；未推送、未正式打包。
-
-## 接下来两项
-
-1. P1 尚未覆盖的外部数据成功态、历史盘中批次与行业/概念 RPS 有数据态、Electron 原生焦点，按实际可用环境只读补验。
-2. 剩余 25 处数据层外 SQLite 调用按登记理由维持；只有实测瓶颈证明需要时再迁移或设计物理表，没有预设 schema 升级。
+1. **THSDK 能力落地**：按方案先完成驱动底座、只读方法白名单与连接检查，再按能力接入看盘、情绪、板块、问财与资讯；每个能力记录已验证字段、缺口、适用市场和消费者。
+2. **成交执行质量**：`accountExecutionQuality` 与复盘已实现，尚缺真实账户的持续运行样本、外部场所联调与长期一致性观察；不因此恢复旧任务书或旧执行入口。
+3. **A 股数据缺口**：历史证券池、非现金公司行动、财务首次披露版本与真实可成交证据按方法逐项登记；缺证据只阻断相应结论。
+4. **外部数据成功态补验**：外部行情成功态、历史盘中批次、行业/概念 RPS 有数据态与桌面原生焦点，按实际可用环境只读补验。
+5. **SQLite 调用收敛**：数据层外的保留调用按登记理由维持；只有实测瓶颈证明需要时才迁移或设计物理表，没有预设 schema 升级。
 
 ## 持续边界
 
-- 公式、双突破与现行研究/回测可用；旧样本/执行链已退役，不增加兼容转发。
-- 旧监控/台账/预选调度退役；统一提醒默认shadow，启用旧配置不会恢复旧调度，重启不补跑、不补发。
+- 公式、双突破与现行研究/回测可用；旧样本/执行链已退役，请求不会启动旧任务。
+- 旧监控/台账/预选调度不再运行；统一提醒默认 shadow，启用旧配置不会恢复旧调度，重启不补跑、不补发。
 - 仅扫描（包含行情/筛选）与回测显式保留实例；普通页面的 URL、内存草稿、sessionStorage 与服务器事实按[架构状态表](architecture.md#页面模型与状态归属)归属，返回不自动重提写入。
-- 原通达信/外部 Blocks 只读，凭证在仓库外 DPAPI；任何可能初始化数据库的验证先使用隔离 QUANT_DATA_DIR。不改用户库、不降低 user_version。
-- 数字货币模拟交易及其他市场保留已有授权范围；本轮不扩展实盘、合约或真实外部调用。`src/server/mcp.ts` 与用户维护文案不动。
-
-## 真实库部署与收尾
-
-R3c由管理者验收差异、能力对照表和两宽度路径，关闭旧应用后备份真实SQLite，再部署schema18匹配资源。不得用QA库替换真实库，不降user_version；自然影子/纸面前推样本与真实模拟场所联调仍需运行观察。验收后预演 `.test-data/r3c/cleanup.ps1`，确认无任务进程后才应用。本批不自动启用live、订阅或镜像。
-
-## 历史手动事项
-
-无。2026-11-14 管理者已执行 Zod junction 修复、WDZ 迁出（f73f7db）、退役合成标定清理（7d10995），以及 P0/P1 验收库、单元测试临时目录、A–E 各批任务产物的清理脚本（均先预演、按哈希核验后删除）；浅色打包与历史工具清理脚本复核时已无目标。`.next/cache` 的审阅清理脚本因构建缓存已变化而拒绝执行，属可再生缓存，未处理。
-
-## 其他有效范围
-
-- 统一策略中心继续依据[规格](product/specs/unified-strategy-center.md)、[方法盘点](strategy-inventory.md)与[归属计划](strategy-signals/2026-09-21-strategy-consolidation-plan.md)；695 项登记不等于全部可执行，历史结构/公告时点及九代表研究仍按原范围推进。
-- 浅色界面依据[开发计划](product/full-site-redesign/development-plan.md)与[覆盖表](product/full-site-redesign/development-coverage.md)；该任务自己的提交/打包授权不能移用于本派单。
-- 成交执行质量仍仅规划，本轮不扩展；原专项计划文件当前缺失，接续前恢复任务书及输入。五分钟导入依据[手册](wdz-import.md)及[规格](product/specs/tdx-five-minute-import.md)，已有近似量只供看图，不自动覆盖估算或扩展外部目录写入。
-- 其他模块按[模块地图](modules/README.md)维护；保持排序分页、缺失语义与原生串行边界，多核公式池、多图布局和跨周期画线不顺带扩展。
+- 通达信/外部 Blocks 只读，凭证在仓库外 DPAPI；任何可能初始化数据库的验证先使用隔离 `QUANT_DATA_DIR`，不降低 `user_version`。
+- 数字货币模拟交易及其他市场按现有授权运行；新增实盘、合约或真实外部调用需独立授权。`src/server/mcp.ts` 与用户维护文案不动。

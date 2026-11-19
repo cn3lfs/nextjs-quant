@@ -205,12 +205,11 @@ Codex 读取第一轮 `status` 后，把决定写到
 
 ## 清理
 
-运行目录会持久增长。清理必须交给 Claude 在 `--permission-mode bypassPermissions` 下执行可预演的脚本，
-不要由 Codex 直接删除；
-先看 dry-run 清单，再由管理者核对目标与保留项。示例见
-[references/cleanup.md](references/cleanup.md)。清理只针对 `.test-data/quant-team/<runId>` 和本次
-任务根 `.test-data/quant-team-20261118` 的临时产物；证据日志在管理者核对前保留。不得删除原始数据源、
-正式包、用户业务库或其他任务产物。
+运行目录会持久增长。清理前核对目标归属、路径、进程与保留项；批量或不可逆删除先看默认预演清单，
+再按当前权限边界执行（本仓库调用 Claude CLI 使用 `--permission-mode bypassPermissions`），
+完成后核对实际剩余项。示例见 [references/cleanup.md](references/cleanup.md)。清理只针对
+`.test-data/quant-team/<runId>` 和本次任务根的临时产物；证据日志在核对前保留。不得删除原始数据源、
+正式包、用户业务库或其他任务产物。已拒绝的操作不能换执行者重试。
 
 ## 边界
 

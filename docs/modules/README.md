@@ -1,6 +1,6 @@
 # 模块地图
 
-截至 2026-11-14 的模块责任、入口、主要消费者、副作用与验证索引。它补充 [系统架构图](../architecture.md)：架构图说明端到端数据流，本目录说明各模块的维护边界。代码路径、路由名和测试名以仓库当前状态为依据；静态地图不证明任意运行时路径都已覆盖。
+截至 2026-11-19 的模块责任、入口、主要消费者、副作用与验证索引。它补充 [系统架构图](../architecture.md)：架构图说明端到端数据流，本目录说明各模块的维护边界。代码路径、路由名和测试名以仓库当前状态为依据；静态地图不证明任意运行时路径都已覆盖。
 
 ## 依赖方向
 
@@ -13,7 +13,7 @@ src/server ──纯规则/类型──> src/lib / packages；数据适配归 da
 electron ──启动/停止──> standalone Node 服务 ──加载──> runtime workers
 ```
 
-这是依赖方向的维护目标和已观察的主要流向，不表示每条现有导入都已通过自动边界检查。`src/server/api/root.ts` 只合并按领域拆分的 router；procedure 名称与调用类型由契约测试固定。其他边界仍须结合实际消费者核对。
+这是依赖方向的维护目标和已观察的主要流向，不表示每条现有导入都已通过自动边界检查。`src/server/api/root.ts` 只合并按领域拆分的 router；域 router 是 procedure 的注册来源，契约测试验证平面装配、调用类型和能力声明。其他边界仍须结合实际消费者核对。
 
 ## 领域清单
 
@@ -40,7 +40,7 @@ electron ──启动/停止──> standalone Node 服务 ──加载──> r
 - 页面/路由文档说明入口和交互，不复制业务服务实现细节。
 - 领域文档至少维护职责、入口/消费者、输入输出契约、依赖方向、持久化/外部效果、不变量/验证和代码放置规则。
 - 模块内状态由模块服务/store 所有；跨域组装放明确入口。确需反向依赖或共享状态时，在对应文档写明例外和原因。
-- `src/lib/` 根部只保留 `domain.ts`、`indicators.ts`、`money.ts`、`completed-bars.ts` 四个稳定共享契约/核心模块；新规则必须进入具名领域目录。
+- `src/lib/` 根部当前有 `domain.ts`、`indicators.ts`、`money.ts`、`completed-bars.ts` 等稳定共享契约与核心模块；有明确职责、被多个领域消费的契约可以新增，纯领域规则放具名目录。
 - 测试按业务模块归档到 `tests/<module>/`，跨域结构与工程检查位于 `tests/engineering-validation/`；共享输入、造数、辅助、测量和人工脚本分别放 fixtures、fixtures/seed、helpers、perf、manual，根部只保留全局 setup 与说明。表中只列代表性保护用例，并非覆盖完整清单。
 - 模块内的交付、核对、任务书和复盘按 `docs/<模块>/YYYY-MM-DD-<主题>.md` 直接存放，结项后留在原位；跨模块记录放 `docs/project/`，不设月份层或历史归档树。
 - 数据源、DLL、SQLite、worker、打包与 MCP 保护路径的完整约束以 [不变量](../invariants.md)、[操作说明](../operations.md) 和 [路线图](../roadmap.md) 为准。
@@ -48,10 +48,10 @@ electron ──启动/停止──> standalone Node 服务 ──加载──> r
 ## 盘点边界与待完成核查
 
 - 已核实静态目录、App Router 页面、tRPC procedure 名称、主要 worker 构建入口及根级结构护栏。
-- tRPC procedure 按领域位于 `src/server/api/routers/`；`root.ts` 是扁平合并组合根。`tests/api-runtime/api-router-contract.test.ts` 固定 procedure 名称和 query/mutation 类型。
+- tRPC procedure 按领域位于 `src/server/api/routers/`；`root.ts` 是扁平合并组合根。`tests/api-runtime/api-router-contract.test.ts` 验证域 router 的平面装配、跨域重名和关键 wire path 及 query/mutation 类型。
 - worker 构建清单以 `scripts/build-runtime.mjs` 为准；生成到 `runtime/` 的 tracked 文件并非源码归属依据。
 - 此轮未声称字符串拼接路径、所有 `import()`/`require()`、第三方 Electron 行为或每个脚本的数据副作用均已穷尽。具体迁移前需对相关目标执行路径级复核。
-- `src/server/mcp.ts` 和相关 UI 文案由用户维护，不在当前重构触碰范围；已有 server 分域也不重复搬迁。
+- `src/server/mcp.ts` 和相关 UI 文案由用户维护，未经明确交接不修改、不回退、不纳入提交。
 
 ## 数字货币自动交易
 

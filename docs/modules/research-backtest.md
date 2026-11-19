@@ -2,14 +2,14 @@
 
 核对：2026-11-14；本页描述当前实现，验收边界见[当前优化交付](../project/2026-11-13-optimization.md)。
 
-更新：2026-11-13。现行入口为回测工作台和策略中心，旧选股/回测、样本研究、walk-forward 与旧 LLM 分析链已退役，不保留只读兼容页面或旧执行协议。三个旧自动调度器保持暂停。范围见[优化方案](../project/2026-11-13-optimization-plan.md)和[统一策略中心规格](../product/specs/unified-strategy-center.md)。
+更新：2026-11-19。现行入口为回测工作台和策略中心；旧选股/回测、样本研究、walk-forward 与旧 LLM 分析链已于 2026-11-13 退役，请求不会启动旧任务。旧自动调度器不再运行，由统一提醒接管。范围见[优化方案](../project/2026-11-13-optimization-plan.md)和[统一策略中心规格](../product/specs/unified-strategy-center.md)。
 
 ## 职责与边界
 
 - trading-strategies 负责策略纯规则，quant-backtest 负责执行/撮合/账户，quant-performance 负责评价；统计不能反向改变成交，规则不能直接写账户。
 - 应用负责数据读取与输入核验、任务/worker 生命周期、冻结输入与结果、查询和导出。数据源、时间、证券池、复权和证据等级必须明确；工程测试通过不等于可信策略业绩。
 - 用户真实账户与交易账本不由研究任务改写。当前数字货币模拟账户属于独立授权范围，不因旧回测退役停掉或扩展它。
-- 旧 quant.ts、专用分红/复权模拟、历史信号回溯、交易轮次面板和旧 Backtest/Trade 结果类型已经移除。不要以修复旧导入为由重建它们。
+- 旧 quant.ts、专用分红/复权模拟、历史信号回溯、交易轮次面板和旧 Backtest/Trade 结果类型已移除；历史结果保留用于复现，现行功能在现有入口演进。
 
 ## 入口与实现
 
@@ -18,7 +18,7 @@
 | 回测工作台 | [页面容器](../../src/components/backtest/ma-baseline-panel.tsx)，配置、报告、历史分离；报告身份绑定所选任务，费用/窗口从冻结结果读取                                                                           |
 | 五分钟任务 | [ma-baseline-job](../../src/server/backtest/ma-baseline-job.ts) → 通用 worker → [ma-baseline-work](../../src/server/backtest/ma-baseline-work.ts)；执行协议为 ma-baseline，旧 backtest worker 消息不能重新运行 |
 | 回测 API   | [jobs router](../../src/server/api/routers/jobs.ts) 中的 maBaseline、Coverage、History、Result、Evaluation、Orders、Export、Remove；订单查询按状态分页，复用现有 job 存储                                      |
-| 策略中心   | [strategy-center router](../../src/server/api/routers/strategy-center.ts)；日线、横截面等能力以现行注册/输入契约为准，不把 695 项方法目录数当作可执行数量                                                      |
+| 策略中心   | [strategy-center router](../../src/server/api/routers/strategy-center.ts)；日线、横截面等能力以现行注册/输入契约为准，方法目录数量不等于可执行策略数量                                                         |
 | 数据输入   | [公司行动](../../src/server/backtest/backtest-actions.ts)、[分红对账](../../src/server/backtest/dividend-reconciliation.ts)以及独立 TDX 数据源保留；旧研究数据集采集/流式写入封装已移除                        |
 | 构建       | [统一 worker 构建](../../scripts/build-runtime.mjs)与根 packages:build；没有旧 research-worker 构建入口                                                                                                        |
 

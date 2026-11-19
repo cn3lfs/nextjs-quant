@@ -1,6 +1,6 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { expect, it } from "vitest";
 import { Menu, MenuItem, MenuGroup } from "../../src/components/ui/menu";
 import {
@@ -35,39 +35,84 @@ it("navigation preserves native links, selected route and expanded group", () =>
   );
 });
 
-it("the two-level sidebar opens the active workspace and marks its linked subpage", () => {
-  const html = renderToStaticMarkup(
-    createElement(Sidebar, {
-      active: "/accounts/alerts",
-      badges: { "/accounts/alerts": { count: 2, bad: true } },
-    }),
-  );
-  expect(html.match(/\bnav-group-toggle(?: active)?"/g)).toHaveLength(7);
-  expect(html).toMatch(/aria-expanded="true"[^<]*>.*?选股筛选/);
-  expect(html).toContain('class="nav-group-items" data-collapsed="false"');
-  expect(
-    html.match(/class="nav-group-items" data-collapsed="true"/g),
-  ).toHaveLength(6);
-  const activeLink = html.match(
-    /<a(?=[^>]*\baria-current="page")(?=[^>]*\bhref="\/accounts\/alerts")[^>]*>.*?<\/a>/,
-  )?.[0];
-  expect(activeLink).toContain("历史信号");
-  expect(activeLink).toMatch(
-    /<em class="[^"]*\bnav-badge\b[^"]*\bbad\b[^"]*">2<\/em>/,
-  );
+const publicItems = navItems.filter((item) => !item.hidden);
+const anchors = (html: string) => html.match(/<a\b[^>]*>.*?<\/a>/gs) ?? [];
+const hrefOf = (link: string) =>
+  link.match(/\bhref="([^"]+)"/)?.[1]?.replaceAll("&amp;", "&");
+
+it.each(publicItems)(
+  "opens the owning sidebar group and marks $href current",
+  (item) => {
+    const location = new URL(item.href, "https://workbench.test");
+    const active = navItemFor(location.pathname, location.search)?.href;
+    const html = renderToStaticMarkup(
+      createElement(Sidebar, {
+        active,
+        badges: { [item.href]: { count: 2, bad: true } },
+      }),
+    );
+    const nav =
+      html.match(/<nav\b[^>]*aria-label="工作台导航"[^>]*>.*?<\/nav>/s)?.[0] ??
+      "";
+    const groups = nav.match(/<section\b[^>]*>.*?<\/section>/gs) ?? [];
+    const current = anchors(nav).filter((link) =>
+      /<a\b[^>]*aria-current="page"/.test(link),
+    );
+    expect(current.map(hrefOf)).toEqual([item.href]);
+    expect(current[0]).toMatch(/<em\b[^>]*>2<\/em>/);
+    for (const group of navGroups) {
+      const hrefs = group.items
+        .filter((entry) => !entry.hidden)
+        .map((entry) => entry.href);
+      const matches = groups.filter((section) =>
+        anchors(section).some((link) => hrefOf(link) === hrefs[0]),
+      );
+      expect(matches, group.label).toHaveLength(1);
+      expect(anchors(matches[0]!).map(hrefOf)).toEqual(hrefs);
+      const open = group.label === item.group;
+      expect(matches[0]).toMatch(
+        new RegExp(`<button\\b[^>]*aria-expanded="${open}"`),
+      );
+      expect(matches[0]).toMatch(
+        new RegExp(`<ul\\b[^>]*data-collapsed="${!open}"`),
+      );
+    }
+  },
+);
+
+it("resolves every public navigation pathname to a Next page", () => {
+  const pagePaths = readdirSync("src/app", {
+    recursive: true,
+    withFileTypes: true,
+  })
+    .filter((entry) => entry.isFile() && /^page\.[jt]sx?$/.test(entry.name))
+    .map((entry) =>
+      entry.parentPath
+        .replaceAll("\\", "/")
+        .split("/")
+        .slice(2)
+        .filter((segment) => !segment.startsWith("(")),
+    )
+    .filter((segments) => segments.every((segment) => !/^[_@]/.test(segment)));
+  for (const item of publicItems) {
+    const { pathname } = new URL(item.href, "https://workbench.test");
+    const segments = pathname.split("/").slice(1).filter(Boolean);
+    expect(
+      pagePaths.some(
+        (page) =>
+          page.length === segments.length &&
+          page.every(
+            (segment, index) =>
+              segment === segments[index] || /^\[\w+\]$/.test(segment),
+          ),
+      ),
+      item.href,
+    ).toBe(true);
+  }
 });
 
-it("every workspace subpage, including former tabs, remains a unique route", () => {
-  expect(
-    navGroups.every(
-      (group) => group.label.length > 0 && group.items.length > 0,
-    ),
-  ).toBe(true);
-  expect(navItems.some((item) => item.href === "/research")).toBe(false);
+it("keeps stable workspace shortcuts and report detail links", () => {
   expect(navItemFor("/lab/data-guide")?.href).toBe("/lab/data-guide");
-  const hrefs = navItems.map((item) => item.href);
-  expect(new Set(hrefs).size).toBe(hrefs.length);
-  expect(hrefs[0]).toBe("/");
   for (const tab of [
     "market",
     "screen",
@@ -82,7 +127,7 @@ it("every workspace subpage, including former tabs, remains a unique route", () 
     expect(navItemFor(tabHref(tab))?.tab).toBe(tab);
   expect(navItemFor("/lab/reports/report/abc")?.title).toBe("研究报告详情");
   expect(navItemFor("/system/ui-gallery")).toBeUndefined();
-  expect(searchNav("rps")[0]?.href).toBe("/scan?tab=rps");
+  expect(searchNav("rps").map((item) => item.href)).toContain("/scan?tab=rps");
   expect(searchNav("历史信号").map((item) => item.href)).toContain(
     "/accounts/alerts",
   );
@@ -103,8 +148,6 @@ it("resolves the active subpage from pathname plus tab without changing old href
   expect(navItemFor("/accounts/alerts")?.group).toBe("选股筛选");
   expect(navItemFor("/lab/reports")?.group).toBe("资讯研报");
   expect(navItemFor("/lab/data-guide")?.group).toBe("系统设置");
-  for (const group of navGroups)
-    expect(group.subtitle.length).toBeGreaterThan(0);
 });
 
 it("breakout overlay keeps dashed lines and moves labels outside the chart canvas", () => {

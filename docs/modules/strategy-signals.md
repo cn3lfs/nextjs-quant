@@ -1,6 +1,6 @@
 # 策略与信号
 
-当前：监控、信号台账、盘中预选的 compute/schedule 均暂停，只保留 read/configure。下文算法、调度窗口与投递契约说明存量实现，不能据此重新启用自动生成、补跑或补发。公式与双突破独立开放，数字货币模拟交易遵守自身授权。
+当前：信号监控、信号台账、盘中预选 capability 均为 `active`，操作限 `read/configure`；旧监控/台账/预选调度不再运行，由统一提醒引擎接管，查询旧记录不补跑、不补发。下文算法、调度窗口与投递契约描述既有实现和历史查询。公式与双突破独立开放，数字货币模拟交易遵守自身授权。
 
 ## 策略监控与通知投递 /signals（2026-09-29）
 
@@ -24,12 +24,11 @@ runtime直接读取所有enabled订阅，不使用默认限制200条的通用lis
 
 维护测试：tests/strategy-signals/monitoring/monitor-workspace*.test.ts、monitor-revision/monitor-tick/m4-monitor、通知策略和delivery-subscription；浏览器验证为 tests/strategy-signals/monitoring/monitor-workspace.test.ts、signals-recovery-browser.mjs、signals-refresh-browser.mjs、signals-lifecycle-browser.mjs、signals-memory-browser.mjs。完整遍历和性能分别见 signals-completeness.ts、signals-query-perf.ts、signals-perf-browser.mjs。脚本仅用于quant-signals隔离fixture，业务变更在finally恢复；实际结果与限制以Documents专项交付说明为准。
 
-
 窄窗详情切换与共享 PageGrid 的 1240px 断点保持一致；1440px 并排，1024/390px 选中详情时隐藏列表，返回恢复位置和焦点，避免详情沉到长列表下方。修改共享断点时需同步复验三个宽度。
 
 ## 职责与非职责
 
-策略域按流派运行研究或确定性规则；监控域比较订阅策略与基线、判断新鲜度并产生订阅信号；全市场 signal ledger 保存历史每日观察样本；当前不生成新样本。它们不拥有原始行情解析或账本成交事实，也不自动下单。两条信号路线保持分离：监控可走已授权通知 outbox，signal ledger 只记录与回填。
+策略域按流派运行研究或确定性规则；监控域比较订阅策略与基线、判断新鲜度并产生订阅信号；全市场 signal ledger 保存历史每日观察样本，新观察由统一提醒引擎向前积累。它们不拥有原始行情解析或账本成交事实，也不自动下单。两条信号路线保持分离：监控可走已授权通知 outbox，signal ledger 只记录与回填。
 
 ## 入口与消费者
 

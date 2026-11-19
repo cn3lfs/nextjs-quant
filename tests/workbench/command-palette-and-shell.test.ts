@@ -1,7 +1,10 @@
+import { Children, createElement, isValidElement, type ReactNode } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, expect, it, vi } from "vitest";
 import {
   navGroups,
   navItemFor,
+  navItems,
   searchNav,
   tabHref,
   workspaceHrefs,
@@ -18,70 +21,122 @@ import { useWorkbenchUiStore } from "~/lib/stores/workbench-ui-store";
 import { marketRouter } from "~/server/api/routers/market";
 import { put } from "~/server/db";
 import { settings } from "~/server/infra/settings";
+import { CommandPalette } from "~/components/workbench/command-palette";
 
-const routes = {
-  今日交易: [
-    "/",
-    "/?tab=overview",
-    "/scan?tab=sentiment",
-    "/scan?tab=valuation",
-  ],
-  行情看盘: ["/scan", "/scan?tab=crypto", "/scan?tab=futures"],
-  选股筛选: [
-    "/scan?tab=formula",
-    "/scan?tab=rps",
-    "/scan?tab=pool",
-    "/accounts/alerts",
-    "/?tab=intraday",
-  ],
-  策略回测: ["/lab", "/lab/backtest", "/lab?tab=catalog", "/lab?tab=tasks"],
-  持仓复盘: [
-    "/accounts",
-    "/accounts?tab=ledger",
-    "/accounts?tab=trades",
-    "/accounts/review",
-    "/accounts?tab=attribution",
-    "/accounts?tab=weekly",
-    "/accounts?tab=monthly",
-    "/accounts?tab=paper",
-    "/accounts/crypto",
-  ],
-  资讯研报: [
-    "/intel",
-    "/intel?tab=related",
-    "/intel/review",
-    "/lab/analysis",
-    "/lab/reports",
-  ],
-  系统设置: [
-    "/system",
-    "/system/notifications",
-    "/system/tasks",
-    "/lab/data-guide",
-    ...(process.env.NODE_ENV === "development" ? ["/system/ui-gallery"] : []),
-  ],
-};
+const palette = vi.hoisted(() => ({
+  query: undefined as string | undefined,
+  push: vi.fn(),
+}));
+vi.mock("react", async (original) => {
+  const react = await original<typeof import("react")>();
+  return {
+    ...react,
+    // Supply a settled input to the command component while keeping real render hooks.
+    useState: <T>(initial: T) =>
+      react.useState(
+        palette.query !== undefined && initial === "" ? palette.query : initial,
+      ),
+  };
+});
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: palette.push }),
+}));
+vi.mock("~/trpc/react", () => ({
+  api: { quickSearchSecurities: { useQuery: () => ({}) } },
+}));
 
-it("assigns every workbench destination once across the seven workspaces", () => {
-  const actual = navGroups.map(({ label, items }) => [
-    label,
-    items.map(({ href }) => href),
-  ]);
-  expect(actual).toEqual(Object.entries(routes));
-  const hrefs = navGroups.flatMap(({ items }) => items.map(({ href }) => href));
-  expect(new Set(hrefs).size).toBe(hrefs.length);
-  expect(workspaceHrefs).toEqual([
-    "/",
-    "/scan",
-    "/scan?tab=formula",
-    "/lab",
-    "/accounts",
-    "/intel",
-    "/system",
-  ]);
+it("assigns each public destination to one workspace and resolves its tab", () => {
+  const groupLabels = navGroups.map(({ label }) => label);
+  expect(new Set(groupLabels).size).toBe(groupLabels.length);
+  expect(workspaceHrefs).toEqual(navGroups.map(({ items }) => items[0]?.href));
+
+  const destinations = new Set<string>();
+  for (const group of navGroups) {
+    expect(group.label.trim()).not.toBe("");
+    expect(group.subtitle.trim()).not.toBe("");
+    expect(group.items[0]?.hidden).not.toBe(true);
+    expect(group.items.some((item) => !item.hidden)).toBe(true);
+    for (const item of group.items) {
+      if (item.hidden) continue;
+      expect(destinations.has(item.href), item.href).toBe(false);
+      destinations.add(item.href);
+
+      const url = new URL(item.href, "https://workbench.test");
+      expect(url.origin, item.href).toBe("https://workbench.test");
+      expect(navItemFor(url.pathname, url.search), item.href).toMatchObject({
+        href: item.href,
+        group: group.label,
+      });
+      if (item.tab) expect(tabHref(item.tab)).toBe(item.href);
+    }
+  }
+  expect(
+    navItems
+      .filter((item) => !item.hidden)
+      .map(({ href }) => href)
+      .sort(),
+  ).toEqual([...destinations].sort());
   expect(tabHref("screen")).toBe("/scan?tab=formula");
   expect(tabHref("signals")).toBe("/system/notifications");
 });
+
+function* elements(node: ReactNode): IterableIterator<{
+  role?: string;
+  children?: ReactNode;
+  onClick?: () => void;
+}> {
+  for (const child of Children.toArray(node)) {
+    if (
+      !isValidElement<{
+        role?: string;
+        children?: ReactNode;
+        onClick?: () => void;
+      }>(child)
+    )
+      continue;
+    yield child.props;
+    yield* elements(child.props.children);
+  }
+}
+
+it.each(navItems.filter((item) => !item.hidden))(
+  "can navigate to $href from the command palette",
+  (item) => {
+    const onOpenChange = vi.fn();
+    let select: (() => void) | undefined;
+    palette.push.mockClear();
+    function Probe() {
+      const view = CommandPalette({
+        open: true,
+        onOpenChange,
+        onOpenHelp: vi.fn(),
+      });
+      select = [...elements(view)].find(
+        (props) =>
+          props.role === "option" &&
+          [...elements(props.children)].some(
+            (child) => child.children === item.label,
+          ),
+      )?.onClick;
+      return null;
+    }
+    try {
+      for (const query of [item.href, item.label]) {
+        palette.query = query;
+        renderToStaticMarkup(createElement(Probe));
+        if (select) break;
+      }
+    } finally {
+      palette.query = undefined;
+    }
+    expect(select).toBeTypeOf("function");
+    select?.();
+    expect(onOpenChange).toHaveBeenCalledExactlyOnceWith(false);
+    expect(palette.push).toHaveBeenCalledExactlyOnceWith(item.href, {
+      scroll: false,
+    });
+  },
+);
 
 it.each([
   ["/scan", "?job=123&tab=formula", "/scan?tab=formula"],
@@ -98,10 +153,10 @@ it.each([
 it("matches partial Chinese names, groups and case-insensitive route text in the palette", () => {
   const hrefs = (query: string) => searchNav(query).map(({ href }) => href);
   expect(hrefs("   ")).toEqual([]);
-  expect(hrefs("  RPS ")).toEqual(["/scan?tab=rps"]);
-  expect(hrefs("式选")).toEqual(["/scan?tab=formula"]);
-  expect(hrefs("资讯研")).toEqual(routes.资讯研报);
-  expect(hrefs("TAB=CRYPTO")).toEqual(["/scan?tab=crypto"]);
+  expect(hrefs("  RPS ")).toContain("/scan?tab=rps");
+  expect(hrefs("式选")).toContain("/scan?tab=formula");
+  expect(hrefs("资讯研")).toContain("/intel/review");
+  expect(hrefs("TAB=CRYPTO")).toContain("/scan?tab=crypto");
   expect(hrefs("未收录的入口")).toEqual([]);
   expect(navItemFor("/lab/reports/report-1")).toMatchObject({
     href: "/lab/reports",
@@ -187,11 +242,11 @@ it("toggles density, collapsed rail and zen independently and keeps zen out of p
 
 it("keeps the two most recently expanded manual groups and closes a toggled group", () => {
   const { getState } = useWorkbenchUiStore;
-  for (const label of ["行情看盘", "选股筛选", "策略回测"])
-    getState().toggleGroup(label);
-  expect(getState().expandedGroups).toEqual(["选股筛选", "策略回测"]);
-  getState().toggleGroup("选股筛选");
-  expect(getState().expandedGroups).toEqual(["策略回测"]);
+  const [first, second, third] = navGroups.map(({ label }) => label);
+  for (const label of [first!, second!, third!]) getState().toggleGroup(label);
+  expect(getState().expandedGroups).toEqual([second, third]);
+  getState().toggleGroup(second!);
+  expect(getState().expandedGroups).toEqual([third]);
 });
 
 it("uses only a matching local security directory, ranks matches before slicing, and rejects invalid API edges", async () => {

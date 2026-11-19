@@ -6,7 +6,7 @@
 - **是什么（风险）**：计划创建在事实版本围栏内核对真实持仓、分仓及未完成预留；上限超出要明确确认，检查配置和明细随计划保存。该确认不绕过资金/风险/数量硬约束。
 - **是什么（衰减与月检）**：同策略参数、同20市场日期限的原价入场收益才能比较；默认两侧30个样本，观察中位数严格低于期望P10才提示。缺证据不标衰减，不改晋级或实时模式；分仓合并是同期限样本等权描述，不声称独立或账户收益。月检按完整原回合，三类可能重叠不可相加；缺期初现金的手工账本不补造止损资金重放。
 - **为什么**：防止模拟资金混入真实合计、同ID不同成交冒用归属、不等长收益制造衰减或无现金证据产生假反事实。
-- **测试**：`r3b-accounts.test.ts`覆盖资金/类型分离、固定现金及一元差异负对照、关联版本与指纹、超限留痕、衰减正反例和三类月检；`account-workspace-migration.test.ts`覆盖v18五迁移场景；`r3b-accounts.spec.ts`覆盖两宽度一交互到归因/衰减及零写请求。真实账户部署、自然前推和外部场所联调仍交管理者。
+- **测试**：`r3b-accounts.test.ts`覆盖资金/类型分离、固定现金及一元差异负对照、关联版本与指纹、超限留痕、衰减正反例和三类月检；`account-workspace-migration.test.ts`覆盖v18五迁移场景；`r3b-accounts.spec.ts`覆盖两宽度一交互到归因/衰减及零写请求。真实账户部署与自然前推属运行观察，不阻断工程验收。
 
 ## R2c 纸面账户（2026-11-15）
 
@@ -14,7 +14,7 @@
 - **是什么（情景）**：沿用R2a-5除权日到账、整股取整、不参与配股及币种研究数量网格，明确是模拟情景，不能认证真实可成交量或历史到账日。缺证据不补造。2百万前推bar/128MiB checkpoint超限停止，保留原事实，不自动淘汰。
 - **是什么（外部）**：镜像默认关闭，仅模拟端点，一次发送前落库，未知只对账不重发。独占、凭证版本、余额/库存核对失败停止准入，本地与场所成交互不覆盖。THS缺唯一编号时保持未认证。提醒默认shadow，记账补推不补发；live/订阅由用户开启。
 - **为什么**：防止重启、源修订或未知网络结果产生重复委托、伪造前推和收益。
-- **测试**：`tests/portfolio-ledger/paper-trading.test.ts` 覆盖逐笔对拍、费用/ATR预热、除权/T+1/跌停、周末补推/缺口、回执、不可变事实、同门槛衰减、零投递与镜像未知结果；`paper-migration.test.ts` 覆盖迁移五场景；`crypto-spot-adapter.test.ts` 覆盖模拟host；`r2c-paper-workflow.spec.ts` 覆盖两宽度布局与账户流程。真实库升级和真实模拟场所联调本批未执行。
+- **测试**：`tests/portfolio-ledger/paper-trading.test.ts` 覆盖逐笔对拍、费用/ATR预热、除权/T+1/跌停、周末补推/缺口、回执、不可变事实、同门槛衰减、零投递与镜像未知结果；`paper-migration.test.ts` 覆盖迁移五场景；`crypto-spot-adapter.test.ts` 覆盖模拟host；`r2c-paper-workflow.spec.ts` 覆盖两宽度布局与账户流程。真实模拟场所联调按运行观察推进。
 
 ## R2b 统一提醒（2026-11-14）
 
@@ -23,14 +23,14 @@
 - **是什么（证据）**：新提醒历史复用下文§5的T+1开盘/T+5/10/20收盘、原价与缺失/除权三态，币种按UTC自然日且股票除权不适用；首次到期结算包括留空不可被后续修订覆写。非策略业绩。旧三调度器不再由runtime启动，旧记录查询保持。
 - **为什么**：默认升级不得外发，迟到/重启不得刷历史信号，重复bar及异步编辑不得产生重复或越权消息；未核实数据不能成为假收益或假数量。
 - **测试**：`alert-engine.test.ts`覆盖时钟、窗口、重启、去重、穿越、影子零投递与live stub重试；`alert-inputs.test.ts`覆盖实际策略/持仓/分批计划和异步授权/状态；`alert-migration.test.ts`与`strategy-migration.test.ts`保护16迁移、旧数据、回滚和旧应用拒绝。旧monitor原断言在tests/helpers冻结参考上保留，不冒称当前runtime验收。
-- **违反会怎样**：未经订阅外发、错过窗口补发、重复打扰、过期授权执行或前瞻收益失真。连续真实行情1–2周影子对账仍须运行验收，固定fixture通过不替代它。
+- **违反会怎样**：未经订阅外发、错过窗口补发、重复打扰、过期授权执行或前瞻收益失真。连续真实行情影子对账用于运行观察结论，固定 fixture 通过不替代它。
 
 ## 策略规则维护边界（2026-11-11）
 
 - `trading-strategies`拥有纯策略规则、方法自有ID/定义/参数和中性事实契约；按研究家族直接使用`trading-strategies/research/*`。不能从包内反向导入应用、服务端、撮合包或IO，包括type import、动态import和re-export。执行器的费用、卖出步长及现金约束通过显式报价事实注入，不在策略包复制撮合算法。
-- 原活动算法路径删除，不留兼容转发；迁移台账[63条路径](strategy-module-migration.json)逐项检查旧路径不存在、新路径存在及JSON资产有效。事实来源和冻结档案按其记录保留，不因迁移改写历史。
-- 15个稳定分类ID由`strategyCategories`统一维护；策略定义与695条方法投影共用。规则、风控政策、研究分析、数据工具分别标识，目录存在或工程测试通过不等于可运行任务或可信业绩。
-- 策略中心当前51项日线规则/对照包含10项新经典系统基线，来源固定提交、完整许可、原始文件摘要和初始化差异都可核对；所有10项进入真实回放。回放预热与指标最小有效窗口分别说明，不把本地自然零轴/中点规则冒称原作者完整系统。历史研究RPC生命周期独立保持，迁移不自动复活旧任务。
+- 活动算法路径不保留兼容转发；迁移台账[strategy-module-migration.json](strategy-module-migration.json)用于一次性迁移验收，逐项检查旧路径不存在、新路径存在及 JSON 资产有效。事实来源和冻结档案按其记录保留，不因迁移改写历史。
+- 稳定分类 ID 由 `strategyCategories` 统一维护；策略定义与方法投影共用。规则、风控政策、研究分析、数据工具分别标识，目录存在或工程测试通过不等于可运行任务或可信业绩。
+- 策略中心登记日线规则与对照，包含经典系统基线；来源固定提交、完整许可、原始文件摘要和初始化差异都可核对。回放预热与指标最小有效窗口分别说明，不把本地自然零轴/中点规则冒称原作者完整系统。历史研究 RPC 生命周期独立保持，迁移不自动复活旧任务。
 - `strategyBuildHash`覆盖策略及传递共享源的TS、JSON、锁文件和身份生成脚本；新经典源码被离线经典实验来源清单直接纳入。校验代码身份时不能漏掉实际计算资产。
 - 验证：`strategy-module-consolidation.test.ts`含完整台账和错误依赖负对照；`classic-intake-integration.test.ts`含全部10项实际成交、下一开盘、未来前缀及独立身份重算；`trading-method-evidence.test.ts`追踪策略包公开子路径及`.js`源码对应，不能通过跳过包目录消除审计错误。
 
@@ -47,7 +47,7 @@
 
 ## 独立 TS 回测基线（2026-11-07）
 
-- 当前应用启用 `ma-cross-baseline-v1` 和用户新授权的 `factor-combination-v1`。2026-11-13 优化决定优先：公式选股与双突破图表恢复，旧选股/回测、四套旧 LLM 和 walk-forward 接口直接移除；不用的历史衍生记录按已授权清理范围处理，保留数据源和现行依赖。三个自动策略调度由统一能力策略保持暂停，旧样本研究页面/API/worker 启动链已移除，残留服务继续清理；不为旧协议增加兼容层。测试：`tests/research-backtest/strategy-lifecycle.test.ts`、`tests/api-runtime/ma-baseline-api.test.ts`、`tests/strategy-signals/monitoring/monitor-deprecation.test.ts`。
+- 现行回测以冻结输入和 `quant-backtest` 为执行核心。2026-11-13 优化移除旧选股/回测、四套旧 LLM 和 walk-forward 接口；三个旧自动策略调度不再运行，由统一提醒接管，旧样本研究页面/API/worker 启动链已移除。清理历史衍生记录时保留数据源和现行依赖。测试：`tests/research-backtest/strategy-lifecycle.test.ts`、`tests/api-runtime/ma-baseline-api.test.ts`、`tests/strategy-signals/monitoring/monitor-deprecation.test.ts`。
 - 回测核心在 `packages/quant-backtest`，无应用/IO 依赖，输入不改写；策略产生信号，只有撮合后的成交可以改变账户，统计不反向影响执行。测试：包内 `engine.test.ts`、`execution.test.ts` 和 `tests/engineering-validation/backtest-package.test.ts`（含错误依赖负对照与应用目录外 ESM 调用）。
 - 已完成五分钟信号最早下一根 open 执行；T+1 当日买入不可卖，受阻退出保留，窗口末尾不虚构平仓。价格/资金/费用明确，初始本金参与收益与回撤；日末曲线与逐根最大回撤分开。测试：包内手算与未来追加用例、应用曲线测试。
 - 应用冻结基线 20 根或因子条件最大 lookback（交叉额外一根）的预热及研究行情、日历与公司行动依据，记录数据/来源/引擎版本与构建摘要；缺时段、跨交易日预热不全、已修复源或已知除权事件拒绝。无完整历史交易状态认证的结果恒为 `rule-check-only`，估算量不作为可成交证明。测试：`tests/research-backtest/backtest/ma-baseline-work.test.ts`。不能据本阶段结果声称可信策略业绩。
@@ -267,7 +267,7 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 - **是什么（数字货币模拟自动交易）**：币安 Demo/Spot Testnet、OKX模拟盘、Bybit Demo 由固定模拟请求配置隔离，默认停止；仅 BTCUSDT/ETHUSDT 现货。已完成连续K线产生纯策略信号，订单发送前持久化唯一意图；写请求只发送一次，未知结果以客户端编号对账，不重发。部分/终态成交需累计数量与不可变成交明细一致，手续费按原币种投影；外部余额变化暂停。暂停/停止阻止后续准入但不清仓，应用恢复不补历史信号，不写A股台账。测试：[平台适配](../tests/portfolio-ledger/crypto-spot-adapter.test.ts)、[执行恢复](../tests/portfolio-ledger/crypto-bot-service.test.ts)、[数量校验](../tests/portfolio-ledger/crypto-order-quantity.test.ts)；边界见[架构规格](product/specs/crypto-auto-trading.md)。
 - **为什么**：弱认证身份仍能触发持久外部动作；契约会漂移，空结果不能伪装成空账户。
 - **测试**：[p1-mock-trading.test.ts](../tests/portfolio-ledger/p1-mock-trading.test.ts)、[p1-trade-services.test.ts](../tests/portfolio-ledger/p1-trade-services.test.ts)、[p1-trade-ledger.test.ts](../tests/portfolio-ledger/p1-trade-ledger.test.ts)。默认关闭实际请求 0；技能 hash 有覆盖，禁止执行任意技能脚本的全局静态护栏：**无测试保护**。
-- **违反会怎样**：重复外部账户/委托、凭证泄漏、假对账。既有证券身份查询另有受限 westock-data Node 搜索入口；“不执行技能脚本”在此特指契约适配与研究方法读取，不伪称全仓库零子进程。
+- **违反会怎样**：重复外部账户/委托、凭证泄漏、假对账。既有证券身份查询另有受限 westock-data Node 搜索入口；外部服务优先 TypeScript 适配器，已配置脚本按固定入口、参数分传和结果校验执行，不伪称全仓库零子进程。
 
 ## 11. 图表不能画错周期或假成本
 
@@ -279,7 +279,7 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 ## 12. 数据与迁移隔离
 
 - **是什么**：源通达信目录只读；新解析器需二进制 fixture 与损坏输入测试。源、时点、单位、复权模式及 hash 显式保留。SQLite 只经 [migrations.ts](../src/server/db/migrations.ts) 增量迁移，不用 db:push，不修改历史迁移绕过版本检查。
-- **是什么（运行）**：所有可能迁移的开发/浏览器/集成运行先设置隔离 QUANT_DATA_DIR。Vitest 的 [setup-data-dir.ts](../tests/setup-data-dir.ts) 仅在变量未设置时创建临时目录（`??=`），已设置生产路径时不会替你修正。每增一条迁移，现有打包版按交付规则即过期，由管理者重打包；不能降低 user_version 强开。
+- **是什么（运行）**：所有可能迁移的开发/浏览器/集成运行先设置隔离 QUANT_DATA_DIR。Vitest 的 [setup-data-dir.ts](../tests/setup-data-dir.ts) 把已设置的目录视为父目录，为每个测试文件单独创建 `quant-test-*` 子目录；未设置时使用系统临时目录，不会把多个测试文件放进同一个可写库。旧打包版会拒绝更高版本库，正式交付时配套更新桌面版本；不能降低 `user_version` 强开。
 - **为什么**：默认目录是共享生产库，旧 exe 拒绝高版本库是保护数据的设计。
 - **测试**：[core.test.ts](../tests/persistence-infrastructure/core.test.ts)、[integration.test.ts](../tests/persistence-infrastructure/integration.test.ts)、[tdx-gbbq.test.ts](../tests/market-chart/market-data/tdx-gbbq.test.ts)、[tail-cache-codec.test.ts](../tests/engineering-validation/tail-cache-codec.test.ts)、[signal-ledger.test.ts](../tests/strategy-signals/signals/signal-ledger.test.ts)、[q1-chart.test.ts](../tests/market-chart/chart/q1-chart.test.ts) 覆盖解析、快照及迁移保留。setup 文件是隔离机制，其正确挂载/不指向生产、每次重打包纪律：**无专门测试保护**。
 - **违反会怎样**：损坏源数据、丢失研究证据、生产库升级后旧 exe“服务启动超时”。
@@ -293,9 +293,9 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 
 ## 13. 批处理与结构护栏
 
-- **是什么**：N1 台账与 Q2b 公式为 worker 批处理，不阻塞 UI/监控，支持取消/进度；全市场单次 <10 分钟为管理者验收口径，不再按交互选股的倍数要求优化。性能改动由当前瓶颈证据驱动。合法 UI 变化可更新结构指纹，但须单独精确验证新增部分，不删、不跳过护栏。DLL EBUSY 要定位原因，不接受“重跑就好”。
-- **为什么**：避免错误延迟指标驱动越界优化，也避免测试失去发现意外改动的能力。
-- **测试**：[signal-ledger-worker.test.ts](../tests/strategy-signals/signals/signal-ledger-worker.test.ts)、[q2b-screening.test.ts](../tests/screening-rps/rps/q2b-screening.test.ts)、[workbench-refactor.test.ts](../tests/workbench/workbench-refactor.test.ts)、[czsc.test.ts](../tests/strategy-signals/methods/chan/czsc.test.ts)。全市场 <10 分钟的持续自动门禁：**无测试保护**，历史测量见 review。
+- **是什么**：N1 台账与 Q2b 公式为 worker 批处理，不阻塞 UI/监控，支持取消/进度；全市场单次耗时以当前验收预算为准，性能改动由可复现瓶颈驱动，不为追求无关性能扩大任务。DLL EBUSY 要定位原因，不接受“重跑就好”。界面正确性用渲染与交互行为、API 契约和浏览器验收保护，不使用 UI AST 源码指纹、回调哈希或控件数量锁。
+- **为什么**：避免错误延迟指标驱动越界优化，也避免测试失去发现真实行为变化的能力。
+- **测试**：[signal-ledger-worker.test.ts](../tests/strategy-signals/signals/signal-ledger-worker.test.ts)、[q2b-screening.test.ts](../tests/screening-rps/rps/q2b-screening.test.ts)、[workbench-refactor.test.ts](../tests/workbench/workbench-refactor.test.ts)、[czsc.test.ts](../tests/strategy-signals/methods/chan/czsc.test.ts)。全市场耗时预算的持续自动门禁：**无测试保护**，历史测量见 review。
 - **违反会怎样**：界面卡住、取消后仍保存结果、为了追求无关性能扩大任务。
 
 ## 14. LLM 是解读层，不是执行器
@@ -305,11 +305,11 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 - **测试**：[research.test.ts](../tests/research-backtest/research.test.ts)、[report-security.test.ts](../tests/market-chart/market-data/report-security.test.ts)、[local-llm.test.ts](../tests/engineering-validation/local-llm.test.ts)、[research-skills.test.ts](../tests/research-backtest/research-skills.test.ts)、[m4-monitor.test.ts](../tests/strategy-signals/monitoring/m4-monitor.test.ts)。
 - **违反会怎样**：伪造引用、未来信息泄漏、自动产生未经确认的交易动作。
 
-## 15. 文档裁定与范围纪律
+## 15. 文档与范围纪律
 
-- **是什么**：M1–M5 为历史交付记录，新增需求按 E0–E4 推进。A 层机器验证与 B 层人工确认分开；历史模块可按授权修改，研究按数据与交易证据分层，小样本只作描述，不声称有效。局部边界自行决定并记录；仅范围、架构、不可逆动作、许可事项升级。历史“不动某文件”与已授权交付冲突时以交付为准并记录，不能拿它越过当前用户限制。
-- **为什么**：防止把已完成工作重做、把小样本/机器核对冒充有效性结论。GPL 对外捆绑决定仍交用户；这里只记录项目分发门禁，不作法律结论。
-- **测试**：**无测试保护**（工程与授权纪律）。当前范围见 [roadmap §2](roadmap.md#当前范围与决定)，E0–E4 规格见 [next-plan.md](next-plan.md)。
+- **是什么**：A 层机器验证与 B 层人工确认分开；研究按数据与交易证据分层，小样本只作描述，不声称有效。局部命名、签名和边界自行决定并记录；仅范围、架构、不可逆动作、许可事项升级。历史“不动某文件”与已授权交付冲突时以交付为准。
+- **为什么**：防止把已完成工作重做、把小样本/机器核对冒充有效性结论。GPL 对外捆绑决定交用户；这里只记录项目分发门禁，不作法律结论。
+- **测试**：**无测试保护**（工程与授权纪律）。当前范围见 [roadmap](roadmap.md#当前范围与决定)、[next-plan.md](next-plan.md)。
 - **违反会怎样**：范围失控、错误业绩宣传、未经授权分发；README“不能用作正式策略业绩”的限定在具备相应交易与数据验证证据前保留，不因新增研究功能自动移除。
 
 ### V3 信号信息含量
