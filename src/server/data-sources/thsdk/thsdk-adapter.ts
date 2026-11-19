@@ -25,6 +25,7 @@ import {
 } from "./thsdk-mapper";
 
 export { THSDK_ADAPTER_VERSION };
+export { read as readThsdk, failure as thsdkFailure };
 export type ThsdkInvoker = <T = unknown>(
   method: string,
   params: unknown,

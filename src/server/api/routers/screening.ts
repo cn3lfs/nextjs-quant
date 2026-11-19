@@ -47,7 +47,22 @@ import {
 } from "../../screening/formula-screen-service";
 import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
 import { formulaFromText } from "../../screening/formula-from-text";
+import {
+  thsdkHotBlockKindSchema,
+  thsdkWencaiQueryInputSchema,
+} from "~/lib/market/thsdk-extensions";
+import {
+  thsdkWencaiQuery,
+  thsdkWencaiHotBlocks,
+} from "../../data-sources/thsdk/thsdk-wencai";
+
 export const screeningRouter = createTRPCRouter({
+  thsdkWencaiQuery: p("market", "read")
+    .input(thsdkWencaiQueryInputSchema)
+    .query(({ input, signal }) => thsdkWencaiQuery(input, signal)),
+  thsdkWencaiHotBlocks: p("market", "read")
+    .input(z.object({ kind: thsdkHotBlockKindSchema.default("concept") }))
+    .query(({ input, signal }) => thsdkWencaiHotBlocks(input.kind, signal)),
   conceptRpsStatus: p("rps", "read").query(() => {
     const store = new RpsStore(chartSqlite(), "concept");
     const latest = store.latest();

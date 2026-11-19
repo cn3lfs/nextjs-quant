@@ -173,6 +173,8 @@ const localReads = new Set([
   "clsReviewSampleEligibility",
   "newsOriginal",
   "newsAnalysis",
+  "thsdkStatus",
+  "thsdkQrLoginStatus",
 ]);
 const externalReads = new Set([
   "tdxQuotes",
@@ -183,6 +185,22 @@ const externalReads = new Set([
   "tdxFinance",
   "stockEvents",
   "capitalProfile",
+  "thsdkOrderBooks",
+  "thsdkPriceVolume",
+  "thsdkCallAuction",
+  "thsdkIntraday",
+  "thsdkDailyCapitalFlows",
+  "thsdkPopularityRank",
+  "thsdkLimitUpAnalysis",
+  "thsdkRealtimeSignal",
+  "thsdkMarketChangeEvents",
+  "thsdkCallAuctionUnusual",
+  "thsdkSecurityBlocks",
+  "thsdkBlockConstituents",
+  "thsdkWencaiQuery",
+  "thsdkWencaiHotBlocks",
+  "thsdkNewsFlash",
+  "thsdkResearchReports",
 ]);
 const t = initTRPC.create({ transformer: SuperJSON });
 

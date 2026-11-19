@@ -21,6 +21,7 @@ import {
   Funnel,
   Gauge,
   GearSix,
+  Lightning,
   LinkSimple,
   ListChecks,
   MathOperations,
@@ -107,10 +108,11 @@ export const navGroups: readonly NavGroup[] = [
   },
   {
     label: "选股筛选",
-    subtitle: "把条件变成候选：公式、强势排名、股票池与历史信号。",
+    subtitle: "把条件变成候选：公式、问财、强势排名、股票池与历史信号。",
     icon: Funnel,
     items: [
       item("/scan?tab=formula", "公式选股", MathOperations, "screen"),
+      item("/scan?tab=wencai", "问财选股", Sparkle),
       item("/scan?tab=rps", "强势排名 (RPS)", Trophy),
       item("/scan?tab=pool", "股票池", Stack),
       item("/accounts/alerts", "历史信号", BellRinging),
@@ -150,6 +152,7 @@ export const navGroups: readonly NavGroup[] = [
     icon: Newspaper,
     items: [
       item("/intel", "快讯与主题", Newspaper, "news"),
+      item("/intel?tab=thsdk", "同花顺快讯", Lightning),
       item("/intel?tab=related", "持仓关联资讯", LinkSimple),
       item("/intel/review", "财联社复盘", Article),
       item("/lab/analysis", "AI 研判", Sparkle, "analysis"),

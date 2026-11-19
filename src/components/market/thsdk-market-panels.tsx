@@ -2,13 +2,19 @@
 import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 
 import { useState } from "react";
-import { ChartLineUp, Fire, Lightning, Rows } from "@phosphor-icons/react/ssr";
+import {
+  ChartLineUp,
+  Fire,
+  Lightning,
+  Rows,
+  Tag,
+} from "@phosphor-icons/react/ssr";
 import { api } from "~/trpc/react";
 import { chartPricePrecision } from "~/lib/chart/chart-symbol";
 import { thsdkOrderBookToDisplayModel } from "~/lib/market/quote-book-view";
 import { compactNumber } from "~/lib/market/tdx-fundamentals";
 import { quoteRefreshInterval } from "~/lib/market/tdx-quote-view";
-import { usePanelVisible } from "../workbench/keep-alive";
+import { useScreenVisible } from "../workbench/use-task-visible";
 import { QuoteBook } from "./quote-book";
 import { useQuoteSession } from "./use-quote-session";
 
@@ -73,7 +79,7 @@ function Section({
 }
 
 function OrderBookPanel({ symbol, auto }: { symbol: string; auto: boolean }) {
-  const visible = usePanelVisible();
+  const visible = useScreenVisible();
   const session = useQuoteSession();
   const interval = session === null ? null : quoteRefreshInterval(session);
   const precision = chartPricePrecision(symbol);
@@ -122,12 +128,13 @@ export function ThsdkMarketPanels({
       <CallAuctionSection symbol={symbol} />
       <IntradaySection symbol={symbol} />
       <CapitalFlowSection symbol={symbol} />
+      <BlocksAndConceptsSection symbol={symbol} />
     </div>
   );
 }
 
 function PriceVolumeSection({ symbol }: { symbol: string }) {
-  const visible = usePanelVisible();
+  const visible = useScreenVisible();
   const [open, setOpen] = useState(false);
   const precision = chartPricePrecision(symbol);
   const data = api.thsdkPriceVolume.useQuery(symbol, {
@@ -180,7 +187,7 @@ function PriceVolumeSection({ symbol }: { symbol: string }) {
 }
 
 function CallAuctionSection({ symbol }: { symbol: string }) {
-  const visible = usePanelVisible();
+  const visible = useScreenVisible();
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<"opening" | "closing">("opening");
   const precision = chartPricePrecision(symbol);
@@ -252,7 +259,7 @@ function CallAuctionSection({ symbol }: { symbol: string }) {
 }
 
 function IntradaySection({ symbol }: { symbol: string }) {
-  const visible = usePanelVisible();
+  const visible = useScreenVisible();
   const [open, setOpen] = useState(false);
   const precision = chartPricePrecision(symbol);
   const data = api.thsdkIntraday.useQuery(
@@ -309,7 +316,7 @@ function IntradaySection({ symbol }: { symbol: string }) {
 }
 
 function CapitalFlowSection({ symbol }: { symbol: string }) {
-  const visible = usePanelVisible();
+  const visible = useScreenVisible();
   const [open, setOpen] = useState(false);
   const flows = api.thsdkCapitalFlows.useQuery([symbol], {
     enabled: visible && open,
@@ -393,6 +400,150 @@ function CapitalFlowSection({ symbol }: { symbol: string }) {
       ) : null}
       <p className="text-[10.5px] text-nc-text-4">
         资金流字段按源单位原样展示，不推算成交均价；热度为源排名口径。
+      </p>
+    </Section>
+  );
+}
+
+const tagScore = (score: number | null | undefined) =>
+  score === null || score === undefined ? null : displayNumber(score, 1);
+
+function ConceptTagChip({
+  tag,
+}: {
+  tag: { name: string; score: number | null };
+}) {
+  const score = tagScore(tag.score);
+  return (
+    <span className="inline-flex max-w-full items-center gap-1 rounded border border-nc-border-soft px-1.5 py-0.5 text-[11px]">
+      <span className="min-w-0 truncate">{tag.name}</span>
+      {score !== null && (
+        <span className="flex-none text-nc-text-4 tabular-nums">{score}</span>
+      )}
+    </span>
+  );
+}
+
+function BlocksAndConceptsSection({ symbol }: { symbol: string }) {
+  const visible = useScreenVisible();
+  const [open, setOpen] = useState(false);
+  const data = api.thsdkSecurityBlocks.useQuery(symbol, {
+    enabled: visible && open,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const profile = data.data;
+  const core = profile?.conceptTags.filter((tag) => tag.kind === "bond") ?? [];
+  const normal =
+    profile?.conceptTags.filter((tag) => tag.kind === "normal") ?? [];
+  const other =
+    profile?.conceptTags.filter((tag) => tag.kind === "other") ?? [];
+  // 成分块按成分家数降序，只展示前 12 个，避免侧栏被长尾淹没。
+  const memberships = [...(profile?.memberships ?? [])]
+    .sort((a, b) => (b.count ?? -1) - (a.count ?? -1))
+    .slice(0, 12);
+  return (
+    <Section
+      label="同花顺行业与概念"
+      icon={<Tag size={13} aria-hidden />}
+      open={open}
+      onOpenChange={setOpen}
+    >
+      {data.error ? (
+        <p role="alert" className="text-[12px] text-nc-bad">
+          行业与概念读取失败：{data.error.message}
+        </p>
+      ) : !profile ? (
+        <p role="status" className="text-[12px] text-nc-text-3">
+          正在读取同花顺行业与概念…
+        </p>
+      ) : (
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap items-center gap-1.5 text-[11.5px]">
+            <span className="text-nc-text-4">行业</span>
+            {profile.industry ? (
+              <span className="rounded border border-nc-accent-600 px-1.5 py-0.5 text-nc-accent-light">
+                {profile.industry.name}
+                {profile.industry.code && (
+                  <span className="ml-1 text-nc-text-4 tabular-nums">
+                    {profile.industry.code}
+                  </span>
+                )}
+              </span>
+            ) : (
+              <span className="text-nc-text-3">源未返回行业</span>
+            )}
+          </div>
+          <div className="space-y-1">
+            <p className="m-0 text-[11px] text-nc-text-4">
+              核心概念 {core.length} 个
+            </p>
+            {core.length > 0 ? (
+              <div className="flex flex-wrap gap-1">
+                {core.map((tag) => (
+                  <ConceptTagChip key={`bond:${tag.name}`} tag={tag} />
+                ))}
+              </div>
+            ) : (
+              <p className="m-0 text-[11.5px] text-nc-text-3">
+                源未标注核心概念。
+              </p>
+            )}
+          </div>
+          <div className="space-y-1">
+            <p className="m-0 text-[11px] text-nc-text-4">
+              普通概念 {normal.length} 个
+            </p>
+            {normal.length > 0 ? (
+              <div className="max-h-28 overflow-auto pr-1">
+                <div className="flex flex-wrap gap-1">
+                  {normal.map((tag) => (
+                    <ConceptTagChip key={`normal:${tag.name}`} tag={tag} />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="m-0 text-[11.5px] text-nc-text-3">
+                源未标注普通概念。
+              </p>
+            )}
+          </div>
+          {other.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {other.map((tag) => (
+                <ConceptTagChip key={`other:${tag.name}`} tag={tag} />
+              ))}
+            </div>
+          )}
+          <div className="space-y-0.5">
+            <p className="m-0 text-[11px] text-nc-text-4">
+              所属板块 {profile.memberships.length} 个
+              {profile.memberships.length > memberships.length
+                ? ` · 显示前 ${memberships.length} 个`
+                : ""}
+            </p>
+            {memberships.length === 0 ? (
+              <p className="m-0 text-[11.5px] text-nc-text-3">
+                源未返回板块归属。
+              </p>
+            ) : (
+              memberships.map((block) => (
+                <div
+                  key={`${block.blockId}:${block.blockName}`}
+                  className="flex items-center justify-between gap-2 text-[11.5px]"
+                >
+                  <span className="min-w-0 truncate">{block.blockName}</span>
+                  <span className="flex-none text-nc-text-4 tabular-nums">
+                    {block.count === null ? "—" : `${block.count} 只`}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+      <p className="text-[10.5px] text-nc-text-4">
+        同花顺行业与概念为参考视角，不改变东方财富四池与本机概念名单。
       </p>
     </Section>
   );

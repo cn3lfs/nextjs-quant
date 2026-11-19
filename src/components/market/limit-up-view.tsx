@@ -38,6 +38,7 @@ import { ChartSymbolLink } from "./chart-symbol-link";
 import { LimitDailyTrend } from "./limit-daily-trend";
 import { LimitIntradayTrend } from "./limit-intraday-trend";
 import { BrowseSource } from "./open-chart";
+import { ThsdkSentimentReference } from "./thsdk-sentiment-reference";
 
 const poolLabels: Record<Pool, string> = {
   zt: "涨停",
@@ -698,6 +699,7 @@ export function LimitUpView() {
           )}
         </>
       )}
+      <ThsdkSentimentReference date={date} />
     </PageGrid>
   );
 }

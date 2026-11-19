@@ -9,6 +9,20 @@ import {
   thsdkPopularityRank,
   thsdkPriceVolumeLevels,
 } from "../../data-sources/thsdk/thsdk-adapter";
+import {
+  thsdkMarketScopeSchema,
+  thsdkRealtimeSignalSchema,
+} from "~/lib/market/thsdk-sentiment";
+import {
+  thsdkLimitUpAnalysis,
+  thsdkRealtimeSignal,
+  thsdkMarketChangeEvents,
+  thsdkCallAuctionUnusual,
+} from "../../data-sources/thsdk/thsdk-sentiment";
+import {
+  thsdkSecurityBlocks,
+  thsdkBlockConstituents,
+} from "../../data-sources/thsdk/thsdk-blocks";
 import { tradePositionState } from "../../portfolio/trade-ledger-service";
 import { TradeLedgerStore } from "../../db/trade-ledger-store";
 import { indexDirectory } from "../../market/index-directory";
@@ -142,6 +156,61 @@ const thsdkDatedSymbolSchema = z.object({
   date: researchDateSchema.optional(),
 });
 export const marketRouter = createTRPCRouter({
+  thsdkLimitUpAnalysis: p("market", "read")
+    .input(
+      z.object({
+        symbol: symbolSchema,
+        date: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional(),
+      }),
+    )
+    .query(({ input, signal }) =>
+      thsdkLimitUpAnalysis(input.symbol, input.date, signal),
+    ),
+  thsdkRealtimeSignal: p("market", "read")
+    .input(
+      z.object({
+        signal: thsdkRealtimeSignalSchema,
+        markets: z
+          .array(thsdkMarketScopeSchema)
+          .min(1)
+          .max(3)
+          .default(["USHA", "USZA"]),
+      }),
+    )
+    .query(({ input, signal }) =>
+      thsdkRealtimeSignal(input.signal, input.markets, signal),
+    ),
+  thsdkMarketChangeEvents: p("market", "read").query(({ signal }) =>
+    thsdkMarketChangeEvents(signal),
+  ),
+  thsdkCallAuctionUnusual: p("market", "read")
+    .input(
+      z.object({
+        market: z.enum(["USHA", "USZA"]).default("USHA"),
+        tradeDate: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional(),
+      }),
+    )
+    .query(({ input, signal }) =>
+      thsdkCallAuctionUnusual(input.market, input.tradeDate, signal),
+    ),
+  thsdkSecurityBlocks: p("market", "read")
+    .input(symbolSchema)
+    .query(({ input, signal }) => thsdkSecurityBlocks(input, signal)),
+  thsdkBlockConstituents: p("market", "read")
+    .input(
+      z.object({
+        blockId: z.number().int().positive(),
+        blockName: z.string().max(100).optional(),
+        limit: z.number().int().min(1).max(100).default(50),
+      }),
+    )
+    .query(({ input, signal }) => thsdkBlockConstituents(input, signal)),
   thsdkOrderBooks: p("market", "read")
     .input(thsdkSymbolsSchema)
     .query(({ input, signal }) => thsdkOrderBooks(input, signal)),

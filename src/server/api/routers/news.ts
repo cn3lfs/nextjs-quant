@@ -70,7 +70,20 @@ import {
   newsWorkspaceDetail,
   newsArchivePage,
 } from "../../db/news-workspace-query";
+import { symbolSchema } from "trading-strategies/research/contracts/security";
+import { thsdkNewsFlashInputSchema } from "~/lib/market/thsdk-extensions";
+import {
+  thsdkNewsFlash,
+  thsdkResearchReports,
+} from "../../data-sources/thsdk/thsdk-news";
+
 export const newsRouter = createTRPCRouter({
+  thsdkNewsFlash: p("news", "read")
+    .input(thsdkNewsFlashInputSchema)
+    .query(({ input, signal }) => thsdkNewsFlash(input, signal)),
+  thsdkResearchReports: p("news", "read")
+    .input(z.object({ symbol: symbolSchema }))
+    .query(({ input, signal }) => thsdkResearchReports(input.symbol, signal)),
   intelEvents: p("news", "read")
     .input(intelEventQuerySchema)
     .query(({ input }) => intelEvents(input)),

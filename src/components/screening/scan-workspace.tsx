@@ -52,6 +52,9 @@ const Rps = dynamic(() =>
 const Sentiment = dynamic(() =>
   import("../market/limit-up-view").then((m) => m.LimitUpView),
 );
+const Wencai = dynamic(() =>
+  import("../market/thsdk-wencai-panel").then((m) => m.ThsdkWencaiPanel),
+);
 const Valuation = dynamic(() =>
   import("../market/sector-valuation-view").then((m) => m.SectorValuationView),
 );
@@ -71,6 +74,7 @@ const tabs = [
   { value: "chart", label: "扫描与图表" },
   { value: "pool", label: "证券池" },
   { value: "formula", label: "条件选股" },
+  { value: "wencai", label: "问财选股" },
   { value: "rps", label: "RPS 数据管理" },
   { value: "sentiment", label: "打板情绪" },
   { value: "valuation", label: "板块估值" },
@@ -151,6 +155,7 @@ function ScanWorkspaceBody() {
           chart: <ScanResults market="cn-equity" />,
           crypto: <ScanResults market="crypto" />,
           formula: <FormulaResults />,
+          wencai: <Wencai />,
           pool: <Pool />,
           rps: <Rps />,
           sentiment: <Sentiment />,
