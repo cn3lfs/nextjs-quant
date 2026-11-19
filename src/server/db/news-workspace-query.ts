@@ -165,28 +165,77 @@ export function newsWorkspacePage(path: string, raw: NewsWorkspaceInput) {
     };
   });
 }
+type RelatedNewsEvent = {
+  id: string;
+  publishedAt: string;
+  title: string;
+  preview: string;
+  href: string;
+};
+type RelatedNewsEventWithMatches = RelatedNewsEvent & { matches: string[] };
+function literalTerms(value: string | null) {
+  try {
+    const parsed: unknown = JSON.parse(value ?? "[]");
+    return Array.isArray(parsed)
+      ? parsed.filter((term): term is string => typeof term === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
 /** A bounded read of the already configured news archive, with literal name/code
- * matching. It makes no claim of causal or verified investment relevance. */
+ * matching. It makes no claim of causal or verified investment relevance.
+ * `withMatches` is an explicit opt-in: legacy callers keep the old fields and
+ * the SQLite CASE avoids projecting terms they never read. */
 export function relatedNewsEvents(
   path: string,
   terms: string[],
   from: number,
   to: number,
+  withMatches: true,
+): RelatedNewsEventWithMatches[];
+export function relatedNewsEvents(
+  path: string,
+  terms: string[],
+  from: number,
+  to: number,
+  withMatches?: false,
+): RelatedNewsEvent[];
+export function relatedNewsEvents(
+  path: string,
+  terms: string[],
+  from: number,
+  to: number,
+  withMatches = false,
 ) {
   if (!terms.length) return [];
   return readSource(path, (db, source) => {
+    const encoded = JSON.stringify(terms);
+    // The matching terms are projected only for the 100 rows surviving the
+    // window/filter/LIMIT and only when the caller opts in. Callers map the
+    // returned literal terms back to their own securities; nothing is
+    // re-matched against a truncated preview.
     const rows = db
       .prepare(
-        `SELECT id,ctime,collected_at,title,content,shareurl FROM news
-      WHERE ctime>=? AND ctime<=? AND EXISTS(SELECT 1 FROM json_each(?) term
-      WHERE instr(upper(coalesce(title,'')||' '||coalesce(content,'')),upper(term.value))>0)
-      ORDER BY ctime DESC,id DESC LIMIT 100`,
+        `WITH selected AS (
+          SELECT id,ctime,collected_at,title,content,shareurl FROM news
+          WHERE ctime>=? AND ctime<=? AND EXISTS(SELECT 1 FROM json_each(?) term
+          WHERE instr(upper(coalesce(title,'')||' '||coalesce(content,'')),upper(term.value))>0)
+          ORDER BY ctime DESC,id DESC LIMIT 100
+        ) SELECT s.id,s.ctime,s.collected_at,s.title,s.content,s.shareurl,
+          CASE WHEN ? THEN
+            (SELECT json_group_array(term.value) FROM json_each(?) term
+              WHERE instr(upper(coalesce(s.title,'')||' '||coalesce(s.content,'')),upper(term.value))>0)
+          ELSE NULL END matches
+        FROM selected s ORDER BY s.ctime DESC,s.id DESC`,
       )
       .all(
         Math.ceil(from / 1000),
         Math.floor(to / 1000),
-        JSON.stringify(terms),
-      ) as NewsRow[];
+        encoded,
+        withMatches ? 1 : 0,
+        encoded,
+      ) as (NewsRow & { matches: string | null })[];
     return rows.map((row) => {
       const news = item(row);
       const filter = {
@@ -199,13 +248,16 @@ export function relatedNewsEvents(
               .includes(t.toUpperCase()),
           ) ?? "",
       };
-      return {
+      const event = {
         id: String(news.id),
         publishedAt: news.publishedAt,
         title: news.title.slice(0, 200) || news.content.slice(0, 80),
         preview: news.content.slice(0, 1000),
         href: `/intel?newsQuery=${encodeURIComponent(JSON.stringify(filter))}&newsId=${news.id}&newsSource=${source}`,
       };
+      return withMatches
+        ? { ...event, matches: literalTerms(row.matches) }
+        : event;
     });
   });
 }
