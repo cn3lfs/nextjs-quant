@@ -34,8 +34,9 @@ it("T1 keeps merged workspaces and ordinary subpages in shared client navigation
   const source = readFileSync("src/components/workbench/workbench.tsx", "utf8");
   const sidebar = readFileSync("src/components/workbench/sidebar.tsx", "utf8");
   // One navigation layer: every page is a framework route (native links).
-  expect(sidebar).toContain("groups.map((group)");
-  expect(sidebar).toContain("items: [group.items[0]!]");
+  expect(sidebar).toContain("navGroups.map((group)");
+  expect(sidebar).toContain("const entry = group.items[0]!");
+  expect(sidebar).toContain("href={entry.href}");
   expect(sidebar).toContain("href={item.href}");
   expect(sidebar).toContain("scroll={false}");
   const chartNavigation = readFileSync(

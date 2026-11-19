@@ -1,4 +1,4 @@
-import { readFile, realpath } from "node:fs/promises";
+import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { resolve, sep } from "node:path";
 import Database from "better-sqlite3";
 import { expect, test, type Page, type Response } from "@playwright/test";
@@ -9,7 +9,12 @@ import SuperJSON from "superjson";
 
 async function openWorkspacePage(page: Page, label: string) {
   await page.keyboard.press("Control+k");
-  await page.getByRole("combobox", { name: "搜索页面" }).fill(label);
+  await page
+    .getByRole("combobox", {
+      name: "搜索页面、快捷动作或本机标的",
+      exact: true,
+    })
+    .fill(label);
   await page
     .getByRole("option", { name: new RegExp("^" + label) })
     .first()
@@ -389,7 +394,7 @@ test("sidebar counts old active tasks beyond the recent list and refreshes their
     await page.goto("/lab/backtest");
     const badge = page
       .getByRole("navigation", { name: "工作台导航" })
-      .getByRole("link", { name: /系统/ })
+      .getByRole("button", { name: /^系统设置(?:\s|$)/ })
       .locator(".nav-badge");
     await expect(badge).toHaveText("2");
     await badge.scrollIntoViewIfNeeded();
@@ -421,13 +426,30 @@ test("sidebar counts old active tasks beyond the recent list and refreshes their
 test("current backtest reports missing warmup, recovers, restores and exports real worker output", async ({
   page,
 }) => {
+  const hydrated = page.waitForResponse(
+    (response) => procedure(response, "maBaselineHistory") && response.ok(),
+  );
   await page.goto("/lab/backtest");
+  await hydrated;
   await expect(
     page.getByRole("button", { name: "开始回测", exact: true }),
   ).toBeDisabled();
-  await page.getByLabel("基线证券代码").fill("sh600000");
-  await page.getByRole("button", { name: "读取本地覆盖", exact: true }).click();
-  await expect(page.getByLabel("基线开始日期")).toHaveValue("2026-10-09");
+  const symbol = page.getByRole("textbox", {
+    name: "基线证券代码",
+    exact: true,
+  });
+  await symbol.fill("sh600000");
+  await expect(symbol).toHaveValue("sh600000");
+  const startDate = page
+    .getByLabel("基线开始日期", { exact: true })
+    .filter({ visible: true });
+  const endDate = page
+    .getByLabel("基线结束日期", { exact: true })
+    .filter({ visible: true });
+  // Manual dates still reach the worker's warmup check. The coverage
+  // suggestion already excludes the first day when it lacks warmup.
+  await startDate.fill("2026-10-09");
+  await endDate.fill("2026-10-12");
   await page.getByRole("button", { name: "开始回测", exact: true }).click();
   await expect(
     page.getByRole("alert").filter({ hasText: "不足 20 根预热行情" }),
@@ -436,7 +458,9 @@ test("current backtest reports missing warmup, recovers, restores and exports re
     page.getByRole("region", { name: "实验报告", exact: true }),
   ).toHaveCount(0);
 
-  await page.getByLabel("基线开始日期").fill("2026-10-12");
+  await page.getByRole("button", { name: "读取本地覆盖", exact: true }).click();
+  await expect(startDate).toHaveValue("2026-10-12");
+  await expect(endDate).toHaveValue("2026-10-12");
   await page.getByRole("button", { name: "开始回测", exact: true }).click();
   const report = page.getByRole("region", { name: "实验报告", exact: true });
   await expect(report).toContainText("SMA 5 / 20 · 已完成");
@@ -492,7 +516,10 @@ test("formula editor waits for hydration before accepting edits or checking futu
   });
   try {
     await page.goto("/scan?tab=formula", { waitUntil: "commit" });
-    const source = page.getByLabel("公式源码", { exact: true });
+    const source = page.getByRole("textbox", {
+      name: "公式源码",
+      exact: true,
+    });
     const check = page.getByRole("button", {
       name: "语法检查与未来函数门禁",
       exact: true,
@@ -519,7 +546,7 @@ test("formula save and execution open a clean candidate chart with real breakout
   page,
 }) => {
   await page.goto("/scan?tab=formula");
-  const source = page.getByLabel("公式源码", { exact: true });
+  const source = page.getByRole("textbox", { name: "公式源码", exact: true });
   const check = page.getByRole("button", {
     name: "语法检查与未来函数门禁",
     exact: true,
@@ -528,7 +555,9 @@ test("formula save and execution open a clean candidate chart with real breakout
   await source.fill("选股:REF(C,-1)>0;");
   await check.click();
   await expect(run).toBeDisabled();
-  await page.getByLabel("公式名称", { exact: true }).fill("P0 本地正收盘");
+  await page
+    .getByRole("textbox", { name: "公式名称", exact: true })
+    .fill("P0 本地正收盘");
   await source.fill("选股:C>0;");
   await check.click();
   await page.getByRole("button", { name: "保存公式", exact: true }).click();
@@ -559,11 +588,11 @@ test("formula save and execution open a clean candidate chart with real breakout
   expect(exported.candidates[0].symbol).toBe("sh600000");
   // Only the chart route requests the absent default security. Keep the actual
   // prior-error recovery check while screen cold entry remains free of chart IO.
-  await openWorkspacePage(page, "扫描与图表");
+  await openWorkspacePage(page, "A 股看盘");
   await expect(
     page.getByText("所选数据源读取失败", { exact: false }),
   ).toBeVisible();
-  await openWorkspacePage(page, "条件选股");
+  await openWorkspacePage(page, "公式选股");
   const breakout = page.waitForResponse((response) =>
     procedure(response, "breakout"),
   );
@@ -814,11 +843,13 @@ test("research draft survives framework navigation and settings owns its control
   await expect(
     page.getByRole("button", { name: "开始研究", exact: true }),
   ).toBeDisabled();
-  await question.fill("P2 保留当前研究问题");
+  // Opening the method menu waits for the interactive form before editing.
   await page.getByRole("combobox", { name: "研究方法", exact: true }).click();
   await page
     .getByRole("option", { name: "SEPA 分阶段研究", exact: true })
     .click();
+  await question.fill("P2 保留当前研究问题");
+  await expect(question).toHaveValue("P2 保留当前研究问题");
   await page.getByRole("link", { name: "查看研究档案" }).click();
   await expect(page).toHaveURL(/\/lab\/reports$/);
   await page.goBack();
@@ -827,18 +858,23 @@ test("research draft survives framework navigation and settings owns its control
     page.getByRole("combobox", { name: "研究方法", exact: true }),
   ).toContainText("SEPA");
   const navigation = page.getByRole("navigation", { name: "工作台导航" });
-  const systemGroup = navigation.getByRole("link", {
-    name: "系统",
+  const systemGroup = navigation.getByRole("button", {
+    name: "系统设置",
     exact: true,
   });
   await expect(systemGroup).toBeVisible();
-  await expect(navigation.getByRole("link")).toHaveCount(6);
+  await expect(navigation.getByRole("button")).toHaveCount(7);
+  await expect(systemGroup).toHaveAttribute("aria-expanded", "false");
   await systemGroup.click();
+  await expect(systemGroup).toHaveAttribute("aria-expanded", "true");
+  await navigation
+    .getByRole("link", { name: "数据源与备份", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/system$/);
   await expect(
     page.getByRole("button", { name: "扫描已保存目录", exact: true }),
   ).toBeEnabled();
-  await openWorkspacePage(page, "证据分析");
+  await openWorkspacePage(page, "AI 研判");
   await expect(question).toHaveValue("P2 保留当前研究问题");
   await expect(
     page.getByRole("button", { name: "开始研究", exact: true }),
@@ -866,7 +902,7 @@ test("settings read failure is recoverable and its draft survives navigation", a
   });
   await page.goto("/system/tasks", { waitUntil: "networkidle" });
   expect(statusCalls).toEqual([]);
-  await openWorkspacePage(page, "数据与连接");
+  await openWorkspacePage(page, "数据源与备份");
   await expect(
     page.getByRole("button", { name: "重试设置", exact: true }),
   ).toBeVisible();
@@ -879,12 +915,12 @@ test("settings read failure is recoverable and its draft survives navigation", a
   await expect(directory).toBeVisible();
   const saved = await directory.inputValue();
   await directory.fill(saved + "\\draft-only");
-  await openWorkspacePage(page, "任务中心");
+  await openWorkspacePage(page, "后台任务");
   const calls = statusCalls.length;
   await expect(page).toHaveURL("/system/tasks");
   await page.waitForLoadState("networkidle");
   expect(statusCalls).toHaveLength(calls);
-  await openWorkspacePage(page, "数据与连接");
+  await openWorkspacePage(page, "数据源与备份");
   await expect(directory).toHaveValue(saved + "\\draft-only");
   await directory.fill(saved);
 });
@@ -900,19 +936,26 @@ test("market watchlist updates reach the monitor page and preserve chart selecti
   await expect(
     page.getByRole("button", { name: "移除 sh600000", exact: true }),
   ).toBeVisible();
-  await expect(add).toBeDisabled();
-  await openWorkspacePage(page, "信号与通知");
+  await expect(
+    page.getByRole("button", { name: "已在自选", exact: true }),
+  ).toBeDisabled();
+  await openWorkspacePage(page, "提醒与推送");
   await page.getByRole("button", { name: "新建订阅", exact: true }).click();
   await expect(page.getByText(/本次将使用自选快照/)).toContainText("sh600000");
-  await page.locator('a[href="/scan"]').first().click();
-  await expect(page).toHaveURL(
-    /\/scan\?(?:tab=formula&)?symbol=sh600000(?:&|$)/,
-  );
+  const navigation = page.getByRole("navigation", { name: "工作台导航" });
+  await navigation
+    .getByRole("button", { name: "行情看盘", exact: true })
+    .click();
+  await navigation.getByRole("link", { name: "A 股看盘", exact: true }).click();
+  await expect(page).toHaveURL("/scan");
+  await expect(
+    page.getByRole("combobox", { name: "搜索品种名称或代码", exact: true }),
+  ).toHaveValue("P0_FIXTURE · SH600000");
   await page
     .getByRole("button", { name: "移除 sh600000", exact: true })
     .click();
   await expect(add).toBeEnabled();
-  await openWorkspacePage(page, "信号与通知");
+  await openWorkspacePage(page, "提醒与推送");
   // Ordinary routes close page-local dialogs when leaving. Reopen the form to
   // verify the fresh shared watchlist, rather than relying on hidden page DOM.
   await page.getByRole("button", { name: "新建订阅", exact: true }).click();
@@ -1065,7 +1108,7 @@ test("overview uses its framework route and restores the ranking selection from 
   await expect(
     ranking.getByRole("radio", { name: "概念", exact: true }),
   ).toHaveAttribute("aria-checked", "true");
-  await openWorkspacePage(page, "任务中心");
+  await openWorkspacePage(page, "后台任务");
   await expect(page).toHaveURL("/system/tasks");
   await expect(ranking).toHaveCount(0);
   await page.goBack();
@@ -1104,8 +1147,10 @@ test("R2b shadow history filters, exports and creates then cancels a staged plan
           period: "day",
           universe: { kind: "symbols", symbols: ["sh600000"] },
           entry: { kind: "constant", value: false },
-          exit: {},
-          sizing: { kind: "weight", weight: 1 },
+          // Match the two plan prices and target, with a weight cap that leaves
+          // part of the unchanged 1% risk budget for the second tranche.
+          exit: { takeProfit: 0.3 },
+          sizing: { kind: "weight", weight: 0.11, tranches: 2 },
           sleeve: "swing",
         },
       },
@@ -1121,6 +1166,12 @@ test("R2b shadow history filters, exports and creates then cancels a staged plan
     fileMustExist: true,
   });
   try {
+    const industryRoot = resolve(directory, "unused-blocks");
+    expect(resolve(settings.industryBlocksRoot)).toBe(industryRoot);
+    const industry = resolve(industryRoot, "申万行业");
+    await mkdir(industry, { recursive: true });
+    // Supply a known group without overriding the default industry cap.
+    await writeFile(resolve(industry, "P0合成行业.txt"), "SH600000\n");
     const insert = database.prepare(
       "INSERT INTO watch_events VALUES(?,?,?,?,?,?,?,?,?,?)",
     );

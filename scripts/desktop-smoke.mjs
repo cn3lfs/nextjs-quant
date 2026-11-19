@@ -131,15 +131,19 @@ const text = await readFile(join(data, "smoke.txt"), "utf8").catch(() => ""),
       : exitCode === null
         ? "signalled"
         : "exited",
-  // Startup smoke checks the Today workspace and the six trading-day entries; chart coverage is separate.
+  // Check all seven sidebar workspaces and the rendered Today page.
   requiredLabels = [
-    "今日",
+    "今日交易",
+    "行情看盘",
+    "选股筛选",
+    "策略回测",
+    "持仓复盘",
+    "资讯研报",
+    "系统设置",
+    "今日计划",
     "今日决策",
     "市场状态",
     "明日计划",
-    "扫描与图表",
-    "策略实验室",
-    "账户与复盘",
     "数据与连接",
   ],
   forbiddenLabels = [

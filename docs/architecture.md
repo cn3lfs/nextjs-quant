@@ -1,5 +1,12 @@
 # 系统架构与模块入口
 
+## 2026-11-19 当前结构摘要
+
+- 一级导航为七个语义工作区：今日交易 `/`、行情看盘 `/scan`（市场标签）、选股筛选 `/scan`（公式 / RPS / 股票池等标签）、策略回测 `/lab`、持仓复盘 `/accounts`、资讯研报 `/intel`、系统设置 `/system`。工作区名称、分组与界面词汇由 [navigation.ts](../src/components/workbench/navigation.ts) 和 [ui-glossary.ts](../src/lib/common/ui-glossary.ts) 统一，底层路由不因此改变。
+- Schema v20 新增单行 `workspace_preferences`（密度、侧栏折叠、展开分组、关闭到托盘、双账预览口径、单键快捷键）。旧 exe 拒绝高版本库；升级前须备份，并按交付规则更新与新 schema 配套的正式包。
+- Electron 托盘常驻：关闭窗口按偏好最小化到托盘，托盘菜单可重开窗口或打开数据/日志目录。`POST /api/shutdown` 只接受与 `QUANT_SESSION_TOKEN` 常量时间一致的 `x-quant-session` 头或 `quant-session` cookie；未配置或错误一律 403。停服只做 WAL checkpoint，不创建或迁移数据库。
+- 模块位置：账户/复盘路由拆为 `src/server/api/routers/portfolio-*.ts`；交易所适配器在 `src/server/crypto-trading/adapters/*`；研究生命周期在 `src/server/research/lifecycle/*`；图表族组件在 `src/components/market/charts/*`；提醒链路只读投影在 `src/server/infra/alert-pipeline-diagnostics.ts`。
+
 ## L0–L5 交易生命周期优化（进行中，2026-11-16）
 
 范围及顺序见[最新优化计划](project/2026-11-15-optimization-plan.md)。L0 先修正现有提醒、纸面输入、计划与今日投影，不引入新数据库版本；收盘扫描以最近已完成交易日的回执为依据，行情符号只在读取边界归一，冻结研究输入保持原字节。手动影子治理继续由策略登记所有者管理；展示提示不自动启用扫描、live、订阅或镜像。

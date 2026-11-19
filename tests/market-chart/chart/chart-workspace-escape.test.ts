@@ -1,6 +1,7 @@
 import type { ReactElement, ReactNode, SetStateAction } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Drawing } from "../../../src/lib/chart/chart-view";
+import type { WorkbenchUiState } from "../../../src/lib/stores/workbench-ui-store";
 
 // Exercise the workspace's actual tool/anchor event wiring without starting
 // a browser, native chart, network client or persistence timer.
@@ -30,6 +31,14 @@ vi.mock("react", async (importOriginal) => ({
 vi.mock("~/components/workbench/use-task-visible", () => ({
   useScreenVisible: () => true,
 }));
+vi.mock("~/lib/stores/workbench-ui-store", async (importOriginal) => {
+  const { useWorkbenchUiStore } =
+    await importOriginal<typeof import("~/lib/stores/workbench-ui-store")>();
+  return {
+    useWorkbenchUiStore: (select: (state: WorkbenchUiState) => unknown) =>
+      select(useWorkbenchUiStore.getInitialState()),
+  };
+});
 vi.mock("~/components/market/chart", () => ({
   CzscMarketChart: () => null,
   MarketChart: () => null,
