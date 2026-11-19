@@ -11,6 +11,12 @@ import {
   type TradeLink,
 } from "~/lib/portfolio/account-workspace";
 import {
+  holdingsChartHref,
+  holdingsHref,
+  readHoldingsFilters,
+  type HoldingsFilters,
+} from "~/lib/portfolio/account-holdings-url";
+import {
   formatNumber,
   formatPercent,
 } from "trading-strategy-core/format-number";
@@ -41,35 +47,12 @@ const sourceLabels = {
   delivery: "券商交割单",
   local: "手工账本",
 } as const;
-type PositionSource = keyof typeof sourceLabels;
-type PositionKind = "real" | "paper" | "exchange-simulation" | "all";
-type PositionMarket = "all" | "cn-equity" | "crypto";
-type PositionGroup = "market" | "sleeve" | "kind";
-type PositionStopStatus = "all" | "touched" | "unknown";
 type Position = RouterOutputs["accountPositions"]["items"][number];
 type AccountTrade = RouterOutputs["accountTrades"]["trades"][number];
 type TradeSnapshot = Pick<AccountTrade, "symbol" | "date" | "side">;
 type TradeLinkInput = Parameters<
   ReturnType<typeof api.linkAccountTrade.useMutation>["mutate"]
 >[0];
-type HoldingsFilters = {
-  kind: PositionKind;
-  source: PositionSource;
-  market: PositionMarket;
-  stopStatus: PositionStopStatus;
-  group: PositionGroup;
-  sleeve: string;
-  page: number;
-};
-const defaultHoldingsFilters: HoldingsFilters = {
-  kind: "real",
-  source: "all",
-  market: "all",
-  stopStatus: "all",
-  group: "market",
-  sleeve: "",
-  page: 0,
-};
 export function AccountWorkspace() {
   const search = useSearchParams(),
     tab = search.get("tab"),
@@ -80,30 +63,51 @@ export function AccountWorkspace() {
   if (tab === "attribution") return <AccountAttribution />;
   if (tab === "monthly") return <MonthlyReview />;
   if (tab === "weekly") return <WeeklyReview />;
-  return <HoldingsExplorer position={position} />;
+  return <HoldingsExplorer search={search.toString()} position={position} />;
 }
 /**
- * Owns the list filters above the list/detail switch, so opening a position and
- * returning (link or Back/Forward) keeps the exact list view. A hard refresh,
- * another workspace tab, or a direct position link starts from the defaults.
+ * The URL is the only list state. Filter changes replace the current entry and
+ * keep the other parameters; opening a position pushes an entry that carries
+ * the same filters, so Back/Forward and the return link restore that view. A
+ * direct or default `/accounts` entry has no holdings parameters.
  */
-function HoldingsExplorer({ position }: { position: string | null }) {
-  const [filters, setFilters] = useState(defaultHoldingsFilters);
-  const update = (patch: Partial<HoldingsFilters>) =>
-    setFilters((current) => ({ ...current, ...patch }));
+function HoldingsExplorer({
+  search,
+  position,
+}: {
+  search: string;
+  position: string | null;
+}) {
+  const filters = readHoldingsFilters(search);
+  const update = (patch: Partial<HoldingsFilters>) => {
+    // Merge onto the live entry, not this render's snapshot: two controls
+    // clicked before React commits the first replace still keep both values.
+    const live = window.location.search,
+      next = { ...readHoldingsFilters(live), ...patch };
+    // `null` (not history.state) lets Next sync useSearchParams; its patched
+    // replaceState copies the internal state itself.
+    window.history.replaceState(null, "", holdingsHref(live, next));
+  };
   return position ? (
-    <AccountPositionDetail key={position} id={position} />
+    <AccountPositionDetail
+      key={position}
+      id={position}
+      search={search}
+      filters={filters}
+    />
   ) : (
     <>
       <CryptoRiskNotes />
-      <UnifiedPositions filters={filters} update={update} />
+      <UnifiedPositions search={search} filters={filters} update={update} />
     </>
   );
 }
 function UnifiedPositions({
+  search,
   filters,
   update,
 }: {
+  search: string;
   filters: HoldingsFilters;
   update: (patch: Partial<HoldingsFilters>) => void;
 }) {
@@ -124,7 +128,7 @@ function UnifiedPositions({
       cell: ({ row }) => (
         <Link
           className="underline"
-          href={`/accounts?position=${encodeURIComponent(row.original.id)}`}
+          href={holdingsHref(search, filters, row.original.id)}
         >
           {row.original.symbol} ·{" "}
           {row.original.market === "cn-equity" ? "A股" : "数字货币"}
@@ -168,6 +172,24 @@ function UnifiedPositions({
             {pct(row.original.stopDistance)} /{" "}
             {formatNumber(row.original.rMultiple)}
           </span>
+        );
+      },
+    },
+    {
+      id: "chart",
+      header: "图表",
+      cell: ({ row }) => {
+        const href = holdingsChartHref(row.original);
+        return href ? (
+          <Link
+            className="underline"
+            href={href}
+            aria-label={`打开 ${row.original.symbol} 图表`}
+          >
+            图表
+          </Link>
+        ) : (
+          "—"
         );
       },
     },
@@ -310,13 +332,25 @@ function UnifiedPositions({
     </section>
   );
 }
-function AccountPositionDetail({ id }: { id: string }) {
+function AccountPositionDetail({
+  id,
+  search,
+  filters,
+}: {
+  id: string;
+  search: string;
+  filters: HoldingsFilters;
+}) {
   const [page, setPage] = useState(0);
   const query = api.accountPosition.useQuery({ id, page });
   const readError = query.error?.message;
   return (
     <section aria-label="持仓归因与衰减" className="space-y-4">
-      <Link href="/accounts" scroll={false} className="underline">
+      <Link
+        href={holdingsHref(search, filters, null)}
+        scroll={false}
+        className="underline"
+      >
         返回统一持仓
       </Link>
       {/* Keep each branch in a fixed sibling slot so a background refetch

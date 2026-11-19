@@ -198,7 +198,7 @@ test("R3b R5 A 两来源持仓、筛选后翻页与详情返回保持", async ({
       gets.push(request.url());
   });
   const before = gets.length;
-  await page.getByRole("link", { name: /sh600020/ }).click();
+  await page.getByRole("link", { name: /sh600020 · A股/ }).click();
   const detail = page.getByRole("region", { name: "持仓归因与衰减" });
   await expect(
     detail.getByRole("heading", { name: /sh600020/ }),
@@ -230,7 +230,7 @@ test("R3b R5 A 两来源持仓、筛选后翻页与详情返回保持", async ({
   const touched = holdings.getByRole("row").filter({ hasText: "sh600000" });
   await expect(touched.getByText("86100.00 CNY")).toBeVisible();
   await expect(touched.locator(".text-nc-bad").first()).toBeVisible();
-  await touched.getByRole("link", { name: /sh600000/ }).click();
+  await touched.getByRole("link", { name: /sh600000 · A股/ }).click();
   await expect(
     detail.getByText(/数量 3000.000000 · 市值 86100.00 CNY/),
   ).toBeVisible();
@@ -623,5 +623,82 @@ test("R3b R5 C 回执复制使用真实剪贴板，拒绝与迟到反馈不串�
     listText,
   );
 
+  expect(external).toEqual([]);
+});
+
+test("R3b R5 D A股持仓图表直达，Back 与返回链接保留筛选、分组和第2页", async ({
+  page,
+}) => {
+  const external = trackExternal(page);
+  await page.goto("/accounts");
+  const holdings = page.getByRole("region", {
+    name: "统一持仓",
+    exact: true,
+  });
+  await expect(holdings).toBeVisible();
+  await expect(page).toHaveURL(/\/accounts$/);
+
+  // The filter and grouping live in the URL; changing grouping resets the page.
+  await page.getByRole("radio", { name: "A股", exact: true }).click();
+  await expect(page).toHaveURL(/holdings_market=cn-equity/);
+  await expect(
+    page.getByRole("radio", { name: "A股", exact: true }),
+  ).toBeChecked();
+  await page.getByRole("radio", { name: "按分仓", exact: true }).click();
+  await expect(page).toHaveURL(/holdings_group=sleeve/);
+  await expect(page).not.toHaveURL(/holdings_page=/);
+  await page.getByRole("button", { name: "下一页", exact: true }).click();
+  await expect(page.getByText(/第 2 \/ 2 页/)).toBeVisible();
+  await expect(page).toHaveURL(/holdings_page=1/);
+
+  // Reloading the list URL alone reproduces the same grouping and page.
+  await page.reload();
+  await expect(
+    page.getByRole("radio", { name: "按分仓", exact: true }),
+  ).toBeChecked();
+  await expect(page.getByText(/第 2 \/ 2 页/)).toBeVisible();
+
+  const row = holdings.getByRole("row").filter({ hasText: "sh600019" });
+  await expect(row).toBeVisible();
+  const chart = row.getByRole("link", {
+    name: "打开 sh600019 图表",
+    exact: true,
+  });
+  await expect(chart).toHaveAttribute("href", "/scan?symbol=sh600019");
+  await chart.click();
+  await expect(page).toHaveURL(/\/scan\?symbol=sh600019$/);
+  // The loaded chart names the same code in its heading and panel meta.
+  await expect(
+    page.getByText("SH600019", { exact: true }).first(),
+  ).toBeVisible();
+
+  // One Back step returns to the exact list entry, not a default view.
+  await page.goBack();
+  await expect(page).toHaveURL(/holdings_market=cn-equity/);
+  await expect(page).toHaveURL(/holdings_group=sleeve/);
+  await expect(page).toHaveURL(/holdings_page=1/);
+  await expect(
+    page.getByRole("radio", { name: "A股", exact: true }),
+  ).toBeChecked();
+  await expect(
+    page.getByRole("radio", { name: "按分仓", exact: true }),
+  ).toBeChecked();
+  await expect(page.getByText(/第 2 \/ 2 页/)).toBeVisible();
+
+  // The unchanged position link still opens the detail, and its return link
+  // carries the same filters, grouping and page.
+  await row.getByRole("link", { name: /sh600019 · A股/ }).click();
+  const detail = page.getByRole("region", { name: "持仓归因与衰减" });
+  await expect(detail.getByRole("heading", { name: /sh600019/ })).toBeVisible();
+  await expect(page).toHaveURL(/holdings_page=1/);
+  await expect(page).toHaveURL(/position=/);
+  await detail.getByRole("link", { name: "返回统一持仓" }).click();
+  await expect(holdings).toBeVisible();
+  await expect(page).toHaveURL(/holdings_group=sleeve/);
+  await expect(page).toHaveURL(/holdings_page=1/);
+  await expect(page.getByText(/第 2 \/ 2 页/)).toBeVisible();
+
+  // The chart opens in the same tab; no external request or second window.
+  expect(page.context().pages()).toHaveLength(1);
   expect(external).toEqual([]);
 });
