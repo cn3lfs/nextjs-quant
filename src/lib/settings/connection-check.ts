@@ -1,10 +1,13 @@
 import { z } from "zod";
 import { periodSchema, type Settings } from "~/lib/domain";
 import { symbolSchema } from "trading-strategies/research/contracts/security";
-import { marketSourceSchema } from "~/lib/market/market-source";
+import {
+  concreteMarketSources,
+  marketSourceSchema,
+} from "~/lib/market/market-source";
 
 export const connectionCheckSchema = z.object({
-  source: z.enum(["local", "pytdx", "eastmoney", "tencent"]),
+  source: z.enum(concreteMarketSources),
   symbol: symbolSchema,
   period: periodSchema,
   configuration: z.object({
@@ -12,8 +15,27 @@ export const connectionCheckSchema = z.object({
     calendar: z.array(z.string()),
     marketDataSource: marketSourceSchema,
   }),
+  thsdkState: z
+    .object({
+      configRevision: z.string(),
+      authGeneration: z.number().int().nonnegative(),
+    })
+    .optional(),
 });
 export type ConnectionCheckInput = z.infer<typeof connectionCheckSchema>;
+export type ConnectionCheckReasonCode =
+  | "disabled"
+  | "not_configured"
+  | "auth_required"
+  | "session_expired"
+  | "rate_limited"
+  | "timeout"
+  | "cancelled"
+  | "empty"
+  | "invalid"
+  | "unsupported"
+  | "unavailable";
+
 export function connectionConfiguration(settings: Settings) {
   return {
     tdxRoot: settings.tdxRoot,
@@ -37,4 +59,6 @@ export type ConnectionCheckResult = {
   sampleCount: number;
   message: string;
   nextAction: string;
+  reasonCode?: ConnectionCheckReasonCode;
+  thsdkState?: ConnectionCheckInput["thsdkState"];
 };

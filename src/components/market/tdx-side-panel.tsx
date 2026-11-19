@@ -19,9 +19,17 @@ import {
   quoteSessionLabels,
 } from "~/lib/market/tdx-quote-view";
 import { TdxQuoteBook } from "./tdx-quote-book";
+import { ThsdkMarketPanels } from "./thsdk-market-panels";
 import { useQuoteSession } from "./use-quote-session";
 import { CapitalSection, StockEventsSection } from "./stock-side-cards";
 import { Button } from "../ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 import { Switch } from "../ui/switch";
 import { usePanelVisible } from "../workbench/keep-alive";
 
@@ -70,12 +78,22 @@ function Row({
 /** 行情图表右栏：通达信式的即时盘口 + 关键基本面，详细报表在图表下方。 */
 export function TdxSidePanel({ symbol }: { symbol: string }) {
   const [auto, setAuto] = useState(false);
+  const [bookSource, setBookSource] = useState<"tstdx" | "thsdk">("tstdx");
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const session = useQuoteSession();
   const quotable = tradableSymbol(symbol);
   const index = isMarketIndex(symbol);
   const interval = session === null ? null : quoteRefreshInterval(session);
   // Kept-alive but hidden panel: no polling.
   const visible = usePanelVisible();
+  const thsdkStatus = api.thsdkStatus.useQuery(undefined, {
+    enabled: visible && quotable,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const thsdkReady =
+    thsdkStatus.data?.enabled === true &&
+    thsdkStatus.data.state === "authenticated";
   const quotes = api.tdxQuotes.useQuery([symbol], {
     ...quoteQueryOptions,
     enabled: quotable,
@@ -96,6 +114,7 @@ export function TdxSidePanel({ symbol }: { symbol: string }) {
       </p>
     );
   const quote = quotes.data?.[0];
+  // 本地财务估值固定使用 tstdx 快照价；切换盘口来源只换展示，绝不静默换基准价。
   const price =
     quote && Number.isFinite(quote.price) && quote.price > 0
       ? quote.price
@@ -120,12 +139,34 @@ export function TdxSidePanel({ symbol }: { symbol: string }) {
     shown(metric, (v) => compactNumber(v) ?? "—");
   return (
     <section aria-label="实时盘口与关键基本面" className="space-y-3">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Select
+          value={bookSource}
+          onValueChange={(value) => {
+            if (value === "tstdx") setBookSource("tstdx");
+            else if (value === "thsdk" && thsdkReady) setBookSource("thsdk");
+          }}
+        >
+          <SelectTrigger
+            size="sm"
+            aria-label="盘口来源"
+            className="w-auto min-w-20"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="tstdx">tstdx</SelectItem>
+            <SelectItem value="thsdk" disabled={!thsdkReady}>
+              同花顺{thsdkReady ? "" : "（未就绪）"}
+            </SelectItem>
+          </SelectContent>
+        </Select>
         <Button
           size="sm"
           variant="outline"
           disabled={quotes.isFetching}
           onClick={() => {
+            setRefreshNonce((nonce) => nonce + 1);
             void quotes.refetch();
             void finance.refetch();
           }}
@@ -158,7 +199,37 @@ export function TdxSidePanel({ symbol }: { symbol: string }) {
                 : quoteSessionLabels[session]}
         </span>
       </div>
-      {quotes.error ? (
+      {bookSource === "thsdk" ? (
+        thsdkReady ? (
+          <ThsdkMarketPanels key={refreshNonce} symbol={symbol} auto={auto} />
+        ) : (
+          <div role="alert" className="space-y-1 text-[12px] text-nc-warn">
+            <p>
+              同花顺当前不可用（
+              {thsdkStatus.error
+                ? "状态读取失败"
+                : thsdkStatus.data
+                  ? {
+                      unconfigured: "未配置",
+                      disabled: "已停用",
+                      logged_out: "未登录",
+                      qr_pending: "扫码中",
+                      authenticated: "已认证",
+                      error: "异常",
+                    }[thsdkStatus.data.state]
+                  : "状态读取中"}
+              ），未显示任何替代盘口。
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setBookSource("tstdx")}
+            >
+              切回 tstdx
+            </Button>
+          </div>
+        )
+      ) : quotes.error ? (
         <div role="alert" className="text-[12px] text-nc-bad">
           盘口读取失败：{quotes.error.message}
           <Button

@@ -4,11 +4,23 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { settingsSchema } from "../../src/lib/domain";
 import {
+  connectionCheckSchema,
   connectionConfiguration,
   type ConnectionCheckInput,
 } from "../../src/lib/settings/connection-check";
+import type { ThsdkStatusView } from "../../src/lib/settings/thsdk-settings";
 import { checkConnection } from "../../src/server/market/connection-check";
 import { eastmoneyKlines } from "../../src/server/data-sources/eastmoney/eastmoney-adapter";
+import {
+  thsdkKlines,
+  type ThsdkKlineItem,
+  type ThsdkKlineResponse,
+} from "../../src/server/data-sources/thsdk/thsdk-adapter";
+import { getThsdkStatus } from "../../src/server/data-sources/thsdk/thsdk-auth";
+import { ThsdkError } from "../../src/server/data-sources/thsdk/thsdk-contract";
+import { tstdxKlines } from "../../src/server/data-sources/tstdx/tstdx-adapter";
+import { westockKlines } from "../../src/server/data-sources/westock/westock-adapter";
+
 vi.mock("node:fs/promises", async (original) => {
   const fs = await original<typeof import("node:fs/promises")>();
   return { ...fs, access: vi.fn(fs.access) };
@@ -26,6 +38,75 @@ vi.mock("../../src/server/data-sources/westock/westock-adapter", () => ({
     throw Error("Unexpected fallback");
   }),
 }));
+vi.mock("../../src/server/data-sources/thsdk/thsdk-auth", () => ({
+  getThsdkStatus: vi.fn(),
+}));
+vi.mock("../../src/server/data-sources/thsdk/thsdk-adapter", () => ({
+  thsdkKlines: vi.fn(),
+}));
+
+const authenticatedThsdk = {
+  enabled: true,
+  configured: true,
+  dllPath: "C:/fixture/hq.dll",
+  dllKnownVersion: "2.0.2",
+  allowUnlistedHash: false,
+  allowAutoFallback: false,
+  authMode: "account",
+  guestModeEnabled: false,
+  hasSavedCredentials: true,
+  state: "authenticated",
+  activeMode: "account",
+  authGeneration: 3,
+  configRevision: "config-2",
+  lastErrorCode: null,
+  lastErrorMessage: null,
+  circuitOpenUntil: null,
+  updatedAt: 0,
+} satisfies ThsdkStatusView;
+
+function thsdkFixture(
+  status: ReturnType<typeof getThsdkStatus> = authenticatedThsdk,
+) {
+  vi.mocked(getThsdkStatus).mockReturnValue(status);
+  const settings = settingsSchema.parse({
+    calendar: ["2026-09-25", "2026-09-28"],
+  });
+  const input = connectionCheckSchema.parse({
+    source: "thsdk",
+    symbol: "sh600519",
+    period: "day",
+    configuration: connectionConfiguration(settings),
+    thsdkState: {
+      configRevision: status.configRevision,
+      authGeneration: status.authGeneration,
+    },
+  });
+  return { settings, input };
+}
+
+function thsdkResponse(item: ThsdkKlineItem): ThsdkKlineResponse {
+  return {
+    version: "thsdk-adapter-1",
+    source: "thsdk-hq",
+    adjustment: "none",
+    period: "day",
+    limit: 64,
+    end: "2026-09-28",
+    currency: "CNY",
+    volumeUnit: "股",
+    delayed: true,
+    fetchedAt: Date.now(),
+    warnings: [],
+    items: [item],
+  };
+}
+
+function expectNoOtherProvider() {
+  expect(tstdxKlines).not.toHaveBeenCalled();
+  expect(eastmoneyKlines).not.toHaveBeenCalled();
+  expect(westockKlines).not.toHaveBeenCalled();
+}
 
 describe("read-only connection diagnostics", () => {
   beforeEach(() =>
@@ -36,6 +117,8 @@ describe("read-only connection diagnostics", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.clearAllMocks();
+    vi.mocked(getThsdkStatus).mockReset();
+    vi.mocked(thsdkKlines).mockReset();
   });
   async function fixture() {
     const root = await mkdtemp(join(tmpdir(), "connection-check-"));
@@ -285,6 +368,136 @@ describe("read-only connection diagnostics", () => {
       expect(result.data).toBe(data);
       expect(result.message).toContain(text);
       expect(JSON.stringify(result)).not.toContain("secret-token");
+    },
+  );
+
+  it("checks only THSDK for an explicit selection, even with an automatic saved source", async () => {
+    const { settings, input } = thsdkFixture();
+    vi.mocked(thsdkKlines).mockResolvedValueOnce(
+      thsdkResponse({
+        symbol: input.symbol,
+        status: "ok",
+        bars: [
+          {
+            date: "2026-09-28",
+            open: 1450,
+            high: 1460,
+            low: 1440,
+            close: 1455,
+            volume: 100,
+            amount: 145500,
+          },
+        ],
+        historyExhausted: false,
+        volumeUnit: "股",
+      }),
+    );
+    expect(await checkConnection(settings, input)).toMatchObject({
+      source: "thsdk",
+      connection: "ok",
+      data: "ok",
+      dataAsOf: "2026-09-28",
+      sampleCount: 1,
+      thsdkState: input.thsdkState,
+    });
+    expect(thsdkKlines).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        symbols: [input.symbol],
+        period: "day",
+        limit: 64,
+        start: "2026-09-07",
+        end: "2026-09-28",
+      }),
+      expect.any(AbortSignal),
+    );
+    expectNoOtherProvider();
+  });
+
+  it.each([
+    ["disabled", "disabled"],
+    ["auth_required", "logged_out"],
+  ] as const)(
+    "classifies THSDK %s without exposing upstream details",
+    async (code, state) => {
+      const privateMessage = "https://private.example/?token=fixture-secret";
+      const { settings, input } = thsdkFixture({
+        ...authenticatedThsdk,
+        state,
+        enabled: state !== "disabled",
+        activeMode: null,
+        lastErrorMessage: privateMessage,
+      });
+      vi.mocked(thsdkKlines).mockRejectedValue(
+        new ThsdkError(code, privateMessage),
+      );
+
+      const result = await checkConnection(settings, input);
+      expect(result).toMatchObject({
+        source: "thsdk",
+        data: "unavailable",
+        reasonCode: code,
+      });
+      expect(JSON.stringify(result)).not.toMatch(
+        /private\.example|fixture-secret/,
+      );
+      expectNoOtherProvider();
+    },
+  );
+
+  it.each([
+    {
+      item: { status: "unavailable", errorCode: "rate_limited" },
+      reasonCode: "rate_limited",
+      data: "unavailable",
+    },
+    {
+      item: { status: "unavailable", reason: "empty", errorCode: "no_data" },
+      reasonCode: "empty",
+      data: "empty",
+    },
+    {
+      item: { status: "invalid", errorCode: "invalid_response" },
+      reasonCode: "invalid",
+      data: "invalid",
+    },
+  ] as const)(
+    "classifies a THSDK sample as $reasonCode using structured provider fields",
+    async ({ item, reasonCode, data }) => {
+      const { settings, input } = thsdkFixture();
+      vi.mocked(thsdkKlines).mockResolvedValueOnce(
+        thsdkResponse({
+          ...item,
+          symbol: input.symbol,
+          message: "password=fixture-secret https://private.example/",
+        }),
+      );
+
+      const result = await checkConnection(settings, input);
+      expect(result).toMatchObject({
+        source: "thsdk",
+        data,
+        reasonCode,
+      });
+      expect(thsdkKlines).toHaveBeenCalledOnce();
+      expect(JSON.stringify(result)).not.toMatch(
+        /private\.example|fixture-secret/,
+      );
+      expectNoOtherProvider();
+    },
+  );
+
+  it.each([
+    { configRevision: "config-1", authGeneration: 3 },
+    { configRevision: "config-2", authGeneration: 2 },
+  ])(
+    "rejects a stale THSDK revision or auth generation before sampling",
+    async (thsdkState) => {
+      const { settings, input } = thsdkFixture();
+      await expect(
+        checkConnection(settings, { ...input, thsdkState }),
+      ).rejects.toThrow();
+      expect(thsdkKlines).not.toHaveBeenCalled();
+      expectNoOtherProvider();
     },
   );
 });

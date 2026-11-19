@@ -19,7 +19,7 @@ const logDir =
 mkdirSync(logDir, { recursive: true });
 const stub = `
 import {useQuery, useMutation, useQueryClient} from '@tanstack/react-query';
-const fixtures = {newsBudget: {used: 0, limit: 8, day: '2026-09-28', exhausted: false}, researchSkills: [], securityNames: {}, alertStatus: {subscriptions: [], strategies: []}};
+const fixtures = {newsBudget: {used: 0, limit: 8, day: '2026-09-28', exhausted: false}, researchSkills: [], securityNames: {}, alertStatus: {subscriptions: [], strategies: []}, workspacePreferences: {closeToTray: false}, thsdkStatus: {enabled: false, configured: false, dllPath: '', dllKnownVersion: null, allowUnlistedHash: false, allowAutoFallback: false, authMode: 'account', guestModeEnabled: false, hasSavedCredentials: false, state: 'disabled', activeMode: null, authGeneration: 0, configRevision: 'rev-0', lastErrorCode: null, lastErrorMessage: null, circuitOpenUntil: null, updatedAt: 0}};
 function query(name) {return {useQuery(input, options) {return useQuery({queryKey:[name], queryFn:async()=>{window.requests.push(name); return fixtures[name]}, retry:false, ...options})}}}
 function mutation(name) {return {useMutation(options) {return useMutation({...options, mutationFn:async(input)=>{
  window.mutations.push({name,input});
@@ -41,8 +41,9 @@ function mutation(name) {return {useMutation(options) {return useMutation({...op
  return input;
 }})}}}
 export const api={...Object.fromEntries(Object.keys(fixtures).map(name=>[name,query(name)])),
- snapshot:mutation('snapshot'),saveSettings:mutation('saveSettings'),checkConnection:mutation('checkConnection'),checkNewsSources:mutation('checkNewsSources'),saveChannel:mutation('saveChannel'),testChannel:mutation('testChannel'),saveAlertSubscription:mutation('saveAlertSubscription'),
- useUtils(){const client=useQueryClient();return Object.fromEntries(['status','securityProfile','securityNames','securities','channels','alertStatus'].map(name=>[name,{invalidate(){window.invalidations.push(name);return client.invalidateQueries({queryKey:[name]})}}]))}
+ snapshot:mutation('snapshot'),saveSettings:mutation('saveSettings'),saveWorkspacePreferences:mutation('saveWorkspacePreferences'),checkConnection:mutation('checkConnection'),checkNewsSources:mutation('checkNewsSources'),saveChannel:mutation('saveChannel'),testChannel:mutation('testChannel'),saveAlertSubscription:mutation('saveAlertSubscription'),
+ thsdkSaveConfig:mutation('thsdkSaveConfig'),thsdkSaveCredentials:mutation('thsdkSaveCredentials'),thsdkForgetCredentials:mutation('thsdkForgetCredentials'),thsdkLoginAccount:mutation('thsdkLoginAccount'),thsdkLoginGuest:mutation('thsdkLoginGuest'),thsdkStartQrcode:mutation('thsdkStartQrcode'),thsdkPollQrcode:mutation('thsdkPollQrcode'),thsdkCancelQrcode:mutation('thsdkCancelQrcode'),thsdkLogout:mutation('thsdkLogout'),
+ useUtils(){const client=useQueryClient();return Object.fromEntries(['status','securityProfile','securityNames','securities','channels','alertStatus','workspacePreferences','thsdkStatus'].map(name=>[name,{invalidate(){window.invalidations.push(name);return client.invalidateQueries({queryKey:[name]})},setData(_k,v){return client.setQueryData([name],v)}}]))}
 };`;
 const bundle = await build({
   stdin: {

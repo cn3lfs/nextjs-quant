@@ -7,14 +7,25 @@ export const marketSourceSchema = z.enum([
   "pytdx",
   "eastmoney",
   "tencent",
+  "thsdk",
 ]);
 export type MarketSource = z.infer<typeof marketSourceSchema>;
+export const onlineMarketSources = [
+  "pytdx",
+  "eastmoney",
+  "tencent",
+  "thsdk",
+] as const;
+export type OnlineMarketSource = (typeof onlineMarketSources)[number];
+export const concreteMarketSources = ["local", ...onlineMarketSources] as const;
+export type ConcreteMarketSource = (typeof concreteMarketSources)[number];
 export const marketSourceLabels: Record<MarketSource, string> = {
   auto: "自动",
   local: "通达信本地",
   pytdx: "tstdx",
   tencent: "腾讯自选股",
   eastmoney: "东方财富",
+  thsdk: "同花顺 (THSDK)",
 };
 export function marketSourceLabel(source: string) {
   return (
@@ -24,6 +35,7 @@ export function marketSourceLabel(source: string) {
         "tdx-7709": "tstdx（自定义 TDX）",
         "tencent/westock-data": "westock-data（腾讯自选股）",
         "eastmoney-online": "东方财富",
+        "thsdk-hq": marketSourceLabels.thsdk,
         "binance-spot": "币安现货",
         "okx-spot": "OKX 现货",
         "gate-spot": "Gate.io 现货",

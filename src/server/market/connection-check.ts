@@ -5,12 +5,19 @@ import type { Bar, Settings } from "~/lib/domain";
 import {
   connectionConfiguration,
   type ConnectionCheckInput,
+  type ConnectionCheckReasonCode,
   type ConnectionCheckResult,
 } from "~/lib/settings/connection-check";
 import { parseBars, resolveTdxRoot } from "tstdx/local";
 import { tstdxKlines } from "../data-sources/tstdx/tstdx-adapter";
 import { eastmoneyKlines } from "../data-sources/eastmoney/eastmoney-adapter";
 import { westockKlines } from "../data-sources/westock/westock-adapter";
+import { thsdkKlines } from "../data-sources/thsdk/thsdk-adapter";
+import { getThsdkStatus } from "../data-sources/thsdk/thsdk-auth";
+import {
+  ThsdkError,
+  type ThsdkErrorCode,
+} from "../data-sources/thsdk/thsdk-contract";
 import { localCalendarReference, screenDataHealth } from "./data-health";
 import { isPriceScaleThreeFund } from "~/lib/market/security-classification";
 
@@ -19,9 +26,54 @@ class CheckFailure extends Error {
     public kind: "empty" | "invalid" | "unavailable",
     message: string,
     public connection: "ok" | "error" | "unknown" = "unknown",
+    public reasonCode?: ConnectionCheckReasonCode,
   ) {
     super(message);
   }
+}
+
+class StaleThsdkState extends Error {}
+
+const thsdkReasons: Record<ThsdkErrorCode, ConnectionCheckReasonCode> = {
+  disabled: "disabled",
+  not_configured: "not_configured",
+  auth_required: "auth_required",
+  auth_failed: "auth_required",
+  session_expired: "session_expired",
+  session_locked: "unavailable",
+  dll_invalid: "invalid",
+  handshake_failed: "unavailable",
+  rate_limited: "rate_limited",
+  timeout: "timeout",
+  cancelled: "cancelled",
+  no_data: "empty",
+  invalid_request: "invalid",
+  invalid_response: "invalid",
+  method_forbidden: "unsupported",
+  worker_crashed: "unavailable",
+  circuit_open: "unavailable",
+  unavailable: "unavailable",
+};
+const thsdkHints: Record<ConnectionCheckReasonCode, string> = {
+  disabled: "请先启用同花顺数据源",
+  not_configured: "请先配置同花顺行情组件",
+  auth_required: "请检查同花顺登录设置并完成认证",
+  session_expired: "同花顺会话已失效，请重新登录",
+  rate_limited: "同花顺限制请求频率，请稍后重试",
+  timeout: "同花顺检查超时，请稍后重试",
+  cancelled: "同花顺检查已取消",
+  empty: "同花顺连接可用，但样本为空",
+  invalid: "请核对同花顺组件版本、请求与样本格式",
+  unsupported: "同花顺不支持该证券、周期或操作",
+  unavailable: "同花顺暂不可用，请核对配置后重试",
+};
+function thsdkFailure(
+  reason: ConnectionCheckReasonCode,
+  connection: CheckFailure["connection"] = "unknown",
+) {
+  const kind =
+    reason === "empty" || reason === "invalid" ? reason : "unavailable";
+  return new CheckFailure(kind, thsdkHints[reason], connection, reason);
 }
 
 /** Read at most 64 records, using the existing parser and read-only descriptor. */
@@ -120,8 +172,20 @@ async function onlineSample(
   const start = new Date(Date.parse(today) - 21 * 86400000)
     .toISOString()
     .slice(0, 10);
-  if (input.period === "4h" || input.period === "1h")
+  if (input.source === "thsdk" && input.thsdkState) {
+    const status = getThsdkStatus();
+    if (
+      status.configRevision !== input.thsdkState.configRevision ||
+      status.authGeneration !== input.thsdkState.authGeneration
+    )
+      throw new StaleThsdkState(
+        "同花顺配置或登录状态已更新，请刷新设置后重新检查",
+      );
+  }
+  if (input.period === "4h" || input.period === "1h") {
+    if (input.source === "thsdk") throw thsdkFailure("unsupported");
     throw new CheckFailure("unavailable", "该来源不支持此周期");
+  }
   const request = {
     symbols: [input.symbol],
     period: input.period,
@@ -129,12 +193,41 @@ async function onlineSample(
     start,
     end: today,
   };
-  const result =
-    input.source === "pytdx"
-      ? await tstdxKlines(request, signal)
-      : input.source === "eastmoney"
-        ? await eastmoneyKlines(request, signal)
-        : await westockKlines(request, signal);
+  let result;
+  switch (input.source) {
+    case "pytdx":
+      result = await tstdxKlines(request, signal);
+      break;
+    case "eastmoney":
+      result = await eastmoneyKlines(request, signal);
+      break;
+    case "tencent":
+      result = await westockKlines(request, signal);
+      break;
+    case "thsdk": {
+      const response = await thsdkKlines(request, signal);
+      const item = response.items[0];
+      if (!item) throw thsdkFailure("invalid", "ok");
+      if (item.status === "ok") return item.bars;
+      const reason =
+        item.reason ??
+        (item.errorCode ? thsdkReasons[item.errorCode] : item.status);
+      throw thsdkFailure(
+        reason,
+        reason === "empty" ||
+          item.errorCode === "invalid_response" ||
+          item.status === "invalid"
+          ? "ok"
+          : "unknown",
+      );
+    }
+    case "local":
+      throw new Error("本地行情应使用本地样本读取");
+    default: {
+      const unexpected: never = input.source;
+      throw new Error(`未知行情来源：${unexpected}`);
+    }
+  }
   signal.throwIfAborted();
   const item = result.items[0];
   if (!item || item.status !== "ok") {
@@ -181,7 +274,8 @@ export async function checkConnection(
   const signal = parentSignal
     ? AbortSignal.any([controller.signal, parentSignal])
     : controller.signal;
-  const timer = setTimeout(() => controller.abort(), 10000);
+  const timeoutReason = new Error("connection-check-timeout");
+  const timer = setTimeout(() => controller.abort(timeoutReason), 10000);
   const result: ConnectionCheckResult = {
     ...input,
     checkedAt: started,
@@ -234,6 +328,9 @@ export async function checkConnection(
       referenceAsOf: health.referenceAsOf,
       referenceSource: health.referenceSource,
       sampleCount: bars.length,
+      ...(input.source === "thsdk" && !bars.length
+        ? { reasonCode: "empty" }
+        : {}),
       message: bars.length
         ? "样本读取成功；仅代表所选证券与周期"
         : "连接可用，但样本为空",
@@ -246,27 +343,50 @@ export async function checkConnection(
             : "样本与参考时点一致；全市场覆盖仍以扫描结果为准",
     });
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    result.message = signal.aborted
-      ? "检查已取消或超过 10 秒，请稍后重试"
-      : error instanceof CheckFailure
-        ? error.message
-        : code === "ENOENT"
-          ? "配置目录不存在"
-          : code === "EACCES" || code === "EPERM"
-            ? "无法读取目录或文件：权限不足"
-            : "无法完成检查，请核对来源与配置";
-    result.connection =
-      error instanceof CheckFailure
-        ? error.connection
-        : code === "ENOENT" || code === "EACCES" || code === "EPERM"
-          ? "error"
-          : "unknown";
-    result.data = error instanceof CheckFailure ? error.kind : "unavailable";
-    result.nextAction =
-      input.source === "local"
-        ? "核对已保存目录和该证券的行情文件，然后重试"
-        : "核对网络和该源支持范围，然后单独重试；不会自动切源";
+    if (error instanceof StaleThsdkState) throw error;
+    if (input.source === "thsdk") {
+      const failure = signal.aborted
+        ? thsdkFailure(
+            signal.reason === timeoutReason ? "timeout" : "cancelled",
+          )
+        : error instanceof CheckFailure
+          ? error
+          : thsdkFailure(
+              error instanceof ThsdkError
+                ? thsdkReasons[error.code]
+                : "unavailable",
+            );
+      result.reasonCode = failure.reasonCode;
+      result.data = failure.kind;
+      result.connection = failure.connection;
+      result.message = failure.message;
+      result.nextAction =
+        failure.reasonCode === "empty"
+          ? "核对证券、周期和查询区间后重试"
+          : "处理上述提示后重新检查同花顺";
+    } else {
+      const code = (error as NodeJS.ErrnoException)?.code;
+      result.message = signal.aborted
+        ? "检查已取消或超过 10 秒，请稍后重试"
+        : error instanceof CheckFailure
+          ? error.message
+          : code === "ENOENT"
+            ? "配置目录不存在"
+            : code === "EACCES" || code === "EPERM"
+              ? "无法读取目录或文件：权限不足"
+              : "无法完成检查，请核对来源与配置";
+      result.connection =
+        error instanceof CheckFailure
+          ? error.connection
+          : code === "ENOENT" || code === "EACCES" || code === "EPERM"
+            ? "error"
+            : "unknown";
+      result.data = error instanceof CheckFailure ? error.kind : "unavailable";
+      result.nextAction =
+        input.source === "local"
+          ? "核对已保存目录和该证券的行情文件，然后重试"
+          : "核对网络和该源支持范围，然后单独重试；不会自动切源";
+    }
   } finally {
     clearTimeout(timer);
     if (abortListener) signal.removeEventListener("abort", abortListener);

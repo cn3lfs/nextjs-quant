@@ -7,9 +7,13 @@ import {
   type ConnectionCheckResult,
 } from "~/lib/settings/connection-check";
 import { sameSetting } from "~/lib/settings/settings-draft";
-import { marketSourceLabels } from "~/lib/market/market-source";
+import {
+  concreteMarketSources,
+  marketSourceLabels,
+} from "~/lib/market/market-source";
 import { api } from "~/trpc/react";
 import { Panel, Pill } from "../panels";
+import { usePanelVisible } from "./keep-alive";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import {
@@ -29,7 +33,6 @@ import {
 } from "../ui/table";
 import { Field, stamp } from "./shared";
 
-const sourceOrder = ["local", "pytdx", "eastmoney", "tencent"] as const;
 const connectionLabels = {
   ok: "可访问",
   error: "失败",
@@ -49,6 +52,17 @@ const periodLabels = {
 type CheckSource = ConnectionCheckInput["source"];
 type CheckPeriod = keyof typeof periodLabels;
 
+/** THS 回执只在同一配置修订、同一认证世代内有效。 */
+function sameThsdkState(
+  a: ConnectionCheckInput["thsdkState"],
+  b: ConnectionCheckInput["thsdkState"],
+) {
+  return (
+    a?.configRevision === b?.configRevision &&
+    a?.authGeneration === b?.authGeneration
+  );
+}
+
 /** A receipt is only trustworthy when the response echoes the request. */
 function sameCheckIdentity(
   response: ConnectionCheckResult,
@@ -58,7 +72,8 @@ function sameCheckIdentity(
     response.source === input.source &&
     response.symbol === input.symbol &&
     response.period === input.period &&
-    sameSetting(response.configuration, input.configuration)
+    sameSetting(response.configuration, input.configuration) &&
+    sameThsdkState(response.thsdkState, input.thsdkState)
   );
 }
 
@@ -83,6 +98,13 @@ export function ConnectionDiagnostics({
     Partial<Record<CheckSource, ConnectionCheckResult>>
   >({});
   const [identityError, setIdentityError] = useState<string | null>(null);
+  const visible = usePanelVisible();
+  // THS 回执绑定配置修订与认证世代；状态读取本身不发外部行情请求。
+  const thsdkStatus = api.thsdkStatus.useQuery(undefined, {
+    enabled: visible,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
   const check = api.checkConnection.useMutation({
     onMutate: () => {
       setResult(null);
@@ -102,24 +124,36 @@ export function ConnectionDiagnostics({
     },
   });
   const configuration = connectionConfiguration(value);
+  // 当前 THS 身份始终随状态更新：登出或改配置后，旧回执在对照表中自然消失。
+  const thsdkState = thsdkStatus.data
+    ? {
+        configRevision: thsdkStatus.data.configRevision,
+        authGeneration: thsdkStatus.data.authGeneration,
+      }
+    : undefined;
   const matches = (response: ConnectionCheckResult) =>
     response.source === source &&
     response.symbol === symbol &&
     response.period === period &&
-    sameSetting(response.configuration, configuration);
+    sameSetting(response.configuration, configuration) &&
+    (source !== "thsdk" || sameThsdkState(response.thsdkState, thsdkState));
   const stale = result !== null && !matches(result);
   // Visibility follows the current form scope and saved configuration; the
-  // stored receipt keeps the scope it was actually confirmed under.
-  const comparisonRows = sourceOrder
+  // stored receipt keeps the scope it was actually confirmed under. THS 回执
+  // 额外要求同一配置修订与认证世代，其他来源不受影响。
+  const comparisonRows = concreteMarketSources
     .map((key) => receipts[key])
     .filter(
       (receipt): receipt is ConnectionCheckResult =>
         receipt !== undefined &&
         receipt.symbol === symbol &&
         receipt.period === period &&
-        sameSetting(receipt.configuration, configuration),
+        sameSetting(receipt.configuration, configuration) &&
+        (receipt.source !== "thsdk" ||
+          sameThsdkState(receipt.thsdkState, thsdkState)),
     );
   const valid = /^(sh|sz|bj)\d{6}$/.test(symbol);
+  const thsdkBlocked = source === "thsdk" && !thsdkState;
   return (
     <Panel
       icon={Database}
@@ -136,6 +170,31 @@ export function ConnectionDiagnostics({
           腾讯源为延迟行情；检查通过也不代表实时行情。
         </p>
       )}
+      {source === "thsdk" && (
+        <div className="mb-3 space-y-1 text-[12px]">
+          {thsdkStatus.error ? (
+            <p className="text-nc-warn">
+              无法读取同花顺状态，暂时不能发起 THS 检查。
+            </p>
+          ) : !thsdkStatus.data ? (
+            <p className="text-nc-text-3">正在读取同花顺认证状态…</p>
+          ) : !thsdkStatus.data.enabled ? (
+            <p className="text-nc-warn">
+              同花顺行情已停用，检查会直接返回限制原因。
+            </p>
+          ) : thsdkStatus.data.state !== "authenticated" ? (
+            <p className="text-nc-warn">
+              同花顺尚未认证（{thsdkStatus.data.state}
+              ），请先在「同花顺行情」中登录。
+            </p>
+          ) : (
+            <p className="text-nc-text-3">
+              检查绑定配置修订 {thsdkStatus.data.configRevision} · 认证世代{" "}
+              {thsdkStatus.data.authGeneration}；改配置或登出后旧回执自动失效。
+            </p>
+          )}
+        </div>
+      )}
       <div className="form-grid">
         <Field label="检查来源">
           <Select
@@ -149,13 +208,11 @@ export function ConnectionDiagnostics({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {(["local", "pytdx", "eastmoney", "tencent"] as const).map(
-                (key) => (
-                  <SelectItem value={key} key={key}>
-                    {marketSourceLabels[key]}
-                  </SelectItem>
-                ),
-              )}
+              {concreteMarketSources.map((key) => (
+                <SelectItem value={key} key={key}>
+                  {marketSourceLabels[key]}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </Field>
@@ -199,8 +256,16 @@ export function ConnectionDiagnostics({
         </p>
       )}
       <Button
-        disabled={!valid || check.isPending}
-        onClick={() => check.mutate({ source, symbol, period, configuration })}
+        disabled={!valid || check.isPending || thsdkBlocked}
+        onClick={() =>
+          check.mutate({
+            source,
+            symbol,
+            period,
+            configuration,
+            ...(source === "thsdk" && thsdkState ? { thsdkState } : {}),
+          })
+        }
       >
         {check.isPending ? "检查中（最多 10 秒）" : "检查已保存配置"}
       </Button>

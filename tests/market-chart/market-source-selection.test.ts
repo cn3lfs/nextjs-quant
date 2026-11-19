@@ -28,6 +28,7 @@ const deps = vi.hoisted(() => ({
   tstdx: vi.fn(),
   eastmoney: vi.fn(),
   tencent: vi.fn(),
+  thsdk: vi.fn(),
   readBars: vi.fn(),
   readSecret: vi.fn(),
   newJob: vi.fn(),
@@ -46,6 +47,12 @@ vi.mock("~/server/data-sources/westock/westock-adapter", async (original) => ({
     typeof import("~/server/data-sources/westock/westock-adapter")
   >()),
   westockKlines: deps.tencent,
+}));
+vi.mock("~/server/data-sources/thsdk/thsdk-adapter", async (original) => ({
+  ...(await original<
+    typeof import("~/server/data-sources/thsdk/thsdk-adapter")
+  >()),
+  thsdkKlines: deps.thsdk,
 }));
 vi.mock("~/server/market/chart-history", async (original) => ({
   ...(await original<typeof import("~/server/market/chart-history")>()),
@@ -243,6 +250,7 @@ const onlineAdapters = {
   pytdx: { mock: deps.tstdx, source: "tdx-7709", close: 10 },
   eastmoney: { mock: deps.eastmoney, source: "eastmoney-online", close: 11 },
   tencent: { mock: deps.tencent, source: "tencent/westock-data", close: 12 },
+  thsdk: { mock: deps.thsdk, source: "thsdk-hq", close: 13 },
 } satisfies Record<
   (typeof onlineSources)[number],
   {
@@ -274,6 +282,20 @@ function mockOnlineResponses() {
   });
   deps.tencent.mockResolvedValue({
     items: [{ status: "ok", bars: [{ ...bar, close: 12 }] }],
+    version: "test",
+    warnings: [],
+  });
+  deps.thsdk.mockResolvedValue({
+    items: [
+      {
+        status: "ok",
+        bars: [{ ...bar, close: 13 }],
+        historyExhausted: true,
+        volumeUnit: "股",
+      },
+    ],
+    source: "thsdk-hq",
+    volumeUnit: "股",
     version: "test",
     warnings: [],
   });

@@ -1,6 +1,14 @@
 import { readArchiveRecord } from "../../db/archive-records";
 import { mxQuerySchema } from "~/lib/market/mx-data";
 import { mxDataStatus, queryMxData } from "../../data-sources/mx/mx-data";
+import {
+  thsdkCallAuction,
+  thsdkDailyCapitalFlows,
+  thsdkIntraday,
+  thsdkOrderBooks,
+  thsdkPopularityRank,
+  thsdkPriceVolumeLevels,
+} from "../../data-sources/thsdk/thsdk-adapter";
 import { tradePositionState } from "../../portfolio/trade-ledger-service";
 import { TradeLedgerStore } from "../../db/trade-ledger-store";
 import { indexDirectory } from "../../market/index-directory";
@@ -128,7 +136,38 @@ const pageSchema = z.object({
   count: z.number().int().min(1).max(PAGE_LIMIT).default(PAGE_LIMIT),
 });
 const tradingDateSchema = z.number().int().min(19900101).max(21001231);
+const thsdkSymbolsSchema = z.array(symbolSchema).min(1).max(50);
+const thsdkDatedSymbolSchema = z.object({
+  symbol: symbolSchema,
+  date: researchDateSchema.optional(),
+});
 export const marketRouter = createTRPCRouter({
+  thsdkOrderBooks: p("market", "read")
+    .input(thsdkSymbolsSchema)
+    .query(({ input, signal }) => thsdkOrderBooks(input, signal)),
+  thsdkPriceVolume: p("market", "read")
+    .input(symbolSchema)
+    .query(({ input, signal }) => thsdkPriceVolumeLevels(input, signal)),
+  thsdkCallAuction: p("market", "read")
+    .input(
+      thsdkDatedSymbolSchema.extend({
+        phase: z.enum(["opening", "closing"]).default("opening"),
+      }),
+    )
+    .query(({ input, signal }) =>
+      thsdkCallAuction(input.symbol, input.phase, input.date, signal),
+    ),
+  thsdkIntraday: p("market", "read")
+    .input(thsdkDatedSymbolSchema)
+    .query(({ input, signal }) =>
+      thsdkIntraday(input.symbol, input.date, signal),
+    ),
+  thsdkCapitalFlows: p("market", "read")
+    .input(thsdkSymbolsSchema)
+    .query(({ input, signal }) => thsdkDailyCapitalFlows(input, signal)),
+  thsdkPopularity: p("market", "read")
+    .input(symbolSchema)
+    .query(({ input, signal }) => thsdkPopularityRank(input, signal)),
   quickSearchSecurities: p("market", "read")
     .input(
       z.object({

@@ -1,7 +1,24 @@
 import { z } from "zod";
 import { settingsSchema } from "~/lib/domain";
 import { connectionCheckSchema } from "~/lib/settings/connection-check";
+import {
+  thsdkConfigPatchSchema,
+  thsdkCredentialsInputSchema,
+  type ThsdkStatusView,
+} from "~/lib/settings/thsdk-settings";
 import { checkConnection } from "../../market/connection-check";
+import {
+  forgetThsdkCredentials,
+  getThsdkStatus,
+  saveThsdkConfig,
+  saveThsdkCredentials,
+  thsdkCancelQrcode,
+  thsdkLoginAccount,
+  thsdkLoginGuest,
+  thsdkLogout,
+  thsdkPollQrcode,
+  thsdkStartQrcode,
+} from "../../data-sources/thsdk/thsdk-auth";
 import { newsSourceSettingsRefinedSchema } from "~/lib/settings/news-source-settings";
 import { checkNewsSources } from "../../news/news-source-check";
 import { saveSettings, settings } from "../../infra/settings";
@@ -109,6 +126,41 @@ export const settingsRouter = createTRPCRouter({
     .mutation(({ input, signal }) =>
       checkConnection(settings(), input, signal),
     ),
+  thsdkStatus: p("settings", "read").query((): ThsdkStatusView =>
+    getThsdkStatus(),
+  ),
+  thsdkSaveConfig: p("settings", "configure")
+    .input(thsdkConfigPatchSchema)
+    .mutation(({ input }): ThsdkStatusView => {
+      saveThsdkConfig(input);
+      return getThsdkStatus();
+    }),
+  thsdkSaveCredentials: p("settings", "configure")
+    .input(thsdkCredentialsInputSchema)
+    .mutation(({ input }) =>
+      saveThsdkCredentials(input.username, input.password),
+    ),
+  thsdkForgetCredentials: p("settings", "configure").mutation(() =>
+    forgetThsdkCredentials(),
+  ),
+  thsdkLoginAccount: p("settings", "configure").mutation(
+    ({ signal }): Promise<ThsdkStatusView> => thsdkLoginAccount(signal),
+  ),
+  thsdkLoginGuest: p("settings", "configure").mutation(
+    ({ signal }): Promise<ThsdkStatusView> => thsdkLoginGuest(signal),
+  ),
+  thsdkStartQrcode: p("settings", "configure").mutation(({ signal }) =>
+    thsdkStartQrcode(signal),
+  ),
+  thsdkPollQrcode: p("settings", "configure").mutation(({ signal }) =>
+    thsdkPollQrcode(signal),
+  ),
+  thsdkCancelQrcode: p("settings", "configure").mutation(() =>
+    thsdkCancelQrcode(),
+  ),
+  thsdkLogout: p("settings", "configure").mutation(
+    (): Promise<ThsdkStatusView> => thsdkLogout(),
+  ),
   checkNewsSources: p("settings", "compute")
     .input(newsSourceSettingsRefinedSchema)
     .mutation(({ input }) => checkNewsSources(settings(), input)),

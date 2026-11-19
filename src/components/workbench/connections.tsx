@@ -25,6 +25,7 @@ import { NewsSection } from "./connections/news-section";
 import { ResearchSection } from "./connections/research-section";
 import { NotificationsSection } from "./connections/notifications-section";
 import { CryptoSection } from "./connections/crypto-section";
+import { ThsdkSection } from "./connections/thsdk-section";
 import type { ChannelDraft } from "./connections/shared";
 
 const connectionSections = [
@@ -33,6 +34,7 @@ const connectionSections = [
   { value: "research", label: "研究模型与技能" },
   { value: "notifications", label: "通知渠道" },
   { value: "crypto", label: "数字货币" },
+  { value: "thsdk", label: "同花顺行情" },
 ] as const;
 type ConnectionSection = (typeof connectionSections)[number]["value"];
 export function Connections({
@@ -351,6 +353,11 @@ export function Connections({
       <PanelVisibility visible={section === "crypto"}>
         <div hidden={section !== "crypto"} className="nc-span-12 min-w-0">
           <CryptoSection />
+        </div>
+      </PanelVisibility>
+      <PanelVisibility visible={section === "thsdk"}>
+        <div hidden={section !== "thsdk"} className="nc-span-12 min-w-0">
+          <ThsdkSection />
         </div>
       </PanelVisibility>
       <details className="nc-span-12 rounded-lg border bg-card p-4">

@@ -2,7 +2,16 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { TdxQuoteBook } from "../../../src/components/market/tdx-quote-book";
+import { QuoteBook } from "../../../src/components/market/quote-book";
 import { TdxFundamentalSummary } from "../../../src/components/market/tdx-fundamental-summary";
+import {
+  thsdkOrderBookToDisplayModel,
+  tdxQuoteToDisplayModel,
+} from "../../../src/lib/market/quote-book-view";
+import type {
+  ThsdkOrderBookItem,
+  ThsdkOrderBookLevel,
+} from "../../../src/lib/market/thsdk-reference";
 import type { QuoteSnapshot } from "../../../src/lib/market/tdx-quote-view";
 import type {
   ReportFields,
@@ -129,6 +138,120 @@ describe("五档盘口面板", () => {
     const html = book({ quote: { ...quote, preClose: 0 } });
     expect(html).toContain("不可得：昨收价或最新价不可得");
     expect(html).not.toContain("+2.83%");
+  });
+});
+
+describe("来源无关盘口展示模型", () => {
+  const renderModel = (
+    model: Parameters<typeof QuoteBook>[0]["model"],
+    testId = "quote-book",
+  ) => renderToStaticMarkup(createElement(QuoteBook, { model, testId }));
+  const thsdkLevel = (
+    level: number,
+    price: number | null,
+    volume: number | null,
+    state: ThsdkOrderBookLevel["state"] = price === null ? "empty" : "quoted",
+  ): ThsdkOrderBookLevel => ({ level, price, volume, state });
+  const thsdkItem = (
+    overrides: Partial<ThsdkOrderBookItem> = {},
+  ): ThsdkOrderBookItem => ({
+    symbol: "sh510300",
+    status: "ok",
+    bids: [
+      thsdkLevel(1, 3.951, 400),
+      thsdkLevel(2, 3.95, 300),
+      thsdkLevel(3, null, null, "unknown"),
+    ],
+    asks: [
+      thsdkLevel(1, 3.952, 100),
+      thsdkLevel(2, 3.953, 100),
+      thsdkLevel(3, null, null, "empty"),
+    ],
+    volumeUnit: "份",
+    fetchedAt: 1_700_000_000_000,
+    dataAsOf: "2026-11-19",
+    delayed: "unverified",
+    ...overrides,
+  });
+
+  it("ETF 按 3 位小数展示，且缺失档位不补 0", () => {
+    const model = tdxQuoteToDisplayModel(
+      {
+        ...quote,
+        price: 1.234,
+        preClose: 1.2,
+        bids: [
+          { price: 1.233, volume: 100 },
+          { price: 0, volume: 0 },
+        ],
+        asks: [{ price: 1.235, volume: 200 }],
+      },
+      3,
+      { hasOrderBook: true, session: "continuous" },
+    );
+    const html = renderModel(model, "quote-book-etf");
+    expect(html).toContain('data-testid="quote-book-etf"');
+    expect(html).toContain("1.234");
+    expect(html).toContain("1.233");
+    expect(html).toContain("1.235");
+    expect(html).toContain("买1");
+    expect(html).toContain("卖1");
+  });
+
+  it("可空模型保留 quoted / empty / unknown 三态", () => {
+    const tdxEmpty = tdxQuoteToDisplayModel(
+      { ...quote, bids: [], asks: [] },
+      2,
+      { hasOrderBook: false, session: "post" },
+    );
+    expect(tdxEmpty.state).toBe("empty");
+    expect(renderModel(tdxEmpty)).toContain("不可得：五档无挂单");
+
+    const thsdkQuoted = thsdkOrderBookToDisplayModel(thsdkItem(), 3);
+    expect(thsdkQuoted.state).toBe("quoted");
+    expect(thsdkQuoted.volumeUnit).toBe("份");
+    expect(thsdkQuoted.asks.map((level) => level.level)).toEqual([3, 2, 1]);
+    expect(thsdkQuoted.bids.map((level) => level.level)).toEqual([1, 2, 3]);
+    // 买 700 / 卖 200 → 委差 +500，委比 +500/900
+    expect(thsdkQuoted.imbalance.difference.value).toBe(500);
+    expect(thsdkQuoted.imbalance.ratio.value).toBeCloseTo(5 / 9, 6);
+
+    const thsdkEmpty = thsdkOrderBookToDisplayModel(
+      thsdkItem({
+        status: "empty",
+        bids: [thsdkLevel(1, null, null, "empty")],
+        asks: [thsdkLevel(1, null, null, "empty")],
+      }),
+      3,
+    );
+    expect(thsdkEmpty.state).toBe("empty");
+    expect(thsdkEmpty.imbalance.ratio.value).toBeNull();
+    expect(thsdkEmpty.imbalance.ratio.reason).toBe("五档无挂单");
+
+    const thsdkUnknown = thsdkOrderBookToDisplayModel(
+      thsdkItem({ status: "unavailable", message: "hq.dll 未就绪" }),
+      3,
+    );
+    expect(thsdkUnknown.state).toBe("unknown");
+    const html = renderModel(thsdkUnknown);
+    expect(html).toContain("盘口不可得：hq.dll 未就绪");
+    expect(html).not.toContain("卖1");
+    expect(html).not.toContain("0.00");
+  });
+
+  it("两侧未知时委比/委差不可得，而不是 0", () => {
+    const model = thsdkOrderBookToDisplayModel(
+      thsdkItem({
+        bids: [thsdkLevel(1, null, null, "unknown")],
+        asks: [thsdkLevel(1, null, null, "unknown")],
+      }),
+      2,
+    );
+    expect(model.imbalance.difference.value).toBeNull();
+    expect(model.imbalance.ratio.value).toBeNull();
+    expect(model.imbalance.ratio.reason).toBe("两侧挂单未知");
+    const html = renderModel(model);
+    expect(html).toContain("不可得：两侧挂单未知");
   });
 });
 

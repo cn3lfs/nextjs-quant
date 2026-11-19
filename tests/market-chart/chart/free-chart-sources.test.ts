@@ -1,4 +1,10 @@
 import { beforeEach, expect, it, vi } from "vitest";
+import type { ThsdkStatusView } from "../../../src/lib/settings/thsdk-settings";
+import type {
+  thsdkKlines,
+  ThsdkKlineItem,
+  ThsdkKlineResponse,
+} from "../../../src/server/data-sources/thsdk/thsdk-adapter";
 import {
   parseTencentChart,
   freeChartHistory,
@@ -10,6 +16,14 @@ const deps = vi.hoisted(() => ({
   index: vi.fn(),
   query: vi.fn(),
   http: vi.fn(),
+  thsdk: vi.fn<typeof thsdkKlines>(),
+  thsdkStatus: vi.fn<() => ThsdkStatusView>(),
+}));
+vi.mock("../../../src/server/data-sources/thsdk/thsdk-adapter", () => ({
+  thsdkKlines: deps.thsdk,
+}));
+vi.mock("../../../src/server/data-sources/thsdk/thsdk-auth", () => ({
+  getThsdkStatus: deps.thsdkStatus,
 }));
 vi.mock("../../../src/server/market/chart-history", () => ({
   onlinePeriodHistory: deps.http,
@@ -40,7 +54,72 @@ const row = {
   volume: 100,
   amount: 1000,
 };
-beforeEach(() => vi.resetAllMocks());
+const defaultThsdkStatus: ThsdkStatusView = {
+  enabled: false,
+  configured: false,
+  dllPath: "",
+  dllKnownVersion: null,
+  allowUnlistedHash: false,
+  allowAutoFallback: false,
+  authMode: "account",
+  guestModeEnabled: false,
+  hasSavedCredentials: false,
+  state: "disabled",
+  activeMode: null,
+  authGeneration: 0,
+  configRevision: "fixture",
+  lastErrorCode: null,
+  lastErrorMessage: null,
+  circuitOpenUntil: null,
+  updatedAt: 0,
+};
+const authenticatedThsdkStatus: ThsdkStatusView = {
+  ...defaultThsdkStatus,
+  enabled: true,
+  configured: true,
+  dllPath: "C:/fixture/hq.dll",
+  state: "authenticated",
+  activeMode: "account",
+};
+
+function thsdkResponse(item: ThsdkKlineItem): ThsdkKlineResponse {
+  return {
+    version: "thsdk-adapter-1",
+    source: "thsdk-hq",
+    adjustment: "none",
+    period: "day",
+    limit: 3,
+    end: row.date,
+    currency: "CNY",
+    volumeUnit: "股",
+    delayed: true,
+    fetchedAt: 0,
+    warnings: [],
+    items: [item],
+  };
+}
+
+const thsdkBar = {
+  date: row.date,
+  open: row.open,
+  high: row.high,
+  low: row.low,
+  close: row.last,
+  volume: row.volume,
+  amount: row.amount,
+};
+const thsdkSample = thsdkResponse({
+  status: "ok",
+  symbol: "sh600000",
+  bars: [thsdkBar],
+  historyExhausted: false,
+  volumeUnit: "股",
+});
+
+beforeEach(() => {
+  vi.resetAllMocks();
+  deps.thsdkStatus.mockReturnValue(defaultThsdkStatus);
+});
 it("auto prefers tstdx and stops after the first valid source", async () => {
   deps.page.mockResolvedValue([{ ...row, close: row.last }]);
   expect((await freeChartHistory("sh600000", "day", 3)).source).toBe(
@@ -86,6 +165,104 @@ it("manual tstdx failure never falls back", async () => {
   );
   expect(deps.http).not.toHaveBeenCalled();
   expect(deps.query).not.toHaveBeenCalled();
+});
+it("routes an explicit THSDK selection to its own unadjusted history", async () => {
+  deps.thsdkStatus.mockReturnValue(authenticatedThsdkStatus);
+  deps.thsdk.mockResolvedValueOnce(thsdkSample);
+  await expect(
+    freeChartHistory("sh600000", "day", 3, "thsdk"),
+  ).resolves.toMatchObject({
+    source: "thsdk-hq",
+    bars: [thsdkBar],
+    volumeUnit: "股",
+    historyExhausted: false,
+  });
+  expect(deps.thsdk).toHaveBeenCalledOnce();
+  expect(deps.thsdk.mock.calls[0]?.[0]).toMatchObject({
+    symbols: ["sh600000"],
+    period: "day",
+    limit: 3,
+  });
+  expect(deps.thsdk.mock.calls[0]?.[0]?.adjustment ?? "none").toBe("none");
+  expect(deps.page).not.toHaveBeenCalled();
+  expect(deps.index).not.toHaveBeenCalled();
+  expect(deps.http).not.toHaveBeenCalled();
+  expect(deps.query).not.toHaveBeenCalled();
+});
+
+it("keeps an explicit THSDK failure on the selected provider", async () => {
+  deps.thsdkStatus.mockReturnValue(authenticatedThsdkStatus);
+  deps.thsdk.mockResolvedValueOnce(
+    thsdkResponse({
+      status: "unavailable",
+      symbol: "sh600000",
+      message: "请先登录同花顺",
+      errorCode: "auth_required",
+    }),
+  );
+  await expect(freeChartHistory("sh600000", "day", 3, "thsdk")).rejects.toThrow(
+    /同花顺|THSDK/,
+  );
+  expect(deps.thsdk).toHaveBeenCalledOnce();
+  expect(deps.page).not.toHaveBeenCalled();
+  expect(deps.index).not.toHaveBeenCalled();
+  expect(deps.http).not.toHaveBeenCalled();
+  expect(deps.query).not.toHaveBeenCalled();
+});
+
+it.each([
+  { enabled: false, allowAutoFallback: false, state: "disabled" },
+  { enabled: true, allowAutoFallback: false, state: "authenticated" },
+  { enabled: true, allowAutoFallback: true, state: "logged_out" },
+] satisfies Partial<ThsdkStatusView>[])(
+  "skips THSDK in auto with state $state and opt-in $allowAutoFallback",
+  async (status) => {
+    deps.thsdkStatus.mockReturnValue({
+      ...defaultThsdkStatus,
+      configured: status.enabled,
+      ...status,
+    });
+    deps.page.mockRejectedValue(Error("tdx down"));
+    deps.http.mockRejectedValue(Error("http down"));
+    deps.query.mockRejectedValue(Error("westock down"));
+    deps.thsdk.mockResolvedValue(thsdkSample);
+
+    await expect(freeChartHistory("sh600000", "day", 3)).rejects.toThrow();
+    expect(deps.page).toHaveBeenCalled();
+    expect(deps.http).toHaveBeenCalled();
+    expect(deps.query).toHaveBeenCalled();
+    expect(deps.thsdk).not.toHaveBeenCalled();
+  },
+);
+
+it("uses authenticated, opted-in THSDK only after tstdx, Eastmoney and Tencent fail", async () => {
+  deps.thsdkStatus.mockReturnValue({
+    ...authenticatedThsdkStatus,
+    allowAutoFallback: true,
+  });
+  const calls: string[] = [];
+  deps.page.mockImplementation(async () => {
+    calls.push("tstdx");
+    throw Error("tdx down");
+  });
+  deps.http.mockImplementation(async () => {
+    calls.push("eastmoney");
+    throw Error("http down");
+  });
+  deps.query.mockImplementation(async () => {
+    calls.push("tencent");
+    throw Error("westock down");
+  });
+  deps.thsdk.mockImplementation(async () => {
+    calls.push("thsdk");
+    return thsdkSample;
+  });
+
+  await expect(freeChartHistory("sh600000", "day", 3)).resolves.toMatchObject({
+    source: "thsdk-hq",
+    bars: [thsdkBar],
+  });
+  expect(calls).toEqual(["tstdx", "eastmoney", "tencent", "thsdk"]);
 });
 it("validates Tencent OHLC, dates, identity, empty output and structured errors", () => {
   expect(parseTencentChart([row], "sh600000", "day")[0]?.close).toBe(11);
