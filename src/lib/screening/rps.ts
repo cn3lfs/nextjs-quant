@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { RpsPrerequisite } from "./rps-prerequisite";
+import type { IndustryRpsAudit } from "./industry-rps";
 import { researchDateSchema } from "trading-strategies/research/contracts/date";
 import { rpsPeriods, rpsPolicy, type RpsExclusion } from "quant-rps";
 
@@ -20,7 +21,7 @@ export const rpsQuerySchema = z.object({
     .refine((n) => (rpsPeriods as readonly number[]).includes(n)),
 });
 export type RpsDay = {
-  industry?: import("./industry-rps").IndustryRpsAudit;
+  industry?: IndustryRpsAudit;
   date: string;
   mode: RpsRequest["mode"];
   periods: number[];
