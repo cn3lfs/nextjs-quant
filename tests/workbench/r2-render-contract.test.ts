@@ -14,7 +14,8 @@ it("R2 precisely wires the connection components and preserves validation attrib
     "utf8",
   );
   // Retired automatic-screen review no longer has a limit or enable control.
-  expect(connection.match(/<Input\b/g)).toHaveLength(13);
+  // R13 adds the complementary news archive path beside the original fields.
+  expect(connection.match(/<Input\b/g)).toHaveLength(14);
   expect(connection.match(/<Textarea\b/g)).toHaveLength(1);
   expect(connection.match(/<Checkbox\b/g)).toHaveLength(2);
   expect(connection).not.toContain("config.analysisLimit");
@@ -23,6 +24,11 @@ it("R2 precisely wires the connection components and preserves validation attrib
     '<SelectTrigger aria-label="平台" className="w-full">',
   );
   expect(connection).toContain('autoComplete="new-password"');
+  expect(connection).toContain("value={config.clsDbPath}");
+  expect(connection).toContain('aria-label="主档案类型"');
+  expect(connection).toContain('<Field label="互补新闻档案路径">');
+  expect(connection).toContain("value={config.clsComplementDbPath}");
+  expect(connection).toContain('aria-label="互补档案类型"');
   expect(policy.match(/<Input\b/g)).toHaveLength(7);
   expect(policy.match(/<Checkbox\b/g)).toHaveLength(2);
   expect(policy).toContain('min="15:05"');

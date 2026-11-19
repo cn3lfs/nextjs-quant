@@ -5,6 +5,14 @@ import { ChartLineUp } from "@phosphor-icons/react/ssr";
 import type { LimitSentimentIntraday } from "~/server/market/limit-sentiment";
 import type { LimitObservation } from "~/server/market/limit-sentiment-observations";
 import { Panel, PanelEmpty } from "../panels";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/table";
 import { splitIntradaySegments } from "./limit-intraday-series";
 
 const WIDTH = 720;
@@ -268,57 +276,57 @@ export function LimitIntradayTrend({
               逐分钟明细（{points.length} 条，按时间升序）
             </summary>
             <div className="mt-2 max-h-72 overflow-auto">
-              <table
-                className="w-full min-w-[360px] text-[13px]"
+              <Table
+                className="min-w-[360px] text-[13px]"
                 aria-label="本机盘中打板情绪逐分钟明细"
               >
-                <thead>
-                  <tr className="text-left text-nc-text-4">
-                    <th scope="col" className="py-1 pr-3 font-medium">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead scope="col" className="py-1 text-nc-text-4">
                       时间
-                    </th>
-                    <th
+                    </TableHead>
+                    <TableHead
                       scope="col"
-                      className="py-1 pr-3 text-right font-medium"
+                      className="py-1 text-right text-nc-text-4"
                     >
                       涨停（家）
-                    </th>
-                    <th
+                    </TableHead>
+                    <TableHead
                       scope="col"
-                      className="py-1 pr-3 text-right font-medium"
+                      className="py-1 text-right text-nc-text-4"
                     >
                       炸板（家）
-                    </th>
-                    <th scope="col" className="py-1 text-right font-medium">
-                      跌停（家）
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="tabular-nums">
-                  {points.map((point) => (
-                    <tr
-                      key={`${point.date}-${point.minute}`}
-                      className="border-t border-nc-border-soft"
+                    </TableHead>
+                    <TableHead
+                      scope="col"
+                      className="py-1 text-right text-nc-text-4"
                     >
-                      <th
+                      跌停（家）
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="tabular-nums">
+                  {points.map((point) => (
+                    <TableRow key={`${point.date}-${point.minute}`}>
+                      <TableHead
                         scope="row"
-                        className="py-1 pr-3 text-left font-normal"
+                        className="bg-transparent py-1 text-left font-normal"
                       >
                         {point.minute}
-                      </th>
-                      <td className="py-1 pr-3 text-right">
+                      </TableHead>
+                      <TableCell className="py-1 text-right">
                         {displayNumber(point.limitUp, 0)}
-                      </td>
-                      <td className="py-1 pr-3 text-right">
+                      </TableCell>
+                      <TableCell className="py-1 text-right">
                         {displayNumber(point.broken, 0)}
-                      </td>
-                      <td className="py-1 text-right">
+                      </TableCell>
+                      <TableCell className="py-1 text-right">
                         {displayNumber(point.limitDown, 0)}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           </details>
         </>

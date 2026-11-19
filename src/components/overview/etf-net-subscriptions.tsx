@@ -8,6 +8,14 @@ import type {
 } from "~/server/market/etf-net-subscriptions";
 import { api } from "~/trpc/react";
 import { Button } from "../ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/table";
 import { useTaskVisible } from "../workbench/use-task-visible";
 
 const CHART_WIDTH = 720;
@@ -205,45 +213,54 @@ function Body({ data }: { data: EtfNetData }) {
           逐日明细（{data.points.length} 日，按日期倒序）
         </summary>
         <div className="mt-2 max-h-72 overflow-auto">
-          <table
-            className="w-full min-w-[360px] text-[13px]"
+          <Table
+            className="min-w-[360px] text-[13px]"
             aria-label="ETF 全市场日度净申赎逐日明细"
           >
-            <thead>
-              <tr className="text-left text-nc-text-4">
-                <th scope="col" className="py-1 pr-3 font-medium">
+            <TableHeader>
+              <TableRow>
+                <TableHead scope="col" className="py-1 text-nc-text-4">
                   日期
-                </th>
-                <th scope="col" className="py-1 pr-3 text-right font-medium">
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="py-1 text-right text-nc-text-4"
+                >
                   净申赎（亿元）
-                </th>
-                <th scope="col" className="py-1 text-right font-medium">
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="py-1 text-right text-nc-text-4"
+                >
                   上证指数（点）
-                </th>
-              </tr>
-            </thead>
-            <tbody className="tabular-nums">
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="tabular-nums">
               {[...data.points].reverse().map((point) => (
-                <tr key={point.date} className="border-t border-nc-border-soft">
-                  <th scope="row" className="py-1 pr-3 text-left font-normal">
+                <TableRow key={point.date}>
+                  <TableHead
+                    scope="row"
+                    className="bg-transparent py-1 text-left font-normal"
+                  >
                     {point.date}
-                  </th>
-                  <td className="py-1 pr-3 text-right">
+                  </TableHead>
+                  <TableCell className="py-1 text-right">
                     {point.net === null
                       ? duplicateDates.has(point.date)
                         ? "歧义（重复）"
                         : "缺失"
                       : formatNumber(point.net, 2)}
-                  </td>
-                  <td className="py-1 text-right">
+                  </TableCell>
+                  <TableCell className="py-1 text-right">
                     {point.index === null
                       ? "同日无数据"
                       : formatNumber(point.index, 2)}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </details>
     </>
