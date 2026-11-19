@@ -5,6 +5,7 @@ import { HoldingAlertEditor } from "./holding-alert-editor";
 import type { RouterOutputs } from "~/trpc/react";
 import { updateStop } from "~/app/accounts/actions";
 import { feeLabel } from "~/lib/portfolio/trade-ledger";
+import type { TradePositionStatus } from "~/lib/portfolio/trade-workspace";
 import { Button } from "../ui/button";
 import {
   TradeError,
@@ -12,11 +13,18 @@ import {
   tradeNumber,
 } from "./trade-workspace-fields";
 
+const emptyMessages: Record<TradePositionStatus, string> = {
+  all: "暂无持仓或没有匹配的证券。",
+  open: "没有持有中的证券；可切换全部或检查检索词。",
+  closed: "没有已清仓的证券；可切换全部或检查检索词。",
+};
+
 export function TradePositions({
   data,
   fetching,
   error,
   page,
+  status = "all",
   onPage,
   onRetry,
   onRelated,
@@ -26,6 +34,7 @@ export function TradePositions({
   fetching: boolean;
   error?: string;
   page: number;
+  status?: TradePositionStatus;
   onPage: (page: number) => void;
   onRetry: () => void;
   onRelated: (symbol: string) => void;
@@ -82,7 +91,7 @@ export function TradePositions({
         </p>
       )}
       {!fetching && !error && data?.items.length === 0 && (
-        <p>暂无持仓或没有匹配的证券。</p>
+        <p>{emptyMessages[status]}</p>
       )}
       {data?.items.map((p) => (
         <article

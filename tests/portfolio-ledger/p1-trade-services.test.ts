@@ -109,6 +109,43 @@ it("workspace position pages retain full-book totals and omit archived evidence"
   expect(filtered.summary).toEqual(first.summary);
   expect(stubs.order).not.toHaveBeenCalled();
 });
+it("filters position status before paging without changing the full-book summary", async () => {
+  vi.setSystemTime(new Date("2026-09-11T15:10:00+08:00"));
+  for (let i = 0; i < 22; i++)
+    await recordLocalTrade({ ...input(), symbol: `sh${600100 + i}` });
+  const closedSymbols = ["sh600200", "sh600201", "sh600202"];
+  for (const symbol of closedSymbols) {
+    await recordLocalTrade({ ...input(), symbol });
+    await recordLocalTrade({
+      ...input(),
+      symbol,
+      side: "sell",
+      date: "2026-09-11",
+    });
+  }
+  const all = await tradeWorkspacePositions({});
+  expect(all.count).toBe(25);
+  expect(all.items).toHaveLength(20);
+  const open = await tradeWorkspacePositions({ status: "open" });
+  expect(open.count).toBe(22);
+  expect(open.items).toHaveLength(20);
+  expect(
+    (await tradeWorkspacePositions({ status: "open", page: 2 })).items,
+  ).toHaveLength(2);
+  const closed = await tradeWorkspacePositions({ status: "closed" });
+  expect(closed.count).toBe(3);
+  expect(closed.items.map((p) => p.symbol)).toEqual(closedSymbols);
+  expect(closed.items.every((p) => p.quantity === 0)).toBe(true);
+  expect(closed.summary).toEqual(all.summary);
+  expect(open.summary).toEqual(all.summary);
+  expect(
+    (await tradeWorkspacePositions({ status: "closed", query: "sh600201" }))
+      .count,
+  ).toBe(1);
+  await expect(
+    tradeWorkspacePositions({ status: "holding" }),
+  ).rejects.toThrow();
+});
 it("local application service persists a fill and displays T+1, quote, float, subsequent ex-cost and provenance offline", async () => {
   expect(mockEnabled()).toBe(false);
   const t = input();

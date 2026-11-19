@@ -15,6 +15,13 @@ export async function tradeWorkspacePositions(raw: unknown) {
     throw new Error("计算期间账本已更新，请刷新持仓");
   const open = state.positions.filter((p) => p.quantity > 0);
   const matching = state.positions
+    .filter((p) =>
+      input.status === "all"
+        ? true
+        : input.status === "open"
+          ? p.quantity > 0
+          : p.quantity === 0,
+    )
     .filter((p) => p.symbol.toLowerCase().includes(input.query.toLowerCase()))
     .sort((a, b) => a.symbol.localeCompare(b.symbol));
   return {

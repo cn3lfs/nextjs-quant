@@ -41,9 +41,12 @@ export const tradeSignalOptionsSchema = z.object({
   query: z.string().trim().max(100).default(""),
   cursor: z.string().max(2048).optional(),
 });
+export const tradePositionStatusSchema = z.enum(["all", "open", "closed"]);
+export type TradePositionStatus = z.infer<typeof tradePositionStatusSchema>;
 export const tradePositionPageSchema = z.object({
   page: z.number().int().min(1).max(100000).default(1),
   query: z.string().trim().max(100).default(""),
+  status: tradePositionStatusSchema.default("all"),
 });
 export const tradeAdjustmentPageSchema = z.object({
   symbol: z

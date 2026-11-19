@@ -4,7 +4,9 @@ import { z } from "zod";
 import { api } from "~/trpc/react";
 import { saveTrade } from "~/app/accounts/actions";
 import {
+  tradePositionStatusSchema,
   tradeWorkspacePageSchema,
+  type TradePositionStatus,
   type TradeWorkspaceInput,
 } from "~/lib/portfolio/trade-workspace";
 import {
@@ -20,7 +22,7 @@ import {
 import type { TradeInput } from "~/lib/portfolio/trade-ledger";
 import { chinaClock } from "~/lib/strategy-facts/notification-policy";
 import { useTaskVisible } from "../workbench/use-task-visible";
-import { PageGrid, Panel } from "../panels";
+import { PageGrid, Panel, Segmented } from "../panels";
 import { Button } from "../ui/button";
 import { TradePositions } from "./trade-positions";
 import { TradeComparison } from "./trade-comparison";
@@ -75,6 +77,7 @@ export function TradeLedgerPanel() {
   const [adjustmentSymbol, setAdjustmentSymbol] = useState("");
   const [positionPage, setPositionPage] = useState(1),
     [positionQuery, setPositionQuery] = useState(""),
+    [positionStatus, setPositionStatus] = useState<TradePositionStatus>("all"),
     [positionForm, setPositionForm] = useState("");
   const [selected, setSelected] = useState({ history: "", adjustments: "" });
   const [editing, setEditing] = useState(false),
@@ -153,6 +156,7 @@ export function TradeLedgerPanel() {
               .max(1000),
             positionPage: z.number().int().min(1),
             positionQuery: z.string().max(100),
+            positionStatus: tradePositionStatusSchema.default("all"),
           })
           .parse(
             JSON.parse(
@@ -166,6 +170,7 @@ export function TradeLedgerPanel() {
           );
           setPositionPage(saved.positionPage);
           setPositionQuery(saved.positionQuery);
+          setPositionStatus(saved.positionStatus);
           setPositionForm(saved.positionQuery);
         }
       } catch {
@@ -244,6 +249,7 @@ export function TradeLedgerPanel() {
           adjustmentPages,
           positionPage,
           positionQuery,
+          positionStatus,
         }),
       );
     } catch {
@@ -259,6 +265,7 @@ export function TradeLedgerPanel() {
     adjustmentPages,
     positionPage,
     positionQuery,
+    positionStatus,
   ]);
   useEffect(() => {
     if (!draft?.dirty && attempt?.state !== "pending") return;
@@ -289,7 +296,7 @@ export function TradeLedgerPanel() {
     };
   }, [draft?.dirty, attempt?.state]);
   const positions = api.tradeWorkspacePositions.useQuery(
-    { page: positionPage, query: positionQuery },
+    { page: positionPage, query: positionQuery, status: positionStatus },
     { ...readOptions, enabled: visible && ready },
   );
   const historyQuery = api.tradeWorkspacePage.useQuery(
@@ -616,6 +623,19 @@ export function TradeLedgerPanel() {
               setPositionPage(1);
             }}
           >
+            <Segmented
+              label="持仓状态"
+              value={positionStatus}
+              onChange={(value) => {
+                setPositionStatus(value);
+                setPositionPage(1);
+              }}
+              options={[
+                { value: "all", label: "全部" },
+                { value: "open", label: "持有" },
+                { value: "closed", label: "已清仓" },
+              ]}
+            />
             <TradeInputField
               label="持仓证券检索"
               value={positionForm}
@@ -630,6 +650,7 @@ export function TradeLedgerPanel() {
             fetching={positions.isFetching}
             error={positions.error?.message}
             page={positionPage}
+            status={positionStatus}
             onPage={setPositionPage}
             onRetry={() => void positions.refetch()}
             onRelated={related}
