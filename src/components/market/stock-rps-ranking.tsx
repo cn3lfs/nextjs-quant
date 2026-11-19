@@ -11,10 +11,8 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import { rpsPeriodLabel } from "~/lib/screening/rps";
-import type {
-  MarketPoolRpsCondition,
-  MarketPoolRow,
-} from "~/lib/market/market-pool";
+import type { RpsCondition } from "~/lib/screening/rps-conditions";
+import type { MarketPoolRow } from "~/lib/market/market-pool";
 import { ChartSymbolLink } from "./chart-symbol-link";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -29,7 +27,7 @@ import {
 } from "../ui/select";
 import { BrowseSource } from "./open-chart";
 import { MarketPoolAvailabilityNote } from "./market-pool-availability";
-import { StockRpsConditionEditor } from "./stock-rps-condition-editor";
+import { RpsConditionEditor } from "./rps-condition-editor";
 
 /** A close observation is only a confirmed persistent close when the same day
  *  also exists in the RPS store; otherwise it is still a close-time snapshot. */
@@ -57,7 +55,7 @@ export function StockRpsRanking() {
   const [search, setSearch] = useState("");
   // Applied conditions are the only ones in the query key; draft edits wait for
   // 「应用条件」 so typing a threshold cannot produce a request per keystroke.
-  const [conditions, setConditions] = useState<MarketPoolRpsCondition[]>([]);
+  const [conditions, setConditions] = useState<RpsCondition[]>([]);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 20 });
   const [order, setOrder] = useState<TableSort>(null);
   // Ranks only change when an RPS batch writes a new day: poll while one runs.
@@ -225,7 +223,7 @@ export function StockRpsRanking() {
         >
           刷新
         </Button>
-        <StockRpsConditionEditor
+        <RpsConditionEditor
           applied={conditions}
           onApply={(next) => {
             setConditions(next);

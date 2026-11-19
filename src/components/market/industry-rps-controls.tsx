@@ -14,9 +14,14 @@ import { api } from "~/trpc/react";
 import { industryEmptyLabels } from "~/lib/screening/industry-rps";
 import { rpsPeriodLabel } from "~/lib/screening/rps";
 import {
+  rpsConditionsLabel,
+  type RpsCondition,
+} from "~/lib/screening/rps-conditions";
+import {
   IndustryRpsStatus,
   industryExclusionLabels,
 } from "./industry-rps-status";
+import { RpsConditionEditor } from "./rps-condition-editor";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
@@ -32,56 +37,83 @@ import {
 import type { RouterOutputs } from "~/trpc/react";
 
 type Row = RouterOutputs["industryRpsPage"]["rows"][number];
-const columns: DataTableColumn<Row>[] = [
-  {
-    id: "name",
-    enableSorting: true,
-    header: "行业",
-    cell: ({ row }) => (
-      <PoolMembersLink category="industry" name={row.original.name} />
-    ),
-  },
-  {
-    id: "rank",
-    enableSorting: true,
-    header: "排名 / RPS / 等权涨幅",
-    cell: ({ row }) => {
-      const v = row.original.value;
-      return v
-        ? `${v.rank} / ${formatNumber(v.rps, 2)} / ${formatNumber(v.return * 100, 2)}%`
-        : industryEmptyLabels[row.original.reason!];
+function columns(conditions: RpsCondition[]): DataTableColumn<Row>[] {
+  return [
+    {
+      id: "name",
+      enableSorting: true,
+      header: "行业",
+      cell: ({ row }) => (
+        <PoolMembersLink category="industry" name={row.original.name} />
+      ),
     },
-  },
-  {
-    id: "members",
-    enableSorting: true,
-    header: "成分 / 本周期有效 / 端点不足",
-    cell: ({ row }) =>
-      `${row.original.total} / ${row.original.valid ?? "—"} / ${row.original.endpointMissing ?? "—"}`,
-  },
-  {
-    id: "excluded",
-    enableSorting: true,
-    header: "剔除原因及数量",
-    cell: ({ row }) =>
-      rpsGroupExclusions
-        .filter((k) => row.original.excluded[k])
-        .map((k) => `${industryExclusionLabels[k]} ${row.original.excluded[k]}`)
-        .join("；") || "无",
-  },
-  {
-    id: "source",
-    enableSorting: true,
-    header: "名单文件证据",
-    cell: ({ row }) => (
-      <details>
-        <summary>{row.original.file.file}</summary>
-        <p className="break-all">SHA256：{row.original.file.hash}</p>
-        <p>mtime：{new Date(row.original.file.mtimeMs).toISOString()}</p>
-      </details>
-    ),
-  },
-];
+    {
+      id: "rank",
+      enableSorting: true,
+      header: "排名 / RPS / 等权涨幅",
+      cell: ({ row }) => {
+        const v = row.original.value;
+        return v
+          ? `${v.rank} / ${formatNumber(v.rps, 2)} / ${formatNumber(v.return * 100, 2)}%`
+          : industryEmptyLabels[row.original.reason!];
+      },
+    },
+    {
+      id: "members",
+      enableSorting: true,
+      header: "成分 / 本周期有效 / 端点不足",
+      cell: ({ row }) =>
+        `${row.original.total} / ${row.original.valid ?? "—"} / ${row.original.endpointMissing ?? "—"}`,
+    },
+    {
+      id: "excluded",
+      enableSorting: true,
+      header: "剔除原因及数量",
+      cell: ({ row }) =>
+        rpsGroupExclusions
+          .filter((k) => row.original.excluded[k])
+          .map(
+            (k) => `${industryExclusionLabels[k]} ${row.original.excluded[k]}`,
+          )
+          .join("；") || "无",
+    },
+    ...(conditions.length
+      ? [
+          {
+            id: "conditionValues",
+            enableSorting: false,
+            header: "条件 RPS",
+            cell: ({ row }) => (
+              <span className="whitespace-nowrap tabular-nums">
+                {conditions
+                  .map(
+                    (condition) =>
+                      `${rpsPeriodLabel(condition.period)} ${formatNumber(
+                        row.original.conditionValues?.[String(condition.period)]
+                          ?.rps,
+                        2,
+                      )}`,
+                  )
+                  .join(" · ")}
+              </span>
+            ),
+          } satisfies DataTableColumn<Row>,
+        ]
+      : []),
+    {
+      id: "source",
+      enableSorting: true,
+      header: "名单文件证据",
+      cell: ({ row }) => (
+        <details>
+          <summary>{row.original.file.file}</summary>
+          <p className="break-all">SHA256：{row.original.file.hash}</p>
+          <p>mtime：{new Date(row.original.file.mtimeMs).toISOString()}</p>
+        </details>
+      ),
+    },
+  ];
+}
 
 /** Container owns requests; status and DataTable consume server-prepared props. */
 export function IndustryRpsControls() {
@@ -89,6 +121,7 @@ export function IndustryRpsControls() {
   const [message, setMessage] = useState("");
   const [date, setDate] = useState("");
   const [period, setPeriod] = useState(20);
+  const [conditions, setConditions] = useState<RpsCondition[]>([]);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 20 });
   const [order, setOrder] = useState<TableSort>(null);
   const visible = usePanelVisible();
@@ -97,14 +130,23 @@ export function IndustryRpsControls() {
     refetchInterval: 2000,
   });
   const page = api.industryRpsPage.useQuery(
-    { date: date || undefined, period, page: pagination.pageIndex, order },
+    {
+      date: date || undefined,
+      period,
+      conditions,
+      page: pagination.pageIndex,
+      order,
+    },
     {
       enabled: visible,
       refetchInterval:
         status.data?.progress?.status === "running" ? 4000 : false,
-      placeholderData: (previous) => previous,
     },
   );
+  // Only the current key's successful response is evidence for the summary,
+  // rows, bases and paging. A same-key background refresh keeps it; a key
+  // change or a failed refresh never shows the previous batch as this one.
+  const confirmed = page.isSuccess ? page.data : undefined;
   const onError = (error: { message: string }) => setMessage(error.message);
   const onSuccess = () => {
     setMessage("请求已处理");
@@ -136,6 +178,18 @@ export function IndustryRpsControls() {
     status.isError ||
     configure.isPending ||
     sourceConfigure.isPending;
+  const conditionUnavailable =
+    conditions.length > 0 && confirmed
+      ? confirmed.day === null ||
+        (confirmed.conditions ?? []).some(
+          (condition) => condition.periodMissing,
+        )
+      : false;
+  const appliedText = rpsConditionsLabel(conditions);
+  const missingConditionPeriods = (confirmed?.conditions ?? [])
+    .filter((condition) => condition.periodMissing)
+    .map((condition) => rpsPeriodLabel(condition.period))
+    .join("、");
   return (
     <section className="space-y-4" aria-label="行业RPS数据管理">
       {status.data?.tdxConfigured === false && (
@@ -276,27 +330,67 @@ export function IndustryRpsControls() {
             ))}
           </SelectContent>
         </Select>
+        <RpsConditionEditor
+          applied={conditions}
+          onApply={(next) => {
+            setConditions(next);
+            setPagination({ pageIndex: 0, pageSize: 20 });
+          }}
+          onClear={() => {
+            setConditions([]);
+            setPagination({ pageIndex: 0, pageSize: 20 });
+          }}
+        />
       </div>
-      {page.data?.day && (
+      <div
+        className="space-y-1 text-sm text-muted-foreground"
+        role="status"
+        aria-live="polite"
+      >
         <p>
-          {page.data.day.date} ·{" "}
-          {page.data.day.mode === "backfill"
+          已生效条件：
+          <span className="text-foreground">{appliedText}</span>
+          {conditionUnavailable
+            ? null
+            : confirmed
+              ? ` · 命中 ${confirmed.total} 个行业`
+              : " · 等待当前条件的成功查询结果"}
+        </p>
+        {confirmed?.conditions?.length ? (
+          <p>
+            条件周期有效排名基数：
+            {confirmed.conditions
+              .map(
+                (condition) =>
+                  `${rpsPeriodLabel(condition.period)} ${
+                    condition.count === null ? "未计算" : condition.count
+                  }`,
+              )
+              .join(" / ")}
+            。各条件来自同一批次，过滤不重新排名。
+          </p>
+        ) : null}
+      </div>
+      {confirmed?.day && (
+        <p>
+          {confirmed.day.date} ·{" "}
+          {confirmed.day.mode === "backfill"
             ? "回填（成分漂移 / 生存者偏差）"
             : "向前新增（当次成分快照）"}{" "}
-          · 本周期排名基数 {page.data.day.count}；按RPS降序，未排名行业置后。
+          · 本周期排名基数 {confirmed.day.count}；按RPS降序，未排名行业置后。
           分类：
-          {page.data.day.classification === "tdx-research-level1"
+          {confirmed.day.classification === "tdx-research-level1"
             ? "通达信研究一级行业"
             : "申万行业"}
-          ；成分快照来源：{page.data.day.root}；行情来源：
-          {page.data.day.source.root}；{page.data.day.source.calendar}
-          ；GBBQ覆盖至 {page.data.day.source.actionsCoverage}。
+          ；成分快照来源：{confirmed.day.root}；行情来源：
+          {confirmed.day.source.root}；{confirmed.day.source.calendar}
+          ；GBBQ覆盖至 {confirmed.day.source.actionsCoverage}。
         </p>
       )}
       <DataTable
-        columns={columns}
-        data={page.data?.rows ?? []}
-        rowCount={page.data?.total ?? 0}
+        columns={columns(conditions)}
+        data={conditionUnavailable ? [] : (confirmed?.rows ?? [])}
+        rowCount={conditionUnavailable ? 0 : (confirmed?.total ?? 0)}
         pagination={pagination}
         onPaginationChange={setPagination}
         sorting={sortingState(order)}
@@ -309,7 +403,18 @@ export function IndustryRpsControls() {
         loading={page.isPending}
         error={page.error?.message}
         onRetry={() => void page.refetch()}
-        emptyMessage="该日尚无行业结果。"
+        showPagination={confirmed !== undefined && !conditionUnavailable}
+        emptyMessage={
+          !confirmed
+            ? "等待当前条件的成功查询结果。"
+            : conditionUnavailable
+              ? confirmed.day === null
+                ? "所选日期没有行业批次，条件未执行；这不表示筛选结果为 0。"
+                : `当前批次未计算 ${missingConditionPeriods}，条件未执行；这不表示筛选结果为 0。`
+              : conditions.length
+                ? "没有同时满足全部条件的行业。可放宽阈值、改选周期，或确认当前批次是否计算了这些周期。"
+                : "该日尚无行业结果。"
+        }
       />
     </section>
   );

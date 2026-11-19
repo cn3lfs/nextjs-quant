@@ -14,6 +14,11 @@ import { UniverseAuditContainer } from "../screening/universe-audit-container";
 import { usePanelVisible } from "../workbench/keep-alive";
 import { rpsPeriodLabel } from "~/lib/screening/rps";
 import { industryEmptyLabels } from "~/lib/screening/industry-rps";
+import {
+  rpsConditionsLabel,
+  type RpsCondition,
+} from "~/lib/screening/rps-conditions";
+import { RpsConditionEditor } from "./rps-condition-editor";
 import { industryExclusionLabels } from "./industry-rps-status";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -28,48 +33,74 @@ import {
 } from "../ui/select";
 
 type Row = RouterOutputs["conceptRpsPage"]["rows"][number];
-const columns: DataTableColumn<Row>[] = [
-  {
-    id: "name",
-    enableSorting: true,
-    header: "概念",
-    cell: ({ row }) => (
-      <PoolMembersLink category="concept" name={row.original.name} />
-    ),
-  },
-  {
-    id: "rank",
-    enableSorting: true,
-    header: "排名 / RPS / 等权涨幅",
-    cell: ({ row }) =>
-      row.original.value
-        ? `${row.original.value.rank} / ${displayNumber(row.original.value.rps, 2)} / ${displayNumber(row.original.value.return * 100, 2)}%`
-        : industryEmptyLabels[row.original.reason!],
-  },
-  {
-    id: "coverage",
-    enableSorting: true,
-    header: "成分 / 有效 / 端点不足",
-    cell: ({ row }) =>
-      `${row.original.total} / ${row.original.valid ?? "—"} / ${row.original.endpointMissing ?? "—"}`,
-  },
-  {
-    id: "excluded",
-    enableSorting: true,
-    header: "剔除原因",
-    cell: ({ row }) =>
-      rpsGroupExclusions
-        .filter((reason) => row.original.excluded[reason])
-        .map(
-          (reason) =>
-            `${industryExclusionLabels[reason]} ${row.original.excluded[reason]}`,
-        )
-        .join("；") || "无",
-  },
-];
+function columns(conditions: RpsCondition[]): DataTableColumn<Row>[] {
+  return [
+    {
+      id: "name",
+      enableSorting: true,
+      header: "概念",
+      cell: ({ row }) => (
+        <PoolMembersLink category="concept" name={row.original.name} />
+      ),
+    },
+    {
+      id: "rank",
+      enableSorting: true,
+      header: "排名 / RPS / 等权涨幅",
+      cell: ({ row }) =>
+        row.original.value
+          ? `${row.original.value.rank} / ${displayNumber(row.original.value.rps, 2)} / ${displayNumber(row.original.value.return * 100, 2)}%`
+          : industryEmptyLabels[row.original.reason!],
+    },
+    {
+      id: "coverage",
+      enableSorting: true,
+      header: "成分 / 有效 / 端点不足",
+      cell: ({ row }) =>
+        `${row.original.total} / ${row.original.valid ?? "—"} / ${row.original.endpointMissing ?? "—"}`,
+    },
+    {
+      id: "excluded",
+      enableSorting: true,
+      header: "剔除原因",
+      cell: ({ row }) =>
+        rpsGroupExclusions
+          .filter((reason) => row.original.excluded[reason])
+          .map(
+            (reason) =>
+              `${industryExclusionLabels[reason]} ${row.original.excluded[reason]}`,
+          )
+          .join("；") || "无",
+    },
+    ...(conditions.length
+      ? [
+          {
+            id: "conditionValues",
+            enableSorting: false,
+            header: "条件 RPS",
+            cell: ({ row }) => (
+              <span className="whitespace-nowrap tabular-nums">
+                {conditions
+                  .map(
+                    (condition) =>
+                      `${rpsPeriodLabel(condition.period)} ${displayNumber(
+                        row.original.conditionValues?.[String(condition.period)]
+                          ?.rps,
+                        2,
+                      )}`,
+                  )
+                  .join(" · ")}
+              </span>
+            ),
+          } satisfies DataTableColumn<Row>,
+        ]
+      : []),
+  ];
+}
 export function ConceptRpsControls() {
   const [date, setDate] = useState("");
   const [period, setPeriod] = useState(50);
+  const [conditions, setConditions] = useState<RpsCondition[]>([]);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 20 });
   const [order, setOrder] = useState<TableSort>(null);
   const [message, setMessage] = useState("");
@@ -79,14 +110,23 @@ export function ConceptRpsControls() {
     refetchInterval: 3000,
   });
   const page = api.conceptRpsPage.useQuery(
-    { date: date || undefined, period, page: pagination.pageIndex, order },
+    {
+      date: date || undefined,
+      period,
+      conditions,
+      page: pagination.pageIndex,
+      order,
+    },
     {
       enabled: visible,
       refetchInterval:
         status.data?.progress?.status === "running" ? 5000 : false,
-      placeholderData: (previous) => previous,
     },
   );
+  // Only the current key's successful response is evidence for the summary,
+  // rows, bases and paging. A same-key background refresh keeps it; a key
+  // change or a failed refresh never shows the previous batch as this one.
+  const confirmed = page.isSuccess ? page.data : undefined;
   const onError = (e: { message: string }) => setMessage(e.message);
   const start = api.rpsStart.useMutation({
     onError,
@@ -108,17 +148,29 @@ export function ConceptRpsControls() {
     status.isPending ||
     status.isError ||
     !status.data?.ready;
+  const conditionUnavailable =
+    conditions.length > 0 && confirmed
+      ? confirmed.day === null ||
+        (confirmed.conditions ?? []).some(
+          (condition) => condition.periodMissing,
+        )
+      : false;
+  const appliedText = rpsConditionsLabel(conditions);
+  const missingConditionPeriods = (confirmed?.conditions ?? [])
+    .filter((condition) => condition.periodMissing)
+    .map((condition) => rpsPeriodLabel(condition.period))
+    .join("、");
   return (
     <section className="space-y-4" aria-label="概念RPS数据管理">
-      {page.data?.day && (
+      {confirmed?.day && (
         <UniverseAuditContainer
-          key={`${page.data.day.date}:${page.data.day.hash}`}
+          key={`${confirmed.day.date}:${confirmed.day.hash}`}
           source={{
             kind: "concept",
-            date: page.data.day.date,
-            hash: page.data.day.hash,
+            date: confirmed.day.date,
+            hash: confirmed.day.hash,
           }}
-          end={page.data.day.date}
+          end={confirmed.day.date}
         />
       )}
       <p>
@@ -196,19 +248,59 @@ export function ConceptRpsControls() {
             ))}
           </SelectContent>
         </Select>
+        <RpsConditionEditor
+          applied={conditions}
+          onApply={(next) => {
+            setConditions(next);
+            setPagination({ pageIndex: 0, pageSize: 20 });
+          }}
+          onClear={() => {
+            setConditions([]);
+            setPagination({ pageIndex: 0, pageSize: 20 });
+          }}
+        />
       </div>
-      {page.data?.day && (
+      <div
+        className="space-y-1 text-sm text-muted-foreground"
+        role="status"
+        aria-live="polite"
+      >
         <p>
-          基准日{page.data.day.date} ·{" "}
-          {page.data.day.mode === "backfill" ? "回填（存在偏差）" : "向前观察"}{" "}
-          · 概念排名基数{page.data.day.count}；成分快照{page.data.day.hash}
-          ；行情源{page.data.day.source.root}。
+          已生效条件：
+          <span className="text-foreground">{appliedText}</span>
+          {conditionUnavailable
+            ? null
+            : confirmed
+              ? ` · 命中 ${confirmed.total} 个概念`
+              : " · 等待当前条件的成功查询结果"}
+        </p>
+        {confirmed?.conditions?.length ? (
+          <p>
+            条件周期有效排名基数：
+            {confirmed.conditions
+              .map(
+                (condition) =>
+                  `${rpsPeriodLabel(condition.period)} ${
+                    condition.count === null ? "未计算" : condition.count
+                  }`,
+              )
+              .join(" / ")}
+            。各条件来自同一批次，过滤不重新排名。
+          </p>
+        ) : null}
+      </div>
+      {confirmed?.day && (
+        <p>
+          基准日{confirmed.day.date} ·{" "}
+          {confirmed.day.mode === "backfill" ? "回填（存在偏差）" : "向前观察"}{" "}
+          · 概念排名基数{confirmed.day.count}；成分快照{confirmed.day.hash}
+          ；行情源{confirmed.day.source.root}。
         </p>
       )}
       <DataTable
-        columns={columns}
-        data={page.data?.rows ?? []}
-        rowCount={page.data?.total ?? 0}
+        columns={columns(conditions)}
+        data={conditionUnavailable ? [] : (confirmed?.rows ?? [])}
+        rowCount={conditionUnavailable ? 0 : (confirmed?.total ?? 0)}
         pagination={pagination}
         onPaginationChange={setPagination}
         sorting={sortingState(order)}
@@ -221,7 +313,18 @@ export function ConceptRpsControls() {
         loading={page.isPending}
         error={page.error?.message}
         onRetry={() => void page.refetch()}
-        emptyMessage="该日尚无概念排名，请核对数据后计算。"
+        showPagination={confirmed !== undefined && !conditionUnavailable}
+        emptyMessage={
+          !confirmed
+            ? "等待当前条件的成功查询结果。"
+            : conditionUnavailable
+              ? confirmed.day === null
+                ? "所选日期没有概念批次，条件未执行；这不表示筛选结果为 0。"
+                : `当前批次未计算 ${missingConditionPeriods}，条件未执行；这不表示筛选结果为 0。`
+              : conditions.length
+                ? "没有同时满足全部条件的概念。可放宽阈值、改选周期，或确认当前批次是否计算了这些周期。"
+                : "该日尚无概念排名，请核对数据后计算。"
+        }
       />
     </section>
   );

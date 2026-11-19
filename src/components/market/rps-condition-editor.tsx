@@ -1,7 +1,7 @@
 "use client";
 import { rpsPeriods } from "quant-rps";
 import { useRef, useState } from "react";
-import type { MarketPoolRpsCondition } from "~/lib/market/market-pool";
+import type { RpsCondition } from "~/lib/screening/rps-conditions";
 import { rpsPeriodLabel } from "~/lib/screening/rps";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -16,7 +16,7 @@ import {
 type DraftCondition = {
   key: number;
   period: number;
-  side: MarketPoolRpsCondition["side"];
+  side: RpsCondition["side"];
   /** Kept as text so an empty or malformed entry is never silently applied. */
   value: string;
 };
@@ -32,14 +32,15 @@ function duplicatePeriods(rows: readonly { period: number }[]) {
   );
 }
 
-/** Draft editor only; the parent owns the applied conditions and page reset. */
-export function StockRpsConditionEditor({
+/** Draft editor shared by stock, industry and concept rankings. The parent owns
+ *  the applied conditions and the page reset. */
+export function RpsConditionEditor({
   applied,
   onApply,
   onClear,
 }: {
-  applied: MarketPoolRpsCondition[];
-  onApply: (conditions: MarketPoolRpsCondition[]) => void;
+  applied: RpsCondition[];
+  onApply: (conditions: RpsCondition[]) => void;
   onClear: () => void;
 }) {
   const [draft, setDraft] = useState<DraftCondition[]>([]);
@@ -164,7 +165,7 @@ export function StockRpsConditionEditor({
               value={row.side}
               onValueChange={(value) =>
                 update(row.key, {
-                  side: value as MarketPoolRpsCondition["side"],
+                  side: value as RpsCondition["side"],
                 })
               }
             >

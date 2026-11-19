@@ -9,6 +9,7 @@ import {
 import { z } from "zod";
 import { tableSortSchema } from "../common/server-sort";
 import { researchDateSchema } from "trading-strategies/research/contracts/date";
+import { rpsConditionsSchema } from "./rps-conditions";
 import { type RpsDay } from "./rps";
 
 export const industryRpsPolicy = {
@@ -115,6 +116,7 @@ export const industryPageSchema = z.object({
   period: z
     .number()
     .refine((p) => (rpsPeriods as readonly number[]).includes(p)),
+  conditions: rpsConditionsSchema,
   page: z.number().int().min(0).max(255).default(0),
   order: tableSortSchema,
 });

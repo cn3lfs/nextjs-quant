@@ -1,6 +1,7 @@
 import { isRpsMarketSymbol, rpsPeriods, type RpsValue } from "quant-rps";
 import { z } from "zod";
 import { sortTableRows, tableSortSchema } from "../common/server-sort";
+import { rpsConditionsSchema } from "../screening/rps-conditions";
 
 export const poolCategorySchema = z.enum(["industry", "concept", "index"]);
 export const poolCategoryLabels = {
@@ -26,31 +27,6 @@ export function poolMembersHref(
 ) {
   return `/scan?tab=pool&poolCategory=${category}&poolName=${encodeURIComponent(name)}`;
 }
-/** One AND condition: the security's RPS for `period` must satisfy the threshold. */
-export const marketPoolRpsConditionSchema = z.object({
-  period: z
-    .number()
-    .refine(
-      (n) => (rpsPeriods as readonly number[]).includes(n),
-      "不支持的RPS周期",
-    ),
-  side: z.enum(["gte", "lte"]),
-  value: z.number().int().min(0).max(100),
-});
-export type MarketPoolRpsCondition = z.infer<
-  typeof marketPoolRpsConditionSchema
->;
-/** Zero conditions reproduce the old unfiltered pool; at most three combine with AND. */
-export const marketPoolRpsConditionsSchema = z
-  .array(marketPoolRpsConditionSchema)
-  .max(3)
-  .default([])
-  .refine(
-    (conditions) =>
-      new Set(conditions.map((condition) => condition.period)).size ===
-      conditions.length,
-    "RPS条件周期不能重复",
-  );
 export const marketPoolQuerySchema = z.object({
   pool: poolSelectionSchema.nullable().default(null),
   search: z.string().trim().max(80).default(""),
@@ -59,7 +35,7 @@ export const marketPoolQuerySchema = z.object({
     .refine((n) => (rpsPeriods as readonly number[]).includes(n))
     .default(50),
   minimumRps: z.number().min(0).max(100).nullable().default(null),
-  conditions: marketPoolRpsConditionsSchema,
+  conditions: rpsConditionsSchema,
   sort: z.enum(["rps", "symbol"]).default("rps"),
   /** Column header sort; overrides `sort` across the whole filtered pool. */
   order: tableSortSchema,
