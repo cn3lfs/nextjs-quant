@@ -40,6 +40,7 @@ import {
   WeeklyReview,
 } from "./account-review-panels";
 import { CryptoRiskNotes } from "./crypto-risk-notes";
+import { PositionCostPrice } from "./position-cost-price";
 
 const pct = (n: number | null) => formatPercent(n === null ? null : n * 100);
 const sourceLabels = {
@@ -159,6 +160,11 @@ function UnifiedPositions({
       header: "市值",
       cell: ({ row }) =>
         `${formatNumber(row.original.value)} ${row.original.currency}`,
+    },
+    {
+      id: "costPrice",
+      header: "成本 / 估值价",
+      cell: ({ row }) => <PositionCostPrice {...row.original} />,
     },
     {
       id: "stop",
@@ -319,8 +325,9 @@ function UnifiedPositions({
         onSortingChange={() => {}}
         onPaginationChange={(u) =>
           update({
-            page: (
-              typeof u === "function" ? u({ pageIndex: page, pageSize: 20 }) : u
+            page: (typeof u === "function"
+              ? u({ pageIndex: page, pageSize: 20 })
+              : u
             ).pageIndex,
           })
         }
@@ -405,8 +412,7 @@ function PositionDetailContent({
             "距止损 待核对"
           ) : (
             <span className={status === "touched" ? "text-nc-bad" : ""}>
-              距止损 {pct(p.stopDistance)} · R{" "}
-              {formatNumber(p.rMultiple)}
+              距止损 {pct(p.stopDistance)} · R {formatNumber(p.rMultiple)}
             </span>
           );
         })()}
