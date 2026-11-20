@@ -14,7 +14,7 @@
 | **重装攻坚** | `codex-astra` | 本机 Codex CLI (`gpt-6.2-astra`) | 复杂架构重构、核心算法/回测引擎、Schema 迁移、FFI/Worker/并发、疑难排查 |
 | **专职审校** | `codex-sol-review` / `codex-sol` | 本机 Codex CLI (`gpt-6.2-sol`) | 默认波次与提交前只读 Code Review（P0/P1/P2）、契约与不变量核查 |
 | **高速日常主力 A** | `claude-deepseek` | 本机 Claude Code CLI（接入 DeepSeek 默认模型，`--permission-mode bypassPermissions`） | 前端页面/组件、tRPC 对接、样式精修、Playwright 验证脚本、快速缺陷修复 |
-| **高效日常主力 B & 调研** | `agy-hydrogen` | Antigravity CLI (`gemini-4-hydrogen-medium` 默认，复杂按需升档 `high`) | 与 `claude-deepseek` 组成双轨并行日常开发（独立模块、单测、文档/配置、大范围只读摸底），兼任 `claude-deepseek` 异常/限流时的跨引擎 Fallback |
+| **高思考强度主力 B & 调研** | `agy-hydrogen` | Antigravity CLI (`gemini-4-hydrogen-high` 默认，`high` 思考强度) | 与 `claude-deepseek` 组成双轨并行开发（独立模块、单测、文档/配置、大范围只读摸底），兼任 `claude-deepseek` 异常/限流时的跨引擎 Fallback |
 
 ## 与 `quant-team` 的职责边界
 
