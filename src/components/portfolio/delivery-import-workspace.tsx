@@ -12,6 +12,10 @@ import {
 import { DeliveryMapping, DeliveryConfirm } from "./delivery-mapping";
 import { Button } from "../ui/button";
 import { DataTable } from "../ui/data-table";
+import {
+  useAccumulatedPages,
+  useIntersectionLoadMore,
+} from "../ui/use-infinite-table";
 import { BulkTradeLinks } from "./account-review-panels";
 import {
   TradeError,
@@ -159,6 +163,42 @@ export function DeliveryImportWorkspace({
     },
   );
   const locked = confirm.isPending || !!pending;
+  const fileBatches = useAccumulatedPages({
+    pageIndex: Math.floor((fileInput.offset ?? 0) / 20),
+    items: files.data?.items,
+    total: files.data?.count,
+    resetKey: JSON.stringify([fileInput.directory, fileInput.keyword ?? ""]),
+    getKey: (file) => file.path,
+    isSuccess: files.isSuccess && !files.isFetching && !files.error,
+    pageSize: 20,
+  });
+  const fileSentinel = useIntersectionLoadMore({
+    enabled:
+      active &&
+      !!fileInput.directory &&
+      files.data?.nextOffset !== null &&
+      files.data?.nextOffset !== undefined &&
+      !locked &&
+      !files.error,
+    loading: files.isFetching,
+    onLoadMore: () => {
+      if (files.data?.nextOffset != null)
+        setFileInput((value) => ({
+          ...value,
+          offset: files.data!.nextOffset!,
+          version: files.data!.version,
+        }));
+    },
+  });
+  const rowBatches = useAccumulatedPages({
+    pageIndex: Math.floor(offset / 20),
+    items: rows.data?.items,
+    total: rows.data?.count,
+    resetKey: JSON.stringify([preview?.token, status, keyword]),
+    getKey: (row) => `${row.type}-${row.rowIndex}`,
+    isSuccess: rows.isSuccess && !rows.isFetching && !rows.error,
+    pageSize: 20,
+  });
   const edit = (patch: Partial<DeliveryDraft>) => {
     revision.current++;
     setDraft((value) => ({ ...value, ...patch }));
@@ -394,8 +434,11 @@ export function DeliveryImportWorkspace({
             {files.isFetching && <p role="status">正在读取目录…</p>}
             {files.data && !files.error && (
               <section aria-label="候选文件" className="space-y-2">
-                <p>{files.data.count} 个匹配文件</p>
-                {files.data.items.map((file) => (
+                <p>
+                  已加载 {fileBatches.rows.length} / {fileBatches.total}{" "}
+                  个匹配文件
+                </p>
+                {fileBatches.rows.map((file) => (
                   <div
                     key={file.path}
                     className="flex flex-wrap items-center justify-between gap-2 rounded border p-2"
@@ -419,27 +462,11 @@ export function DeliveryImportWorkspace({
                     </Button>
                   </div>
                 ))}
-                <div className="flex gap-2">
+                <div ref={fileSentinel} aria-hidden="true" className="h-px" />
+                {files.data.nextOffset !== null && (
                   <Button
                     variant="outline"
-                    disabled={!fileInput.offset || files.isFetching || locked}
-                    onClick={() =>
-                      setFileInput((value) => ({
-                        ...value,
-                        offset: Math.max(0, (value.offset ?? 0) - 20),
-                        version: files.data!.version,
-                      }))
-                    }
-                  >
-                    上一页文件
-                  </Button>
-                  <Button
-                    variant="outline"
-                    disabled={
-                      files.data.nextOffset === null ||
-                      files.isFetching ||
-                      locked
-                    }
+                    disabled={files.isFetching || locked}
                     onClick={() =>
                       setFileInput((value) => ({
                         ...value,
@@ -448,9 +475,9 @@ export function DeliveryImportWorkspace({
                       }))
                     }
                   >
-                    下一页文件
+                    {files.isFetching ? "加载中…" : "加载更多文件"}
                   </Button>
-                </div>
+                )}
               </section>
             )}
             <div className="grid gap-3 lg:grid-cols-3">
@@ -612,9 +639,9 @@ export function DeliveryImportWorkspace({
                         ),
                       },
                     ]}
-                    data={rows.error ? [] : (rows.data?.items ?? [])}
-                    rowCount={rows.data?.count ?? 0}
-                    pagination={{ pageIndex: offset / 20, pageSize: 20 }}
+                    data={rows.error ? [] : rowBatches.rows}
+                    rowCount={rowBatches.total}
+                    pagination={{ pageIndex: 0, pageSize: 20 }}
                     sorting={[]}
                     onPaginationChange={() => {}}
                     onSortingChange={() => {}}
@@ -623,30 +650,18 @@ export function DeliveryImportWorkspace({
                     loading={rows.isFetching}
                     error={rows.error?.message}
                     onRetry={() => void rows.refetch()}
+                    infiniteScroll={{
+                      hasMore: rows.data?.nextOffset != null,
+                      loadingMore: rows.isFetching,
+                      onLoadMore: () => {
+                        if (rows.data?.nextOffset != null) {
+                          setOffset(rows.data.nextOffset);
+                          setSelected(null);
+                        }
+                      },
+                    }}
                   />
                   <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant="outline"
-                      disabled={!offset || rows.isFetching}
-                      onClick={() => {
-                        setOffset(offset - 20);
-                        setSelected(null);
-                      }}
-                    >
-                      上一页核对
-                    </Button>
-                    <Button
-                      variant="outline"
-                      disabled={
-                        rows.data?.nextOffset == null || rows.isFetching
-                      }
-                      onClick={() => {
-                        setOffset(rows.data!.nextOffset!);
-                        setSelected(null);
-                      }}
-                    >
-                      下一页核对
-                    </Button>
                     <Button
                       variant="outline"
                       disabled={exporting}

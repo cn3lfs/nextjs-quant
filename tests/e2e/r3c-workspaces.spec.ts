@@ -315,21 +315,12 @@ for (const width of [1440, 1024]) {
     });
     expect(await readPlans()).toEqual(plansBefore);
   });
-  test(`R3c 系统备份与安全研究入口 ${width}`, async ({ page }) => {
+  test(`R3c 数据源设置与安全研究入口 ${width}`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
     await page.goto("/system");
-    const backup = page.getByRole("region", {
-      name: "数据库与备份",
-      exact: true,
-    });
-    await expect(backup).toContainText("当前库版本 19");
     await expect(
-      backup.getByRole("spinbutton", { name: "备份保留份数" }),
-    ).toHaveValue("3");
-    await backup.getByRole("button", { name: "立即备份", exact: true }).click();
-    await expect(
-      backup.getByRole("status").filter({ hasText: "数据库备份已完成" }),
-    ).toBeVisible();
+      page.getByRole("region", { name: "数据库与备份", exact: true }),
+    ).toHaveCount(0);
     await page.getByRole("radio", { name: "数字货币", exact: true }).click();
     await expect(
       page.getByRole("button", { name: "校验本地归档" }),

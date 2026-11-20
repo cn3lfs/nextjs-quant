@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
+import { useAccumulatedPages } from "../ui/use-infinite-table";
 import { GridTable, Pill } from "../panels";
 import { useScreenVisible } from "../workbench/use-task-visible";
 
@@ -202,6 +203,16 @@ export function CryptoAccountPanel({
     return () => clearInterval(timer);
   }, [configured, visible, id, autoPaused]);
   const data = view.data;
+  const resetKey = JSON.stringify([id, filter]);
+  const batches = useAccumulatedPages({
+    pageIndex: page - 1,
+    items: data?.rows,
+    total: data?.total,
+    resetKey,
+    getKey: (row) => `${row.symbol}-${row.orderId}-${row.id}`,
+    isSuccess: view.isSuccess && !view.isFetching,
+    pageSize: 50,
+  });
   const snapshot = data?.snapshot;
   const state = data?.sync;
   const canSync = configured && !sync.isPending && state?.status !== "running";
@@ -251,7 +262,6 @@ export function CryptoAccountPanel({
   if (state?.status === "partial" || state?.status === "failed")
     emptyMessage =
       "账户同步未完整成功，当前筛选暂无已保存成交；请查看范围和错误后重试。";
-  const pageCount = Math.max(1, Math.ceil((data?.total ?? 0) / 50));
   return (
     <section
       aria-label="平台账户持仓与历史成交"
@@ -589,51 +599,25 @@ export function CryptoAccountPanel({
         <DataTable
           label="平台历史成交"
           columns={tradeColumns}
-          data={data?.rows ?? []}
-          rowCount={data?.total ?? 0}
-          pagination={{ pageIndex: page - 1, pageSize: 50 }}
+          data={batches.rows}
+          rowCount={batches.total}
+          pagination={{ pageIndex: 0, pageSize: 50 }}
           sorting={[]}
           onSortingChange={() => {}}
-          onPaginationChange={(updater) => {
-            const next =
-              typeof updater === "function"
-                ? updater({ pageIndex: page - 1, pageSize: 50 })
-                : updater;
-            setPage(next.pageIndex + 1);
-          }}
+          onPaginationChange={() => {}}
           getRowId={(row) => `${row.symbol}-${row.orderId}-${row.id}`}
           loading={view.isFetching}
           error={view.error?.message}
           onRetry={() => void view.refetch()}
           emptyMessage={emptyMessage}
           showPagination={false}
+          infiniteScroll={{
+            hasMore: batches.hasMore,
+            loadingMore: view.isFetching,
+            onLoadMore: () => setPage(page + 1),
+          }}
         />
       )}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span>
-          {data
-            ? `已同步筛选结果 ${data.total} 条 · 每页50条 · 第${page}/${pageCount}页`
-            : "尚无已同步账户查询结果"}
-        </span>
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={!configured || page <= 1 || view.isFetching}
-            onClick={() => setPage(page - 1)}
-          >
-            上一页
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={!configured || page >= pageCount || view.isFetching}
-            onClick={() => setPage(page + 1)}
-          >
-            下一页
-          </Button>
-        </div>
-      </div>
     </section>
   );
 }

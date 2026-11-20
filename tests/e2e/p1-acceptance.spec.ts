@@ -355,23 +355,18 @@ test("C2 CLS loaded report visits four views without hidden reads", async ({
   const reads = await trpcCalls(page, async () => {
     await select.click();
     await expect(
-      page.locator("pre").filter({ hasText: "合成报告" }),
+      page.getByRole("button", { name: "观点与标的", exact: true }),
     ).toBeVisible();
     await page.waitForLoadState("networkidle");
   });
   expect(reads).not.toContain("clsReviewFactPage");
   expect(reads).not.toContain("clsReviewReportSamples");
-  for (const label of [
-    "事实核对",
-    "固定样本与价格观察",
-    "报告信息",
-    "报告原文",
-  ]) {
+  for (const label of ["完整原文", "管理", "观点与标的"]) {
     await page.getByRole("button", { name: label, exact: true }).click();
     await page.waitForLoadState("networkidle");
     await fits(page);
   }
-  await page.getByRole("button", { name: "报告信息", exact: true }).click();
+  await page.getByRole("button", { name: "管理", exact: true }).click();
   const remove = page.getByRole("button", { name: "清理此版本", exact: true });
   await remove.click();
   await dismiss(

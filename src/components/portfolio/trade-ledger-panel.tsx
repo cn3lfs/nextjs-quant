@@ -24,6 +24,10 @@ import { chinaClock } from "~/lib/strategy-facts/notification-policy";
 import { useTaskVisible } from "../workbench/use-task-visible";
 import { PageGrid, Panel, Segmented } from "../panels";
 import { Button } from "../ui/button";
+import {
+  useAccumulatedPages,
+  useIntersectionLoadMore,
+} from "../ui/use-infinite-table";
 import { TradePositions } from "./trade-positions";
 import { TradeComparison } from "./trade-comparison";
 import { TradeEntryEditor } from "./trade-entry-editor";
@@ -164,11 +168,6 @@ export function TradeLedgerPanel() {
             ),
           );
         if (saved.url === url.pathname + url.search) {
-          setPages(saved.pages.map((value) => value ?? undefined));
-          setAdjustmentPages(
-            saved.adjustmentPages.map((value) => value ?? undefined),
-          );
-          setPositionPage(saved.positionPage);
           setPositionQuery(saved.positionQuery);
           setPositionStatus(saved.positionStatus);
           setPositionForm(saved.positionQuery);
@@ -307,6 +306,48 @@ export function TradeLedgerPanel() {
     { symbol: adjustmentSymbol || undefined, cursor: adjustmentPages.at(-1) },
     { ...readOptions, enabled: visible && ready && tab === "adjustments" },
   );
+  const historyBatches = useAccumulatedPages({
+    pageIndex: pages.length - 1,
+    items: historyQuery.data?.items,
+    total: historyQuery.data?.summary.count,
+    resetKey: JSON.stringify(filter),
+    getKey: (row) => row.id,
+    isSuccess: historyQuery.isSuccess && !historyQuery.isFetching,
+  });
+  const historySentinel = useIntersectionLoadMore({
+    enabled:
+      visible &&
+      ready &&
+      tab === "history" &&
+      !!historyQuery.data?.nextCursor &&
+      !historyQuery.error,
+    loading: historyQuery.isFetching,
+    onLoadMore: () => {
+      if (historyQuery.data?.nextCursor)
+        setPages((p) => [...p, historyQuery.data!.nextCursor!]);
+    },
+  });
+  const adjustmentBatches = useAccumulatedPages({
+    pageIndex: adjustmentPages.length - 1,
+    items: adjustments.data?.items,
+    total: adjustments.data?.count,
+    resetKey: adjustmentSymbol,
+    getKey: (row) => row.id,
+    isSuccess: adjustments.isSuccess && !adjustments.isFetching,
+  });
+  const adjustmentSentinel = useIntersectionLoadMore({
+    enabled:
+      visible &&
+      ready &&
+      tab === "adjustments" &&
+      !!adjustments.data?.nextCursor &&
+      !adjustments.error,
+    loading: adjustments.isFetching,
+    onLoadMore: () => {
+      if (adjustments.data?.nextCursor)
+        setAdjustmentPages((p) => [...p, adjustments.data!.nextCursor!]);
+    },
+  });
   const comparison = api.tradeWorkspaceComparison.useQuery(undefined, {
     ...readOptions,
     enabled: visible && ready && tab === "comparison",
@@ -651,6 +692,7 @@ export function TradeLedgerPanel() {
             error={positions.error?.message}
             page={positionPage}
             status={positionStatus}
+            query={positionQuery}
             onPage={setPositionPage}
             onRetry={() => void positions.refetch()}
             onRelated={related}
@@ -775,7 +817,7 @@ export function TradeLedgerPanel() {
               </p>
             )}
             <div aria-label="交易历史列表" className="space-y-2">
-              {historyQuery.data?.items.map((row) => (
+              {historyBatches.rows.map((row) => (
                 <Button
                   key={row.id}
                   data-trade-row={row.id}
@@ -798,32 +840,28 @@ export function TradeLedgerPanel() {
               ))}
               {!historyQuery.isFetching &&
                 !historyQuery.error &&
-                historyQuery.data?.items.length === 0 && (
+                historyBatches.rows.length === 0 && (
                   <p>没有匹配的交易，可重置筛选或新增本地交易。</p>
                 )}
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={pages.length === 1 || historyQuery.isFetching}
-                onClick={() => setPages((p) => p.slice(0, -1))}
-              >
-                上一页交易
-              </Button>
-              <span>第{pages.length}页</span>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={
-                  !historyQuery.data?.nextCursor || historyQuery.isFetching
-                }
-                onClick={() =>
-                  setPages((p) => [...p, historyQuery.data!.nextCursor!])
-                }
-              >
-                下一页交易
-              </Button>
+            <div ref={historySentinel} aria-hidden="true" className="h-px" />
+            <div className="flex items-center gap-2 text-xs text-nc-text-3">
+              <span>
+                已加载 {historyBatches.rows.length} / 共 {historyBatches.total}{" "}
+                笔
+              </span>
+              {historyQuery.data?.nextCursor && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={historyQuery.isFetching}
+                  onClick={() =>
+                    setPages((p) => [...p, historyQuery.data!.nextCursor!])
+                  }
+                >
+                  {historyQuery.isFetching ? "加载中…" : "加载更多交易"}
+                </Button>
+              )}
             </div>
           </div>
         )}
@@ -851,7 +889,7 @@ export function TradeLedgerPanel() {
             />
             {adjustments.isFetching && <p role="status">正在读取除权依据…</p>}
             <div aria-label="除权依据列表" className="space-y-2">
-              {adjustments.data?.items.map((row) => (
+              {adjustmentBatches.rows.map((row) => (
                 <Button
                   key={row.id}
                   data-trade-row={row.id}
@@ -865,37 +903,31 @@ export function TradeLedgerPanel() {
               ))}
               {!adjustments.isFetching &&
                 !adjustments.error &&
-                adjustments.data?.items.length === 0 && (
+                adjustmentBatches.rows.length === 0 && (
                   <p>暂无匹配除权依据；缺少归档不代表已核对无除权。</p>
                 )}
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={
-                  adjustmentPages.length === 1 || adjustments.isFetching
-                }
-                onClick={() => setAdjustmentPages((p) => p.slice(0, -1))}
-              >
-                上一页依据
-              </Button>
-              <span>第{adjustmentPages.length}页</span>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={
-                  !adjustments.data?.nextCursor || adjustments.isFetching
-                }
-                onClick={() =>
-                  setAdjustmentPages((p) => [
-                    ...p,
-                    adjustments.data!.nextCursor!,
-                  ])
-                }
-              >
-                下一页依据
-              </Button>
+            <div ref={adjustmentSentinel} aria-hidden="true" className="h-px" />
+            <div className="flex items-center gap-2 text-xs text-nc-text-3">
+              <span>
+                已加载 {adjustmentBatches.rows.length} / 共{" "}
+                {adjustmentBatches.total} 条
+              </span>
+              {adjustments.data?.nextCursor && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={adjustments.isFetching}
+                  onClick={() =>
+                    setAdjustmentPages((p) => [
+                      ...p,
+                      adjustments.data!.nextCursor!,
+                    ])
+                  }
+                >
+                  {adjustments.isFetching ? "加载中…" : "加载更多依据"}
+                </Button>
+              )}
             </div>
           </div>
         )}

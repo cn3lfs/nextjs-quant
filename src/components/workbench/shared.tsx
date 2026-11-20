@@ -1,6 +1,8 @@
+"use client";
 import { Database } from "@phosphor-icons/react/ssr";
 import { type Monitor } from "~/lib/domain";
 import { Button } from "../ui/button";
+import { useIntersectionLoadMore } from "../ui/use-infinite-table";
 
 export const fmt = (n: number | undefined, d = 2) =>
   n === undefined
@@ -60,25 +62,24 @@ export function ResultPager({
   count: number;
   onChange: (page: number) => void;
 }) {
+  const loaded = Math.min((page + 1) * 50, count);
+  const hasMore = loaded < count;
+  const sentinel = useIntersectionLoadMore({
+    enabled: hasMore,
+    loading: false,
+    onLoadMore: () => onChange(page + 1),
+  });
   return (
-    <div className="flex items-center gap-3 py-2">
-      <Button
-        variant="ghost"
-        disabled={page === 0}
-        onClick={() => onChange(page - 1)}
-      >
-        上一页
-      </Button>
-      <span>
-        第 {page + 1} / {Math.max(1, Math.ceil(count / 50))} 页 · {count} 条
+    <div className="flex flex-wrap items-center gap-3 py-2 text-sm">
+      <div ref={sentinel} aria-hidden="true" className="h-px w-full" />
+      <span className="text-muted-foreground">
+        已加载 {loaded} / 共 {count} 条
       </span>
-      <Button
-        variant="ghost"
-        disabled={(page + 1) * 50 >= count}
-        onClick={() => onChange(page + 1)}
-      >
-        下一页
-      </Button>
+      {hasMore && (
+        <Button variant="outline" size="sm" onClick={() => onChange(page + 1)}>
+          加载更多
+        </Button>
+      )}
     </div>
   );
 }

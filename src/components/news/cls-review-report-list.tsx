@@ -1,18 +1,26 @@
 "use client";
 import type { Dispatch, SetStateAction } from "react";
-import { keepPreviousData } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
 import {
   clsReviewReportQuery,
-  clsDraftDirty,
   type ClsReportQuery,
-  type ClsFactDraft,
 } from "~/lib/news/cls-review-workspace";
+import { useIntersectionLoadMore } from "../ui/use-infinite-table";
 import { Panel } from "../panels";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Checkbox } from "../ui/checkbox";
-import { ClsError, ClsPages, clsTime } from "./cls-review-fields";
+import { ClsError, clsTime } from "./cls-review-fields";
+
+type ReportRow = {
+  id: string;
+  title: string;
+  reportDate: string | null;
+  versionNumber: number;
+  importedAt: number;
+};
+
 export function ClsReviewReportList({
   visible,
   selected,
@@ -22,7 +30,6 @@ export function ClsReviewReportList({
   setDraftFilter,
   pages,
   setPages,
-  drafts,
   setError,
   select,
 }: {
@@ -34,14 +41,52 @@ export function ClsReviewReportList({
   setDraftFilter: Dispatch<SetStateAction<ClsReportQuery>>;
   pages: (string | undefined)[];
   setPages: Dispatch<SetStateAction<(string | undefined)[]>>;
-  drafts: Record<string, ClsFactDraft>;
   setError: (error: string) => void;
   select: (id: string, button: HTMLButtonElement) => void;
 }) {
   const reports = api.clsReviewReportPage.useQuery(
     { ...filter, cursor: pages.at(-1) },
-    { enabled: visible, placeholderData: keepPreviousData },
+    { enabled: visible },
   );
+  const scope = JSON.stringify(filter);
+  const cursorKey = pages.at(-1) ?? "";
+  // Cursor pages accumulate; a same-cursor refetch replaces only that page.
+  const [byPage, setByPage] = useState<Record<string, ReportRow[]>>({});
+  const [scopeKey, setScopeKey] = useState(scope);
+  if (scopeKey !== scope) {
+    setScopeKey(scope);
+    setByPage({});
+  }
+  const result = reports.isSuccess ? reports.data : undefined;
+  useEffect(() => {
+    if (!result) return;
+    setByPage((value) =>
+      value[cursorKey] === result.items
+        ? value
+        : { ...value, [cursorKey]: result.items },
+    );
+  }, [cursorKey, result]);
+  const rows =
+    scopeKey === scope
+      ? pages.flatMap((cursor) => byPage[cursor ?? ""] ?? [])
+      : [];
+  const [requesting, setRequesting] = useState(false);
+  useEffect(() => {
+    if (!reports.isFetching) setRequesting(false);
+  }, [reports.isFetching]);
+  function loadMore() {
+    const cursor = reports.data?.nextCursor;
+    if (!cursor || !reports.data?.hasMore || reports.isFetching || requesting)
+      return;
+    setRequesting(true);
+    setPages((value) => [...value, cursor]);
+  }
+  const hasMore = reports.data?.hasMore ?? false;
+  const sentinel = useIntersectionLoadMore({
+    enabled: visible && hasMore && !reports.error,
+    loading: reports.isFetching,
+    onLoadMore: loadMore,
+  });
   return (
     <Panel
       title="已导入报告"
@@ -162,22 +207,21 @@ export function ClsReviewReportList({
         </Button>
       )}
       {reports.isLoading && <p role="status">正在读取报告…</p>}
-      {reports.isFetching && reports.data && (
+      {reports.isFetching && rows.length > 0 && (
         <p role="status" className="text-xs text-nc-text-3">
-          正在更新报告列表，暂时显示上次结果。
+          正在加载更多报告…
         </p>
       )}
-      {reports.data?.items.length === 0 && (
+      {!reports.isLoading && rows.length === 0 && (
         <p className="text-sm">没有符合条件的报告。</p>
       )}
       <div
         className="max-h-[60vh] space-y-2 overflow-y-auto pr-1"
         aria-label="报告列表"
       >
-        {reports.data?.items.map((item) => (
+        {rows.map((item) => (
           <Button
             key={item.id}
-            disabled={reports.isPlaceholderData}
             variant={selected === item.id ? "default" : "outline"}
             className="h-auto w-full justify-start whitespace-normal text-left"
             aria-pressed={selected === item.id}
@@ -190,24 +234,23 @@ export function ClsReviewReportList({
               <span className="block text-xs">
                 报告日 {item.reportDate ?? "未识别"} · 导入{" "}
                 {clsTime(item.importedAt)}
-                {drafts[item.id] && clsDraftDirty(drafts[item.id]!)
-                  ? " · 有草稿"
-                  : ""}
               </span>
             </span>
           </Button>
         ))}
       </div>
-      <ClsPages
-        count={pages.length}
-        more={reports.data?.hasMore ?? false}
-        busy={reports.isFetching || !!reports.error}
-        previous={() => setPages((value) => value.slice(0, -1))}
-        next={() => {
-          if (reports.data?.nextCursor)
-            setPages((value) => [...value, reports.data.nextCursor!]);
-        }}
-      />
+      {hasMore && (
+        <div ref={sentinel} className="py-2">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={reports.isFetching || requesting}
+            onClick={loadMore}
+          >
+            {reports.isFetching || requesting ? "加载中…" : "加载更多"}
+          </Button>
+        </div>
+      )}
     </Panel>
   );
 }

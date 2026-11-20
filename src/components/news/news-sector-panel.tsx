@@ -45,9 +45,7 @@ export function NewsSectorPanel({ analysis }: { analysis: NewsAnalysis }) {
   return (
     <section className="panel">
       <h4>行业新闻研究</h4>
-      <p className="muted">
-        使用本次分类档案中所选行业最新50条已分类新闻。仅解释新闻，价格、估值和关联个股尚待核验。
-      </p>
+      <p className="muted">使用本次分类档案中所选行业最新50条已分类新闻。</p>
       <select
         aria-label="新闻研究行业"
         value={industry}
@@ -98,8 +96,7 @@ export function NewsSectorPanel({ analysis }: { analysis: NewsAnalysis }) {
               当天已有分类汇总，共{" "}
               {report.classificationAggregation.archiveIds.length}{" "}
               份来源档案，隔离{" "}
-              {report.classificationAggregation.conflicts.length}{" "}
-              条冲突新闻；不代表当天全部新闻覆盖。
+              {report.classificationAggregation.conflicts.length} 条冲突新闻。
             </p>
           )}
           <p>

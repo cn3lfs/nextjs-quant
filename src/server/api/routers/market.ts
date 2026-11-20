@@ -75,6 +75,8 @@ import {
 } from "../../market/limit-sentiment";
 import { limitHistory } from "../../market/limit-history";
 import { marketBreadth } from "../../market/market-breadth";
+import { fetchLiveMarketBreadth } from "../../market/live-market-breadth";
+import { fetchOverviewQuotes } from "../../market/overview-quotes";
 import { etfNetSubscriptions } from "../../market/etf-net-subscriptions";
 import { stockEvents } from "../../research/stock-events";
 import { capitalProfile } from "../../market/capital-profile";
@@ -444,6 +446,14 @@ export const marketRouter = createTRPCRouter({
   marketBreadth: p("market", "read").query(() =>
     marketBreadth(settings().tdxRoot),
   ),
+  /** 全市场实时涨跌家数与沪深京成交额（东方财富实时快照，经 emFetch 节流）。 */
+  liveMarketBreadth: p("market", "read").query(({ signal }) =>
+    fetchLiveMarketBreadth(signal),
+  ),
+  /** 大盘总览实时报价（腾讯实时主源 + 通达信 TCP 回退），供主要指数与自选使用。 */
+  overviewQuotes: p("market", "read")
+    .input(z.array(z.string().min(1).max(32)).max(500))
+    .query(({ input, signal }) => fetchOverviewQuotes(input, { signal })),
   /** 通达信本地 SC38 全市场 ETF 日度净申赎；只读本地文件，指数同日可选。 */
   etfNetSubscriptions: p("market", "read").query(() =>
     etfNetSubscriptions(settings().tdxRoot),

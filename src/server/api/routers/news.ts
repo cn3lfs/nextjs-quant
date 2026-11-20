@@ -29,6 +29,7 @@ import {
 } from "~/lib/news/cls-fact-review";
 import { clsReportFiles, previewClsReport } from "../../news/cls-report-files";
 import { ClsReviewStore } from "../../db/cls-review-store";
+import { clsReportForwardReturns } from "../../news/cls-forward-returns";
 import {
   fixClsSample,
   clsSampleEligibility,
@@ -104,6 +105,9 @@ export const newsRouter = createTRPCRouter({
   clsReviewReportPage: p("news", "read")
     .input(clsReviewReportQuery)
     .query(({ input }) => clsReportPage(chartSqlite(), input)),
+  clsReportForwardReturns: p("news", "read")
+    .input(z.string().min(1).max(200))
+    .query(({ input }) => clsReportForwardReturns(input)),
   clsReviewFactPage: p("news", "read")
     .input(clsReviewFactQuery)
     .query(({ input }) => clsFactPage(chartSqlite(), input)),

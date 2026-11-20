@@ -212,8 +212,11 @@ describe("消息适配", () => {
     expect(() =>
       validateDestination("discord", "https://evil.test/api/webhooks/1/a"),
     ).toThrow();
+    expect(() =>
+      validateDestination("dingtalk", "https://oapi.dingtalk.com/robot/send"),
+    ).toThrow();
   });
-  it("飞书签名与去提及", () => {
+  it("飞书、钉钉签名与去提及", () => {
     const r = notificationRequest(
       channel(),
       {
@@ -226,6 +229,20 @@ describe("消息适配", () => {
     expect(r.payload.timestamp).toBe("1000");
     expect(r.payload.sign).toEqual(expect.any(String));
     expect(JSON.stringify(r.payload)).not.toContain("@everyone");
+
+    const dt = notificationRequest(
+      channel("ding", "dingtalk"),
+      {
+        secret: "https://oapi.dingtalk.com/robot/send?access_token=tok",
+        signingSecret: "SECabc",
+      },
+      delivery(),
+      1000000,
+    );
+    expect(dt.url).toContain("timestamp=1000000");
+    expect(dt.url).toContain("sign=");
+    expect(dt.payload.msgtype).toBe("text");
+    expect(JSON.stringify(dt.payload)).not.toContain("@everyone");
   });
   it("企业微信使用文本，Telegram 使用 chat_id，Discord 禁用 mentions", () => {
     expect(
@@ -253,6 +270,9 @@ describe("消息适配", () => {
   it("HTTP 200 业务错误仍失败，429 保留 retry_after", () => {
     expect(() =>
       classifyResponse("wecom", 200, { errcode: 40014 }, null),
+    ).toThrow(SendError);
+    expect(() =>
+      classifyResponse("dingtalk", 200, { errcode: 310000 }, null),
     ).toThrow(SendError);
     try {
       classifyResponse(

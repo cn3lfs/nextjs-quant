@@ -4,7 +4,11 @@ import dynamic from "next/dynamic";
 import { Suspense, useState } from "react";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { PanelCache } from "../workbench/keep-alive";
-import { StateBanner } from "../panels";
+import { Segmented, StateBanner } from "../panels";
+import {
+  useAccumulatedPages,
+  useIntersectionLoadMore,
+} from "../ui/use-infinite-table";
 import { chartAdjustmentLabels } from "~/lib/chart/chart-adjustment";
 import {
   Select,
@@ -62,6 +66,14 @@ const Crypto = dynamic(() =>
 const Futures = dynamic(() =>
   import("../market/futures-view").then((m) => m.FuturesView),
 );
+const Watchlist = dynamic(() =>
+  import("../market/watchlist-view").then((m) => m.WatchlistView),
+);
+const IntradayHistory = dynamic(() =>
+  import("../intraday/intraday-history-panel").then(
+    (m) => m.IntradayHistoryPanel,
+  ),
+);
 /** Missing prices stay "不可用"; never derive a raw price from an adjusted one. */
 function priceOrUnavailable(value: number | null | undefined) {
   return value === null || value === undefined
@@ -85,6 +97,7 @@ function ScanWorkspaceBody() {
         active={tab}
         panels={{
           chart: <ScanResults market="cn-equity" />,
+          watchlist: <Watchlist />,
           crypto: <ScanResults market="crypto" />,
           formula: <FormulaResults />,
           wencai: <Wencai />,
@@ -101,29 +114,43 @@ function ScanWorkspaceBody() {
 function FormulaResults() {
   const search = useSearchParams();
   const hasSnapshot = search.has("screenSnapshot");
+  const [subTab, setSubTab] = useState<"formula" | "intraday">("formula");
+  const showFormula = subTab === "formula";
   return (
-    <div
-      className={cn(
-        "grid min-w-0 gap-4",
-        hasSnapshot && "xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]",
-      )}
-    >
-      <div className="min-w-0 [&_.inline-form]:flex-wrap! [&_.inline-form>input]:basis-full!">
-        <Formula />
-        {!hasSnapshot && (
-          <p className="mt-2 text-xs text-nc-text-4">
-            在公式结果中选择“个股研究”后，右侧会自动展开冻结图表复核抽屉。
-          </p>
-        )}
+    <div className="min-w-0 space-y-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <Segmented
+          label="公式选股视图"
+          value={subTab}
+          onChange={setSubTab}
+          options={[
+            { value: "formula", label: "公式选股" },
+            { value: "intraday", label: "历史预选记录" },
+          ]}
+        />
       </div>
-      {hasSnapshot && (
-        <section
-          aria-label="公式候选图表"
-          className="min-w-0 self-start space-y-3 xl:sticky xl:top-20"
+      {showFormula ? (
+        <div
+          className={cn(
+            "grid min-w-0 gap-4",
+            hasSnapshot && "xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]",
+          )}
         >
-          <ScreenPlan />
-          <Market embedded />
-        </section>
+          <div className="min-w-0 [&_.inline-form]:flex-wrap! [&_.inline-form>input]:basis-full!">
+            <Formula />
+          </div>
+          {hasSnapshot && (
+            <section
+              aria-label="公式候选图表"
+              className="min-w-0 self-start space-y-3 xl:sticky xl:top-20"
+            >
+              <ScreenPlan />
+              <Market embedded />
+            </section>
+          )}
+        </div>
+      ) : (
+        <IntradayHistory />
       )}
     </div>
   );
@@ -185,9 +212,22 @@ function ScanCandidateRail({ market }: { market: "cn-equity" | "crypto" }) {
     },
     { enabled: visible },
   );
-  const items = rows.data?.items ?? [];
-  const total = rows.data?.total ?? 0;
-  const pages = Math.max(1, Math.ceil(total / 20));
+  const resetKey = JSON.stringify([market, strategy, rps]);
+  const batches = useAccumulatedPages({
+    pageIndex: page,
+    items: rows.data?.items,
+    total: rows.data?.total,
+    resetKey,
+    getKey: (row) => row.key,
+    isSuccess: rows.isSuccess && !rows.isFetching,
+  });
+  const items = batches.rows;
+  const total = batches.total;
+  const sentinel = useIntersectionLoadMore({
+    enabled: batches.hasMore,
+    loading: rows.isFetching,
+    onLoadMore: () => setPage((current) => current + 1),
+  });
   const selectedKey = search.get("candidate") ?? "";
   const selectedSymbol =
     market === "crypto"
@@ -265,9 +305,7 @@ function ScanCandidateRail({ market }: { market: "cn-equity" | "crypto" }) {
           </p>
         )}
         {!rows.isLoading && !rows.error && items.length === 0 && (
-          <p className="px-1 py-2 text-[11px] text-nc-text-4">
-            暂无候选。先补齐数据并登记策略；缺失不会生成计划。
-          </p>
+          <p className="px-1 py-2 text-[11px] text-nc-text-4">暂无候选。</p>
         )}
         {items.map((row, index) => {
           const code =
@@ -316,32 +354,21 @@ function ScanCandidateRail({ market }: { market: "cn-equity" | "crypto" }) {
             </Button>
           );
         })}
+        <div ref={sentinel} aria-hidden="true" className="h-1" />
       </div>
-      <div className="flex items-center justify-between gap-1 border-t border-nc-border-soft pt-1.5 text-[11px] text-nc-text-4">
+      {batches.hasMore && (
         <Button
           size="sm"
-          variant="ghost"
-          className="px-1.5"
-          disabled={page === 0}
-          onClick={() => setPage((current) => Math.max(0, current - 1))}
-        >
-          上一页
-        </Button>
-        <span className="tabular">
-          {page + 1}/{pages}
-        </span>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="px-1.5"
-          disabled={page + 1 >= pages}
+          variant="outline"
+          className="w-full"
+          disabled={rows.isFetching}
           onClick={() => setPage((current) => current + 1)}
         >
-          下一页
+          {rows.isFetching ? "加载中…" : "加载更多"}
         </Button>
-      </div>
+      )}
       <p className="text-[11px] text-nc-text-4">
-        共 {total} 只 · 点击即加载 · 图表内 PgUp/PgDn 翻股
+        已显示 {items.length} / {total} 只 · PgUp/PgDn 翻股
       </p>
     </div>
   );
@@ -498,7 +525,7 @@ function ScanResults({ market }: { market: "cn-equity" | "crypto" }) {
             {candidate && <CandidatePlanRail candidate={candidate} />}
             {!candidate && !hasSnapshot && (
               <p className="text-xs text-nc-text-3">
-                从左侧扫描候选选择个股后，这里显示双价锁、止损/目标距离与交易计划。历史批次候选仅供复盘。
+                从左侧选择个股查看双价与交易计划。
               </p>
             )}
           </div>

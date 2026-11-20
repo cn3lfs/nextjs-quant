@@ -869,7 +869,7 @@ test("research draft survives framework navigation and settings owns its control
   await systemGroup.click();
   await expect(systemGroup).toHaveAttribute("aria-expanded", "true");
   await navigation
-    .getByRole("link", { name: "数据源与备份", exact: true })
+    .getByRole("link", { name: "数据源设置", exact: true })
     .click();
   await expect(page).toHaveURL(/\/system$/);
   await expect(
@@ -903,7 +903,7 @@ test("settings read failure is recoverable and its draft survives navigation", a
   });
   await page.goto("/system/tasks", { waitUntil: "networkidle" });
   expect(statusCalls).toEqual([]);
-  await openWorkspacePage(page, "数据源与备份");
+  await openWorkspacePage(page, "数据源设置");
   await expect(
     page.getByRole("button", { name: "重试设置", exact: true }),
   ).toBeVisible();
@@ -921,7 +921,7 @@ test("settings read failure is recoverable and its draft survives navigation", a
   await expect(page).toHaveURL("/system/tasks");
   await page.waitForLoadState("networkidle");
   expect(statusCalls).toHaveLength(calls);
-  await openWorkspacePage(page, "数据源与备份");
+  await openWorkspacePage(page, "数据源设置");
   await expect(directory).toHaveValue(saved + "\\draft-only");
   await directory.fill(saved);
 });

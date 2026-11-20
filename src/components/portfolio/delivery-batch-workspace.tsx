@@ -7,6 +7,10 @@ import { Button } from "../ui/button";
 import { DeliveryMapping } from "./delivery-mapping";
 import { DataTable } from "../ui/data-table";
 import {
+  useAccumulatedPages,
+  useIntersectionLoadMore,
+} from "../ui/use-infinite-table";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -103,6 +107,41 @@ export function DeliveryBatchWorkspace({
       enabled: active && !!id && !!detail.data && !detail.error,
     },
   );
+  const batchList = useAccumulatedPages({
+    pageIndex: Math.floor((page.data?.offset ?? position.offset) / 20),
+    items: page.data?.items,
+    total: page.data?.count,
+    resetKey: JSON.stringify(filter),
+    getKey: (row) => row.id,
+    isSuccess: page.isSuccess && !page.isFetching && !page.error,
+    pageSize: 20,
+  });
+  const evidenceBatches = useAccumulatedPages({
+    pageIndex: Math.floor(offset / 20),
+    items: evidence.data?.items,
+    total: evidence.data
+      ? offset +
+        evidence.data.items.length +
+        (evidence.data.nextOffset !== null ? 1 : 0)
+      : undefined,
+    resetKey: JSON.stringify([id, section]),
+    getKey: (item) => JSON.stringify(item),
+    isSuccess: evidence.isSuccess && !evidence.isFetching && !evidence.error,
+    pageSize: 20,
+  });
+  const evidenceSentinel = useIntersectionLoadMore({
+    enabled:
+      active &&
+      !!id &&
+      evidence.data?.nextOffset !== null &&
+      evidence.data?.nextOffset !== undefined &&
+      !evidence.error,
+    loading: evidence.isFetching,
+    onLoadMore: () => {
+      if (evidence.data?.nextOffset != null)
+        setOffset(evidence.data.nextOffset);
+    },
+  });
   const revoke = api.deliveryRevokeChecked.useMutation();
   const apply = () => {
     setFilter({
@@ -234,7 +273,7 @@ export function DeliveryBatchWorkspace({
         >
           <DataTable<Batch>
             label="历史导入批次"
-            data={page.error ? [] : (page.data?.items ?? [])}
+            data={page.error ? [] : batchList.rows}
             columns={[
               {
                 id: "file",
@@ -278,11 +317,8 @@ export function DeliveryBatchWorkspace({
                 ),
               },
             ]}
-            rowCount={page.data?.count ?? 0}
-            pagination={{
-              pageIndex: (page.data?.offset ?? position.offset) / 20,
-              pageSize: 20,
-            }}
+            rowCount={batchList.total}
+            pagination={{ pageIndex: 0, pageSize: 20 }}
             sorting={[]}
             onSortingChange={() => {}}
             onPaginationChange={() => {}}
@@ -293,39 +329,18 @@ export function DeliveryBatchWorkspace({
             onRetry={() => {
               void refreshPage();
             }}
+            infiniteScroll={{
+              hasMore: Boolean(page.data?.nextCursor),
+              loadingMore: page.isFetching,
+              onLoadMore: () => {
+                if (page.data?.nextCursor)
+                  setPosition({
+                    offset: page.data.offset + 20,
+                    version: page.data.version,
+                  });
+              },
+            }}
           />
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              disabled={!page.data?.offset || page.isFetching}
-              onClick={() =>
-                setPosition({
-                  offset: Math.max(0, (page.data?.offset ?? 0) - 20),
-                  version: page.data?.version,
-                })
-              }
-            >
-              上一页批次
-            </Button>
-            <span>
-              第 {(page.data?.offset ?? position.offset) / 20 + 1} 页 ·{" "}
-              {page.data?.count ?? 0} 批
-            </span>
-            <Button
-              variant="outline"
-              disabled={
-                !page.data?.nextCursor || page.isFetching || !!page.error
-              }
-              onClick={() =>
-                setPosition({
-                  offset: page.data!.offset + 20,
-                  version: page.data!.version,
-                })
-              }
-            >
-              下一页批次
-            </Button>
-          </div>
         </div>
         {id && (
           <section
@@ -410,32 +425,26 @@ export function DeliveryBatchWorkspace({
                 {evidence.data && !evidence.error && (
                   <>
                     <p>
-                      从第 {offset + 1} 条开始，本页{" "}
-                      {evidence.data.items.length} 条；完整证据可导出。
+                      已加载 {evidenceBatches.rows.length} 条；完整证据可导出。
                     </p>
                     <TradeEvidence
-                      key={`${id}-${section}-${offset}`}
-                      text={formatEvidenceText(evidence.data.items)}
+                      key={`${id}-${section}`}
+                      text={formatEvidenceText(evidenceBatches.rows)}
                     />
-                    <div className="flex gap-2">
+                    <div
+                      ref={evidenceSentinel}
+                      aria-hidden="true"
+                      className="h-px"
+                    />
+                    {evidence.data.nextOffset !== null && (
                       <Button
                         variant="outline"
-                        disabled={!offset || evidence.isFetching}
-                        onClick={() => setOffset(offset - 20)}
-                      >
-                        上一页证据
-                      </Button>
-                      <Button
-                        variant="outline"
-                        disabled={
-                          evidence.data.nextOffset === null ||
-                          evidence.isFetching
-                        }
+                        disabled={evidence.isFetching}
                         onClick={() => setOffset(evidence.data!.nextOffset!)}
                       >
-                        下一页证据
+                        {evidence.isFetching ? "加载中…" : "加载更多证据"}
                       </Button>
-                    </div>
+                    )}
                   </>
                 )}
                 <div className="flex flex-wrap gap-2">

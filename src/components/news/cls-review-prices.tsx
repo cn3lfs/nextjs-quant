@@ -13,15 +13,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ClsReviewText } from "./cls-review-text";
 import { api } from "~/trpc/react";
 import { clsReviewDate } from "~/lib/news/cls-review-workspace";
+import { useIntersectionLoadMore } from "../ui/use-infinite-table";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import {
-  ClsError,
-  ClsPages,
-  clsDirections,
-  clsPct,
-  clsTime,
-} from "./cls-review-fields";
+import { ClsError, clsDirections, clsPct, clsTime } from "./cls-review-fields";
 /** One opened verification, bound to the exact date and full hash it came from. */
 type ClsEvidenceIdentity = { date: string; hash: string; checkedAt: number };
 const clsEvidenceHash = /^[a-f0-9]{64}$/;
@@ -50,6 +45,7 @@ export function ClsReviewPrices({
   const dateRef = useRef(date);
   dateRef.current = date;
   const [pages, setPages] = useState<(string | undefined)[]>([undefined]);
+  const [versionReset, setVersionReset] = useState(0);
   const [chosen, setChosen] = useState(""),
     [opened, setOpened] = useState<ClsEvidenceIdentity | null>(null),
     [receipt, setReceipt] = useState<ClsEvidenceIdentity | null>(null),
@@ -59,6 +55,7 @@ export function ClsReviewPrices({
     setDate(value);
     setDateDraft(value);
     setPages([undefined]);
+    setVersionReset((value) => value + 1);
     setChosen("");
     setOpened(null);
   }
@@ -77,9 +74,58 @@ export function ClsReviewPrices({
     { date: date || "2000-01-01", cursor: pages.at(-1) },
     { enabled: visible && valid, gcTime: 0 },
   );
+  type VersionRow = NonNullable<typeof versions.data>["items"][number];
+  const versionScope = `${date}:${versionReset}`;
+  const versionCursor = pages.at(-1) ?? "";
+  const [versionByPage, setVersionByPage] = useState<
+    Record<string, VersionRow[]>
+  >({});
+  const [versionScopeKey, setVersionScopeKey] = useState(versionScope);
+  if (versionScopeKey !== versionScope) {
+    setVersionScopeKey(versionScope);
+    setVersionByPage({});
+  }
+  const versionResult = versions.error ? undefined : versions.data;
+  useEffect(() => {
+    if (!versionResult) return;
+    setVersionByPage((value) =>
+      value[versionCursor] === versionResult.items
+        ? value
+        : { ...value, [versionCursor]: versionResult.items },
+    );
+  }, [versionScope, versionCursor, versionResult]);
+  const versionRows = (() => {
+    if (versionScopeKey !== versionScope) return [];
+    const seen = new Set<string>();
+    const out: VersionRow[] = [];
+    for (const cursor of pages) {
+      for (const row of versionByPage[cursor ?? ""] ?? []) {
+        if (seen.has(row.hash)) continue;
+        seen.add(row.hash);
+        out.push(row);
+      }
+    }
+    return out;
+  })();
+  function loadVersions() {
+    const cursor = versions.data?.nextCursor;
+    if (
+      !cursor ||
+      !versions.data?.hasMore ||
+      versions.isFetching ||
+      pages.includes(cursor)
+    )
+      return;
+    setPages((value) => [...value, cursor]);
+  }
+  const versionsSentinel = useIntersectionLoadMore({
+    enabled: valid && (versions.data?.hasMore ?? false) && !versions.error,
+    loading: versions.isFetching,
+    onLoadMore: loadVersions,
+  });
   const current = chosen
-    ? versions.data?.items.find((row) => row.hash === chosen)
-    : versions.data?.items[0];
+    ? versionRows.find((row) => row.hash === chosen)
+    : versionRows[0];
   // Only an explicitly opened identity is read, and only on the visible prices
   // tab. The exact date/hash pair is the sole query input.
   const detail = api.clsReviewVerificationDetail.useQuery(
@@ -116,9 +162,6 @@ export function ClsReviewPrices({
         { date: submittedDate },
         { refetchType: "active" },
       );
-      void utils.clsReviewSummary.invalidate(undefined, {
-        refetchType: "active",
-      });
       // The receipt must describe what the server actually saved. A mismatch
       // keeps the previous receipt and reports only this identity failure.
       if (result.date !== submittedDate) {
@@ -173,7 +216,7 @@ export function ClsReviewPrices({
   return (
     <section className="space-y-4" aria-label="固定样本与价格观察">
       <p className="text-sm text-nc-text-3">
-        固定样本按实际选样时间判定，不能盘后补选。价格方向观察与事实支持率独立；未复权观察不属于可执行策略业绩。
+        固定样本与价格核对（未复权，仅作方向观察）。
       </p>
       <Button
         disabled={
@@ -233,7 +276,7 @@ export function ClsReviewPrices({
       </p>
       <ClsError error={sample.error} retry={() => void sample.refetch()} />
       {valid && sample.isLoading && <p>正在读取样本…</p>}
-      {valid && sample.data === null && <p>该日尚无固定样本，不能事后补选。</p>}
+      {valid && sample.data === null && <p>该日尚无固定样本。</p>}
       {currentSample && (
         <div className="space-y-2 rounded border border-nc-border-soft p-3 text-sm">
           <p>
@@ -311,8 +354,9 @@ export function ClsReviewPrices({
             onClick={() => {
               setChosen("");
               setOpened(null);
-              if (pages.length > 1) setPages([undefined]);
-              else void versions.refetch();
+              setPages([undefined]);
+              setVersionReset((value) => value + 1);
+              if (pages.length === 1) void versions.refetch();
             }}
           >
             刷新至最新核对
@@ -327,29 +371,27 @@ export function ClsReviewPrices({
                 setOpened(null);
               }}
               placeholder="尚无核对"
-              options={(versions.data?.items ?? []).map((row, index) => ({
+              options={versionRows.map((row, index) => ({
                 value: row.hash,
-                label: `${pages.length === 1 && index === 0 ? "最新" : "历史"} · ${clsTime(row.checkedAt)} · ${row.hash.slice(0, 10)}`,
+                label: `${index === 0 ? "最新" : "历史"} · ${clsTime(row.checkedAt)} · ${row.hash.slice(0, 10)}`,
               }))}
             />
           </label>
-          <ClsPages
-            count={pages.length}
-            more={versions.data?.hasMore ?? false}
-            busy={versions.isFetching || !!versions.error}
-            previous={() => {
-              setPages((value) => value.slice(0, -1));
-              setChosen("");
-              setOpened(null);
-            }}
-            next={() => {
-              if (versions.data?.nextCursor) {
-                setPages((value) => [...value, versions.data.nextCursor!]);
-                setChosen("");
-                setOpened(null);
-              }
-            }}
-          />
+          <div ref={versionsSentinel} className="flex items-center gap-2 py-2">
+            <span className="text-xs text-nc-text-3">
+              已载入 {versionRows.length} 个核对版本
+            </span>
+            {(versions.data?.hasMore ?? false) && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={versions.isFetching}
+                onClick={loadVersions}
+              >
+                {versions.isFetching ? "加载中…" : "加载更多"}
+              </Button>
+            )}
+          </div>
         </>
       )}
       {opened && (

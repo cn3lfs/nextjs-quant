@@ -134,6 +134,7 @@ export function validateDestination(type: Channel["type"], secret: string) {
   const u = new URL(secret),
     hosts = {
       feishu: ["open.feishu.cn"],
+      dingtalk: ["oapi.dingtalk.com"],
       wecom: ["qyapi.weixin.qq.com"],
       discord: ["discord.com", "discordapp.com"],
     }[type];
@@ -147,6 +148,11 @@ export function validateDestination(type: Channel["type"], secret: string) {
     throw new Error("请使用对应平台官方 HTTPS 机器人地址");
   if (type === "feishu" && !u.pathname.startsWith("/open-apis/bot/v2/hook/"))
     throw new Error("飞书机器人地址无效");
+  if (
+    type === "dingtalk" &&
+    (u.pathname !== "/robot/send" || !u.searchParams.get("access_token"))
+  )
+    throw new Error("钉钉机器人地址无效");
   if (
     type === "wecom" &&
     (u.pathname !== "/cgi-bin/webhook/send" || !u.searchParams.get("key"))
@@ -507,6 +513,18 @@ export function notificationRequest(
     payload = { content: body.slice(0, 1900), allowed_mentions: { parse: [] } };
   } else if (channel.type === "wecom") {
     payload = { msgtype: "text", text: { content: truncateBytes(body, 1900) } };
+  } else if (channel.type === "dingtalk") {
+    if (credential.signingSecret) {
+      const timestamp = String(now);
+      const sign = createHmac("sha256", credential.signingSecret)
+        .update(`${timestamp}\n${credential.signingSecret}`)
+        .digest("base64");
+      const parsed = new URL(url);
+      parsed.searchParams.set("timestamp", timestamp);
+      parsed.searchParams.set("sign", sign);
+      url = parsed.toString();
+    }
+    payload = { msgtype: "text", text: { content: body.slice(0, 6000) } };
   } else {
     const timestamp = String(Math.floor(now / 1000));
     payload = {
@@ -563,7 +581,8 @@ export function classifyResponse(
   if (
     status >= 400 ||
     data.ok === false ||
-    ((type === "wecom" || type === "feishu") && code !== 0)
+    ((type === "wecom" || type === "feishu" || type === "dingtalk") &&
+      code !== 0)
   )
     throw new SendError(
       `渠道拒绝请求 (${status}/${code})，请检查凭证和目标`,

@@ -7,9 +7,9 @@ import {
   CaretRight,
   Flask,
   ListDashes,
-  Plus,
   SidebarSimple,
   Sparkle,
+  Star,
   X,
 } from "@phosphor-icons/react/ssr";
 import {
@@ -32,7 +32,13 @@ import { usePeriodHotkey } from "../market/chart-hotkeys";
 import { isMarketIndex } from "~/lib/market/market-indices";
 import { isSectorChartSymbol } from "~/lib/chart/chart-symbol";
 import { Button } from "../ui/button";
-import { Select, SelectTrigger, SelectContent, SelectItem } from "../ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "../ui/select";
 import { Input } from "../ui/input";
 import { PopoverTrigger, PopoverContent, PopoverClose } from "../ui/popover";
 import { PanelPopover as Popover } from "./panel-popover";
@@ -267,23 +273,71 @@ export function MarketView({
     refetchInterval: visible ? 30000 : false,
     select: (value) => value.watchlist,
   });
-  const watchlist = savedWatchlist.data ?? [];
+  // Older hosts and isolated tests may render this view without the
+  // watchlist-group procedures; fall back to the legacy status watchlist.
+  const groupsQuery = api.watchlistGroups?.useQuery?.(undefined, {
+    enabled: visible,
+    refetchInterval: visible ? 30000 : false,
+  });
+  const groups = groupsQuery?.data?.groups ?? [];
+  const [activeGroupId, setActiveGroupId] = useState("");
+  const activeGroup =
+    groups.find((g) => g.id === activeGroupId) ??
+    groups.find((g) => g.id === groupsQuery?.data?.defaultGroupId) ??
+    groups[0] ??
+    null;
+  const watchlist = activeGroup
+    ? activeGroup.symbols
+    : (savedWatchlist.data ?? []);
   const utils = api.useUtils();
+  const invalidateWatchlist = () => {
+    void utils.status.invalidate();
+    void utils.watchlistGroups?.invalidate?.();
+  };
   const watch = api.watchlist.useMutation({
-    onSuccess: () => void utils.status.invalidate(),
+    onSuccess: invalidateWatchlist,
     onError: (error) => notify(error.message),
   });
-  const watchUnavailable =
-    !savedWatchlist.data || !!savedWatchlist.error || watch.isPending;
+  const addToGroup = api.watchlistGroupAddSymbols?.useMutation?.({
+    onSuccess: (result) => {
+      invalidateWatchlist();
+      notify(`已加入「${result.group.name}」`);
+    },
+    onError: (error) => notify(error.message),
+  });
+  const removeFromGroup = api.watchlistGroupRemoveSymbol?.useMutation?.({
+    onSuccess: invalidateWatchlist,
+    onError: (error) => notify(error.message),
+  });
+  const usesGroups = !!api.watchlistGroups?.useQuery;
+  const watchReady = usesGroups ? !!activeGroup : !!savedWatchlist.data;
+  const watchError = groupsQuery?.error ?? savedWatchlist.error;
+  const watchPending =
+    watch.isPending || !!addToGroup?.isPending || !!removeFromGroup?.isPending;
+  const watchUnavailable = !watchReady || !!watchError || watchPending;
   let watchActionLabel = "加入自选";
   if (!loaded) watchActionLabel = "请先加载证券";
-  else if (savedWatchlist.error) watchActionLabel = "自选列表读取失败";
-  else if (!savedWatchlist.data) watchActionLabel = "正在读取自选";
-  else if (watch.isPending) watchActionLabel = "正在加入自选";
+  else if (watchError) watchActionLabel = "自选列表读取失败";
+  else if (!watchReady) watchActionLabel = "正在读取自选";
+  else if (watchPending) watchActionLabel = "正在加入自选";
   else if (load.isPending) watchActionLabel = "正在加载行情";
   else if (isSectorChartSymbol(loaded.symbol))
     watchActionLabel = "板块暂不支持自选";
   else if (watchlist.includes(loaded.symbol)) watchActionLabel = "已在自选";
+  const addSymbolToActive = (targetSymbol: string) => {
+    if (activeGroup && addToGroup) {
+      addToGroup.mutate({ groupId: activeGroup.id, symbols: [targetSymbol] });
+    } else {
+      watch.mutate([...watchlist, targetSymbol]);
+    }
+  };
+  const removeSymbolFromActive = (targetSymbol: string) => {
+    if (activeGroup && removeFromGroup) {
+      removeFromGroup.mutate({ groupId: activeGroup.id, symbol: targetSymbol });
+    } else {
+      watch.mutate(watchlist.filter((v) => v !== targetSymbol));
+    }
+  };
   const names = useSecurityNames().data ?? {};
   const chartSymbol = loaded?.symbol ?? symbol;
   const effectiveAdjustment =
@@ -401,14 +455,15 @@ export function MarketView({
                 options={[
                   {
                     value: "watch",
-                    label: `我的自选 (${savedWatchlist.data ? watchlist.length : "—"})`,
+                    label: `我的自选 (${watchReady ? watchlist.length : "—"})`,
                   },
                   { value: "scan", label: "扫描候选" },
                 ]}
               />
             ) : (
               <span className="min-w-0 flex-1 truncate text-xs font-medium text-nc-text-2">
-                我的自选 ({savedWatchlist.data ? watchlist.length : "—"})
+                {activeGroup ? activeGroup.name : "我的自选"} (
+                {watchReady ? watchlist.length : "—"})
               </span>
             )}
             <Button
@@ -431,33 +486,65 @@ export function MarketView({
               className="space-y-2"
               hidden={hasScanSlot && leftTab === "scan"}
             >
-              {savedWatchlist.error && (
+              {watchError && (
                 <p role="alert" className="text-xs text-nc-bad">
-                  自选列表未刷新：{savedWatchlist.error.message}{" "}
+                  自选列表未刷新：{watchError.message}{" "}
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => void savedWatchlist.refetch()}
+                    onClick={() => {
+                      void savedWatchlist.refetch();
+                      void groupsQuery?.refetch?.();
+                    }}
                   >
                     重试
                   </Button>
                 </p>
               )}
-              <Input
-                aria-label="搜索我的自选"
-                placeholder="代码 / 名称"
-                className="h-8"
-                value={watchQuery}
-                onChange={(event) => setWatchQuery(event.target.value)}
-              />
+              {groups.length > 1 && activeGroup && (
+                <Select value={activeGroup.id} onValueChange={setActiveGroupId}>
+                  <SelectTrigger
+                    aria-label="切换自选列表"
+                    className="h-8 w-full text-xs"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {groups.map((g) => (
+                      <SelectItem key={g.id} value={g.id}>
+                        {g.name} ({g.symbols.length})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <div className="flex items-center gap-1.5">
+                <Input
+                  aria-label="搜索我的自选"
+                  placeholder="代码 / 名称"
+                  className="h-8 flex-1"
+                  value={watchQuery}
+                  onChange={(event) => setWatchQuery(event.target.value)}
+                />
+                <Button
+                  asChild
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 px-2 text-xs"
+                >
+                  <Link href="/scan?tab=watchlist" scroll={false}>
+                    管理
+                  </Link>
+                </Button>
+              </div>
               <GridTable
                 label="我的自选"
                 rows={watchRows}
                 rowKey={(value) => value}
                 empty={
-                  savedWatchlist.error
+                  watchError
                     ? "暂时无法读取自选列表"
-                    : !savedWatchlist.data
+                    : !watchReady
                       ? "正在读取自选列表…"
                       : watchFilter
                         ? "没有匹配的自选标的"
@@ -504,9 +591,7 @@ export function MarketView({
                         className="icon-button"
                         aria-label={`移除 ${value}`}
                         disabled={watchUnavailable}
-                        onClick={() =>
-                          watch.mutate(watchlist.filter((v) => v !== value))
-                        }
+                        onClick={() => removeSymbolFromActive(value)}
                       >
                         <X size={13} />
                       </Button>
@@ -603,11 +688,13 @@ export function MarketView({
                 )}
               <Button
                 size="sm"
-                variant="ghost"
-                type="button"
-                onClick={() =>
-                  loaded && watch.mutate([...watchlist, loaded.symbol])
+                variant={
+                  loaded && watchlist.includes(loaded.symbol)
+                    ? "ghost"
+                    : "outline"
                 }
+                type="button"
+                onClick={() => loaded && addSymbolToActive(loaded.symbol)}
                 disabled={
                   !loaded ||
                   watchUnavailable ||
@@ -617,9 +704,74 @@ export function MarketView({
                 }
                 title={watchActionLabel}
               >
-                <Plus size={13} />
+                <Star
+                  size={13}
+                  weight={
+                    loaded && watchlist.includes(loaded.symbol)
+                      ? "fill"
+                      : "regular"
+                  }
+                />
                 {watchActionLabel}
               </Button>
+              {groups.length > 1 &&
+                loaded &&
+                !isSectorChartSymbol(loaded.symbol) &&
+                addToGroup && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        type="button"
+                        disabled={watchUnavailable || load.isPending}
+                      >
+                        加入列表
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent aria-label="添加到自选列表">
+                      <div className="flex min-w-40 flex-col gap-1">
+                        {groups.map((g) => {
+                          const exists = g.symbols.includes(loaded.symbol);
+                          return (
+                            <PopoverClose key={g.id} asChild>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="justify-between"
+                                disabled={exists || watchUnavailable}
+                                onClick={() =>
+                                  addToGroup.mutate({
+                                    groupId: g.id,
+                                    symbols: [loaded.symbol],
+                                  })
+                                }
+                              >
+                                <span>{g.name}</span>
+                                <span className="text-xs text-nc-text-4">
+                                  {exists ? "已在" : `+ (${g.symbols.length})`}
+                                </span>
+                              </Button>
+                            </PopoverClose>
+                          );
+                        })}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
+              {loaded && watchlist.includes(loaded.symbol) && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  type="button"
+                  disabled={watchUnavailable || load.isPending}
+                  onClick={() => removeSymbolFromActive(loaded.symbol)}
+                  title="从我的自选移出"
+                >
+                  移出
+                </Button>
+              )}
               <Popover>
                 <PopoverTrigger asChild>
                   <Button size="sm" variant="ghost" type="button">
@@ -857,7 +1009,7 @@ export function MarketView({
             <div className="space-y-2" hidden={rightTab !== "plan"}>
               {rightPlanSlot ?? (
                 <p className="text-xs text-nc-text-3">
-                  从扫描候选或公式结果选择个股后，这里显示双价锁与交易计划。
+                  选择个股后显示双价与交易计划。
                 </p>
               )}
             </div>

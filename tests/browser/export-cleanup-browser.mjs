@@ -221,7 +221,7 @@ let browser;
 try {
   browser = await chromium.launch({ channel: "chrome", headless: true });
   for (const [path, label] of [
-    ["/intel/review?clsReport=report-a&clsTab=info", "导出报告与全部关联复盘"],
+    ["/intel/review?clsReport=report-a&clsTab=info", "导出报告"],
     ["/accounts?view=history", "导出筛选全集 JSON"],
   ]) {
     const review = path.startsWith("/intel/review"),
@@ -291,7 +291,7 @@ try {
   );
   await page.goto(base + "/intel/review?clsReport=report-a&clsTab=info");
   const button = page.getByRole("button", {
-      name: "导出报告与全部关联复盘",
+      name: "导出报告",
       exact: true,
     }),
     receipt = page.getByText(/最近一次已发起下载/);
@@ -346,7 +346,7 @@ try {
   before = await counters();
   await page.evaluate(() => {
     const target = [...document.querySelectorAll("button")].find(
-      (candidate) => candidate.textContent === "导出报告与全部关联复盘",
+      (candidate) => candidate.textContent === "导出报告",
     );
     target.click();
     target.click();
@@ -488,7 +488,7 @@ try {
   await expect(dayInput).toHaveValue("2020-01-01");
   await expect(jump).toHaveCount(0);
   assert.match(await search(), /clsReport=report-a/);
-  assert.match(await search(), /clsTab=prices/);
+  assert.match(await search(), /clsTab=manage/);
   assert.match(await search(), /clsSample=2020-01-01/);
   // Back restores B on the original day; Forward returns to A on the same day.
   await jumpPage.goBack();
@@ -529,7 +529,7 @@ try {
     base + "/intel/review?clsTab=prices&clsSample=2020-01-02",
   );
   await expect(
-    jumpPage.getByText("请选择报告，查看对应原文、事实核对和样本。", {
+    jumpPage.getByText("请选择一份报告。", {
       exact: true,
     }),
   ).toBeVisible();
@@ -544,14 +544,14 @@ try {
   ).toBeVisible();
   await jumpPage.waitForFunction(() => !location.search.includes("clsSample="));
   assert.doesNotMatch(await search(), /clsSample=/);
-  await jumpPage
-    .getByRole("button", { name: "固定样本与价格观察", exact: true })
-    .click();
+  await jumpPage.getByRole("button", { name: "管理", exact: true }).click();
+  await jumpPage.getByText("固定样本与价格核对", { exact: true }).click();
   await expect(dayInput).toHaveValue("");
   assert.doesNotMatch(await search(), /clsSample=/);
 
   // Manual per-day queries never write clsSample; only the explicit jump does.
   await jumpPage.goto(base + "/intel/review?clsReport=report-b&clsTab=prices");
+  await jumpPage.getByText("固定样本与价格核对", { exact: true }).click();
   await expect(dayInput).toHaveValue("");
   await dayInput.fill("2020-01-02");
   await jumpPage
@@ -589,7 +589,7 @@ try {
     jumpPage.getByRole("heading", { name: "合成报告 A" }),
   ).toBeVisible();
   assert.match(await search(), /clsSample=2020-01-01/);
-  await jumpPage.getByRole("button", { name: "报告原文", exact: true }).click();
+  await jumpPage.getByRole("button", { name: "完整原文", exact: true }).click();
   await jumpPage.waitForFunction(() => !location.search.includes("clsSample="));
   // Returning to the report list clears the explicit day and the selection.
   await jumpPage.goBack();
@@ -606,7 +606,7 @@ try {
       !location.search.includes("clsReport="),
   );
   await expect(
-    jumpPage.getByText("请选择报告，查看对应原文、事实核对和样本。", {
+    jumpPage.getByText("请选择一份报告。", {
       exact: true,
     }),
   ).toBeVisible();
@@ -629,6 +629,7 @@ try {
     priceDay = prices.locator('input[type="date"]'),
     receiptText = prices.getByText(/最近一次成功核对/);
   await pricePage.goto(base + "/intel/review?clsReport=report-a&clsTab=prices");
+  await pricePage.getByText("固定样本与价格核对", { exact: true }).click();
   await priceDay.fill("2020-01-01");
   await prices
     .getByRole("button", { name: "查询样本日期", exact: true })
@@ -782,8 +783,10 @@ try {
     "1".repeat(64),
   );
   await expect(prices.locator("pre")).toContainText("1".repeat(64));
-  // Paging the version list clears the open evidence instead of retargeting it.
-  await prices.getByRole("button", { name: "下一页", exact: true }).click();
+  // Refreshing the version list clears the open evidence instead of retargeting it.
+  await prices
+    .getByRole("button", { name: "刷新至最新核对", exact: true })
+    .click();
   await expect(prices.getByText(/所查核对/)).toHaveCount(0);
   // Choosing another version clears it too.
   await prices

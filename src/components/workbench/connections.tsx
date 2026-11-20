@@ -1,7 +1,12 @@
 import { AlertSettings } from "../signals/alert-settings";
 import { AlertControls } from "../signals/alert-controls";
+import { NotificationPolicyFields } from "../signals/notification-policy-fields";
+import { AccountReviewSettingsPanel } from "../portfolio/account-review-settings";
+import { PaperSettingsPanel } from "../portfolio/paper-settings-panel";
+import Link from "next/link";
 import { FloppyDisk, FolderOpen } from "@phosphor-icons/react/ssr";
-import { PageGrid, Panel, Segmented } from "../panels";
+import { Panel } from "../panels";
+import { cn } from "~/lib/common/classnames";
 import { PanelVisibility } from "./keep-alive";
 import { useEffect, useRef, useState } from "react";
 import { settingsSchema, type Channel, type Settings } from "~/lib/domain";
@@ -28,21 +33,53 @@ import { CryptoSection } from "./connections/crypto-section";
 import { ThsdkSection } from "./connections/thsdk-section";
 import type { ChannelDraft } from "./connections/shared";
 
-const connectionSections = [
-  { value: "data", label: "本地行情" },
-  { value: "news", label: "新闻采集" },
-  { value: "research", label: "研究模型与技能" },
-  { value: "notifications", label: "通知渠道" },
-  { value: "crypto", label: "数字货币" },
-  { value: "thsdk", label: "同花顺行情" },
-] as const;
-type ConnectionSection = (typeof connectionSections)[number]["value"];
+export type SettingsScope = "data" | "push" | "risk";
+type ConnectionSection =
+  | "data"
+  | "news"
+  | "research"
+  | "crypto"
+  | "thsdk"
+  | "channels"
+  | "policy"
+  | "subscriptions"
+  | "allocation"
+  | "account-risk"
+  | "paper";
 
-/** `?section=thsdk` deep link, validated against the known sections. */
-function requestedSection(): ConnectionSection | null {
+const scopeSections: Record<
+  SettingsScope,
+  readonly { value: ConnectionSection; label: string }[]
+> = {
+  data: [
+    { value: "data", label: "本地行情" },
+    { value: "thsdk", label: "同花顺行情" },
+    { value: "crypto", label: "数字货币" },
+    { value: "news", label: "新闻采集" },
+    { value: "research", label: "研究模型与技能" },
+  ],
+  push: [
+    { value: "channels", label: "推送渠道" },
+    { value: "subscriptions", label: "信号订阅" },
+    { value: "policy", label: "推送策略" },
+  ],
+  risk: [
+    { value: "allocation", label: "资金与分仓" },
+    { value: "account-risk", label: "账户风控" },
+    { value: "paper", label: "模拟盘规则" },
+  ],
+};
+const scopeTitles: Record<SettingsScope, string> = {
+  data: "数据源设置",
+  push: "信号推送",
+  risk: "仓位与风控",
+};
+
+/** `?section=thsdk` deep link, validated against the scope's sections. */
+function requestedSection(scope: SettingsScope): ConnectionSection | null {
   if (typeof window === "undefined") return null;
   const value = new URLSearchParams(window.location.search).get("section");
-  return connectionSections.some((item) => item.value === value)
+  return scopeSections[scope].some((item) => item.value === value)
     ? (value as ConnectionSection)
     : null;
 }
@@ -54,6 +91,7 @@ export function Connections({
   notify,
   onScan,
   scanning,
+  scope = "data",
 }: {
   value: Settings;
   channels: Channel[];
@@ -65,15 +103,22 @@ export function Connections({
   notify: (s: string) => void;
   onScan: () => void;
   scanning: boolean;
+  scope?: SettingsScope;
 }) {
-  const [section, setSection] = useState<ConnectionSection>("data");
+  const sections = scopeSections[scope];
+  const [section, setSection] = useState<ConnectionSection>(
+    () => sections[0]!.value,
+  );
   // Read the deep link after hydration so server and client render the same
   // initial section; the browser fixture has no router context, hence the
   // plain `window.location` read.
   useEffect(() => {
-    const requested = requestedSection();
+    const requested = requestedSection(scope);
     if (requested) setSection(requested);
-  }, []);
+    else if (!sections.some((item) => item.value === section)) {
+      setSection(sections[0]!.value);
+    }
+  }, [scope, sections, section]);
   const visible = usePanelVisible();
   const budget = api.newsBudget.useQuery(undefined, {
     enabled: visible,
@@ -240,12 +285,11 @@ export function Connections({
       secret: channel.secret || undefined,
     });
   return (
-    <PageGrid>
+    <div className="space-y-4">
       <Panel
-        title="数据与连接设置"
+        title={scopeTitles[scope]}
         icon={FolderOpen}
         className="sticky top-14 z-10"
-        note="保存以下路径、行情源、研究与通知策略。聊天渠道和数字货币连接分别保存。"
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p
@@ -261,6 +305,13 @@ export function Connections({
                 : "设置已保存"}
           </p>
           <div className="flex flex-wrap gap-2">
+            {scope === "push" && (
+              <Button asChild size="sm" variant="outline">
+                <Link href="/system/notifications?monitorTab=deliveries">
+                  查看推送记录
+                </Link>
+              </Button>
+            )}
             <Button
               variant="ghost"
               disabled={!dirty || save.isPending}
@@ -289,103 +340,155 @@ export function Connections({
             {saveError}
           </p>
         )}
-        <div className="mt-3 border-t border-nc-border-soft pt-3">
-          <Segmented
-            label="数据与连接领域"
-            value={section}
-            onChange={setSection}
-            options={connectionSections}
-          />
-        </div>
       </Panel>
-      <PanelVisibility visible={section === "data"}>
-        <div hidden={section !== "data"} className="nc-span-12 min-w-0">
-          <DataSection
-            config={config}
-            setConfig={setConfig}
-            fieldProps={fieldProps}
-            fieldError={fieldError}
-            dirty={dirty}
-            savePending={save.isPending}
-            scanning={scanning}
-            onScan={onScan}
-            value={value}
-            coverage={coverage}
-            onOpenThsdk={() => setSection("thsdk")}
-          />
-        </div>
-      </PanelVisibility>
-      <PanelVisibility visible={section === "news"}>
-        <div hidden={section !== "news"} className="nc-span-12 min-w-0">
-          <NewsSection
-            config={config}
-            setConfig={setConfig}
-            fieldProps={fieldProps}
-            fieldError={fieldError}
-            value={value}
-            dirty={dirty}
-            savePending={save.isPending}
-            budget={budget}
-          />
-        </div>
-      </PanelVisibility>
-      <PanelVisibility visible={section === "research"}>
-        <div hidden={section !== "research"} className="nc-span-12 min-w-0">
-          <ResearchSection
-            config={config}
-            setConfig={setConfig}
-            fieldProps={fieldProps}
-            fieldError={fieldError}
-            skillCatalog={skillCatalog}
-          />
-        </div>
-      </PanelVisibility>
-      <PanelVisibility visible={section === "notifications"}>
-        <div
-          hidden={section !== "notifications"}
-          className="nc-span-12 min-w-0"
+
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[200px_minmax(0,1fr)]">
+        <nav
+          role="radiogroup"
+          aria-label={scopeTitles[scope]}
+          className="flex flex-row gap-1 overflow-x-auto rounded-lg border border-nc-border bg-nc-card p-2 lg:sticky lg:top-40 lg:flex-col"
         >
-          <NotificationsSection
-            config={config}
-            setConfig={setConfig}
-            fieldError={fieldError}
-            channels={channels}
-            channel={channel}
-            onChannelChange={setChannel}
-            editId={editId}
-            onEdit={beginEditChannel}
-            onCancelEdit={cancelEditChannel}
-            onSaveChannel={saveCurrentChannel}
-            saveChannelPending={saveChannel.isPending}
-            onTestChannel={(id) => test.mutate(id)}
-          />
+          {sections.map((item) => {
+            const active = section === item.value;
+            return (
+              <button
+                key={item.value}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => setSection(item.value)}
+                className={cn(
+                  "flex w-auto shrink-0 items-center rounded-md border px-3 py-2 text-left text-[13px] transition-colors lg:w-full",
+                  active
+                    ? "border-nc-accent-700 bg-nc-accent-900 font-medium text-nc-accent-light"
+                    : "border-transparent text-nc-text-3 hover:bg-nc-surface-2 hover:text-nc-text",
+                )}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="min-w-0 space-y-4">
+          {scope === "data" && (
+            <>
+              <PanelVisibility visible={section === "data"}>
+                <div hidden={section !== "data"} className="min-w-0">
+                  <DataSection
+                    config={config}
+                    setConfig={setConfig}
+                    fieldProps={fieldProps}
+                    fieldError={fieldError}
+                    dirty={dirty}
+                    savePending={save.isPending}
+                    scanning={scanning}
+                    onScan={onScan}
+                    value={value}
+                    coverage={coverage}
+                    onOpenThsdk={() => setSection("thsdk")}
+                  />
+                </div>
+              </PanelVisibility>
+              <PanelVisibility visible={section === "news"}>
+                <div hidden={section !== "news"} className="min-w-0">
+                  <NewsSection
+                    config={config}
+                    setConfig={setConfig}
+                    fieldProps={fieldProps}
+                    fieldError={fieldError}
+                    value={value}
+                    dirty={dirty}
+                    savePending={save.isPending}
+                    budget={budget}
+                  />
+                </div>
+              </PanelVisibility>
+              <PanelVisibility visible={section === "research"}>
+                <div hidden={section !== "research"} className="min-w-0">
+                  <ResearchSection
+                    config={config}
+                    setConfig={setConfig}
+                    fieldProps={fieldProps}
+                    fieldError={fieldError}
+                    skillCatalog={skillCatalog}
+                  />
+                </div>
+              </PanelVisibility>
+              <PanelVisibility visible={section === "crypto"}>
+                <div hidden={section !== "crypto"} className="min-w-0">
+                  <CryptoSection />
+                </div>
+              </PanelVisibility>
+              <PanelVisibility visible={section === "thsdk"}>
+                <div hidden={section !== "thsdk"} className="min-w-0">
+                  <ThsdkSection />
+                </div>
+              </PanelVisibility>
+              <details className="rounded-lg border bg-card p-4">
+                <summary className="cursor-pointer text-sm font-medium">
+                  连接诊断 · 基于已保存设置
+                </summary>
+                <div className="mt-4">
+                  <ConnectionDiagnostics
+                    value={draftState.base}
+                    dirty={dirty}
+                  />
+                </div>
+              </details>
+            </>
+          )}
+
+          {scope === "push" && (
+            <>
+              {section === "channels" && (
+                <NotificationsSection
+                  config={config}
+                  setConfig={setConfig}
+                  fieldError={fieldError}
+                  channels={channels}
+                  channel={channel}
+                  onChannelChange={setChannel}
+                  editId={editId}
+                  onEdit={beginEditChannel}
+                  onCancelEdit={cancelEditChannel}
+                  onSaveChannel={saveCurrentChannel}
+                  saveChannelPending={saveChannel.isPending}
+                  onTestChannel={(id) => test.mutate(id)}
+                  mode="channels"
+                />
+              )}
+              {section === "subscriptions" && (
+                <AlertControls channels={channels} />
+              )}
+              {section === "policy" && (
+                <Panel title="推送分级与静默策略">
+                  {fieldError("notificationPolicy")}
+                  <NotificationPolicyFields
+                    value={config.notificationPolicy}
+                    onChange={(notificationPolicy) =>
+                      setConfig({ ...config, notificationPolicy })
+                    }
+                  />
+                </Panel>
+              )}
+            </>
+          )}
+
+          {scope === "risk" && (
+            <>
+              {section === "allocation" && (
+                <AlertSettings
+                  value={config.alerts}
+                  onChange={(alerts) => setConfig({ ...config, alerts })}
+                />
+              )}
+              {section === "account-risk" && <AccountReviewSettingsPanel />}
+              {section === "paper" && <PaperSettingsPanel />}
+            </>
+          )}
         </div>
-      </PanelVisibility>
-      <PanelVisibility visible={section === "crypto"}>
-        <div hidden={section !== "crypto"} className="nc-span-12 min-w-0">
-          <CryptoSection />
-        </div>
-      </PanelVisibility>
-      <PanelVisibility visible={section === "thsdk"}>
-        <div hidden={section !== "thsdk"} className="nc-span-12 min-w-0">
-          <ThsdkSection />
-        </div>
-      </PanelVisibility>
-      <div className="nc-span-12">
-        <AlertSettings
-          value={config.alerts}
-          onChange={(alerts) => setConfig({ ...config, alerts })}
-        />
-        <AlertControls channels={channels} />
       </div>
-      <details className="nc-span-12 rounded-lg border bg-card p-4">
-        <summary className="text-sm font-medium">
-          连接诊断 · 基于已保存设置
-        </summary>
-        <div className="mt-4">
-          <ConnectionDiagnostics value={draftState.base} dirty={dirty} />
-        </div>
-      </details>
-    </PageGrid>
+    </div>
   );
 }

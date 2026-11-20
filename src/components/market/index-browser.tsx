@@ -4,6 +4,10 @@ import { api } from "~/trpc/react";
 import { commonIndices } from "~/lib/market/market-indices";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import {
+  useInfiniteSlice,
+  useIntersectionLoadMore,
+} from "../ui/use-infinite-table";
 
 export function IndexBrowser({
   onSelect,
@@ -13,16 +17,19 @@ export function IndexBrowser({
   disabled: boolean;
 }) {
   const [query, setQuery] = useState("");
-  const [page, setPage] = useState(0);
   const catalog = api.indexDirectory.useQuery(undefined, { staleTime: 60000 });
-  const matches = query.trim()
+  const trimmed = query.trim().toLowerCase();
+  const matches = trimmed
     ? (catalog.data ?? commonIndices).filter((row) =>
-        `${row.symbol} ${row.name}`
-          .toLowerCase()
-          .includes(query.trim().toLowerCase()),
+        `${row.symbol} ${row.name}`.toLowerCase().includes(trimmed),
       )
     : commonIndices;
-  const rows = matches.slice(page * 50, (page + 1) * 50);
+  const slice = useInfiniteSlice(matches, 50, trimmed);
+  const sentinel = useIntersectionLoadMore({
+    enabled: slice.hasMore,
+    loading: catalog.isPending,
+    onLoadMore: slice.onLoadMore,
+  });
   return (
     <div className="space-y-2 border-b pb-3" aria-label="指数浏览">
       <div className="flex flex-wrap items-center gap-3">
@@ -32,14 +39,11 @@ export function IndexBrowser({
           aria-label="搜索指数"
           placeholder="搜索更多指数名称或代码"
           value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setPage(0);
-          }}
+          onChange={(e) => setQuery(e.target.value)}
         />
       </div>
       <div className="flex flex-wrap gap-2">
-        {rows.map((row) => (
+        {slice.rows.map((row) => (
           <Button
             key={row.symbol}
             variant="outline"
@@ -50,7 +54,7 @@ export function IndexBrowser({
           </Button>
         ))}
       </div>
-      {query && !rows.length && !catalog.isPending && (
+      {query && !slice.rows.length && !catalog.isPending && (
         <p className="text-sm">未找到此指数，请尝试完整名称或代码。</p>
       )}
       {catalog.isPending && (
@@ -66,25 +70,17 @@ export function IndexBrowser({
           </Button>
         </p>
       )}
+      <div ref={sentinel} aria-hidden="true" className="h-px" />
       {matches.length > 50 && (
-        <div className="flex items-center gap-3 text-sm">
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
           <span>
-            匹配{matches.length}个，第{page + 1}页
+            已加载 {slice.rows.length} / {matches.length} 个
           </span>
-          <Button
-            variant="outline"
-            disabled={page === 0}
-            onClick={() => setPage(page - 1)}
-          >
-            上一页
-          </Button>
-          <Button
-            variant="outline"
-            disabled={(page + 1) * 50 >= matches.length}
-            onClick={() => setPage(page + 1)}
-          >
-            下一页
-          </Button>
+          {slice.hasMore && (
+            <Button variant="outline" size="sm" onClick={slice.onLoadMore}>
+              加载更多
+            </Button>
+          )}
         </div>
       )}
       <p className="text-xs text-muted-foreground">

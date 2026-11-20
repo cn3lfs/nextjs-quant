@@ -8,18 +8,17 @@ import {
   TableCell,
 } from "../ui/table";
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import { api } from "~/trpc/react";
 import {
   clsReviewDate,
   clsReviewReportQuery,
-  emptyClsFactDraft,
-  clsDraftDirty,
-  clearSubmittedClsDraft,
-  type ClsFactDraft,
   type ClsReportQuery,
 } from "~/lib/news/cls-review-workspace";
 import { useTaskVisible } from "../workbench/use-task-visible";
-import { PageGrid, Panel } from "../panels";
+import { BrowseSource, useOpenChart } from "../market/open-chart";
+import { PageGrid, Panel, Pill } from "../panels";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -27,13 +26,32 @@ import {
   DialogTitle,
   DialogDescription,
 } from "../ui/dialog";
-import { ClsError, clsTime, clsPct } from "./cls-review-fields";
+import { ClsError, ClsReturnValue, clsTime } from "./cls-review-fields";
 import { ClsReviewReportList } from "./cls-review-report-list";
 import { ClsReviewImport } from "./cls-review-import";
 import { ClsReviewSchedule } from "./cls-review-schedule";
 import { ClsReviewText } from "./cls-review-text";
-import { ClsReviewFacts } from "./cls-review-facts";
 import { ClsReviewPrices } from "./cls-review-prices";
+import type { clsReportForwardReturns } from "~/server/news/cls-forward-returns";
+
+type Tab = "viewpoints" | "text" | "manage";
+type ForwardReport = NonNullable<
+  Awaited<ReturnType<typeof clsReportForwardReturns>>
+>;
+type ForwardSection = ForwardReport["sections"][number];
+
+function readTab(raw: string | null): Tab {
+  if (raw === "text") return "text";
+  if (raw === "manage" || raw === "prices" || raw === "info") return "manage";
+  return "viewpoints";
+}
+
+const directionBadge = {
+  bullish: { tone: "bad", label: "利好" },
+  bearish: { tone: "ok", label: "利空" },
+  neutral: { tone: "neutral", label: "中性" },
+  unknown: { tone: "idle", label: "观点" },
+} as const;
 
 export function ClsReviewWorkspace() {
   const visible = useTaskVisible(),
@@ -46,11 +64,9 @@ export function ClsReviewWorkspace() {
   });
   const [draftFilter, setDraftFilter] = useState(filter);
   const [pages, setPages] = useState<(string | undefined)[]>([undefined]);
-  const [tab, setTab] = useState<"text" | "facts" | "prices" | "info">("text");
-  // Explicit cross-report day anchor. Ordinary report/tab navigation clears it,
-  // so manual per-day queries never write clsSample into the address.
+  const [tab, setTab] = useState<Tab>("viewpoints");
+  // Explicit cross-report day anchor used by the fixed-sample view.
   const [sampleAnchor, setSampleAnchor] = useState("");
-  const [drafts, setDrafts] = useState<Record<string, ClsFactDraft>>({});
   const [utility, setUtility] = useState<"import" | "schedule" | null>(null);
   const [removing, setRemoving] = useState<{
     id: string;
@@ -82,38 +98,20 @@ export function ClsReviewWorkspace() {
         const id = url.searchParams.get("clsReport") ?? "";
         if (id.length > 200) throw new Error("报告ID无效");
         setSelected(id);
-        const currentTab = url.searchParams.get("clsTab");
-        setTab(
-          currentTab === "prices" ||
-            currentTab === "info" ||
-            currentTab === "facts"
-            ? currentTab
-            : "text",
-        );
-        // The day anchor is meaningful only for an exact report on the prices
-        // tab; any other deep link drops it.
+        const rawTab = url.searchParams.get("clsTab");
+        const currentTab = readTab(rawTab);
+        setTab(currentTab);
+        // The day anchor is meaningful only for an exact report on the
+        // management/sample tab; any other deep link (including legacy info) drops it.
         const anchor = url.searchParams.get("clsSample") ?? "";
         setSampleAnchor(
           id &&
-            currentTab === "prices" &&
+            (rawTab === "prices" || rawTab === "manage") &&
             clsReviewDate.safeParse(anchor).success
             ? anchor
             : "",
         );
-        const stored = sessionStorage.getItem(
-          `cls-pages:${JSON.stringify(value)}`,
-        );
-        const positions: unknown = stored ? JSON.parse(stored) : null;
-        setPages(
-          Array.isArray(positions) &&
-            positions.length > 0 &&
-            positions.length <= 1000 &&
-            positions.every(
-              (p) => p == null || (typeof p === "string" && p.length <= 2048),
-            )
-            ? positions.map((p) => p ?? undefined)
-            : [undefined],
-        );
+        setPages([undefined]);
         setError("");
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "查询条件无效");
@@ -137,31 +135,10 @@ export function ClsReviewWorkspace() {
     if (sampleAnchor) url.searchParams.set("clsSample", sampleAnchor);
     else url.searchParams.delete("clsSample");
     history.replaceState(history.state, "", url);
-    try {
-      sessionStorage.setItem(
-        `cls-pages:${JSON.stringify(filter)}`,
-        JSON.stringify(pages),
-      );
-    } catch {
-      /* Memory state remains usable when storage is unavailable. */
-    }
-  }, [ready, filter, selected, tab, pages, sampleAnchor]);
-  useEffect(() => {
-    if (!Object.values(drafts).some(clsDraftDirty)) return;
-    const warn = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [drafts]);
+  }, [ready, filter, selected, tab, sampleAnchor]);
   const report = api.clsReviewExport.useQuery(selected, {
     enabled: visible && ready && !!selected,
     gcTime: 0,
-  });
-  const summary = api.clsReviewSummary.useQuery(undefined, {
-    enabled: visible && ready,
-    refetchInterval: visible ? 60000 : false,
   });
   const remove = api.clsReviewRemove.useMutation({
     onSuccess: (_, id) => {
@@ -171,17 +148,9 @@ export function ClsReviewWorkspace() {
         setSelected("");
         setSampleAnchor("");
       }
-      setDrafts((value) => {
-        const next = { ...value };
-        delete next[id];
-        return next;
-      });
       setRemoving(null);
-      setFeedback("此版本及关联证据已清理，样本日期占位保留，不能重新选样。");
+      setFeedback("此版本已清理。");
       void utils.clsReviewReportPage.invalidate(undefined, {
-        refetchType: "active",
-      });
-      void utils.clsReviewSummary.invalidate(undefined, {
         refetchType: "active",
       });
       // Refresh any open day sample so a cleared owner stops offering the jump.
@@ -189,17 +158,6 @@ export function ClsReviewWorkspace() {
       utils.clsReviewExport.setData(id, null);
     },
   });
-  const draft = drafts[selected] ?? emptyClsFactDraft();
-  function changeDraft(patch: Partial<ClsFactDraft>) {
-    const id = selected;
-    setDrafts((value) => {
-      const previous = value[id] ?? emptyClsFactDraft();
-      return {
-        ...value,
-        [id]: { ...previous, ...patch, revision: previous.revision + 1 },
-      };
-    });
-  }
   /**
    * Explicit cross-report jump. The current entry keeps B but records the day,
    * then a new entry opens the exact owner version on the same day. Back/Forward
@@ -212,22 +170,22 @@ export function ClsReviewWorkspace() {
       ownerId.length > 200 ||
       !selectedRef.current ||
       ownerId === selectedRef.current ||
-      tab !== "prices" ||
+      tab !== "manage" ||
       !clsReviewDate.safeParse(date).success
     )
       return;
     const start = new URL(location.href);
     start.searchParams.set("clsReport", selectedRef.current);
-    start.searchParams.set("clsTab", "prices");
+    start.searchParams.set("clsTab", "manage");
     start.searchParams.set("clsSample", date);
     history.replaceState(history.state, "", start);
     const target = new URL(location.href);
     target.searchParams.set("clsReport", ownerId);
-    target.searchParams.set("clsTab", "prices");
+    target.searchParams.set("clsTab", "manage");
     target.searchParams.set("clsSample", date);
     history.pushState(history.state, "", target);
     setSelected(ownerId);
-    setTab("prices");
+    setTab("manage");
     setSampleAnchor(date);
   }
   async function download() {
@@ -307,7 +265,8 @@ export function ClsReviewWorkspace() {
         }
       >
         <p className="text-sm text-nc-text-3">
-          报告原文、人工事实核对与价格方向观察分别留存。一次只核对一个报告版本。
+          选择报告查看观点、利好利空板块与个股，以及基准日后的 T+5 / T+10 / T+20
+          涨跌幅。
         </p>
         <p role="status" className="text-sm">
           {feedback}
@@ -319,56 +278,6 @@ export function ClsReviewWorkspace() {
         )}
         {exportError && <ClsError error={{ message: exportError }} />}
         <ClsError error={error ? { message: error } : null} />
-        <details>
-          <summary className="cursor-pointer text-sm">
-            累计价格方向观察（各样本日最新核对）
-          </summary>
-          <ClsError
-            error={summary.error}
-            retry={() => void summary.refetch()}
-          />
-          <p className="text-xs text-nc-text-3">
-            待观察和缺价不进入命中率分母；与事实支持率独立。
-          </p>
-          <div className="overflow-x-auto">
-            <Table className="w-full text-left text-xs">
-              <TableHeader>
-                <TableRow>
-                  {[
-                    "窗口",
-                    "总数",
-                    "有效",
-                    "待观察",
-                    "缺价/无样本",
-                    "命中率",
-                    "平均超额",
-                    "超额有效数",
-                  ].map((text) => (
-                    <TableHead key={text} className="p-2 whitespace-nowrap">
-                      {text}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {summary.data?.map((row) => (
-                  <TableRow key={row.horizon}>
-                    <TableCell className="p-2">
-                      {row.horizon ? `T+${row.horizon}` : "当日"}
-                    </TableCell>
-                    <TableCell>{row.total}</TableCell>
-                    <TableCell>{row.valid}</TableCell>
-                    <TableCell>{row.pending}</TableCell>
-                    <TableCell>{row.unavailable}</TableCell>
-                    <TableCell>{clsPct(row.hitRate)}</TableCell>
-                    <TableCell>{clsPct(row.meanExcessReturn)}</TableCell>
-                    <TableCell>{row.excessSamples}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </details>
         {utility === "import" && (
           <ClsReviewImport
             visible={visible}
@@ -399,7 +308,6 @@ export function ClsReviewWorkspace() {
         setDraftFilter={setDraftFilter}
         pages={pages}
         setPages={setPages}
-        drafts={drafts}
         setError={setError}
         select={(id, button) => {
           returnTarget.current = button;
@@ -409,141 +317,130 @@ export function ClsReviewWorkspace() {
         }}
       />
       <Panel
-        title="报告复核"
+        title="报告观点"
         span={8}
         className={!selected ? "max-lg:hidden" : undefined}
       >
         {!selected ? (
-          <p className="text-sm">请选择报告，查看对应原文、事实核对和样本。</p>
+          <p className="text-sm">请选择一份报告。</p>
         ) : (
           <>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                setSelected("");
-                setSampleAnchor("");
-                requestAnimationFrame(() => {
-                  const target = returnTarget.current?.isConnected
-                    ? returnTarget.current
-                    : document.getElementById("cls-report-title");
-                  target?.focus();
-                  target?.scrollIntoView({ block: "nearest" });
-                });
-              }}
-            >
-              返回报告列表
-            </Button>
+            <div className="flex flex-wrap gap-2" aria-label="报告视图">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setSelected("");
+                  setSampleAnchor("");
+                  requestAnimationFrame(() => {
+                    const target = returnTarget.current?.isConnected
+                      ? returnTarget.current
+                      : document.getElementById("cls-report-title");
+                    target?.focus();
+                    target?.scrollIntoView({ block: "nearest" });
+                  });
+                }}
+              >
+                返回报告列表
+              </Button>
+              {(
+                [
+                  ["viewpoints", "观点与标的"],
+                  ["text", "完整原文"],
+                  ["manage", "管理"],
+                ] as const
+              ).map(([key, label]) => (
+                <Button
+                  key={key}
+                  size="sm"
+                  variant={tab === key ? "default" : "outline"}
+                  aria-pressed={tab === key}
+                  onClick={() => {
+                    if (tab !== key) {
+                      setTab(key);
+                      setSampleAnchor("");
+                    }
+                  }}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
             <ClsError
               error={report.error}
               retry={() => void report.refetch()}
             />
-            {report.isLoading && <p role="status">正在读取报告原文…</p>}
+            {report.isLoading && <p role="status">正在读取报告…</p>}
             {report.data === null && (
               <p>报告不存在或已清理，请返回列表重新选择。</p>
             )}
             {report.data && (
               <div className="space-y-4 pt-3">
-                <h2 className="text-base font-semibold">
-                  {report.data.report.title}
-                </h2>
-                <div className="break-all text-xs text-nc-text-3">
-                  报告日 {report.data.report.reportDate ?? "未识别"} · 版本
-                  {report.data.versionNumber} · 导入{" "}
-                  {clsTime(report.data.importedAt)}
-                  <details className="mt-2">
-                    <summary className="cursor-pointer">完整报告指纹</summary>
-                    <span className="break-all">{report.data.report.hash}</span>
-                  </details>
+                <div>
+                  <h2 className="text-base font-semibold">
+                    {report.data.report.title}
+                  </h2>
+                  <p className="text-xs text-nc-text-3">
+                    版本{report.data.versionNumber} · 导入{" "}
+                    {clsTime(report.data.importedAt)}
+                  </p>
                 </div>
-                <div className="flex flex-wrap gap-2" aria-label="报告视图">
-                  {(
-                    [
-                      ["text", "报告原文"],
-                      ["facts", "事实核对"],
-                      ["prices", "固定样本与价格观察"],
-                      ["info", "报告信息"],
-                    ] as const
-                  ).map(([key, label]) => (
-                    <Button
-                      key={key}
-                      size="sm"
-                      variant={tab === key ? "default" : "outline"}
-                      aria-pressed={tab === key}
-                      onClick={() => {
-                        if (tab !== key) {
-                          setTab(key);
-                          setSampleAnchor("");
-                        }
-                      }}
-                    >
-                      {label}
-                    </Button>
-                  ))}
-                </div>
-                <div
-                  key={`text-${selected}`}
-                  hidden={tab !== "text"}
-                  className="mx-auto max-w-[840px] space-y-3 leading-7"
-                >
+                {tab === "viewpoints" && (
+                  <ClsReviewViewpoints
+                    reportId={selected}
+                    visible={visible && tab === "viewpoints"}
+                  />
+                )}
+                {tab === "text" && (
                   <ClsReviewText
                     text={report.data.report.markdown}
                     label="报告完整原文"
                   />
-                </div>
-                <div hidden={tab !== "facts"}>
-                  <ClsReviewFacts
-                    key={selected}
-                    report={report.data}
-                    visible={visible && tab === "facts"}
-                    draft={draft}
-                    change={changeDraft}
-                    saved={(id, revision) =>
-                      setDrafts((value) =>
-                        clearSubmittedClsDraft(value, id, revision),
-                      )
-                    }
-                  />
-                </div>
-                <div hidden={tab !== "prices"}>
-                  <ClsReviewPrices
-                    key={`${selected}:${sampleAnchor}`}
-                    reportId={selected}
-                    visible={visible && tab === "prices"}
-                    initialDate={sampleAnchor}
-                    openOwnerReport={openOwnerReport}
-                  />
-                </div>
-                {tab === "info" && (
+                )}
+                {tab === "manage" && (
                   <div className="space-y-3 text-sm">
-                    <p className="break-all">
-                      只读来源：{report.data.sourcePath}
-                    </p>
+                    <p className="break-all">来源：{report.data.sourcePath}</p>
                     <p>
                       源文件 {report.data.size} 字节 · 观察于{" "}
                       {clsTime(report.data.observedAt)}
                     </p>
-                    {report.data.report.warnings.map((warning) => (
-                      <p key={warning}>{warning}</p>
-                    ))}
-                    <Button
-                      disabled={downloading}
-                      onClick={() => void download()}
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        disabled={downloading}
+                        onClick={() => void download()}
+                      >
+                        {downloading ? "正在导出…" : "导出报告"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={(event) => {
+                          removalReturnTarget.current = event.currentTarget;
+                          setRemoving({
+                            id: selected,
+                            title: report.data!.report.title,
+                          });
+                        }}
+                      >
+                        清理此版本
+                      </Button>
+                    </div>
+                    <details
+                      key={`${selected}:${sampleAnchor}`}
+                      open={Boolean(sampleAnchor) || undefined}
                     >
-                      {downloading ? "正在导出…" : "导出报告与全部关联复盘"}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={(event) => {
-                        removalReturnTarget.current = event.currentTarget;
-                        setRemoving({
-                          id: selected,
-                          title: report.data!.report.title,
-                        });
-                      }}
-                    >
-                      清理此版本
-                    </Button>
+                      <summary className="cursor-pointer text-sm text-nc-text-3">
+                        固定样本与价格核对
+                      </summary>
+                      <div className="pt-3">
+                        <ClsReviewPrices
+                          key={`${selected}:${sampleAnchor}`}
+                          reportId={selected}
+                          visible={visible && tab === "manage"}
+                          initialDate={sampleAnchor}
+                          openOwnerReport={openOwnerReport}
+                        />
+                      </div>
+                    </details>
                   </div>
                 )}
               </div>
@@ -566,7 +463,7 @@ export function ClsReviewWorkspace() {
           <DialogTitle>清理报告版本</DialogTitle>
           <DialogDescription>
             清理「{removing?.title}
-            」及其全部事实核对、关联价格核对。关联样本保留日期占位，不能重新选样。此操作也会清除该报告的会话草稿，建议先导出。
+            」及其关联记录。此操作不可撤销，建议先导出。
           </DialogDescription>
           <ClsError error={remove.error} />
           <Button
@@ -576,7 +473,7 @@ export function ClsReviewWorkspace() {
               if (removing) remove.mutate(removing.id);
             }}
           >
-            确认清理报告及关联证据
+            确认清理报告及关联记录
           </Button>
           <Button
             variant="outline"
@@ -588,5 +485,202 @@ export function ClsReviewWorkspace() {
         </DialogContent>
       </Dialog>
     </PageGrid>
+  );
+}
+
+function ClsReviewViewpoints({
+  reportId,
+  visible,
+}: {
+  reportId: string;
+  visible: boolean;
+}) {
+  const query = api.clsReportForwardReturns.useQuery(reportId, {
+    enabled: visible && !!reportId,
+  });
+  if (query.isLoading) return <p role="status">正在计算板块与个股涨跌幅…</p>;
+  if (query.error)
+    return <ClsError error={query.error} retry={() => void query.refetch()} />;
+  if (!query.data) return <p>报告不存在或已清理。</p>;
+  const data = query.data;
+  const stocks = new Set(
+    data.sections.flatMap((section) => section.stocks.map((s) => s.symbol)),
+  );
+  const bullish = data.sections.filter((s) => s.direction === "bullish").length;
+  const bearish = data.sections.filter((s) => s.direction === "bearish").length;
+  return (
+    <div className="space-y-4" aria-label="观点与标的">
+      <p className="text-sm text-nc-text-3">
+        基准日 {data.baseDate} · 共 {data.sections.length} 个板块观点 · 利好{" "}
+        {bullish} / 利空 {bearish} · 提及 {stocks.size} 只个股
+      </p>
+      {data.sections.length === 0 && <p>未从报告中解析出板块观点。</p>}
+      {data.sections.map((section) => (
+        <ClsReviewSection key={section.id} section={section} />
+      ))}
+    </div>
+  );
+}
+
+function ClsReviewSection({ section }: { section: ForwardSection }) {
+  const badge = directionBadge[section.direction] ?? directionBadge.unknown;
+  const sector = section.sectorReturns;
+  return (
+    <section className="space-y-2 rounded border border-nc-border-soft p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Pill tone={badge.tone}>{badge.label}</Pill>
+        <Link
+          href={section.sectorHref}
+          className="text-sm font-medium text-primary underline underline-offset-2 hover:no-underline"
+        >
+          {section.name}
+          <span aria-hidden className="ml-0.5">
+            ↗
+          </span>
+        </Link>
+        {sector && (
+          <span className="flex flex-wrap items-center gap-2 text-xs">
+            {(
+              [
+                ["T+5", sector.t5, 5],
+                ["T+10", sector.t10, 10],
+                ["T+20", sector.t20, 20],
+              ] as const
+            ).map(([label, value, horizon]) => (
+              <span
+                key={label}
+                className="rounded border border-nc-border-soft px-1.5 py-0.5"
+              >
+                <span className="text-nc-text-3">{label} </span>
+                <ClsReturnValue
+                  returnPct={value?.returnPct ?? null}
+                  elapsed={sector.elapsedTradingDays}
+                  horizon={horizon}
+                />
+              </span>
+            ))}
+          </span>
+        )}
+      </div>
+      {section.summary && (
+        <p className="text-sm leading-6 text-nc-text-2">{section.summary}</p>
+      )}
+      {section.stocks.length > 0 && (
+        <BrowseSource
+          label={`财联社 · ${section.name}`}
+          symbols={section.stocks.map((stock) => stock.symbol)}
+        >
+          <div className="overflow-x-auto">
+            <Table className="w-full text-left text-xs">
+              <TableHeader>
+                <TableRow>
+                  {[
+                    "相关个股",
+                    "基准日收盘",
+                    "T+5",
+                    "T+10",
+                    "T+20",
+                    "最新涨跌",
+                  ].map((label) => (
+                    <TableHead className="p-2 whitespace-nowrap" key={label}>
+                      {label}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {section.stocks.map((stock) => (
+                  <ClsStockRow key={stock.symbol} stock={stock} />
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </BrowseSource>
+      )}
+    </section>
+  );
+}
+
+function ClsStockRow({ stock }: { stock: ForwardSection["stocks"][number] }) {
+  const openChart = useOpenChart();
+  const returns = stock.returns;
+  const latest = returns.latest;
+  return (
+    <TableRow className="border-t border-nc-border-soft">
+      <TableCell className="p-2 whitespace-nowrap">
+        <Link
+          href={stock.href}
+          className="text-primary underline underline-offset-2 hover:no-underline"
+          onClick={(event) => {
+            if (
+              !openChart ||
+              event.button !== 0 ||
+              event.ctrlKey ||
+              event.metaKey ||
+              event.shiftKey
+            )
+              return;
+            event.preventDefault();
+            openChart(stock.symbol);
+          }}
+        >
+          {stock.name} · {stock.symbol.toUpperCase()}
+        </Link>
+      </TableCell>
+      <TableCell className="p-2 whitespace-nowrap">
+        {returns.baseClose == null ? "—" : displayNumber(returns.baseClose, 2)}
+        {returns.baseTradeDate && (
+          <span className="block text-[10px] text-nc-text-4">
+            {returns.baseTradeDate}
+          </span>
+        )}
+      </TableCell>
+      <TableCell className="p-2 whitespace-nowrap">
+        <ClsReturnValue
+          returnPct={returns.t5?.returnPct ?? null}
+          elapsed={returns.elapsedTradingDays}
+          horizon={5}
+          noBase={returns.status !== "ok"}
+        />
+      </TableCell>
+      <TableCell className="p-2 whitespace-nowrap">
+        <ClsReturnValue
+          returnPct={returns.t10?.returnPct ?? null}
+          elapsed={returns.elapsedTradingDays}
+          horizon={10}
+          noBase={returns.status !== "ok"}
+        />
+      </TableCell>
+      <TableCell className="p-2 whitespace-nowrap">
+        <ClsReturnValue
+          returnPct={returns.t20?.returnPct ?? null}
+          elapsed={returns.elapsedTradingDays}
+          horizon={20}
+          noBase={returns.status !== "ok"}
+        />
+      </TableCell>
+      <TableCell className="p-2 whitespace-nowrap">
+        {latest ? (
+          <>
+            <span
+              className={
+                latest.returnPct > 0
+                  ? "text-nc-up"
+                  : latest.returnPct < 0
+                    ? "text-nc-down"
+                    : "text-nc-text-3"
+              }
+            >
+              {`${latest.returnPct > 0 ? "+" : ""}${displayNumber(latest.returnPct, 2)}%`}
+            </span>
+            <span className="block text-[10px] text-nc-text-4">
+              T+{latest.tradingDays}
+            </span>
+          </>
+        ) : (
+          <span className="text-nc-text-4">—</span>
+        )}
+      </TableCell>
+    </TableRow>
   );
 }

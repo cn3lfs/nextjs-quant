@@ -4,10 +4,11 @@ import { formatEvidenceText } from "~/lib/common/evidence-text";
 import { DataTable } from "~/components/ui/data-table";
 import { Textarea } from "~/components/ui/textarea";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import type { Job } from "~/lib/domain";
 import { Button } from "../ui/button";
+import { useAccumulatedPages } from "../ui/use-infinite-table";
 export function OnlineScreen({
   jobs,
   onImport,
@@ -38,10 +39,25 @@ export function OnlineScreen({
   const data = result.data,
     busy =
       submit.isPending || job?.status === "queued" || job?.status === "running";
+  const coverageMap = useRef(
+    new Map<string, { day: boolean; minute: boolean }>(),
+  );
+  if (data) {
+    for (const c of data.localCoverage) {
+      coverageMap.current.set(c.symbol, { day: c.day, minute: c.minute });
+    }
+  }
+  const batches = useAccumulatedPages({
+    pageIndex: Math.max(0, (data?.page ?? 1) - 1),
+    items: data?.rows,
+    total: data?.total,
+    resetKey: data?.query ?? "",
+    getKey: (row) => row.index,
+    isSuccess: result.isSuccess && !busy,
+    pageSize: data?.pageSize,
+  });
   const symbols = [
-    ...new Set(
-      data?.rows.flatMap((row) => (row.symbol ? [row.symbol] : [])) ?? [],
-    ),
+    ...new Set(batches.rows.flatMap((row) => (row.symbol ? [row.symbol] : []))),
   ];
   function exportResult() {
     if (!data) return;
@@ -105,39 +121,16 @@ export function OnlineScreen({
               disabled={!symbols.length}
               onClick={() => onImport(symbols)}
             >
-              本页 {symbols.length} 只填入本地池
+              已加载 {symbols.length} 只填入本地池
             </Button>
             <Button variant="ghost" onClick={exportResult}>
               导出本页与来源
-            </Button>
-            <Button
-              variant="ghost"
-              disabled={data.page <= 1}
-              onClick={() =>
-                submit.mutate({ query: data.query, page: data.page - 1 })
-              }
-            >
-              上一页
-            </Button>
-            <span>
-              第 {data.page} /{" "}
-              {Math.max(1, Math.ceil(data.total / data.pageSize))} 页 · 服务返回{" "}
-              {data.total} 条
-            </span>
-            <Button
-              variant="ghost"
-              disabled={data.page * data.pageSize >= data.total}
-              onClick={() =>
-                submit.mutate({ query: data.query, page: data.page + 1 })
-              }
-            >
-              下一页
             </Button>
           </div>
           <div className="table-wrap">
             <DataTable
               label="在线筛选结果"
-              data={data.rows}
+              data={batches.rows}
               columns={[
                 {
                   id: "column-0",
@@ -163,15 +156,11 @@ export function OnlineScreen({
                       <>
                         {row.symbol ? (
                           <>
-                            {data.localCoverage.find(
-                              (c) => c.symbol === row.symbol,
-                            )?.day
+                            {coverageMap.current.get(row.symbol)?.day
                               ? "已索引日线"
                               : "未索引日线"}{" "}
                             /{" "}
-                            {data.localCoverage.find(
-                              (c) => c.symbol === row.symbol,
-                            )?.minute
+                            {coverageMap.current.get(row.symbol)?.minute
                               ? "已索引分钟线"
                               : "未索引分钟线"}
                           </>
@@ -203,12 +192,18 @@ export function OnlineScreen({
                 })),
               ]}
               getRowId={(row) => String(row.index)}
-              rowCount={data.total}
-              pagination={{ pageIndex: data.page - 1, pageSize: data.pageSize }}
+              rowCount={batches.total}
+              pagination={{ pageIndex: 0, pageSize: data.pageSize }}
               sorting={[]}
               onPaginationChange={() => {}}
               onSortingChange={() => {}}
               showPagination={false}
+              infiniteScroll={{
+                hasMore: batches.hasMore,
+                loadingMore: busy,
+                onLoadMore: () =>
+                  submit.mutate({ query: data.query, page: data.page + 1 }),
+              }}
               emptyMessage={null}
             />
           </div>

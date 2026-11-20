@@ -440,29 +440,23 @@ it("keeps shared form labels, empty state and archived calendar evidence visible
   expect(evidence).toContain("来源指纹：未记录");
 });
 
-it("preserves the 50-result paging boundary and changes to the neighboring page", () => {
+it("preserves the 50-result paging boundary and loads the next batch continuously", () => {
   const onChange = vi.fn();
-  const first = ResultPager({ page: 0, count: 51, onChange });
-  const last = ResultPager({ page: 1, count: 51, onChange });
-  const control = (view: ReactElement, label: string) => {
-    const button = descendants(view).find(
-      ({ props }) => props.children === label,
-    );
-    return button?.props as
-      { disabled?: boolean; onClick: () => void } | undefined;
-  };
-  expect(render(first)).toContain("第 1 / 2 页 · 51 条");
-  expect(render(last)).toContain("第 2 / 2 页 · 51 条");
-  expect(control(first, "上一页")?.disabled).toBe(true);
-  expect(control(last, "下一页")?.disabled).toBe(true);
-  expect(control(first, "下一页")?.disabled).toBe(false);
-  expect(control(last, "上一页")?.disabled).toBe(false);
-  control(first, "下一页")!.onClick();
-  control(last, "上一页")!.onClick();
-  expect(onChange.mock.calls).toEqual([[1], [0]]);
-  expect(
-    control(ResultPager({ page: 0, count: 50, onChange }), "下一页")?.disabled,
-  ).toBe(true);
+  const firstHtml = render(
+    createElement(ResultPager, { page: 0, count: 51, onChange }),
+  );
+  const lastHtml = render(
+    createElement(ResultPager, { page: 1, count: 51, onChange }),
+  );
+  const exactHtml = render(
+    createElement(ResultPager, { page: 0, count: 50, onChange }),
+  );
+  expect(firstHtml).toContain("已加载 50 / 共 51 条");
+  expect(firstHtml).toContain("加载更多");
+  expect(lastHtml).toContain("已加载 51 / 共 51 条");
+  expect(lastHtml).not.toContain("加载更多");
+  expect(exactHtml).toContain("已加载 50 / 共 50 条");
+  expect(exactHtml).not.toContain("加载更多");
 });
 
 it("keeps historical strategy parameters editable with the deprecation disclosure", () => {

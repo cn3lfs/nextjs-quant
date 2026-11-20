@@ -40,6 +40,7 @@ const localReads = new Set([
   "accountMonthlyReview",
   "accountReviewSettings",
   "status",
+  "watchlistGroups",
   "securityNames",
   "jobs",
   "job",
@@ -97,6 +98,7 @@ const localReads = new Set([
   "clsReviewReportPage",
   "clsReviewSummary",
   "clsReviewSchedule",
+  "clsReportForwardReturns",
   "deliveryBatchPage",
   "tradeWorkspaceEnvironment",
   "tradeWorkspacePage",
@@ -178,6 +180,8 @@ const localReads = new Set([
 ]);
 const externalReads = new Set([
   "tdxQuotes",
+  "overviewQuotes",
+  "liveMarketBreadth",
   "tdxMinutes",
   "futuresQuotes",
   "macroRates",

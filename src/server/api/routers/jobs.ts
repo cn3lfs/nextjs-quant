@@ -7,6 +7,27 @@ import { readJob, maBaselineHistory } from "../../db/jobs";
 import { recentRuntimeErrors } from "../../infra/runtime-errors";
 import { taskEvidence } from "../../db/task-evidence";
 import { marketSourceSchema } from "~/lib/market/market-source";
+import {
+  DEFAULT_WATCHLIST_SYMBOLS,
+  MAX_WATCHLIST_SYMBOLS_PER_GROUP,
+  watchlistGroupAddSymbolsSchema,
+  watchlistGroupCreateSchema,
+  watchlistGroupDeleteSchema,
+  watchlistGroupRemoveSymbolSchema,
+  watchlistGroupRenameSchema,
+  watchlistGroupSetSymbolsSchema,
+} from "~/lib/market/watchlist-groups";
+import {
+  addSymbolsToWatchlistGroup,
+  createWatchlistGroup,
+  deleteWatchlistGroup,
+  listWatchlistGroups,
+  pinSymbolToWatchlistGroup,
+  removeSymbolFromWatchlistGroup,
+  renameWatchlistGroup,
+  setWatchlistGroupSymbols,
+  syncLegacyWatchlistToDefault,
+} from "../../market/watchlist-groups";
 import { chartSymbolSchema } from "~/lib/chart/chart-symbol";
 import { futuresQuotes } from "../../market/futures-chart";
 import { futuresSourceSchema } from "~/lib/market/futures";
@@ -141,11 +162,7 @@ export const jobsRouter = createTRPCRouter({
         claude: Boolean(findCli("claude")),
       },
       mcp: await mcpConfigured(),
-      watchlist: get<string[]>("watchlist") ?? [
-        "sh600519",
-        "sz000001",
-        "sz300750",
-      ],
+      watchlist: get<string[]>("watchlist") ?? [...DEFAULT_WATCHLIST_SYMBOLS],
       now: Date.now(),
     };
   }),
@@ -188,10 +205,30 @@ export const jobsRouter = createTRPCRouter({
     };
   }),
   watchlist: p("market", "configure")
-    .input(z.array(symbolSchema).max(100))
-    .mutation(({ input }) =>
-      put("watchlist", "watchlist", [...new Set(input)]),
-    ),
+    .input(z.array(symbolSchema).max(MAX_WATCHLIST_SYMBOLS_PER_GROUP))
+    .mutation(({ input }) => syncLegacyWatchlistToDefault(input)),
+  watchlistGroups: p("market", "read").query(() => listWatchlistGroups()),
+  watchlistGroupCreate: p("market", "configure")
+    .input(watchlistGroupCreateSchema)
+    .mutation(({ input }) => createWatchlistGroup(input)),
+  watchlistGroupRename: p("market", "configure")
+    .input(watchlistGroupRenameSchema)
+    .mutation(({ input }) => renameWatchlistGroup(input)),
+  watchlistGroupDelete: p("market", "configure")
+    .input(watchlistGroupDeleteSchema)
+    .mutation(({ input }) => deleteWatchlistGroup(input)),
+  watchlistGroupSetSymbols: p("market", "configure")
+    .input(watchlistGroupSetSymbolsSchema)
+    .mutation(({ input }) => setWatchlistGroupSymbols(input)),
+  watchlistGroupAddSymbols: p("market", "configure")
+    .input(watchlistGroupAddSymbolsSchema)
+    .mutation(({ input }) => addSymbolsToWatchlistGroup(input)),
+  watchlistGroupRemoveSymbol: p("market", "configure")
+    .input(watchlistGroupRemoveSymbolSchema)
+    .mutation(({ input }) => removeSymbolFromWatchlistGroup(input)),
+  watchlistGroupPinSymbol: p("market", "configure")
+    .input(watchlistGroupRemoveSymbolSchema)
+    .mutation(({ input }) => pinSymbolToWatchlistGroup(input)),
   dividendSchedule: p("financial", "compute")
     .input(
       z.object({

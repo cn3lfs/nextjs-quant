@@ -144,9 +144,23 @@ export function CommandPalette({
       {
         id: "action:data",
         group: "快捷动作",
-        label: "前往数据源与备份",
-        keywords: "数据源 备份 扫描 设置 data source",
+        label: "前往数据源设置",
+        keywords: "数据源 扫描 设置 data source",
         run: () => go("/system"),
+      },
+      {
+        id: "action:push",
+        group: "快捷动作",
+        label: "前往信号推送",
+        keywords: "推送 飞书 钉钉 微信 telegram discord push",
+        run: () => go("/system/push"),
+      },
+      {
+        id: "action:risk",
+        group: "快捷动作",
+        label: "前往仓位与风控",
+        keywords: "分仓 仓位 风控 限额 risk allocation",
+        run: () => go("/accounts/risk"),
       },
       {
         id: "action:alerts",
@@ -231,7 +245,7 @@ export function CommandPalette({
     if (!searchReady || securities.isPending) return "正在搜索本机标的…";
     if (securities.isError) return "本机标的搜索失败，请稍后重试";
     if (securities.data?.ready === false) {
-      return "本机证券目录未就绪，请先在数据源与备份执行扫描";
+      return "本机证券目录未就绪，请先在数据源设置执行扫描";
     }
     if (!term) return "输入证券代码、名称或拼音首字母";
     if (!securityItems.length) return "未找到匹配的本机标的";

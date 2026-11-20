@@ -4,7 +4,7 @@ import { useTaskVisible } from "./use-task-visible";
 import { Button } from "../ui/button";
 
 export function SettingsPanel(
-  props: Pick<Parameters<typeof Connections>[0], "notify">,
+  props: Pick<Parameters<typeof Connections>[0], "notify" | "scope">,
 ) {
   const visible = useTaskVisible();
   const status = api.status.useQuery(undefined, {

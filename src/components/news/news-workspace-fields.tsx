@@ -78,40 +78,6 @@ export function NewsError({
     </div>
   ) : null;
 }
-export function NewsPaging({
-  label,
-  page,
-  total,
-  next,
-  busy,
-  onPrevious,
-  onNext,
-}: {
-  label: string;
-  page: number;
-  total: number;
-  next: boolean;
-  busy: boolean;
-  onPrevious: () => void;
-  onNext: () => void;
-}) {
-  return (
-    <nav
-      aria-label={`${label}分页`}
-      className="my-3 flex flex-wrap items-center gap-3 text-sm"
-    >
-      <Button size="sm" disabled={page === 1 || busy} onClick={onPrevious}>
-        上一页{label}
-      </Button>
-      <span>
-        {total}条 · 第{page}页
-      </span>
-      <Button size="sm" disabled={!next || busy} onClick={onNext}>
-        下一页{label}
-      </Button>
-    </nav>
-  );
-}
 export function rememberNews(key: string, value: unknown) {
   try {
     sessionStorage.setItem(key, JSON.stringify(value));

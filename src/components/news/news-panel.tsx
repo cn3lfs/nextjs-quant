@@ -10,19 +10,21 @@ import type { NewsArchiveOption } from "~/lib/news/news-archives";
 import {
   FilterGroup,
   FilterToolbar,
-  MethodologyPopover,
   PageGrid,
   Panel,
   Segmented,
 } from "../panels";
 import { Button } from "../ui/button";
+import {
+  useAccumulatedPages,
+  useIntersectionLoadMore,
+} from "../ui/use-infinite-table";
 import { useTaskVisible } from "../workbench/use-task-visible";
 import { ArchiveText } from "../research/archive-evidence";
 import { useArchiveDownload } from "../research/use-archive-download";
 import {
   NewsArchiveSwitch,
   NewsError,
-  NewsPaging,
   newsTime,
   readNewsMemory,
   rememberNews,
@@ -39,32 +41,7 @@ const initial = () => ({
   query: "",
   historical: true,
 });
-const pageKey = (filter: Filter) => `news-pages:${JSON.stringify(filter)}`;
-const newsMethodology = [
-  {
-    label: "查询范围",
-    detail:
-      "时间均为北京时间。默认以当前时间为截止、回看前七天；关键词匹配标题和完整正文。",
-  },
-  {
-    label: "截止时已采集",
-    detail:
-      "勾选后只显示截止时间之前已经采集入库的新闻；取消勾选会包含截止之后补采的新闻。",
-  },
-  {
-    label: "档案边界",
-    detail:
-      "主档案可提交模型分析；互补档案仅供阅读与打开原文，不提交模型分析。",
-  },
-  {
-    label: "空结果",
-    detail: "所选范围没有新闻，不代表该时期没有事件。",
-  },
-  {
-    label: "模型解读",
-    detail: "模型分类与影响解读不代表实际涨跌。",
-  },
-] as const;
+const newsRowKey = (item: { id: number }) => item.id;
 export function NewsPanel() {
   const visible = useTaskVisible(),
     utils = api.useUtils();
@@ -105,19 +82,7 @@ export function NewsPanel() {
           query: value.query,
           historical: value.historical,
         });
-        const saved = readNewsMemory(pageKey(value));
-        setPages(
-          Array.isArray(saved) &&
-            saved.length &&
-            saved.length <= 1000 &&
-            saved.every(
-              (cursor) =>
-                cursor == null ||
-                newsWorkspaceSchema.safeParse({ ...value, cursor }).success,
-            )
-            ? saved.map((cursor) => cursor ?? undefined)
-            : [undefined],
-        );
+        setPages([undefined]);
         const id = url.searchParams.get("newsId"),
           source = url.searchParams.get("newsSource");
         if (
@@ -297,7 +262,6 @@ export function NewsPanel() {
       historical: parsed.data.historical,
     });
     setPages([undefined]);
-    rememberNews(pageKey(parsed.data), [null]);
     setError("");
     urlSelection(null, null, "news", parsed.data);
     if (unchanged) void news.refetch();
@@ -315,18 +279,37 @@ export function NewsPanel() {
     };
     setFilter(next);
     setPages([undefined]);
-    rememberNews(pageKey(next), [null]);
     setError("");
     urlSelection(null, null, "news", next);
-  }
-  function move(next: Cursor[]) {
-    setPages(next);
-    rememberNews(pageKey(filter), next);
   }
   const dirty =
     draft.query.trim() !== filter.query ||
     draft.historical !== filter.historical ||
     draft.until !== localInput(filter.cutoff);
+  const newsResult = news.isSuccess ? news.data : undefined;
+  const batches = useAccumulatedPages({
+    resetKey: JSON.stringify(filter),
+    pageIndex: pages.length - 1,
+    items: newsResult?.items,
+    total: newsResult?.total,
+    getKey: newsRowKey,
+  });
+  const [requestingMore, setRequestingMore] = useState(false);
+  useEffect(() => {
+    if (!news.isFetching) setRequestingMore(false);
+  }, [news.isFetching]);
+  function loadMore() {
+    const cursor = news.data?.nextCursor;
+    if (!cursor || !batches.hasMore || news.isFetching || requestingMore)
+      return;
+    setRequestingMore(true);
+    setPages((value) => [...value, cursor]);
+  }
+  const sentinel = useIntersectionLoadMore({
+    enabled: visible && ready && batches.hasMore && !news.error,
+    loading: news.isFetching,
+    onLoadMore: loadMore,
+  });
   // The route is prerendered. Current time and URL/session state only become
   // authoritative after mount; never hydrate a build-time date as today's date.
   if (!ready)
@@ -339,10 +322,7 @@ export function NewsPanel() {
     );
   return (
     <PageGrid>
-      <Panel
-        title="新闻存档与分析"
-        note="本地只读存档，不保证实时或完整。发布时间与采集时间分别保留；模型解读不代表实际涨跌。"
-      >
+      <Panel title="新闻存档与分析" note="本地只读存档。">
         <Segmented
           label="新闻工作区"
           value={tab}
@@ -482,12 +462,6 @@ export function NewsPanel() {
                   刷新至当前时间
                 </Button>
               </form>
-              <div className="ml-auto shrink-0">
-                <MethodologyPopover
-                  title="新闻检索口径"
-                  items={newsMethodology}
-                />
-              </div>
             </FilterToolbar>
             <div className="flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1 rounded border border-nc-border bg-nc-card px-2.5 py-1 text-xs text-nc-text-3">
               {archives && (
@@ -520,11 +494,7 @@ export function NewsPanel() {
           </div>
           <Panel
             title="新闻列表"
-            note={
-              complementSelected
-                ? "当前为互补档案，仅供阅读与打开原文；模型分析仍使用设置中的主档案。"
-                : undefined
-            }
+            note={complementSelected ? "互补档案仅供阅读。" : undefined}
             meta={
               news.data
                 ? `${selectedArchive ? `${selectedArchive.primary ? "主档案" : "互补档案"} · ${selectedArchive.label} · ` : ""}匹配 ${news.data.total} 条 · 库中最新发布 ${newsTime(news.data.latestPublishedAt)}${news.isFetching ? " · 更新中" : ""}`
@@ -534,7 +504,7 @@ export function NewsPanel() {
             {news.isLoading && <p>正在读取新闻…</p>}
             {news.data?.total === 0 && <p>所选范围没有新闻。</p>}
             <div className="space-y-2">
-              {news.data?.items.map((item) => (
+              {batches.rows.map((item) => (
                 <article
                   key={item.id}
                   className="rounded border border-nc-border p-3 text-sm"
@@ -569,17 +539,18 @@ export function NewsPanel() {
                 </article>
               ))}
             </div>
-            <NewsPaging
-              label="新闻"
-              page={pages.length}
-              total={news.data?.total ?? 0}
-              next={!!news.data?.nextCursor}
-              busy={news.isFetching}
-              onPrevious={() => move(pages.slice(0, -1))}
-              onNext={() =>
-                news.data?.nextCursor && move([...pages, news.data.nextCursor])
-              }
-            />
+            {batches.hasMore && (
+              <div ref={sentinel} className="py-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={news.isFetching || requestingMore}
+                  onClick={loadMore}
+                >
+                  {news.isFetching || requestingMore ? "加载中…" : "加载更多"}
+                </Button>
+              </div>
+            )}
             <div className="flex flex-wrap items-end gap-3">
               <label>
                 分析范围
@@ -616,7 +587,7 @@ export function NewsPanel() {
                   busy ||
                   dirty ||
                   news.isFetching ||
-                  !news.data?.items.length ||
+                  !batches.rows.length ||
                   !!news.error ||
                   !context.data ||
                   !!context.error
@@ -647,16 +618,16 @@ export function NewsPanel() {
             </div>
             {complementSelected ? (
               <p className="mt-2 text-sm">
-                互补档案不提交模型分析；如需分析，请切换到主档案，或在设置中调整主档案。
+                互补档案仅供阅读；模型分析请切换到主档案。
               </p>
             ) : (
               <p className="mt-2 text-sm">
                 模型：{context.data?.model ?? "读取中"} · 匹配
                 {news.data?.total ?? 0}条 · 将选择
                 {scope === "page"
-                  ? (news.data?.items.length ?? 0)
+                  ? batches.rows.length
                   : Math.min(maxItems, news.data?.total ?? 0)}
-                条。每25条保存成功批次；模型每条最多读取2000字符，完整原文保留。
+                条。
               </p>
             )}
             <NewsError
@@ -713,12 +684,6 @@ function Original({
             </p>
           )}
           <ArchiveText text={query.data.item.content} />
-          <details>
-            <summary className="cursor-pointer text-sm text-nc-text-3">
-              原文指纹
-            </summary>
-            <p className="mt-2 break-all">{query.data.item.hash}</p>
-          </details>
           {query.data.item.url && (
             <a href={query.data.item.url} target="_blank" rel="noreferrer">
               查看来源网页

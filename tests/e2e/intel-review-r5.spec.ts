@@ -75,17 +75,18 @@ test("新闻情报 R5：跨报告日锚点、真实核对回执与证据身份�
   const day = prices.locator('input[type="date"]');
   const params = () => new URL(page.url()).searchParams;
 
-  // A. Title filter, second page, and an explicit cross-report day jump.
+  // A. Title filter, infinite load, and an explicit cross-report day jump.
   await page.locator("#cls-report-title").fill("合成报告");
   await list.getByRole("button", { name: "查询报告", exact: true }).click();
   await expect(list.getByText(/已应用：合成报告/)).toBeVisible();
-  await list.getByRole("button", { name: "下一页", exact: true }).click();
-  await expect(list.getByText("第 2 页", { exact: true })).toBeVisible();
+  await list.getByRole("button", { name: "加载更多", exact: true }).click();
+  await expect(
+    list.getByRole("button", { name: /^合成报告 1 · 版本2/ }),
+  ).toBeVisible();
   await list.getByRole("button", { name: /^合成报告 1 · 版本2/ }).click();
   await expect(page.getByRole("heading", { name: title(1) })).toBeVisible();
-  await page
-    .getByRole("button", { name: "固定样本与价格观察", exact: true })
-    .click();
+  await page.getByRole("button", { name: "管理", exact: true }).click();
+  await prices.locator("summary").click();
   // The report's own sample is selected first; wait for it so the automatic
   // default cannot overwrite the explicit day typed below.
   await expect(day).toHaveValue("2020-01-02");
@@ -116,7 +117,9 @@ test("新闻情报 R5：跨报告日锚点、真实核对回执与证据身份�
     prices.getByText("归属：另一报告", { exact: true }),
   ).toBeVisible();
   await expect(list.getByText(/已应用：合成报告/)).toBeVisible();
-  await expect(list.getByText("第 2 页", { exact: true })).toBeVisible();
+  await expect(
+    list.getByRole("button", { name: /^合成报告 1 · 版本2/ }),
+  ).toBeVisible();
   expect(params().get("clsReport")).toBe(report(1));
   expect(params().get("clsSample")).toBe("2020-01-01");
   await page.goForward();

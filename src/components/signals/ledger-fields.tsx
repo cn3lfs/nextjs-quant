@@ -10,6 +10,7 @@ import {
   SelectItem,
 } from "../ui/select";
 import { Button } from "../ui/button";
+import { useIntersectionLoadMore } from "../ui/use-infinite-table";
 export const ledgerStrategyName = (value: string) =>
   value === "czsc" ? "缠论" : "双突破";
 export const ledgerRunLabels = {
@@ -78,7 +79,6 @@ export function LedgerPaging({
   page,
   next,
   busy,
-  onPrevious,
   onNext,
   label = "记录",
   total,
@@ -86,25 +86,30 @@ export function LedgerPaging({
   page: number;
   next: boolean;
   busy: boolean;
-  onPrevious: () => void;
+  onPrevious?: () => void;
   onNext: () => void;
   label?: string;
   total: number;
 }) {
+  const sentinel = useIntersectionLoadMore({
+    enabled: next,
+    loading: busy,
+    onLoadMore: onNext,
+  });
   return (
     <nav
       aria-label={`${label}分页`}
       className="mt-3 flex flex-wrap items-center gap-3 text-xs"
     >
-      <Button size="sm" disabled={page <= 1 || busy} onClick={onPrevious}>
-        上一页{label}
-      </Button>
-      <span>
-        {total}条{label} · 第{page}页 · 每页20条
+      <div ref={sentinel} aria-hidden="true" className="h-px w-full" />
+      <span className="text-nc-text-3">
+        已加载 {Math.min(page * 20, total)} / 共 {total} 条{label}
       </span>
-      <Button size="sm" disabled={!next || busy} onClick={onNext}>
-        下一页{label}
-      </Button>
+      {next && (
+        <Button size="sm" variant="outline" disabled={busy} onClick={onNext}>
+          {busy ? "加载中…" : `加载更多${label}`}
+        </Button>
+      )}
     </nav>
   );
 }

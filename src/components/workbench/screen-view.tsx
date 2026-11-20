@@ -2,9 +2,10 @@ import { formatEvidenceText } from "~/lib/common/evidence-text";
 import { formatNumber } from "trading-strategy-core/format-number";
 import { PanelVisibility, usePanelVisible } from "./keep-alive";
 import { ResearchUsageContainer } from "~/components/research/research-usage-container";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DataTable } from "~/components/ui/data-table";
+import { useAccumulatedPages } from "~/components/ui/use-infinite-table";
 import { Input } from "~/components/ui/input";
 import {
   Select,
@@ -13,7 +14,16 @@ import {
   SelectContent,
   SelectItem,
 } from "~/components/ui/select";
-import { ArrowUpRight } from "@phosphor-icons/react/ssr";
+import {
+  ArrowUpRight,
+  DownloadSimple,
+  ListDashes,
+  Plus,
+} from "@phosphor-icons/react/ssr";
+import {
+  MAX_WATCHLIST_SYMBOLS_PER_GROUP,
+  type WatchlistGroup,
+} from "~/lib/market/watchlist-groups";
 import { screenSortLabels, type ScreenSort } from "~/lib/screening/screen-sort";
 import {
   currentScreenCandidateIndex,
@@ -36,7 +46,6 @@ import { FormulaScreen } from "../screening/formula-screen";
 import { FactorEvaluationPanel } from "../research/factor-evaluation-panel";
 import { ScreenTaskProgress } from "../screening/screen-task-progress";
 import { Button } from "../ui/button";
-import { DownloadSimple, ListDashes } from "@phosphor-icons/react/ssr";
 import {
   FilterDivider,
   FilterGroup,
@@ -78,6 +87,7 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
     setScreenDirection,
     names,
     utils,
+    notify,
     screenJob,
     screenId,
     selectedScreen,
@@ -142,6 +152,76 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
           candidates: screenResult.candidates,
         })
       : "";
+  const candidateResetKey = JSON.stringify([
+    screenJob?.id ?? "",
+    screenJob?.updatedAt ?? 0,
+    screenQuery,
+    screenSort,
+    screenDirection,
+  ]);
+  const candidateBatches = useAccumulatedPages({
+    pageIndex: screenPage,
+    items: screenResult?.candidates,
+    total: screenResult?.count,
+    resetKey: candidateResetKey,
+    getKey: (c) => String(c.symbol),
+    isSuccess:
+      !!screenResult && !pageQuery.isFetching && !screened.isPlaceholderData,
+  });
+  const candidates = candidateBatches.rows;
+  // Watchlist groups arrive through the workspace utils so this view stays
+  // renderable without a tRPC provider (and keeps the existing props contract).
+  const groupUtils = state.utils;
+  const [watchlistGroups, setWatchlistGroups] = useState<{
+    groups: WatchlistGroup[];
+    defaultGroupId: string;
+  }>({ groups: [], defaultGroupId: "" });
+  const [targetGroupId, setTargetGroupId] = useState("");
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [saveMode, setSaveMode] = useState<"existing" | "new">("existing");
+  const [newGroupName, setNewGroupName] = useState("");
+  const [savingWatchlist, setSavingWatchlist] = useState(false);
+  const groups = watchlistGroups.groups;
+  const targetGroup =
+    groups.find((group) => group.id === targetGroupId) ??
+    groups.find((group) => group.id === watchlistGroups.defaultGroupId) ??
+    groups[0] ??
+    null;
+  const reloadGroups = useCallback(async () => {
+    if (!groupUtils?.watchlistGroups?.fetch) return;
+    try {
+      const next = await groupUtils.watchlistGroups.fetch(undefined);
+      setWatchlistGroups({
+        groups: next.groups,
+        defaultGroupId: next.defaultGroupId,
+      });
+    } catch {
+      // Keep the last successful list; screening itself stays usable.
+    }
+  }, [groupUtils]);
+  useEffect(() => {
+    if (visible) void reloadGroups();
+  }, [visible, reloadGroups]);
+  async function runWatchlistAction(
+    action: () => Promise<{ message: string }>,
+  ) {
+    if (!groupUtils?.client) return;
+    setSavingWatchlist(true);
+    try {
+      const { message } = await action();
+      notify(message);
+      setSaveOpen(false);
+      setNewGroupName("");
+      setSaveMode("existing");
+      void groupUtils.status?.invalidate?.();
+      void groupUtils.watchlistGroups?.invalidate?.();
+      await reloadGroups();
+    } catch (error) {
+      notify(error instanceof Error ? error.message : String(error));
+    } finally {
+      setSavingWatchlist(false);
+    }
+  }
   const confirmed = useRef<{
     key: string;
     content: string;
@@ -150,7 +230,7 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
   confirmed.current = {
     key: pageUnavailable ? "" : pageKey,
     content: pageUnavailable ? "" : monitorContent,
-    candidates: pageUnavailable ? [] : (screenResult?.candidates ?? []),
+    candidates: pageUnavailable ? [] : candidates,
   };
   const attempts = useRef(0);
   const [opening, setOpening] = useState<ScreenCandidateIdentity | null>(null);
@@ -158,7 +238,6 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
     candidate: ScreenCandidateIdentity;
     message: string;
   } | null>(null);
-  const candidates = screenResult?.candidates ?? [];
   const candidateIndex = currentScreenCandidateIndex(candidates, urlCandidate);
   // Neighbours may only step this task's own frozen candidate. A URL frozen by
   // another task still allows re-opening a row of the confirmed page.
@@ -541,32 +620,9 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
                 </FilterGroup>
                 <FilterDivider />
                 <FilterGroup>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    aria-label="上一页"
-                    disabled={screenPage === 0 || screened.isFetching}
-                    onClick={() => setScreenPage(screenPage - 1)}
-                  >
-                    ‹
-                  </Button>
-                  <span className="whitespace-nowrap text-xs tabular-nums">
-                    第 {screenPage + 1}/
-                    {Math.max(1, Math.ceil(screenResult.count / 50))} 页 ·{" "}
-                    {screenResult.count} 条
+                  <span className="whitespace-nowrap text-xs tabular-nums text-nc-text-3">
+                    已加载 {candidates.length} / {screenResult.count} 条
                   </span>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    aria-label="下一页"
-                    disabled={
-                      (screenPage + 1) * 50 >= screenResult.count ||
-                      screened.isFetching
-                    }
-                    onClick={() => setScreenPage(screenPage + 1)}
-                  >
-                    ›
-                  </Button>
                 </FilterGroup>
                 <FilterDivider />
                 <FilterGroup>
@@ -674,7 +730,7 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
                             ))}
                           </ul>
                           <p className="text-xs text-nc-text-3">
-                            打开后是未保存的监控草稿，不会自动启用；请在信号页选择策略与渠道后自行保存。
+                            打开后为未保存草稿，需在信号页确认保存。
                           </p>
                           <Button
                             size="sm"
@@ -686,6 +742,120 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
                         </div>
                       </PopoverContent>
                     )}
+                  </PanelPopover>
+                )}
+                {candidates.length > 0 && (
+                  <PanelPopover open={saveOpen} onOpenChange={setSaveOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        保存到自选
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent aria-label="保存到自选">
+                      <div className="w-64 space-y-2.5 text-xs">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={
+                              saveMode === "existing" ? "default" : "outline"
+                            }
+                            onClick={() => setSaveMode("existing")}
+                          >
+                            已有列表
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={saveMode === "new" ? "default" : "outline"}
+                            onClick={() => setSaveMode("new")}
+                          >
+                            新建自选列表并保存
+                          </Button>
+                        </div>
+                        {saveMode === "existing" ? (
+                          groups.length > 0 && targetGroup ? (
+                            <Select
+                              value={targetGroup.id}
+                              onValueChange={setTargetGroupId}
+                            >
+                              <SelectTrigger
+                                size="sm"
+                                aria-label="选择目标自选列表"
+                                className="w-full"
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {groups.map((g) => (
+                                  <SelectItem key={g.id} value={g.id}>
+                                    {g.name} ({g.symbols.length})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <p className="text-nc-text-3">正在读取自选列表…</p>
+                          )
+                        ) : (
+                          <Input
+                            aria-label="新自选列表名称"
+                            placeholder="输入新自选列表名称"
+                            value={newGroupName}
+                            onChange={(e) => setNewGroupName(e.target.value)}
+                          />
+                        )}
+                        <p className="text-nc-text-3">
+                          将保存当前已加载的 {candidates.length} 只候选标的
+                        </p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="w-full"
+                          disabled={
+                            savingWatchlist ||
+                            (saveMode === "existing"
+                              ? !targetGroup
+                              : !newGroupName.trim())
+                          }
+                          onClick={() => {
+                            const client = groupUtils?.client;
+                            if (!client) return;
+                            const symbols = [
+                              ...new Set(candidates.map((c) => c.symbol)),
+                            ].slice(0, MAX_WATCHLIST_SYMBOLS_PER_GROUP);
+                            if (saveMode === "new") {
+                              const name = newGroupName.trim();
+                              void runWatchlistAction(async () => {
+                                const result =
+                                  await client.watchlistGroupCreate.mutate({
+                                    name,
+                                    symbols,
+                                  });
+                                setTargetGroupId(result.group.id);
+                                return {
+                                  message: `已加入 ${result.group.symbols.length} 只到「${result.group.name}」`,
+                                };
+                              });
+                            } else if (targetGroup) {
+                              const group = targetGroup;
+                              void runWatchlistAction(async () => {
+                                const result =
+                                  await client.watchlistGroupAddSymbols.mutate({
+                                    groupId: group.id,
+                                    symbols,
+                                  });
+                                return {
+                                  message: `已加入 ${result.addedCount} 只到「${result.group.name}」`,
+                                };
+                              });
+                            }
+                          }}
+                        >
+                          {savingWatchlist ? "保存中…" : "确认保存"}
+                        </Button>
+                      </div>
+                    </PopoverContent>
                   </PanelPopover>
                 )}
                 <Button
@@ -715,11 +885,7 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
                 </div>
               )}
               {screened.isFetching && !firstScreenPage && (
-                <p role="status">
-                  {screened.isPlaceholderData
-                    ? "正在更新查询，表格暂时保留上次结果，请等待更新完成。"
-                    : "正在更新候选结果…"}
-                </p>
+                <p role="status">正在更新…</p>
               )}
               <div
                 className="table-wrap"
@@ -727,7 +893,7 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
               >
                 <DataTable
                   label="候选结果"
-                  data={screenResult.candidates}
+                  data={candidates}
                   columns={[
                     {
                       id: "column-0",
@@ -804,8 +970,42 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
                       enableSorting: false,
                       cell: ({ row }) => {
                         const c = row.original;
+                        const inWatchlist =
+                          targetGroup?.symbols.includes(c.symbol) ?? false;
+                        const client = groupUtils?.client;
                         return (
-                          <>
+                          <div className="flex items-center justify-end gap-1">
+                            {targetGroup && client && (
+                              <Button
+                                size="sm"
+                                variant={inWatchlist ? "ghost" : "outline"}
+                                disabled={inWatchlist || savingWatchlist}
+                                onClick={() => {
+                                  const group = targetGroup;
+                                  void runWatchlistAction(async () => {
+                                    const result =
+                                      await client.watchlistGroupAddSymbols.mutate(
+                                        {
+                                          groupId: group.id,
+                                          symbols: [c.symbol],
+                                        },
+                                      );
+                                    return {
+                                      message: `已加入「${result.group.name}」`,
+                                    };
+                                  });
+                                }}
+                              >
+                                {inWatchlist ? (
+                                  "已自选"
+                                ) : (
+                                  <>
+                                    <Plus size={12} />
+                                    自选
+                                  </>
+                                )}
+                              </Button>
+                            )}
                             <Button
                               size="sm"
                               variant="ghost"
@@ -814,14 +1014,18 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
                             >
                               个股研究 <ArrowUpRight size={13} />
                             </Button>
-                          </>
+                          </div>
                         );
                       },
                     },
                   ]}
                   getRowId={(c) => String(c.symbol)}
                   rowCount={screenResult.count}
-                  pagination={{ pageIndex: screenPage, pageSize: 50 }}
+                  infiniteScroll={{
+                    hasMore: candidateBatches.hasMore,
+                    loadingMore: pageQuery.isFetching,
+                    onLoadMore: () => setScreenPage(screenPage + 1),
+                  }}
                   sorting={
                     screenSort === "original"
                       ? []
@@ -946,7 +1150,7 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
           ) : (
             screenJob?.status !== "completed" && (
               <Empty>
-                运行公式筛选，结果会附带数据时间。公式计算不会自动生成分析、通知或交易。
+                运行公式筛选查看候选结果；不会自动生成分析、通知或交易。
               </Empty>
             )
           )}

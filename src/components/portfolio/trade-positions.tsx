@@ -8,6 +8,10 @@ import { feeLabel } from "~/lib/portfolio/trade-ledger";
 import type { TradePositionStatus } from "~/lib/portfolio/trade-workspace";
 import { Button } from "../ui/button";
 import {
+  useAccumulatedPages,
+  useIntersectionLoadMore,
+} from "../ui/use-infinite-table";
+import {
   TradeError,
   TradeInputField,
   tradeNumber,
@@ -25,6 +29,7 @@ export function TradePositions({
   error,
   page,
   status = "all",
+  query = "",
   onPage,
   onRetry,
   onRelated,
@@ -35,6 +40,7 @@ export function TradePositions({
   error?: string;
   page: number;
   status?: TradePositionStatus;
+  query?: string;
   onPage: (page: number) => void;
   onRetry: () => void;
   onRelated: (symbol: string) => void;
@@ -44,6 +50,20 @@ export function TradePositions({
   const [pending, setPending] = useState<Record<string, boolean>>({});
   const [messages, setMessages] = useState<Record<string, string>>({});
   const inFlight = useRef(new Set<string>());
+  const batches = useAccumulatedPages({
+    pageIndex: page - 1,
+    items: data?.items,
+    total: data?.count,
+    resetKey: JSON.stringify([status, query]),
+    getKey: (p) => p.symbol,
+    isSuccess: !fetching && !error,
+  });
+  const hasMore = Boolean(data?.hasMore);
+  const sentinel = useIntersectionLoadMore({
+    enabled: hasMore && !error,
+    loading: fetching,
+    onLoadMore: () => onPage(page + 1),
+  });
   async function save(symbol: string, value: string) {
     if (inFlight.current.has(symbol)) return;
     inFlight.current.add(symbol);
@@ -90,10 +110,10 @@ export function TradePositions({
           只证券
         </p>
       )}
-      {!fetching && !error && data?.items.length === 0 && (
+      {!fetching && !error && batches.rows.length === 0 && (
         <p>{emptyMessages[status]}</p>
       )}
-      {data?.items.map((p) => (
+      {batches.rows.map((p) => (
         <article
           key={p.symbol}
           className="space-y-3 rounded border border-nc-border-soft p-3"
@@ -182,24 +202,21 @@ export function TradePositions({
           )}
         </article>
       ))}
-      <div className="flex items-center gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={page === 1 || fetching}
-          onClick={() => onPage(page - 1)}
-        >
-          上一页持仓
-        </Button>
-        <span>第{page}页</span>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!data?.hasMore || fetching}
-          onClick={() => onPage(page + 1)}
-        >
-          下一页持仓
-        </Button>
+      <div ref={sentinel} aria-hidden="true" className="h-px" />
+      <div className="flex items-center gap-2 text-xs text-nc-text-3">
+        <span>
+          已加载 {batches.rows.length} / 共 {batches.total} 只
+        </span>
+        {hasMore && (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={fetching}
+            onClick={() => onPage(page + 1)}
+          >
+            {fetching ? "加载中…" : "加载更多持仓"}
+          </Button>
+        )}
       </div>
     </section>
   );

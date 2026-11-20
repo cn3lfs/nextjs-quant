@@ -3,6 +3,7 @@ import { formatEvidenceText } from "~/lib/common/evidence-text";
 
 import { useState } from "react";
 import { Button } from "../ui/button";
+import { useIntersectionLoadMore } from "../ui/use-infinite-table";
 import {
   Select,
   SelectTrigger,
@@ -70,34 +71,28 @@ export function MonitorPages({
   page,
   more,
   busy,
-  previous,
   next,
 }: {
   page: number;
   more: boolean;
   busy: boolean;
-  previous: () => void;
+  previous?: () => void;
   next: () => void;
 }) {
+  const sentinel = useIntersectionLoadMore({
+    enabled: more,
+    loading: busy,
+    onLoadMore: next,
+  });
   return (
-    <div className="flex items-center gap-3 py-3">
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={page <= 1 || busy}
-        onClick={previous}
-      >
-        上一页
-      </Button>
-      <span className="text-sm">第 {page} 页</span>
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={!more || busy}
-        onClick={next}
-      >
-        下一页
-      </Button>
+    <div className="flex flex-wrap items-center gap-3 py-3">
+      <div ref={sentinel} aria-hidden="true" className="h-px w-full" />
+      <span className="text-sm text-nc-text-3">第 {page} 批</span>
+      {more && (
+        <Button variant="outline" size="sm" disabled={busy} onClick={next}>
+          {busy ? "加载中…" : "加载更多"}
+        </Button>
+      )}
     </div>
   );
 }

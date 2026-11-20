@@ -1,40 +1,16 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Article, Lightning } from "@phosphor-icons/react/ssr";
 import { api } from "~/trpc/react";
 import { cn } from "~/lib/common/classnames";
 import { THSDK_NEWS_FLASH_MAX_PAGE } from "~/lib/market/thsdk-extensions";
-import {
-  MethodologyPopover,
-  PageGrid,
-  Panel,
-  PanelEmpty,
-  Pill,
-  toneEdge,
-} from "../panels";
+import { PageGrid, Panel, PanelEmpty, Pill, toneEdge } from "../panels";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { useIntersectionLoadMore } from "../ui/use-infinite-table";
 import { useTaskVisible } from "../workbench/use-task-visible";
 
 const pageSize = 20;
-
-const newsMethodology = [
-  {
-    label: "数据来源",
-    detail:
-      "同花顺 7×24 快讯与个股研报均由 thsdk-hq 返回；标题、摘要与时间按源原样展示，不做本地改写。",
-  },
-  {
-    label: "刷新方式",
-    detail:
-      "只在页面可见且窗口聚焦时读取；翻页与切换标签沿用同一查询，不新建定时刷新。",
-  },
-  {
-    label: "外部链接",
-    detail:
-      "只对 http:// 或 https:// 的原文链接生成跳转；其余协议一律丢弃，不渲染可点击链接。",
-  },
-] as const;
 
 const timeText = (epoch: number | null) =>
   epoch === null
@@ -89,12 +65,63 @@ export function ThsdkNewsPanel() {
     },
   );
 
-  const items = flash.data?.items ?? [];
+  const pageItems = flash.data?.items ?? [];
   const filters = flash.data?.filters ?? [];
   const total = flash.data?.total ?? null;
   const hasNext =
     page < THSDK_NEWS_FLASH_MAX_PAGE &&
-    (total !== null ? page * pageSize < total : items.length >= pageSize);
+    (total !== null ? page * pageSize < total : pageItems.length >= pageSize);
+
+  // Cursor pages accumulate in one continuous feed; switching tags starts over.
+  type FlashRow = NonNullable<typeof flash.data>["items"][number];
+  const [feed, setFeed] = useState<{
+    tag: string | undefined;
+    pages: Record<number, FlashRow[]>;
+  }>({ tag, pages: {} });
+  useEffect(() => {
+    const data = flash.data;
+    if (!data) return;
+    setFeed((prev) =>
+      prev.tag === tag && prev.pages[page] === data.items
+        ? prev
+        : {
+            tag,
+            pages:
+              prev.tag === tag
+                ? { ...prev.pages, [page]: data.items }
+                : { [page]: data.items },
+          },
+    );
+  }, [flash.data, page, tag]);
+  const items = (() => {
+    if (feed.tag !== tag) return [];
+    const seen = new Set<string>();
+    const out: NonNullable<typeof flash.data>["items"] = [];
+    for (const index of Object.keys(feed.pages)
+      .map(Number)
+      .sort((a, b) => a - b)) {
+      for (const item of feed.pages[index] ?? []) {
+        if (seen.has(item.id)) continue;
+        seen.add(item.id);
+        out.push(item);
+      }
+    }
+    return out;
+  })();
+  const [requestingMore, setRequestingMore] = useState(false);
+  useEffect(() => {
+    if (!flash.isFetching) setRequestingMore(false);
+  }, [flash.isFetching]);
+  function loadMore() {
+    if (!hasNext || flash.isFetching || requestingMore) return;
+    setRequestingMore(true);
+    setPage((value) => value + 1);
+  }
+  const sentinel = useIntersectionLoadMore({
+    enabled: hasNext && !flash.error,
+    loading: flash.isFetching,
+    onLoadMore: loadMore,
+  });
 
   function selectTag(next: string | undefined) {
     setTag(next);
@@ -108,24 +135,20 @@ export function ThsdkNewsPanel() {
         icon={Lightning}
         title="同花顺 7×24 快讯"
         meta={
-          flash.data
-            ? `第 ${page} 页 · ${items.length} 条${total === null ? "" : ` / 共 ${total} 条`}`
+          items.length > 0
+            ? `已加载 ${items.length} 条${total === null ? "" : ` / 共 ${total} 条`}`
             : undefined
         }
         actions={
-          <div className="flex flex-wrap items-center gap-1.5">
-            <MethodologyPopover items={newsMethodology} />
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={flash.isFetching}
-              onClick={() => void flash.refetch()}
-            >
-              刷新
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={flash.isFetching}
+            onClick={() => void flash.refetch()}
+          >
+            刷新
+          </Button>
         }
-        note="数据：同花顺 7×24 快讯（thsdk-hq）。重要标记与标签由源提供，只作阅读参考。"
       >
         {flash.error && (
           <p role="alert" className="m-0 mb-2 text-[13px] text-nc-bad">
@@ -162,11 +185,9 @@ export function ThsdkNewsPanel() {
             ))}
           </div>
         )}
-        {!flash.data ? (
+        {!flash.data && items.length === 0 ? (
           <PanelEmpty>
-            {flash.error
-              ? "读取失败；可重试，或回到第 1 页重新读取。"
-              : "正在读取同花顺快讯…"}
+            {flash.error ? "读取失败，可重试。" : "正在读取同花顺快讯…"}
           </PanelEmpty>
         ) : items.length === 0 ? (
           <PanelEmpty>
@@ -209,47 +230,20 @@ export function ThsdkNewsPanel() {
             ))}
           </ul>
         )}
-        <nav
-          aria-label="同花顺快讯分页"
-          className="mt-3 flex flex-wrap items-center justify-between gap-2"
-        >
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={page === 1 || flash.isFetching}
-            onClick={() => setPage((value) => Math.max(1, value - 1))}
-          >
-            上一页
-          </Button>
-          <span className="flex items-center gap-2 text-[11.5px] text-nc-text-3 tabular-nums">
-            第 {page} 页
-            {page > 1 && (
-              <Button
-                variant="plain"
-                size="sm"
-                className="h-6 px-2 text-[11px]!"
-                onClick={() => setPage(1)}
-              >
-                回到第 1 页
-              </Button>
-            )}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!hasNext || flash.isFetching}
-            onClick={() => setPage((value) => value + 1)}
-          >
-            下一页
-          </Button>
-        </nav>
+        {hasNext && (
+          <div ref={sentinel} className="mt-3">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={flash.isFetching || requestingMore}
+              onClick={loadMore}
+            >
+              {flash.isFetching || requestingMore ? "加载中…" : "加载更多"}
+            </Button>
+          </div>
+        )}
       </Panel>
-      <Panel
-        span={4}
-        icon={Article}
-        title="个股研报速览"
-        note="数据：同花顺个股研报（thsdk-hq）。摘要按源原样展示，不构成投资建议。"
-      >
+      <Panel span={4} icon={Article} title="个股研报速览">
         <form
           className="flex flex-wrap items-center gap-2"
           onSubmit={(event) => {

@@ -64,8 +64,14 @@ const days = [
   "2026-09-16",
 ];
 const types = ["feishu", "wecom", "telegram", "discord"] as const;
-const credentials = {
+const credentials: Record<
+  Channel["type"],
+  { secret: string; signingSecret?: string }
+> = {
   feishu: { secret: "https://open.feishu.cn/open-apis/bot/v2/hook/fake-only" },
+  dingtalk: {
+    secret: "https://oapi.dingtalk.com/robot/send?access_token=fake-only",
+  },
   wecom: {
     secret: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=fake-only",
   },

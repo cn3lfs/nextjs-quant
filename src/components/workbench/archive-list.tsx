@@ -6,7 +6,6 @@ import { api } from "~/trpc/react";
 import {
   archiveKinds,
   archiveKindLabels,
-  archiveCursorSchema,
   archiveHistoryInput,
   type ArchiveCursor,
   type ArchiveFilter,
@@ -27,6 +26,10 @@ import { SecuritySelect } from "../market/security-select";
 import { usePanelVisible } from "./keep-alive";
 import { archiveStamp as stamp } from "../research/archive-evidence";
 import { useSecurityNames } from "../market/use-security-names";
+import {
+  useAccumulatedPages,
+  useIntersectionLoadMore,
+} from "../ui/use-infinite-table";
 
 const sessionKey = "quant-research-archive-navigation-v1";
 export function ArchiveList() {
@@ -49,6 +52,22 @@ export function ArchiveList() {
       retry: false,
     },
   );
+  const batches = useAccumulatedPages({
+    pageIndex: cursors.length - 1,
+    items: history.data?.items,
+    total: history.data?.filteredTotal,
+    resetKey: JSON.stringify(filter),
+    getKey: (item) => item.id,
+    isSuccess: history.isSuccess && !history.isFetching && !history.error,
+  });
+  const sentinel = useIntersectionLoadMore({
+    enabled: visible && ready && !!history.data?.nextCursor && !history.error,
+    loading: history.isFetching,
+    onLoadMore: () => {
+      if (history.data?.nextCursor)
+        setCursors([...cursors, history.data.nextCursor]);
+    },
+  });
   useEffect(() => {
     if (!visible) return;
     function readLocation() {
@@ -68,18 +87,10 @@ export function ArchiveList() {
         } | null;
         if (
           stored?.search === archiveSearch(next) &&
-          Array.isArray(stored.cursors) &&
-          stored.cursors.length <= 500
+          typeof stored.id === "string" &&
+          typeof stored.scroll === "number"
         ) {
-          const parsed = stored.cursors.map((c) =>
-            c === null ? undefined : archiveCursorSchema.parse(c),
-          );
-          if (parsed.length && parsed[0] === undefined) setCursors(parsed);
-          if (
-            typeof stored.id === "string" &&
-            typeof stored.scroll === "number"
-          )
-            restore.current = { id: stored.id, scroll: stored.scroll };
+          restore.current = { id: stored.id, scroll: stored.scroll };
         }
       } catch {
         /* A stale session bookmark must never prevent opening the archive. */
@@ -160,7 +171,7 @@ export function ArchiveList() {
       title="研究报告"
       meta={
         history.data
-          ? `匹配 ${history.data.filteredTotal} 份 · 第 ${cursors.length} 页`
+          ? `已加载 ${batches.rows.length} / 匹配 ${history.data.filteredTotal} 份`
           : "通用研究档案"
       }
       note="检索证据分析生成的通用研究报告。生成时间与证据数据时点分别显示；策略实验结果在各自工作区查看。"
@@ -309,10 +320,10 @@ export function ArchiveList() {
       )}
       {history.data && (
         <>
-          {!history.data.items.length && (
+          {!batches.rows.length && (
             <p>
               {history.data.filteredTotal
-                ? "当前页已没有报告，可回到上一页或最新报告。"
+                ? "当前列表已无更多报告。"
                 : Object.values(filter).some(Boolean)
                   ? "无匹配结果，请调整或清空条件。"
                   : "暂无通用研究报告。估值与财务资料可通过上方工作区切换查看。"}
@@ -331,7 +342,7 @@ export function ArchiveList() {
             </p>
           )}
           <ul aria-label="研究报告列表" className="divide-y divide-nc-border">
-            {history.data.items.map((item) => (
+            {batches.rows.map((item) => (
               <li
                 key={item.id}
                 className="grid min-w-0 gap-2 py-3 lg:grid-cols-[6rem_9rem_minmax(0,1fr)_10rem]"
@@ -390,24 +401,24 @@ export function ArchiveList() {
           </ul>
         </>
       )}
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Button
-          variant="outline"
-          disabled={cursors.length === 1 || history.isFetching}
-          onClick={() => setCursors(cursors.slice(0, -1))}
-        >
-          上一页报告
-        </Button>
-        <Button
-          variant="outline"
-          disabled={!history.data?.nextCursor || history.isFetching}
-          onClick={() => {
-            if (history.data?.nextCursor)
-              setCursors([...cursors, history.data.nextCursor]);
-          }}
-        >
-          下一页报告
-        </Button>
+      <div ref={sentinel} aria-hidden="true" className="h-px" />
+      <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-nc-text-3">
+        <span>
+          已加载 {batches.rows.length} / 共 {batches.total} 份
+        </span>
+        {history.data?.nextCursor && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={history.isFetching}
+            onClick={() => {
+              if (history.data?.nextCursor)
+                setCursors([...cursors, history.data.nextCursor]);
+            }}
+          >
+            {history.isFetching ? "加载中…" : "加载更多报告"}
+          </Button>
+        )}
       </div>
     </Panel>
   );

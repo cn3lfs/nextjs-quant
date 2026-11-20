@@ -3,10 +3,10 @@ import { formatEvidenceText } from "~/lib/common/evidence-text";
 
 import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 
-import { useEffect, useRef, useState } from "react";
-import { ListChecks, Queue } from "@phosphor-icons/react/ssr";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ListChecks, Plus, Queue } from "@phosphor-icons/react/ssr";
 import { api } from "~/trpc/react";
-import { capabilityAllows } from "~/lib/common/capabilities";
+import { MAX_WATCHLIST_SYMBOLS_PER_GROUP } from "~/lib/market/watchlist-groups";
 import {
   intradayHistorySchema,
   type IntradayHistoryInput,
@@ -21,8 +21,13 @@ import {
   SelectContent,
   SelectItem,
 } from "../ui/select";
+import {
+  useAccumulatedPages,
+  useIntersectionLoadMore,
+} from "../ui/use-infinite-table";
 import { Panel } from "../panels";
 import { useTaskVisible } from "../workbench/use-task-visible";
+import { useWorkbenchNotify } from "../workbench/workbench-notify";
 import {
   ArchiveEvidence,
   ArchiveText,
@@ -122,8 +127,13 @@ function Choice({
   );
 }
 
-export function IntradayHistoryPanel({ running }: { running: boolean }) {
+export function IntradayHistoryPanel({
+  running = false,
+}: {
+  running?: boolean;
+}) {
   const visible = useTaskVisible();
+  const notify = useWorkbenchNotify();
   const utils = api.useUtils();
   const [ready, setReady] = useState(false);
   const [filter, setFilter] = useState<IntradayHistoryInput>({});
@@ -132,6 +142,7 @@ export function IntradayHistoryPanel({ running }: { running: boolean }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [returnTarget, setReturnTarget] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [targetGroupId, setTargetGroupId] = useState("");
   const savedScroll = useRef(0);
   useEffect(() => {
     function read() {
@@ -144,11 +155,7 @@ export function IntradayHistoryPanel({ running }: { running: boolean }) {
         setFilter(parsed);
         setDraft(parsed);
         setSelected(url.searchParams.get("observation"));
-        let saved: string | null = null;
         try {
-          saved = sessionStorage.getItem(
-            `intraday-page:${JSON.stringify(parsed)}`,
-          );
           const back = JSON.parse(
             sessionStorage.getItem("intraday-return") ?? "null",
           ) as { id?: string; scroll?: number } | null;
@@ -161,25 +168,7 @@ export function IntradayHistoryPanel({ running }: { running: boolean }) {
         } catch {
           /* The URL remains usable when browser storage is disabled. */
         }
-        let pages: unknown = [];
-        try {
-          pages = saved ? (JSON.parse(saved) as unknown) : [];
-        } catch {
-          /* Ignore damaged optional pagination state. */
-        }
-        setCursors(
-          Array.isArray(pages) &&
-            pages.length &&
-            pages.length <= 1000 &&
-            pages.every(
-              (p) =>
-                p === null ||
-                intradayHistorySchema.safeParse({ ...parsed, cursor: p })
-                  .success,
-            )
-            ? pages.map((p) => p ?? undefined)
-            : [undefined],
-        );
+        setCursors([undefined]);
       } catch {
         setFilter({ from: dayNow(), to: dayNow() });
         setDraft({ from: dayNow(), to: dayNow() });
@@ -203,10 +192,44 @@ export function IntradayHistoryPanel({ running }: { running: boolean }) {
   useEffect(() => {
     if (visible && ready) void query.refetch();
   }, [running, visible, ready]);
-  const storage = api.intradayStorage.useQuery(undefined, {
+  const groupsQuery = api.watchlistGroups.useQuery(undefined, {
     enabled: visible,
-    staleTime: 60000,
-    refetchInterval: 60000,
+    staleTime: 30_000,
+  });
+  const groups = useMemo(
+    () => groupsQuery.data?.groups ?? [],
+    [groupsQuery.data],
+  );
+  const targetGroup = useMemo(
+    () => groups.find((g) => g.id === targetGroupId) ?? groups[0] ?? null,
+    [groups, targetGroupId],
+  );
+  const addWatchlist = api.watchlistGroupAddSymbols.useMutation({
+    onSuccess: (result) => {
+      void utils.watchlistGroups.invalidate();
+      void utils.status.invalidate();
+      notify(`已加入 ${result.addedCount} 只到「${result.group.name}」`);
+    },
+    onError: (err) => notify(err.message),
+  });
+  const filterKey = JSON.stringify(filter);
+  const batches = useAccumulatedPages({
+    pageIndex: cursors.length - 1,
+    items: query.data?.rows,
+    total: query.data?.total,
+    resetKey: filterKey,
+    getKey: (row) => row.id,
+    isSuccess: query.isSuccess && !query.isFetching,
+  });
+  const hasMore = !!query.data?.nextCursor;
+  const loadMore = () => {
+    const next = query.data?.nextCursor;
+    if (next && !query.isFetching) page([...cursors, next]);
+  };
+  const sentinel = useIntersectionLoadMore({
+    enabled: hasMore,
+    loading: query.isFetching,
+    onLoadMore: loadMore,
   });
   function address(next: IntradayHistoryInput, id: string | null) {
     const url = new URL(window.location.href);
@@ -281,15 +304,52 @@ export function IntradayHistoryPanel({ running }: { running: boolean }) {
         span={12}
         icon={ListChecks}
         title="候选与收盘核对"
-        note="日期与时点均为北京时间。有信号才计入候选；数据不足会保留原因并等待重试。统计覆盖当前筛选的完整结果。"
         actions={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void query.refetch()}
-          >
-            刷新结果
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {groups.length > 0 && targetGroup && (
+              <>
+                <Select value={targetGroup.id} onValueChange={setTargetGroupId}>
+                  <SelectTrigger
+                    size="sm"
+                    aria-label="目标自选列表"
+                    className="h-8 w-36 text-xs"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {groups.map((g) => (
+                      <SelectItem key={g.id} value={g.id}>
+                        {g.name} ({g.symbols.length})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={addWatchlist.isPending || batches.rows.length === 0}
+                  onClick={() => {
+                    const symbols = [
+                      ...new Set(batches.rows.map((r) => r.symbol)),
+                    ].slice(0, MAX_WATCHLIST_SYMBOLS_PER_GROUP);
+                    addWatchlist.mutate({
+                      groupId: targetGroup.id,
+                      symbols,
+                    });
+                  }}
+                >
+                  全部加入自选
+                </Button>
+              </>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void query.refetch()}
+            >
+              刷新结果
+            </Button>
+          </div>
         }
       >
         <form
@@ -408,99 +468,105 @@ export function IntradayHistoryPanel({ running }: { running: boolean }) {
         </p>
         <BrowseSource
           label="盘中预选"
-          symbols={[
-            ...new Set(query.data?.rows.map((row) => row.symbol) ?? []),
-          ]}
+          symbols={[...new Set(batches.rows.map((row) => row.symbol))]}
         >
           <div className="space-y-2" aria-label="预选记录">
-            {query.data?.rows.map((row) => (
-              <article
-                key={row.id}
-                className="grid grid-cols-2 gap-2 rounded border border-nc-border p-3 text-sm lg:grid-cols-5"
-              >
-                <div>
-                  <strong>
-                    <ChartSymbolLink symbol={row.symbol} />
-                  </strong>
-                  <div className="text-xs text-nc-text-3">
-                    RPS {displayNumber(row.rps, 2)}
-                  </div>
-                </div>
-                <div>
-                  {row.signalCount
-                    ? `${row.signalCount} 项预选信号`
-                    : "无预选信号"}
-                </div>
-                <div className="text-xs">
-                  截止 {row.barCutoff.slice(5, 16).replace("T", " ")}
-                </div>
-                <div>{stateLabels[row.state]}</div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  data-observation={row.id}
-                  onClick={() => {
-                    savedScroll.current = window.scrollY;
-                    try {
-                      sessionStorage.setItem(
-                        "intraday-return",
-                        JSON.stringify({
-                          id: row.id,
-                          scroll: savedScroll.current,
-                        }),
-                      );
-                    } catch {
-                      /* Optional restoration only. */
-                    }
-                    setSelected(row.id);
-                    address(filter, row.id);
-                  }}
+            {batches.rows.map((row) => {
+              const inTarget =
+                targetGroup?.symbols.includes(row.symbol) ?? false;
+              return (
+                <article
+                  key={row.id}
+                  className="grid grid-cols-2 gap-2 rounded border border-nc-border p-3 text-sm lg:grid-cols-[1.2fr_1fr_1fr_0.8fr_auto]"
                 >
-                  查看依据
-                </Button>
-              </article>
-            ))}
-            {query.data?.rows.length === 0 && (
-              <p className="text-sm text-nc-text-3">
-                {query.data.totalAll === 0
-                  ? !capabilityAllows("intraday", "schedule")
-                    ? "尚无观测记录；预选已暂停，不会生成新记录。可调整日期查看已有记录。"
-                    : "尚无观测记录。请先确认配置和行情条件，再查看批次执行结果。"
-                  : "当前范围没有观测记录。可切换全部历史；缺少行情或尚未执行的原因请查看批次。"}
-              </p>
+                  <div>
+                    <strong>
+                      <ChartSymbolLink symbol={row.symbol} />
+                    </strong>
+                    <div className="text-xs text-nc-text-3">
+                      RPS {displayNumber(row.rps, 2)}
+                    </div>
+                  </div>
+                  <div>
+                    {row.signalCount
+                      ? `${row.signalCount} 项预选信号`
+                      : "无预选信号"}
+                  </div>
+                  <div className="text-xs">
+                    截止 {row.barCutoff.slice(5, 16).replace("T", " ")}
+                  </div>
+                  <div>{stateLabels[row.state]}</div>
+                  <div className="flex flex-wrap items-center justify-end gap-1.5">
+                    {targetGroup && (
+                      <Button
+                        size="sm"
+                        variant={inTarget ? "ghost" : "outline"}
+                        disabled={inTarget || addWatchlist.isPending}
+                        onClick={() =>
+                          addWatchlist.mutate({
+                            groupId: targetGroup.id,
+                            symbols: [row.symbol],
+                          })
+                        }
+                      >
+                        {inTarget ? (
+                          "已自选"
+                        ) : (
+                          <>
+                            <Plus size={12} />
+                            自选
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      data-observation={row.id}
+                      onClick={() => {
+                        savedScroll.current = window.scrollY;
+                        try {
+                          sessionStorage.setItem(
+                            "intraday-return",
+                            JSON.stringify({
+                              id: row.id,
+                              scroll: savedScroll.current,
+                            }),
+                          );
+                        } catch {
+                          /* Optional restoration only. */
+                        }
+                        setSelected(row.id);
+                        address(filter, row.id);
+                      }}
+                    >
+                      查看依据
+                    </Button>
+                  </div>
+                </article>
+              );
+            })}
+            {!query.isLoading && batches.rows.length === 0 && (
+              <p className="text-sm text-nc-text-3">暂无观测记录。</p>
             )}
+            <div ref={sentinel} aria-hidden="true" className="h-1" />
           </div>
         </BrowseSource>
-        <div className="mt-3 flex items-center gap-3">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={cursors.length === 1 || query.isFetching}
-            onClick={() => page(cursors.slice(0, -1))}
-          >
-            上一页
-          </Button>
-          <span className="text-xs">第 {cursors.length} 页 · 每页20条</span>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={!query.data?.nextCursor || query.isFetching}
-            onClick={() => page([...cursors, query.data!.nextCursor!])}
-          >
-            下一页
-          </Button>
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <span className="text-xs text-nc-text-3 tabular">
+            已加载 {batches.rows.length} / 共 {batches.total} 条
+          </span>
+          {hasMore && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={query.isFetching}
+              onClick={loadMore}
+            >
+              {query.isFetching ? "加载中…" : "加载更多"}
+            </Button>
+          )}
         </div>
-        {storage.data && (
-          <p className="text-xs text-nc-text-3">
-            研究快照 {displayNumber(storage.data.bytes / 1048576, 1)} /{" "}
-            {storage.data.limitBytes / 1048576} MiB · 保留至手动清理
-          </p>
-        )}
-        {storage.error && (
-          <p role="alert" className="text-xs">
-            容量信息读取失败：{storage.error.message}
-          </p>
-        )}
       </Panel>
       {selected && (
         <IntradayEvidence
@@ -512,7 +578,6 @@ export function IntradayHistoryPanel({ running }: { running: boolean }) {
             close();
             void utils.intradayHistory.invalidate();
             void utils.intradayRuns.invalidate();
-            void utils.intradayStorage.invalidate();
           }}
         />
       )}
@@ -701,6 +766,24 @@ function IntradayBatches({
   useEffect(() => {
     if (visible) void query.refetch();
   }, [running, visible]);
+  const runBatches = useAccumulatedPages({
+    pageIndex: cursors.length - 1,
+    items: query.data?.rows,
+    total: query.data?.total,
+    resetKey: JSON.stringify([range, status]),
+    getKey: (row) => row.id,
+    isSuccess: query.isSuccess && !query.isFetching,
+  });
+  const hasMoreRuns = !!query.data?.nextCursor;
+  const loadMoreRuns = () => {
+    const next = query.data?.nextCursor;
+    if (next && !query.isFetching) setCursors([...cursors, next]);
+  };
+  const runSentinel = useIntersectionLoadMore({
+    enabled: hasMoreRuns,
+    loading: query.isFetching,
+    onLoadMore: loadMoreRuns,
+  });
   const detail = api.intradayRunDetail.useQuery(selected ?? "", {
     enabled: visible && !!selected,
     gcTime: 0,
@@ -785,7 +868,7 @@ function IntradayBatches({
       />
       {query.error && <p role="alert">{query.error.message}</p>}
       <div className="mt-3 space-y-2">
-        {query.data?.rows.map((row) => (
+        {runBatches.rows.map((row) => (
           <div
             key={row.id}
             className="flex flex-wrap items-center gap-3 rounded border border-nc-border p-3 text-sm"
@@ -812,35 +895,26 @@ function IntradayBatches({
             )}
           </div>
         ))}
+        <div ref={runSentinel} aria-hidden="true" className="h-1" />
       </div>
       {query.isLoading && <p role="status">正在读取批次…</p>}
       {query.data?.total === 0 && (
-        <p className="text-sm">
-          {capabilityAllows("intraday", "schedule")
-            ? "暂无匹配批次。尚未启用或未到窗口时不会产生预选。"
-            : "暂无匹配批次；预选已暂停，不会生成新批次。"}
-        </p>
+        <p className="text-sm text-nc-text-3">暂无匹配批次。</p>
       )}
-      <div className="mt-3 flex items-center gap-3">
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={cursors.length === 1 || query.isFetching}
-          onClick={() => setCursors(cursors.slice(0, -1))}
-        >
-          上一批次页
-        </Button>
-        <span className="text-xs">
-          {query.data?.total ?? 0}批 · 第{cursors.length}页
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <span className="text-xs text-nc-text-3 tabular">
+          已加载 {runBatches.rows.length} / 共 {runBatches.total} 批
         </span>
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!query.data?.nextCursor || query.isFetching}
-          onClick={() => setCursors([...cursors, query.data!.nextCursor!])}
-        >
-          下一批次页
-        </Button>
+        {hasMoreRuns && (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={query.isFetching}
+            onClick={loadMoreRuns}
+          >
+            {query.isFetching ? "加载中…" : "加载更多"}
+          </Button>
+        )}
       </div>
       {selected && (
         <div className="mt-3 min-w-0 rounded border border-nc-border p-3 text-sm">

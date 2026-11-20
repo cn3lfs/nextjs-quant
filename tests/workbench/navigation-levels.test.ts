@@ -31,7 +31,7 @@ it("navigation preserves native links, selected route and expanded group", () =>
   expect(html).toContain('aria-expanded="true"');
   expect(html).toContain('href="/lab"');
   expect(navItems.map((item) => item.href)).toEqual(
-    expect.arrayContaining(["/lab", "/?tab=intraday", "/intel/review"]),
+    expect.arrayContaining(["/lab", "/scan?tab=formula", "/intel/review"]),
   );
 });
 
@@ -140,7 +140,10 @@ it("resolves the active subpage from pathname plus tab without changing old href
     "/scan?tab=crypto",
   );
   expect(navItemFor("/", "tab=overview")?.href).toBe("/?tab=overview");
-  expect(navItemFor("/", "tab=intraday")?.href).toBe("/?tab=intraday");
+  // 盘中记录已并入公式选股：不再作为导航/搜索入口，旧深链仍解析归属。
+  expect(navItems.map((item) => item.href)).not.toContain("/?tab=intraday");
+  expect(searchNav("盘中记录")).toEqual([]);
+  expect(navItemFor("/", "tab=intraday")?.group).toBe("选股筛选");
   // 无关查询参数仍落在路径级页面，不误判成某个子页。
   expect(navItemFor("/scan", "symbol=sh600519")?.href).toBe("/scan");
   // 旧深链与既有单参数调用保持可用。

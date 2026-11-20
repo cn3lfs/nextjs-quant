@@ -14,6 +14,10 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "../ui/collapsible";
+import {
+  useIntersectionLoadMore,
+  useTablePage,
+} from "../ui/use-infinite-table";
 
 type Page<K extends NavPageKind> = {
   pageIndex: number;
@@ -48,8 +52,14 @@ export function PagedDetail<K extends NavPageKind>({
   render: (row: NavDetailRow<K>, index: number) => ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const [pageIndex, setPageIndex] = useState(0);
-  const pages = Math.max(1, Math.ceil(first.total / first.pageSize));
+  const pager = useTablePage(JSON.stringify([account, method, kind]));
+  const loaded = Math.min((pager.pageIndex + 1) * first.pageSize, first.total);
+  const hasMore = loaded < first.total;
+  const sentinel = useIntersectionLoadMore({
+    enabled: open && hasMore,
+    loading: false,
+    onLoadMore: pager.loadMore,
+  });
   if (!first.total) return <>{empty ?? null}</>;
   return (
     <>
@@ -61,38 +71,28 @@ export function PagedDetail<K extends NavPageKind>({
           </Button>
         </CollapsibleTrigger>
         <CollapsibleContent className="space-y-2 pt-2">
-          {pageIndex === 0 ? (
-            first.rows.map((row, i) => render(row, i))
-          ) : (
+          {first.rows.map((row, i) => render(row, i))}
+          {Array.from({ length: pager.pageIndex }, (_, idx) => (
             <RemotePage
+              key={idx + 1}
               account={account}
               method={method}
               kind={kind}
-              pageIndex={pageIndex}
+              pageIndex={idx + 1}
               render={render}
             />
-          )}
-          {pages > 1 && (
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={pageIndex === 0}
-                onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
-              >
-                上一页
-              </Button>
-              <span className="text-xs">
-                第 {pageIndex + 1} / {pages} 页
+          ))}
+          <div ref={sentinel} aria-hidden="true" className="h-px" />
+          {first.total > first.pageSize && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>
+                已加载 {loaded} / 共 {first.total} 条
               </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={pageIndex + 1 >= pages}
-                onClick={() => setPageIndex((p) => p + 1)}
-              >
-                下一页
-              </Button>
+              {hasMore && (
+                <Button variant="outline" size="sm" onClick={pager.loadMore}>
+                  加载更多
+                </Button>
+              )}
             </div>
           )}
         </CollapsibleContent>

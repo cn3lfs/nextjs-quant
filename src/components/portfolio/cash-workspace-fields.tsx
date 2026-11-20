@@ -1,5 +1,6 @@
 "use client";
 import { Button } from "../ui/button";
+import { useIntersectionLoadMore } from "../ui/use-infinite-table";
 
 export const cashReadOptions = {
   retry: false,
@@ -24,32 +25,32 @@ export function CashPager({
   busy: boolean;
   label: string;
 }) {
+  const loaded = Math.min((page.pageIndex + 1) * page.pageSize, page.total);
+  const hasMore = loaded < page.total;
+  const sentinel = useIntersectionLoadMore({
+    enabled: hasMore,
+    loading: busy,
+    onLoadMore: () => onPage(page.pageIndex + 1),
+  });
   return (
     <nav
       aria-label={label}
       className="flex flex-wrap items-center gap-2 text-sm"
     >
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={busy || page.pageIndex === 0}
-        onClick={() => onPage(page.pageIndex - 1)}
-      >
-        上一页
-      </Button>
-      <span>
-        第 {page.pageIndex + 1} /{" "}
-        {Math.max(1, Math.ceil(page.total / page.pageSize))} 页 · 共{" "}
-        {page.total} 项
+      <div ref={sentinel} aria-hidden="true" className="h-px w-full" />
+      <span className="text-muted-foreground">
+        已加载 {loaded} / 共 {page.total} 项
       </span>
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={busy || (page.pageIndex + 1) * page.pageSize >= page.total}
-        onClick={() => onPage(page.pageIndex + 1)}
-      >
-        下一页
-      </Button>
+      {hasMore && (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={busy}
+          onClick={() => onPage(page.pageIndex + 1)}
+        >
+          {busy ? "加载中…" : "加载更多"}
+        </Button>
+      )}
     </nav>
   );
 }

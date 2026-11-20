@@ -27,11 +27,14 @@ import {
   MathOperations,
   Newspaper,
   NotePencil,
+  PaperPlaneTilt,
   PiggyBank,
   PlayCircle,
   Receipt,
+  ShieldCheck,
   Sparkle,
   Stack,
+  Star,
   Swatches,
   TrendUp,
   Trophy,
@@ -98,10 +101,11 @@ export const navGroups: readonly NavGroup[] = [
   },
   {
     label: "行情看盘",
-    subtitle: "按市场看盘：A 股、数字货币与期货各自独立。",
+    subtitle: "按市场看盘：A 股、我的自选、数字货币与期货各自独立。",
     icon: ChartLine,
     items: [
       item("/scan", "A 股看盘", ChartLine, "market"),
+      item("/scan?tab=watchlist", "我的自选", Star),
       item("/scan?tab=crypto", "数字货币", CurrencyBtc),
       item("/scan?tab=futures", "期货行情", TrendUp),
     ],
@@ -116,7 +120,6 @@ export const navGroups: readonly NavGroup[] = [
       item("/scan?tab=rps", "强势排名 (RPS)", Trophy),
       item("/scan?tab=pool", "股票池", Stack),
       item("/accounts/alerts", "历史信号", BellRinging),
-      item("/?tab=intraday", "盘中记录", NotePencil),
     ],
   },
   {
@@ -143,6 +146,7 @@ export const navGroups: readonly NavGroup[] = [
       item("/accounts?tab=weekly", "周度复盘", CalendarCheck),
       item("/accounts?tab=monthly", "月度复盘", CalendarDots),
       item("/accounts?tab=paper", "本地模拟盘", PiggyBank),
+      item("/accounts/risk", "仓位与风控", ShieldCheck),
       item("/accounts/crypto", "币圈模拟盘", CurrencyBtc),
     ],
   },
@@ -164,7 +168,8 @@ export const navGroups: readonly NavGroup[] = [
     subtitle: "数据源、提醒推送与后台任务的运行状态。",
     icon: GearSix,
     items: [
-      item("/system", "数据源与备份", Database, "settings"),
+      item("/system", "数据源设置", Database, "settings"),
+      item("/system/push", "信号推送", PaperPlaneTilt),
       item("/system/notifications", "提醒与推送", BellRinging, "signals"),
       item("/system/tasks", "后台任务", ListChecks, "tasks"),
       item("/lab/data-guide", "数据说明", BookOpen),
@@ -178,6 +183,18 @@ export const navGroups: readonly NavGroup[] = [
 export const navItems: readonly NavEntry[] = navGroups.flatMap((group) =>
   group.items.map((entry) => ({ ...entry, group: group.label })),
 );
+
+/**
+ * 已并入其它工作区的旧深链：仍解析导航归属与能力说明，但不再出现在
+ * 侧栏、命令面板或工作区入口中。`盘中记录` 已并入「公式选股」。
+ */
+const legacyRoutes: readonly NavEntry[] = [
+  {
+    ...item("/?tab=intraday", "盘中记录", NotePencil),
+    group: "选股筛选",
+    hidden: true,
+  },
+];
 
 /** 每个工作区的默认落点，供 Alt+1…7 与图标窄轨使用。 */
 export const workspaceHrefs: readonly string[] = navGroups.map(
@@ -208,7 +225,9 @@ export function navItemFor(pathname: string, search?: string) {
   const parsed = splitHref(pathname);
   const tab =
     search === undefined ? parsed.tab : new URLSearchParams(search).get("tab");
-  const exact = navItems.find((entry) => matches(entry, parsed.path, tab));
+  const exact = [...navItems, ...legacyRoutes].find((entry) =>
+    matches(entry, parsed.path, tab),
+  );
   if (exact) return exact;
   if (parsed.path.startsWith("/lab/reports/")) {
     const reports = navItems.find((entry) => entry.href === "/lab/reports");

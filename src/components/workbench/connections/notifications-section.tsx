@@ -15,6 +15,14 @@ import { Field } from "../shared";
 import { NotificationPolicyFields } from "../../signals/notification-policy-fields";
 import type { ChannelDraft, FieldError } from "./shared";
 
+const channelTypeLabels: Record<Channel["type"], string> = {
+  feishu: "飞书群机器人",
+  dingtalk: "钉钉群机器人",
+  wecom: "企业微信群机器人",
+  telegram: "Telegram Bot",
+  discord: "Discord Webhook",
+};
+
 export function NotificationsSection({
   config,
   setConfig,
@@ -28,6 +36,7 @@ export function NotificationsSection({
   onSaveChannel,
   saveChannelPending,
   onTestChannel,
+  mode = "all",
 }: {
   config: Settings;
   setConfig: (draft: Settings) => void;
@@ -41,22 +50,25 @@ export function NotificationsSection({
   onSaveChannel: () => void;
   saveChannelPending: boolean;
   onTestChannel: (id: string) => void;
+  mode?: "all" | "channels";
 }) {
   return (
     <PageGrid>
-      <Panel title="通知策略" icon={PaperPlaneTilt}>
-        {fieldError("notificationPolicy")}
-        <NotificationPolicyFields
-          value={config.notificationPolicy}
-          onChange={(notificationPolicy) =>
-            setConfig({ ...config, notificationPolicy })
-          }
-        />
-      </Panel>
+      {mode === "all" && (
+        <Panel title="通知策略" icon={PaperPlaneTilt}>
+          {fieldError("notificationPolicy")}
+          <NotificationPolicyFields
+            value={config.notificationPolicy}
+            onChange={(notificationPolicy) =>
+              setConfig({ ...config, notificationPolicy })
+            }
+          />
+        </Panel>
+      )}
       <Panel
         icon={PaperPlaneTilt}
         title="聊天推送渠道"
-        note="单向通知，无需公网回调地址。保存不会发送消息；点击“发送测试通知”才会向所选目标发送测试内容。"
+        note="支持飞书、钉钉、企业微信、Telegram、Discord 单向推送；保存不会发消息，点击“发送测试通知”可验证连通。"
       >
         {channels.map((c) => (
           <div className="list-row" key={c.id}>
@@ -68,7 +80,7 @@ export function NotificationsSection({
                   {c.enabled ? "已启用" : "已暂停"}
                 </Pill>
               </div>
-              <p>{c.type} · 凭证已加密保存</p>
+              <p>{channelTypeLabels[c.type] ?? c.type} · 凭证已加密保存</p>
             </div>
             <Button size="sm" variant="outline" onClick={() => onEdit(c)}>
               编辑
@@ -107,6 +119,7 @@ export function NotificationsSection({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="feishu">飞书群机器人</SelectItem>
+                <SelectItem value="dingtalk">钉钉群机器人</SelectItem>
                 <SelectItem value="wecom">企业微信群机器人</SelectItem>
                 <SelectItem value="telegram">Telegram Bot</SelectItem>
                 <SelectItem value="discord">Discord Webhook</SelectItem>
@@ -130,7 +143,7 @@ export function NotificationsSection({
               }
             />
           </Field>
-          {channel.type === "feishu" && (
+          {(channel.type === "feishu" || channel.type === "dingtalk") && (
             <Field label="签名密钥（可选）">
               <Input
                 type="password"

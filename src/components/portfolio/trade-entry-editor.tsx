@@ -11,6 +11,10 @@ import { feeLabel } from "~/lib/portfolio/trade-ledger";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 import {
+  useAccumulatedPages,
+  useIntersectionLoadMore,
+} from "../ui/use-infinite-table";
+import {
   TradeInputField,
   TradeSelect,
   TradeError,
@@ -57,6 +61,26 @@ export function TradeEntryEditor({
       retry: false,
     },
   );
+  const signalBatches = useAccumulatedPages({
+    pageIndex: cursors.length - 1,
+    items: signals.data?.items,
+    total: signals.data
+      ? (cursors.length - 1) * 50 +
+        signals.data.items.length +
+        (signals.data.nextCursor ? 1 : 0)
+      : undefined,
+    resetKey: JSON.stringify([f.symbol.trim(), f.date, search]),
+    getKey: (row) => row.id,
+    isSuccess: signals.isSuccess && !signals.isFetching,
+  });
+  const signalSentinel = useIntersectionLoadMore({
+    enabled: search && !!signals.data?.nextCursor,
+    loading: signals.isFetching,
+    onLoadMore: () => {
+      if (signals.data?.nextCursor)
+        setCursors((c) => [...c, signals.data!.nextCursor!]);
+    },
+  });
   const change = (key: keyof TradeDraftFields, value: string) => {
     onChange({ [key]: value });
     if (key === "symbol" || key === "date") {
@@ -175,12 +199,12 @@ export function TradeEntryEditor({
                 error={signals.error?.message}
                 onRetry={() => void signals.refetch()}
               />
-              {signals.isLoading ? (
+              {signals.isLoading && signalBatches.rows.length === 0 ? (
                 <p>正在检索信号…</p>
-              ) : signals.data?.items.length === 0 ? (
+              ) : signalBatches.rows.length === 0 ? (
                 <p>没有符合证券与日期的信号。</p>
               ) : (
-                signals.data?.items.map((row) => (
+                signalBatches.rows.map((row) => (
                   <Button
                     type="button"
                     key={row.id}
@@ -194,28 +218,20 @@ export function TradeEntryEditor({
                   </Button>
                 ))
               )}
-              <div className="flex gap-2">
+              <div ref={signalSentinel} aria-hidden="true" className="h-px" />
+              {signals.data?.nextCursor && (
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  disabled={cursors.length === 1}
-                  onClick={() => setCursors(cursors.slice(0, -1))}
-                >
-                  上一页信号
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={!signals.data?.nextCursor}
+                  disabled={signals.isFetching}
                   onClick={() =>
                     setCursors([...cursors, signals.data!.nextCursor!])
                   }
                 >
-                  下一页信号
+                  {signals.isFetching ? "加载中…" : "加载更多信号"}
                 </Button>
-              </div>
+              )}
             </div>
           )}
         </div>

@@ -194,7 +194,7 @@ export type Report = z.infer<typeof reportSchema> & {
 export const channelSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1).max(80),
-  type: z.enum(["feishu", "wecom", "telegram", "discord"]),
+  type: z.enum(["feishu", "dingtalk", "wecom", "telegram", "discord"]),
   enabled: z.boolean().default(false),
   target: z.string().max(200).default(""),
   thread: z.string().max(100).default(""),

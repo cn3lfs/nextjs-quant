@@ -2,13 +2,24 @@
 import { formatNumber } from "trading-strategy-core/format-number";
 
 import { cn } from "~/lib/common/classnames";
+import type { LiveMarketBreadth } from "~/server/market/live-market-breadth";
 import type {
   MarketBreadth as MarketBreadthData,
   MarketBreadthUnknown,
 } from "~/server/market/market-breadth";
 import { api } from "~/trpc/react";
+import { useQuoteRefreshInterval } from "../market/use-quote-session";
 import { Button } from "../ui/button";
 import { useTaskVisible } from "../workbench/use-task-visible";
+
+function formatClock(timestamp: number) {
+  return new Date(timestamp).toLocaleTimeString("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
 
 function BreadthValue({
   value,
@@ -42,10 +53,24 @@ function BreadthValue({
   );
 }
 
-function SourceLine({ data }: { data: MarketBreadthData }) {
+function LiveSourceLine({ data }: { data: LiveMarketBreadth }) {
+  const detail = data.markets
+    .map(
+      (m) =>
+        `${m.label} 涨${m.up}/跌${m.down}/平${m.flat} · ${formatNumber(m.amount / 1e8, 0)}亿`,
+    )
+    .join(" | ");
+  return (
+    <span className="text-nc-text-4" title={detail}>
+      来源：{data.source}（沪深京）· 更新于 {formatClock(data.fetchedAt)}
+    </span>
+  );
+}
+
+function FallbackSourceLine({ data }: { data: MarketBreadthData }) {
   return (
     <span className="text-nc-text-4">
-      来源：通达信本地 SC31 日度记录 · SC31 观测日 {data.date} · 剔除停牌 ·
+      实时行情暂不可用，已回退通达信本地 SC31 · 观测日 {data.date} · 剔除停牌 ·
       源无平盘字段
       {data.sourceLast && data.sourceLast !== data.date && (
         <> · 源文件最新 {data.sourceLast}</>
@@ -55,31 +80,48 @@ function SourceLine({ data }: { data: MarketBreadthData }) {
 }
 
 /**
- * 今日概况的本地市场宽度。上涨与下跌家数取自同一条 SC31 日度记录；
- * 未取到记录时不补造，也不借用今日指数报价的日期。保留有限新鲜期：
- * 重新进入或焦点返回时若已超过 60 秒，会重读本地记录；不轮询。
+ * 大盘总览市场涨跌家数与沪深京成交额。
+ *
+ * 默认直连东方财富实时快照（交易时段温和 15 秒刷新，盘后手动刷新），
+ * 离线或限流时自动回退到通达信本地 SC31 日度记录，并显式标明口径与时点。
  */
 export function MarketBreadth() {
   const visible = useTaskVisible();
-  const query = api.marketBreadth.useQuery(undefined, {
+  const quoteInterval = useQuoteRefreshInterval();
+  const liveInterval =
+    visible && quoteInterval ? Math.max(quoteInterval, 15_000) : false;
+
+  const liveQuery = api.liveMarketBreadth.useQuery(undefined, {
     enabled: visible,
     retry: false,
-    staleTime: 60_000,
+    staleTime: 10_000,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchInterval: liveInterval,
+  });
+
+  const localQuery = api.marketBreadth.useQuery(undefined, {
+    enabled: visible && liveQuery.isError,
+    retry: false,
+    staleTime: 60_000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
-  const data = query.data;
-  const retry = (
+
+  const live = liveQuery.data;
+  const fallback = localQuery.data;
+  const refreshButton = (
     <Button
       type="button"
       size="sm"
       variant="outline"
       className="ml-auto"
-      disabled={query.isFetching}
-      onClick={() => void query.refetch()}
+      disabled={liveQuery.isFetching}
+      onClick={() => void liveQuery.refetch()}
     >
-      重读本地记录
+      {liveQuery.isError ? "重试实时" : "刷新实时"}
     </Button>
   );
 
@@ -89,48 +131,77 @@ export function MarketBreadth() {
       className="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-lg border border-nc-border bg-nc-card px-4 py-2.5 text-[13px]"
     >
       <span className="font-medium text-nc-text">市场涨跌家数</span>
-      {query.isError ? (
-        <>
-          <span role="alert" className="text-nc-bad">
-            读取失败：{query.error.message}
-          </span>
-          {retry}
-        </>
-      ) : !data ? (
-        <>
-          <span className="text-nc-text-3">正在读取本地 SC31 记录…</span>
-          {retry}
-        </>
-      ) : data.state === "source-unconfigured" ? (
-        <>
-          <span className="text-nc-text-3">
-            通达信本地目录尚未配置，无法读取 SC31 记录。
-          </span>
-          {retry}
-        </>
-      ) : data.state === "no-record" ? (
-        <>
-          <span className="text-nc-text-3">
-            {data.warning ?? "所选截止日及之前没有本地 SC31 记录。"}
-          </span>
-          {retry}
-        </>
-      ) : (
+      {live ? (
         <>
           <span className="inline-flex items-baseline gap-1.5">
             <span className="text-nc-text-3">上涨</span>
-            <BreadthValue value={data.up} unknown={data.upUnknown} tone="up" />
+            <strong className="tabular-nums text-nc-up">
+              {formatNumber(live.up, 0)} 家
+            </strong>
+          </span>
+          <span className="inline-flex items-baseline gap-1.5">
+            <span className="text-nc-text-3">平盘</span>
+            <strong className="tabular-nums text-nc-text-2">
+              {formatNumber(live.flat, 0)} 家
+            </strong>
+          </span>
+          <span className="inline-flex items-baseline gap-1.5">
+            <span className="text-nc-text-3">下跌</span>
+            <strong className="tabular-nums text-nc-down">
+              {formatNumber(live.down, 0)} 家
+            </strong>
+          </span>
+          {live.amount > 0 && (
+            <span className="inline-flex items-baseline gap-1.5">
+              <span className="text-nc-text-3">沪深京成交</span>
+              <strong className="tabular-nums text-nc-text">
+                {formatNumber(live.amount / 1e8, 0)} 亿
+              </strong>
+            </span>
+          )}
+          <LiveSourceLine data={live} />
+          {refreshButton}
+        </>
+      ) : !liveQuery.isError ? (
+        <>
+          <span className="text-nc-text-3">正在获取实时市场涨跌家数…</span>
+          {refreshButton}
+        </>
+      ) : fallback?.state === "ok" ? (
+        <>
+          <span className="inline-flex items-baseline gap-1.5">
+            <span className="text-nc-text-3">上涨</span>
+            <BreadthValue
+              value={fallback.up}
+              unknown={fallback.upUnknown}
+              tone="up"
+            />
           </span>
           <span className="inline-flex items-baseline gap-1.5">
             <span className="text-nc-text-3">下跌</span>
             <BreadthValue
-              value={data.down}
-              unknown={data.downUnknown}
+              value={fallback.down}
+              unknown={fallback.downUnknown}
               tone="down"
             />
           </span>
-          <SourceLine data={data} />
-          {retry}
+          <FallbackSourceLine data={fallback} />
+          {refreshButton}
+        </>
+      ) : localQuery.isLoading ? (
+        <>
+          <span className="text-nc-text-3">
+            实时行情暂不可用，正在读取本地 SC31 回退记录…
+          </span>
+          {refreshButton}
+        </>
+      ) : (
+        <>
+          <span role="alert" className="text-nc-bad">
+            实时市场涨跌获取失败：{liveQuery.error.message}
+            {fallback?.warning ? `（${fallback.warning}）` : ""}
+          </span>
+          {refreshButton}
         </>
       )}
     </section>

@@ -36,6 +36,10 @@ import { FilterDivider, FilterGroup, FilterToolbar } from "~/components/panels";
 import { WorkProgressView } from "../screening/screen-task-progress";
 import { useTaskVisible } from "./use-task-visible";
 import { TaskEvidence } from "./task-evidence";
+import {
+  useAccumulatedPages,
+  useIntersectionLoadMore,
+} from "../ui/use-infinite-table";
 import type { RouterOutputs } from "~/trpc/react";
 import {
   readTaskHistoryLocation,
@@ -301,6 +305,28 @@ export function TaskHistory({
     staleTime: 0,
     retry: false,
   });
+  const batches = useAccumulatedPages({
+    pageIndex: cursors.length - 1,
+    items: history.data?.items,
+    total: history.data?.total,
+    resetKey: selectionKey,
+    getKey: (job) => job.id,
+    isSuccess: history.isSuccess && !history.isFetching && !history.error,
+  });
+  const sentinel = useIntersectionLoadMore({
+    enabled:
+      visible &&
+      !location.error &&
+      !!history.data?.nextCursor &&
+      !history.error,
+    loading: history.isFetching,
+    onLoadMore: () => {
+      if (history.data?.nextCursor) {
+        setCursors((p) => [...p, history.data!.nextCursor!]);
+        close();
+      }
+    },
+  });
   const detail = api.taskState.useQuery(
     { id: selected },
     {
@@ -380,7 +406,7 @@ export function TaskHistory({
       history.data &&
       !history.isFetching &&
       !history.error &&
-      !history.data.items.some((item) => item.id === selected)
+      !batches.rows.some((item) => item.id === selected)
     ) {
       setSelection(null);
       setNotice("所选任务已不在当前页或筛选结果中。");
@@ -573,10 +599,10 @@ export function TaskHistory({
             tabIndex={-1}
             className="text-sm text-muted-foreground"
           >
-            共 {history.data.total} 条 · 第 {cursors.length} 页
+            已加载 {batches.rows.length} / 共 {history.data.total} 条
           </p>
           <div aria-label="任务列表" className="space-y-2">
-            {history.data.items.map((summary) => {
+            {batches.rows.map((summary) => {
               const expanded = selected === summary.id;
               const job = expanded && detail.data ? detail.data : summary;
               const Icon = statusIcons[job.status];
@@ -673,7 +699,7 @@ export function TaskHistory({
               );
             })}
           </div>
-          {history.data.items.length === 0 && (
+          {batches.rows.length === 0 && (
             <div className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
               {location.detailId && !history.error ? (
                 <>
@@ -689,31 +715,28 @@ export function TaskHistory({
               )}
             </div>
           )}
+          <div ref={sentinel} aria-hidden="true" className="h-px" />
           <nav
             aria-label="任务分页"
-            className="flex items-center justify-between gap-3"
+            className="flex items-center justify-between gap-3 text-xs text-muted-foreground"
           >
-            <Button
-              variant="outline"
-              disabled={cursors.length === 1 || history.isFetching}
-              onClick={() => {
-                setCursors((p) => p.slice(0, -1));
-                close();
-              }}
-            >
-              上一页任务
-            </Button>
-            <Button
-              variant="outline"
-              disabled={!history.data.nextCursor || history.isFetching}
-              onClick={() => {
-                if (history.data?.nextCursor)
-                  setCursors((p) => [...p, history.data!.nextCursor!]);
-                close();
-              }}
-            >
-              下一页任务
-            </Button>
+            <span>
+              已加载 {batches.rows.length} / 共 {history.data.total} 条
+            </span>
+            {history.data.nextCursor && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={history.isFetching}
+                onClick={() => {
+                  if (history.data?.nextCursor)
+                    setCursors((p) => [...p, history.data!.nextCursor!]);
+                  close();
+                }}
+              >
+                {history.isFetching ? "加载中…" : "加载更多任务"}
+              </Button>
+            )}
           </nav>
         </>
       )}

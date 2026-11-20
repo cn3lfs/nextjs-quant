@@ -2,16 +2,29 @@
 import { formatEvidenceText } from "~/lib/common/evidence-text";
 
 import { useState } from "react";
+import Link from "next/link";
 import { api } from "~/trpc/react";
 import type { NewsAnalysis } from "~/server/news/news-analysis";
 import { Button } from "../ui/button";
-import { Panel } from "../panels";
+import { Panel, Pill } from "../panels";
+import {
+  useInfiniteSlice,
+  useIntersectionLoadMore,
+} from "../ui/use-infinite-table";
 import { ArchiveEvidence, ArchiveText } from "../research/archive-evidence";
 import { useArchiveDownload } from "../research/use-archive-download";
 import { useTaskVisible } from "../workbench/use-task-visible";
 import { NewsSectorPanel } from "./news-sector-panel";
 import { NewsThemesPanel } from "./news-themes-panel";
-import { NewsError, NewsPaging, newsTime } from "./news-workspace-fields";
+import { NewsError, newsTime } from "./news-workspace-fields";
+
+const impactBadge = {
+  positive: { tone: "bad", label: "利好" },
+  negative: { tone: "ok", label: "利空" },
+  mixed: { tone: "neutral", label: "中性" },
+  neutral: { tone: "neutral", label: "中性" },
+  uncertain: { tone: "neutral", label: "中性" },
+} as const;
 
 export function NewsAnalysisDetail({
   id,
@@ -27,7 +40,6 @@ export function NewsAnalysisDetail({
   onArchive: (id: string) => void;
 }) {
   const visible = useTaskVisible(),
-    [page, setPage] = useState(1),
     [extensions, setExtensions] = useState(false),
     [preflight, setPreflight] = useState(false);
   const utils = api.useUtils(),
@@ -49,8 +61,13 @@ export function NewsAnalysisDetail({
   });
   const download = useArchiveDownload(),
     result = query.data;
-  const source = new Map(result?.news.map((n) => [n.id, n])),
-    total = result?.items.length ?? 0;
+  const source = new Map(result?.news.map((n) => [n.id, n]));
+  const slice = useInfiniteSlice(result?.items ?? [], 20, id);
+  const sentinel = useIntersectionLoadMore({
+    enabled: slice.hasMore,
+    loading: false,
+    onLoadMore: slice.onLoadMore,
+  });
   return (
     <Panel
       title="新闻分析依据"
@@ -81,9 +98,6 @@ export function NewsAnalysisDetail({
           <p>
             选择{result.news.length}条 · 已完成{result.items.length}条 · 复用
             {result.reusedItems ?? 0}条 · 本次模型用量{result.tokens} tokens
-          </p>
-          <p>
-            模型每条最多读取2000字符；完整原文保留在证据与导出。分类与影响方向是模型判断，不代表实际涨跌。
           </p>
           {(result.requestCoverage?.hitLimit ?? result.hitLimit) && (
             <p role="status">
@@ -195,51 +209,47 @@ export function NewsAnalysisDetail({
           {result.aggregation && (
             <p>
               汇总日{result.aggregation.day} · 冲突隔离
-              {result.aggregation.conflicts.length}
-              条。仅覆盖已分类档案，不代表当天全部新闻。
+              {result.aggregation.conflicts.length}条。仅覆盖已分类档案。
             </p>
           )}
-          <NewsPaging
-            label="分类"
-            page={page}
-            total={total}
-            next={page * 20 < total}
-            busy={false}
-            onPrevious={() => setPage(page - 1)}
-            onNext={() => setPage(page + 1)}
-          />
-          {result.items.slice((page - 1) * 20, page * 20).map((value) => (
-            <article
-              key={value.id}
-              className="rounded border border-nc-border p-3"
-            >
-              <strong>
-                {source.get(value.id)?.title || `新闻${value.id}`} ·{" "}
-                {value.industry}
-              </strong>
-              <p>
-                模型方向：
-                {
-                  {
-                    positive: "偏正面",
-                    negative: "偏负面",
-                    mixed: "正负并存",
-                    neutral: "中性",
-                    uncertain: "未确定",
-                  }[value.impact]
-                }
-              </p>
-              <p>{value.reason}</p>
-              <p>不确定性：{value.uncertainty}</p>
-              <ArchiveEvidence title={`原文依据 ${value.id}`}>
-                {() => (
-                  <ArchiveText
-                    text={source.get(value.id)?.content ?? "原文未记录"}
-                  />
-                )}
-              </ArchiveEvidence>
-            </article>
-          ))}
+          {slice.rows.map((value) => {
+            const badge = impactBadge[value.impact];
+            return (
+              <article
+                key={value.id}
+                className="rounded border border-nc-border p-3"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <strong>
+                    {source.get(value.id)?.title || `新闻${value.id}`}
+                  </strong>
+                  <Link
+                    href={`/scan?tab=pool&query=${encodeURIComponent(value.industry)}`}
+                    className="text-primary underline underline-offset-2 hover:no-underline"
+                  >
+                    {value.industry}
+                  </Link>
+                  <Pill tone={badge.tone}>{badge.label}</Pill>
+                </div>
+                <p>{value.reason}</p>
+                <p>不确定性：{value.uncertainty}</p>
+                <ArchiveEvidence title={`原文依据 ${value.id}`}>
+                  {() => (
+                    <ArchiveText
+                      text={source.get(value.id)?.content ?? "原文未记录"}
+                    />
+                  )}
+                </ArchiveEvidence>
+              </article>
+            );
+          })}
+          {slice.hasMore && (
+            <div ref={sentinel}>
+              <Button variant="outline" onClick={slice.onLoadMore}>
+                加载更多
+              </Button>
+            </div>
+          )}
           <ArchiveEvidence title="完整分类版本与来源">
             {() => (
               <ArchiveText

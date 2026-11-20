@@ -4,15 +4,13 @@ import { api } from "~/trpc/react";
 import type { z } from "zod";
 import { newsArchiveQuerySchema } from "~/lib/news/news-workspace";
 import { useTaskVisible } from "../workbench/use-task-visible";
+import {
+  useAccumulatedPages,
+  useIntersectionLoadMore,
+} from "../ui/use-infinite-table";
 import { Button } from "../ui/button";
 import { Panel } from "../panels";
-import {
-  NewsError,
-  NewsPaging,
-  newsTime,
-  readNewsMemory,
-  rememberNews,
-} from "./news-workspace-fields";
+import { NewsError, newsTime } from "./news-workspace-fields";
 type Filter = z.input<typeof newsArchiveQuerySchema>;
 export function NewsArchiveList({ onOpen }: { onOpen: (id: string) => void }) {
   const visible = useTaskVisible(),
@@ -29,21 +27,7 @@ export function NewsArchiveList({ onOpen }: { onOpen: (id: string) => void }) {
         delete value.cursor;
         setFilter(value);
         setDraft(value);
-        const saved = readNewsMemory(
-          `news-archive-pages:${JSON.stringify(value)}`,
-        );
-        setPages(
-          Array.isArray(saved) &&
-            saved.length &&
-            saved.length <= 1000 &&
-            saved.every(
-              (cursor) =>
-                cursor == null ||
-                newsArchiveQuerySchema.safeParse({ ...value, cursor }).success,
-            )
-            ? saved.map((cursor) => cursor ?? undefined)
-            : [undefined],
-        );
+        setPages([undefined]);
       } catch {
         setError("历史查询条件无效，请重新查询");
       }
@@ -57,15 +41,31 @@ export function NewsArchiveList({ onOpen }: { onOpen: (id: string) => void }) {
     { ...filter, cursor: pages.at(-1) },
     { enabled: visible && ready },
   );
-  function move(next: Filter["cursor"][]) {
-    setPages(next);
-    rememberNews(`news-archive-pages:${JSON.stringify(filter)}`, next);
+  const result = query.isSuccess ? query.data : undefined;
+  const batches = useAccumulatedPages({
+    resetKey: JSON.stringify(filter),
+    pageIndex: pages.length - 1,
+    items: result?.rows,
+    total: result?.total,
+    getKey: (row) => row.id,
+  });
+  const [requesting, setRequesting] = useState(false);
+  useEffect(() => {
+    if (!query.isFetching) setRequesting(false);
+  }, [query.isFetching]);
+  function loadMore() {
+    const cursor = query.data?.nextCursor;
+    if (!cursor || !batches.hasMore || query.isFetching || requesting) return;
+    setRequesting(true);
+    setPages((value) => [...value, cursor]);
   }
+  const sentinel = useIntersectionLoadMore({
+    enabled: visible && ready && batches.hasMore && !query.error,
+    loading: query.isFetching,
+    onLoadMore: loadMore,
+  });
   return (
-    <Panel
-      title="分析历史"
-      note="覆盖全部已保存档案；每个档案ID独立显示，续作可能更新归档时间。"
-    >
+    <Panel title="分析历史" note="每个档案 ID 独立显示。">
       <form
         className="form-grid items-end"
         onSubmit={(event) => {
@@ -75,14 +75,11 @@ export function NewsArchiveList({ onOpen }: { onOpen: (id: string) => void }) {
             setError(parsed.error.issues[0]?.message ?? "条件无效");
             return;
           }
-          setFilter(parsed.data);
           const unchanged =
             JSON.stringify(parsed.data) === JSON.stringify(filter) &&
             pages.length === 1;
-          move([undefined]);
-          rememberNews(`news-archive-pages:${JSON.stringify(parsed.data)}`, [
-            null,
-          ]);
+          setFilter(parsed.data);
+          setPages([undefined]);
           setError("");
           const url = new URL(location.href);
           url.searchParams.set("archiveFilter", JSON.stringify(parsed.data));
@@ -148,7 +145,7 @@ export function NewsArchiveList({ onOpen }: { onOpen: (id: string) => void }) {
       {query.isLoading && <p>正在读取历史…</p>}
       {query.data?.total === 0 && <p>没有匹配的分析档案。</p>}
       <div className="my-3 space-y-2">
-        {query.data?.rows.map((row) => (
+        {batches.rows.map((row) => (
           <div
             key={row.id}
             className="flex flex-wrap items-center justify-between gap-3 rounded border border-nc-border p-3 text-sm"
@@ -175,17 +172,18 @@ export function NewsArchiveList({ onOpen }: { onOpen: (id: string) => void }) {
           </div>
         ))}
       </div>
-      <NewsPaging
-        label="分析"
-        page={pages.length}
-        total={query.data?.total ?? 0}
-        next={!!query.data?.nextCursor}
-        busy={query.isFetching}
-        onPrevious={() => move(pages.slice(0, -1))}
-        onNext={() =>
-          query.data?.nextCursor && move([...pages, query.data.nextCursor])
-        }
-      />
+      {batches.hasMore && (
+        <div ref={sentinel} className="py-2">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={query.isFetching || requesting}
+            onClick={loadMore}
+          >
+            {query.isFetching || requesting ? "加载中…" : "加载更多"}
+          </Button>
+        </div>
+      )}
     </Panel>
   );
 }

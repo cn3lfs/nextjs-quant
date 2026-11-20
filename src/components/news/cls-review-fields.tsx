@@ -63,6 +63,8 @@ export function ClsError({
     </p>
   ) : null;
 }
+/** Kept only so the retired fact-check module still type-checks; no active view
+ * renders it. New views load continuously instead of paging. */
 export function ClsPages({
   count,
   more,
@@ -84,7 +86,7 @@ export function ClsPages({
         disabled={count <= 1 || busy}
         onClick={previous}
       >
-        上一页
+        较早
       </Button>
       <span className="text-xs">第 {count} 页</span>
       <Button
@@ -93,8 +95,42 @@ export function ClsPages({
         disabled={!more || busy}
         onClick={next}
       >
-        下一页
+        较新
       </Button>
     </div>
+  );
+}
+
+/** T+N return cell: red up, green down, muted while the window is incomplete. */
+export function ClsReturnValue({
+  returnPct,
+  elapsed,
+  horizon,
+  noBase = false,
+}: {
+  returnPct: number | null | undefined;
+  elapsed: number;
+  horizon: number;
+  /** No local base bar at all: the window can never fill, so show “—”. */
+  noBase?: boolean;
+}) {
+  if (returnPct == null)
+    return (
+      <span className="text-nc-text-4">
+        {!noBase && elapsed < horizon ? `待满${horizon}日` : "—"}
+      </span>
+    );
+  return (
+    <span
+      className={
+        returnPct > 0
+          ? "text-nc-up"
+          : returnPct < 0
+            ? "text-nc-down"
+            : "text-nc-text-3"
+      }
+    >
+      {`${returnPct > 0 ? "+" : ""}${displayNumber(returnPct, 2)}%`}
+    </span>
   );
 }

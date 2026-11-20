@@ -242,8 +242,8 @@ describe("signal information", () => {
       "截面样本不足",
     ])
       expect(html).toContain(label);
-    expect(html).toContain("上一页");
+    expect(html).not.toContain("上一页");
     expect(html).not.toContain("下一页");
-    expect(html).not.toContain("缠论 · 向上");
+    expect(html).toContain("已加载 2 / 2 组");
   });
 });

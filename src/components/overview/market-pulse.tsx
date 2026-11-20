@@ -4,6 +4,7 @@ import { formatNumber } from "trading-strategy-core/format-number";
 import Link from "next/link";
 import { api } from "~/trpc/react";
 import { cn } from "~/lib/common/classnames";
+import { Button } from "../ui/button";
 import { useScreenVisible } from "../workbench/use-task-visible";
 import { useQuoteRefreshInterval } from "../market/use-quote-session";
 
@@ -20,6 +21,7 @@ export type PulseQuote = {
   price: number;
   preClose: number;
   amount: number;
+  quoteTime?: string | null;
 };
 export const quoteChange = (q: PulseQuote | undefined) =>
   q && q.preClose > 0 && q.price > 0 ? (q.price / q.preClose - 1) * 100 : null;
@@ -32,69 +34,125 @@ const toneOf = (change: number | null) =>
 const signed = (change: number) =>
   `${change > 0 ? "+" : ""}${formatNumber(change, 2)}%`;
 
+function formatClock(timestamp: number) {
+  return new Date(timestamp).toLocaleTimeString("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
 /**
- * One batched TDX quote request for the indices and the watchlist, refreshed
- * with the trading session (3 s while trading, manual after the close).
+ * One batched live quote request for the indices and the watchlist (Tencent
+ * realtime primary with TDX TCP fallback), refreshed with the trading session
+ * (3 s while trading, manual refresh available anytime).
  */
 export function useOverviewQuotes(watch: readonly string[]) {
   const interval = useQuoteRefreshInterval();
   const visible = useScreenVisible();
   const symbols = [...pulseIndices.map(([symbol]) => symbol), ...watch];
-  const quotes = api.tdxQuotes.useQuery(symbols, {
+  const quotes = api.overviewQuotes.useQuery(symbols, {
     enabled: visible,
     retry: false,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
     refetchInterval: visible ? interval : false,
   });
   const bySymbol = new Map(
-    (quotes.data ?? []).map((q) => [q.symbol, q as PulseQuote]),
+    (quotes.data?.quotes ?? []).map((q) => [q.symbol, q as PulseQuote]),
   );
-  return { bySymbol, error: quotes.error, loading: quotes.isLoading };
+  return {
+    bySymbol,
+    source: quotes.data?.source ?? null,
+    fetchedAt: quotes.data?.fetchedAt ?? null,
+    isFetching: quotes.isFetching,
+    refetch: () => void quotes.refetch(),
+    error: quotes.error,
+    loading: quotes.isLoading,
+  };
 }
 
 export function MarketPulse({
   bySymbol,
+  source,
+  fetchedAt,
+  isFetching,
+  onRefresh,
   error,
 }: {
   bySymbol: Map<string, PulseQuote>;
+  source?: string | null;
+  fetchedAt?: number | null;
+  isFetching?: boolean;
+  onRefresh?: () => void;
   error: { message: string } | null;
 }) {
   return (
-    <div
-      className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-[var(--nc-gap)]"
-      aria-label="主要指数"
-      data-testid="market-pulse"
-    >
-      {pulseIndices.map(([symbol, name]) => {
-        const q = bySymbol.get(symbol);
-        const change = quoteChange(q);
-        return (
-          <Link
-            key={symbol}
-            href={`/scan?symbol=${symbol}`}
-            className="nc-watch flex-col !items-start !gap-[2px]"
+    <section aria-label="主要指数实时行情" className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2 text-[12.5px]">
+        <span className="font-medium text-nc-text">主要指数</span>
+        <span className="text-nc-text-4">
+          {error
+            ? `实时行情读取失败：${error.message}`
+            : fetchedAt
+              ? `${source ?? "实时行情"} · 更新于 ${formatClock(fetchedAt)}`
+              : "正在获取实时行情…"}
+        </span>
+        {onRefresh && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="ml-auto h-7 px-2.5 text-[12px]"
+            disabled={isFetching}
+            onClick={onRefresh}
           >
-            <span className="text-[11.5px] text-nc-text-3">{name}</span>
-            <span
-              className={cn(
-                "text-[15px] font-medium tabular-nums",
-                toneOf(change),
-              )}
+            刷新行情
+          </Button>
+        )}
+      </div>
+      <div
+        className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-[var(--nc-gap)]"
+        aria-label="主要指数"
+        data-testid="market-pulse"
+      >
+        {pulseIndices.map(([symbol, name]) => {
+          const q = bySymbol.get(symbol);
+          const change = quoteChange(q);
+          return (
+            <Link
+              key={symbol}
+              href={`/scan?symbol=${symbol}`}
+              className="nc-watch flex-col !items-start !gap-[2px]"
             >
-              {q ? formatNumber(q.price, 2) : "—"}
-            </span>
-            <span className={cn("text-[11.5px] tabular-nums", toneOf(change))}>
-              {change === null ? (error ? "行情不可用" : "—") : signed(change)}
-              {q && q.amount > 0 && (
-                <span className="ml-2 text-nc-text-4">
-                  {formatNumber(q.amount / 1e8, 0)}亿
-                </span>
-              )}
-            </span>
-          </Link>
-        );
-      })}
-    </div>
+              <span className="text-[11.5px] text-nc-text-3">{name}</span>
+              <span
+                className={cn(
+                  "text-[15px] font-medium tabular-nums",
+                  toneOf(change),
+                )}
+              >
+                {q ? formatNumber(q.price, 2) : "—"}
+              </span>
+              <span
+                className={cn("text-[11.5px] tabular-nums", toneOf(change))}
+              >
+                {change === null
+                  ? error
+                    ? "行情不可用"
+                    : "—"
+                  : signed(change)}
+                {q && q.amount > 0 && (
+                  <span className="ml-2 text-nc-text-4">
+                    {formatNumber(q.amount / 1e8, 0)}亿
+                  </span>
+                )}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

@@ -11,6 +11,11 @@ import {
   SelectContent,
   SelectItem,
 } from "../../ui/select";
+import {
+  useAccumulatedPages,
+  useIntersectionLoadMore,
+  useTablePage,
+} from "../../ui/use-infinite-table";
 
 export function MethodRegistryWorkspace({
   panelVisible,
@@ -20,16 +25,31 @@ export function MethodRegistryWorkspace({
   active: boolean;
 }) {
   const [methodQuery, setMethodQuery] = useState("");
-  const [methodPage, setMethodPage] = useState(0);
   const [methodCategory, setMethodCategory] = useState("");
+  const resetKey = JSON.stringify([methodQuery, methodCategory]);
+  const pager = useTablePage(resetKey);
   const methods = api.strategyCenterMethods.useQuery(
     {
       query: methodQuery,
-      page: methodPage,
+      page: pager.pageIndex,
       category: methodCategory || undefined,
     },
     { enabled: panelVisible && active },
   );
+  const batches = useAccumulatedPages({
+    pageIndex: pager.pageIndex,
+    items: methods.data?.methods,
+    total: methods.data?.total,
+    resetKey,
+    getKey: (m) => m.id,
+    isSuccess: methods.isSuccess,
+    pageSize: 20,
+  });
+  const sentinel = useIntersectionLoadMore({
+    enabled: panelVisible && active && batches.hasMore && !methods.isError,
+    loading: methods.isFetching,
+    onLoadMore: pager.loadMore,
+  });
   return (
     <>
       <section className="space-y-3 rounded border p-4">
@@ -43,17 +63,13 @@ export function MethodRegistryWorkspace({
           aria-label="搜索已有方法"
           placeholder="方法ID或名称"
           value={methodQuery}
-          onChange={(event) => {
-            setMethodQuery(event.target.value);
-            setMethodPage(0);
-          }}
+          onChange={(event) => setMethodQuery(event.target.value)}
         />
         <Select
           value={methodCategory || "all"}
-          onValueChange={(value) => {
-            setMethodCategory(value === "all" ? "" : value);
-            setMethodPage(0);
-          }}
+          onValueChange={(value) =>
+            setMethodCategory(value === "all" ? "" : value)
+          }
         >
           <SelectTrigger aria-label="已有方法分类">
             <SelectValue />
@@ -67,7 +83,7 @@ export function MethodRegistryWorkspace({
             ))}
           </SelectContent>
         </Select>
-        {methods.data?.methods.map((method) => (
+        {batches.rows.map((method) => (
           <details key={method.id} className="rounded border p-2">
             <summary>
               {method.id} · {method.title}
@@ -89,22 +105,21 @@ export function MethodRegistryWorkspace({
             </p>
           </details>
         ))}
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            disabled={methodPage === 0}
-            onClick={() => setMethodPage(methodPage - 1)}
-          >
-            上一页
-          </Button>
-          <span>第{methodPage + 1}页</span>
-          <Button
-            variant="outline"
-            disabled={(methodPage + 1) * 20 >= (methods.data?.total ?? 0)}
-            onClick={() => setMethodPage(methodPage + 1)}
-          >
-            下一页
-          </Button>
+        <div ref={sentinel} aria-hidden="true" className="h-px" />
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span>
+            已加载 {batches.rows.length} / {batches.total} 项
+          </span>
+          {batches.hasMore && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={methods.isFetching}
+              onClick={pager.loadMore}
+            >
+              {methods.isFetching ? "加载中…" : "加载更多"}
+            </Button>
+          )}
         </div>
       </section>
       {methods.error && (

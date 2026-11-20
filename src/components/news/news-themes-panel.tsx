@@ -56,10 +56,6 @@ export function NewsThemesPanel({ id }: { id: string }) {
   return (
     <section className="panel">
       <h4>当天跨行业主题</h4>
-      <p className="muted">
-        按已有新闻数量选取前7个行业，每类最多10条；宏观、市场情绪和国际市场单列。使用当前模型，默认
-        Codex；证据不足时不生成跨行业主题。
-      </p>
       <Button disabled={busy} onClick={() => create.mutate(id)}>
         {busy ? "主题研究中…" : "AI 提炼跨行业主题"}
       </Button>
@@ -81,7 +77,7 @@ export function NewsThemesPanel({ id }: { id: string }) {
         <>
           <p>
             {report.model} · 使用 {report.sources.length} 条新闻 · 冲突隔离{" "}
-            {report.aggregation.conflicts.length} 条。仅代表已有分类覆盖。
+            {report.aggregation.conflicts.length} 条。
           </p>
           <p>
             {report.result.summary.text}（新闻{" "}
