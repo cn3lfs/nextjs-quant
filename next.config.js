@@ -5,6 +5,23 @@ const config = {
   env: { NEXT_PUBLIC_CACHE_BUSTER: String(Date.now()) },
   serverExternalPackages: ["better-sqlite3", "koffi"],
   outputFileTracingIncludes: { "/*": ["./runtime/**/*"] },
+  outputFileTracingExcludes: {
+    "/*": [
+      "./release/**/*",
+      "./.test-data/**/*",
+      "./test-results/**/*",
+      "./tests/**/*",
+      "./docs/**/*",
+      "./.git/**/*",
+      "./.codex-runs/**/*",
+      "./src/**/*",
+      "./electron/**/*",
+      "./scripts/**/*",
+      "./packages/**/*",
+      "./desktop/**/*",
+      "./research/**/*",
+    ],
+  },
   async headers() {
     return [
       {
