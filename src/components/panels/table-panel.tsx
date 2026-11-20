@@ -24,6 +24,7 @@ export function GridTable<T>({
   label,
   onRowClick,
   rowClassName,
+  bottomSlot,
 }: {
   columns: readonly Column<T>[];
   rows: readonly T[];
@@ -33,6 +34,7 @@ export function GridTable<T>({
   label?: string;
   onRowClick?: (row: T) => void;
   rowClassName?: (row: T) => string | undefined;
+  bottomSlot?: ReactNode;
 }) {
   const template = columns
     .map((c) => `minmax(0,${c.width ?? "1fr"})`)
@@ -90,6 +92,7 @@ export function GridTable<T>({
           ))
         )}
       </div>
+      {bottomSlot}
     </div>
   );
 }

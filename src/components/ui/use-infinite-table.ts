@@ -175,7 +175,7 @@ export function useIntersectionLoadMore({
   enabled,
   loading,
   onLoadMore,
-  rootMargin = "240px",
+  rootMargin,
 }: {
   enabled: boolean;
   loading: boolean;
@@ -195,11 +195,16 @@ export function useIntersectionLoadMore({
     )
       return;
     let active = true;
+    const scrollRoot = node.closest<HTMLElement>(
+      '[data-slot="table-container"], [data-infinite-scroll-root], .nc-table-scroll, .table-wrap',
+    );
+    const effectiveRootMargin =
+      rootMargin ?? (scrollRoot ? "120px" : "240px");
     const observer = new IntersectionObserver(
       (entries) => {
         if (active && entries.some((entry) => entry.isIntersecting)) load();
       },
-      { rootMargin },
+      { root: scrollRoot ?? null, rootMargin: effectiveRootMargin },
     );
     observer.observe(node);
     return () => {

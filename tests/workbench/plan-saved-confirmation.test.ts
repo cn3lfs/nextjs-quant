@@ -36,6 +36,19 @@ vi.mock("~/trpc/react", async () => {
     api: {
       useUtils: () => utils,
       planCorrelation: { useQuery: () => ({ data: undefined, error: null }) },
+      simPlanBindingGet: {
+        useQuery: () => ({ data: null, isSuccess: false, error: null }),
+      },
+      simAccountsList: {
+        useQuery: () => ({ data: [], isSuccess: true, error: null }),
+      },
+      simPlanBindingSave: {
+        useMutation: () => ({
+          isPending: false,
+          isError: false,
+          mutate: vi.fn(),
+        }),
+      },
       createAlertPlan: { useMutation },
     },
   };
@@ -97,9 +110,8 @@ it("wires the success callback to readable facts, the original plan id and the t
   expect(confirmation.message).toContain("数量 1200");
   expect(confirmation.message).toContain("已记录偏离策略参数");
   expect(confirmation.message).toContain("收盘快照");
-  expect(confirmation.message).toContain(
-    "未分配分仓 5000.00 已计入市场占用，请分配",
-  );
+  expect(confirmation.message).toContain("未分配分仓 5000.00 已计入市场占用");
+  expect(confirmation.message).not.toContain("请分配");
   expect(harness.invalidated).toEqual([
     "alertPlans",
     "workspaceCandidates",

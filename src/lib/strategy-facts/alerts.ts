@@ -2,6 +2,53 @@ import { z } from "zod";
 import type { Outcome } from "./signal-ledger";
 import type { SecurityTradingStatus } from "../market/security-trading-status";
 
+export const UNIVERSAL_DEFAULT_CAPITAL = {
+  "cn-equity": 1_000_000,
+  crypto: 10_000,
+} as const;
+export const UNIVERSAL_DEFAULT_RISK = 0.01;
+
+type AlertMarket = keyof typeof UNIVERSAL_DEFAULT_CAPITAL;
+
+/** Use positive configured capital, or the market default. */
+export function effectiveMarketCapital(
+  alerts: { capital: Record<AlertMarket, number> },
+  market: AlertMarket,
+): number {
+  const configured = alerts.capital[market];
+  return Number.isFinite(configured) && configured > 0
+    ? configured
+    : UNIVERSAL_DEFAULT_CAPITAL[market];
+}
+
+/** Unallocated sleeves share the market pool and inherit its primary risk. */
+export function universalMarketSleeve(
+  alerts: {
+    sleeves: readonly {
+      id: string;
+      market: AlertMarket;
+      share: number;
+      risk: number;
+    }[];
+  },
+  market: AlertMarket,
+  sleeveId: string,
+) {
+  const exact = alerts.sleeves.find(
+    (s) => s.market === market && s.id === sleeveId && s.share > 0,
+  );
+  if (exact) return exact;
+  const primary =
+    alerts.sleeves.find((s) => s.market === market && s.share > 0) ??
+    alerts.sleeves.find((s) => s.market === market);
+  return {
+    id: sleeveId,
+    market,
+    share: 1,
+    risk: primary?.risk ?? UNIVERSAL_DEFAULT_RISK,
+  };
+}
+
 export const alertModes = ["off", "shadow", "live"] as const;
 export const alertModeLabels = { off: "关闭", shadow: "影子", live: "开启" };
 export const sleeveSchema = z.object({

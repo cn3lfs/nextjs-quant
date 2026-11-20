@@ -4,6 +4,7 @@ import {
   ArrowClockwise,
   ArrowUpRight,
   Broadcast,
+  CaretLeft,
   CaretRight,
   Flask,
   ListDashes,
@@ -12,12 +13,7 @@ import {
   Star,
   X,
 } from "@phosphor-icons/react/ssr";
-import {
-  useEffect,
-  useState,
-  useSyncExternalStore,
-  type ReactNode,
-} from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   chartPeriodSchema,
   periodLabels,
@@ -193,22 +189,12 @@ const methodologyItems = [
   },
 ] as const;
 
-const narrowMarketQuery = "(max-width: 1024px)";
-
-function subscribeNarrowMarket(callback: () => void) {
-  const media = window.matchMedia(narrowMarketQuery);
-  media.addEventListener("change", callback);
-  return () => media.removeEventListener("change", callback);
-}
-
 export function MarketView({
   state,
   notify,
   embedded = false,
   frozen = false,
   leftCandidatesSlot,
-  rightPlanSlot,
-  hasActivePlan = false,
 }: {
   notify: (text: string) => void;
   embedded?: boolean;
@@ -216,10 +202,6 @@ export function MarketView({
   frozen?: boolean;
   /** 扫描候选筛选与列表，显示在左轨「扫描候选」签内。 */
   leftCandidatesSlot?: ReactNode;
-  /** 双价锁与交易计划，显示在右轨「计划双价」签内。 */
-  rightPlanSlot?: ReactNode;
-  /** 有选中候选时默认展开右轨计划签。 */
-  hasActivePlan?: boolean;
   state: Pick<
     MarketState,
     | "marketSource"
@@ -387,23 +369,12 @@ export function MarketView({
   const [leftTab, setLeftTab] = useState<"watch" | "scan">(
     hasScanSlot ? "scan" : "watch",
   );
-  const narrowMarket = useSyncExternalStore(
-    subscribeNarrowMarket,
-    () => window.matchMedia(narrowMarketQuery).matches,
-    () => false,
-  );
-  const [leftCollapsedPreference, setLeftCollapsed] = useState<boolean>();
-  const leftCollapsed = leftCollapsedPreference ?? narrowMarket;
+  const [leftCollapsed, setLeftCollapsed] = useState(true);
   const [rightCollapsed, setRightCollapsed] = useState(false);
-  const [rightTabPreference, setRightTab] = useState<"quote" | "plan">();
-  const rightTab = rightTabPreference ?? (hasActivePlan ? "plan" : "quote");
   const [watchQuery, setWatchQuery] = useState("");
   useEffect(() => {
     if (hasScanSlot) setLeftTab("scan");
   }, [hasScanSlot]);
-  useEffect(() => {
-    if (hasActivePlan) setRightTab("plan");
-  }, [hasActivePlan]);
   // A frozen candidate is stepped by the screening result controls. Keeping the
   // stale browse list out of both the UI and the hotkey prevents PageUp/PageDown
   // from replacing the frozen chart with a live load.
@@ -475,7 +446,7 @@ export function MarketView({
               title="收起列表"
               onClick={() => setLeftCollapsed(true)}
             >
-              <CaretRight size={13} />
+              <CaretLeft size={13} />
             </Button>
           </div>
           <div className="min-h-0 flex-1 overflow-auto p-2">
@@ -611,13 +582,13 @@ export function MarketView({
                 size="sm"
                 variant="ghost"
                 type="button"
-                className="shrink-0 px-1.5"
-                aria-label="展开列表"
+                className="shrink-0 gap-1 px-1.5"
                 aria-expanded="false"
-                title="展开列表"
+                title="展开列表（自选/候选）"
                 onClick={() => setLeftCollapsed(false)}
               >
                 <ListDashes size={16} />
+                <span className="text-xs">展开列表</span>
               </Button>
             )}
             <div className="w-[210px] min-w-[150px] max-w-[280px] shrink-0">
@@ -983,17 +954,11 @@ export function MarketView({
         </section>
       </div>
       {showRightRail && (
-        <aside className="nc-market-rail" aria-label="盘口与计划">
+        <aside className="nc-market-rail" aria-label="盘口指标">
           <div className="flex items-center gap-1 border-b border-nc-border px-2 py-1.5">
-            <RailTabs
-              label="右侧栏"
-              value={rightTab}
-              onChange={setRightTab}
-              options={[
-                { value: "quote", label: "盘口指标" },
-                { value: "plan", label: "计划双价" },
-              ]}
-            />
+            <span className="min-w-0 flex-1 truncate text-xs font-medium text-nc-text-2">
+              盘口指标
+            </span>
             <Button
               variant="plain"
               type="button"
@@ -1006,14 +971,7 @@ export function MarketView({
             </Button>
           </div>
           <div className="min-h-0 flex-1 overflow-auto p-2">
-            <div className="space-y-2" hidden={rightTab !== "plan"}>
-              {rightPlanSlot ?? (
-                <p className="text-xs text-nc-text-3">
-                  选择个股后显示双价与交易计划。
-                </p>
-              )}
-            </div>
-            <div className="space-y-2" hidden={rightTab !== "quote"}>
+            <div className="space-y-2">
               {loaded ? (
                 <>
                   <TdxSidePanel symbol={loaded.symbol} />

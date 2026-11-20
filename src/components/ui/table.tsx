@@ -3,17 +3,29 @@
 import * as React from "react";
 import { cn } from "~/lib/common/classnames";
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+function Table({
+  className,
+  containerClassName,
+  bottomSlot,
+  ...props
+}: React.ComponentProps<"table"> & {
+  containerClassName?: string;
+  bottomSlot?: React.ReactNode;
+}) {
   return (
     <div
       data-slot="table-container"
-      className="relative w-full min-w-0 overflow-x-auto"
+      className={cn(
+        "relative w-full min-w-0 overflow-x-auto",
+        containerClassName,
+      )}
     >
       <table
         data-slot="table"
         className={cn("w-full caption-bottom text-sm", className)}
         {...props}
       />
+      {bottomSlot}
     </div>
   );
 }
@@ -72,7 +84,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-11 bg-nc-inset px-3 text-left align-middle text-[13px] font-medium whitespace-nowrap text-nc-text-3 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+        "sticky top-0 z-10 h-11 bg-nc-inset px-3 text-left align-middle text-[13px] font-medium whitespace-nowrap text-nc-text-3 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
         className,
       )}
       {...props}

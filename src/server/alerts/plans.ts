@@ -19,7 +19,11 @@ import {
   type AccountPosition,
 } from "~/lib/portfolio/account-workspace";
 
-import type { AlertEvent } from "~/lib/strategy-facts/alerts";
+import {
+  effectiveMarketCapital,
+  universalMarketSleeve,
+  type AlertEvent,
+} from "~/lib/strategy-facts/alerts";
 import type { Period, Snapshot } from "~/lib/domain";
 import { screenDataHealth } from "../market/data-health";
 import {
@@ -221,7 +225,10 @@ export function createAlertPlan(
             p.stages?.reduce((n, s) => n + s.entry * s.quantity, 0) ??
             p.entry * (p.quantity ?? 0),
         })),
-      capital: config.alerts.capital,
+      capital: {
+        "cn-equity": effectiveMarketCapital(config.alerts, "cn-equity"),
+        crypto: effectiveMarketCapital(config.alerts, "crypto"),
+      },
       caps,
     };
     const violations = checkExposureCaps(capInput);
@@ -288,12 +295,12 @@ export function previewAlertPlan(
     throw new Error("止损须低于每档入场价，目标须高于入场价");
   if (repository.plans(true).some((p) => p.triggerKey === input.eventKey))
     throw new Error("该候选已有未完成计划");
-  const sleeve = config.alerts.sleeves.find(
-    (s) => s.id === event.sleeve && s.market === event.market,
+  const sleeve = universalMarketSleeve(
+    config.alerts,
+    event.market,
+    event.sleeve,
   );
-  const equity = config.alerts.capital[event.market];
-  if (!sleeve || !equity || !sleeve.share)
-    throw new Error("请先配置该分仓资金和目标份额");
+  const equity = effectiveMarketCapital(config.alerts, event.market);
   const snapshot = planExposure(event.market, config, now, repository);
   const usage = snapshot.usage;
   if (!snapshot.valid)

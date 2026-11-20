@@ -145,6 +145,12 @@ export function DataTable<T extends object>({
         <Table
           aria-label={label}
           aria-describedby={sortable ? sortHelpId : undefined}
+          containerClassName="max-h-[480px] overflow-y-auto"
+          bottomSlot={
+            infiniteScroll ? (
+              <div ref={sentinel} aria-hidden="true" className="h-px" />
+            ) : undefined
+          }
         >
           <TableHeader>
             {table.getHeaderGroups().map((group) => (
@@ -227,7 +233,6 @@ export function DataTable<T extends object>({
       </div>
       {infiniteScroll && (
         <>
-          <div ref={sentinel} aria-hidden="true" className="h-px" />
           {error && data.length > 0 && (
             <div role="alert">
               {error}{" "}

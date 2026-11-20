@@ -1,8 +1,20 @@
 "use client";
 import type { Settings } from "~/lib/domain";
-import { alertModeLabels } from "~/lib/strategy-facts/alerts";
+import {
+  alertModeLabels,
+  effectiveMarketCapital,
+  UNIVERSAL_DEFAULT_RISK,
+} from "~/lib/strategy-facts/alerts";
+import { Button } from "../ui/button";
 import { LedgerInput } from "./ledger-fields";
 import Link from "next/link";
+
+const riskPresets = [
+  { label: "0.5% 稳健", value: 0.005 },
+  { label: "1% 标准", value: 0.01 },
+  { label: "2% 进取", value: 0.02 },
+] as const;
+
 export function AlertSettings({
   value,
   onChange,
@@ -10,9 +22,22 @@ export function AlertSettings({
   value: Settings["alerts"];
   onChange: (value: Settings["alerts"]) => void;
 }) {
+  const universalRisk =
+    value.sleeves.find((s) => s.share > 0)?.risk ??
+    value.sleeves[0]?.risk ??
+    UNIVERSAL_DEFAULT_RISK;
+  // One universal risk for every strategy: rewrite each sleeve's risk but keep
+  // its existing share; `universalMarketSleeve` already lets share === 0
+  // sleeves share the whole market pool.
+  const updateRisk = (risk: number) => {
+    onChange({
+      ...value,
+      sleeves: value.sleeves.map((s) => ({ ...s, risk })),
+    });
+  };
   return (
     <section aria-label="提醒引擎设置" className="space-y-3 rounded border p-4">
-      <h2>统一提醒与分仓</h2>
+      <h2>统一提醒与通用风控</h2>
       <p className="text-xs text-nc-text-3">
         默认影子模式：求值并记录本应发送的提醒。开启后仅向已启用订阅投递，始终须人工交易。修改后点击上方保存设置。
       </p>
@@ -25,58 +50,63 @@ export function AlertSettings({
       {value.mode === "live" && (
         <p role="status">保存后允许向已启用订阅和渠道发送提醒。</p>
       )}
-      <div className="grid gap-3 lg:grid-cols-2">
-        {(["cn-equity", "crypto"] as const).map((market) => (
-          <LedgerInput
-            key={market}
-            label={`${market === "crypto" ? "数字货币资金（USDT）" : "A股资金（元）"}`}
-            value={String(value.capital[market])}
-            onChange={(v) =>
-              onChange({
-                ...value,
-                capital: { ...value.capital, [market]: Number(v) },
-              })
-            }
-          />
-        ))}
-      </div>
-      {value.sleeves.map((s, i) => (
-        <div
-          key={`${s.market}:${s.id}`}
-          className="flex flex-wrap items-end gap-3"
-        >
-          <span>
-            {s.market === "crypto" ? "数字货币" : "A股"} · {s.id}
-          </span>
-          <LedgerInput
-            label={`${s.market} ${s.id} 目标份额%`}
-            value={String(s.share * 100)}
-            onChange={(v) =>
-              onChange({
-                ...value,
-                sleeves: value.sleeves.map((a, j) =>
-                  j === i ? { ...a, share: Number(v) / 100 } : a,
-                ),
-              })
-            }
-          />
-          <LedgerInput
-            label={`${s.market} ${s.id} 单笔风险%`}
-            value={String(s.risk * 100)}
-            onChange={(v) =>
-              onChange({
-                ...value,
-                sleeves: value.sleeves.map((a, j) =>
-                  j === i ? { ...a, risk: Number(v) / 100 } : a,
-                ),
-              })
-            }
-          />
+      <div className="space-y-3 rounded border border-nc-border-soft p-3">
+        <h3 className="text-sm font-medium">
+          通用仓位与风控体系（全策略共用）
+        </h3>
+        <div className="grid gap-3 lg:grid-cols-2">
+          {(["cn-equity", "crypto"] as const).map((market) => (
+            <LedgerInput
+              key={market}
+              label={
+                market === "crypto" ? "数字货币资金（USDT）" : "A股资金（元）"
+              }
+              value={String(effectiveMarketCapital(value, market))}
+              onChange={(v) =>
+                onChange({
+                  ...value,
+                  capital: {
+                    "cn-equity":
+                      market === "cn-equity"
+                        ? Number(v)
+                        : effectiveMarketCapital(value, "cn-equity"),
+                    crypto:
+                      market === "crypto"
+                        ? Number(v)
+                        : effectiveMarketCapital(value, "crypto"),
+                  },
+                })
+              }
+            />
+          ))}
         </div>
-      ))}
-      <p className="text-xs text-nc-text-3">
-        A股未启用低位配置时，闲置资金归波段仓。数量受分仓风险和剩余额度双重限制，已预留撮合费用；实际成交与滑点需核对，币种数量须有平台步长依据。
-      </p>
+        <div className="space-y-2">
+          <LedgerInput
+            label="通用单笔最大风险（%）"
+            value={String(universalRisk * 100)}
+            onChange={(v) => updateRisk(Number(v) / 100)}
+          />
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-nc-text-3">快捷预设</span>
+            {riskPresets.map((preset) => (
+              <Button
+                key={preset.label}
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => updateRisk(preset.value)}
+              >
+                {preset.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+        <p className="rounded bg-nc-inset px-3 py-2 text-xs text-nc-text-2">
+          所有选股方法与策略（双突破、缠论买卖点、历史低位、区间/均线/回踩公式、多周期RPS等）统一共用这套通用风控体系，无需按每个策略或分仓单独分配份额。每笔计划按「入场价
+          − 止损价」与通用单笔最大风险比例自动计算建议数量（A股自动按 100
+          股整手取整并预留交易税费）。
+        </p>
+      </div>
     </section>
   );
 }

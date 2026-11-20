@@ -484,54 +484,32 @@ function ScanResults({ market }: { market: "cn-equity" | "crypto" }) {
         target: candidate.target,
       }
     : null;
-  const hasSnapshot = market === "cn-equity" && search.has("screenSnapshot");
   if (market === "crypto") {
     return (
-      <div className="grid min-w-0 items-start gap-3 lg:grid-cols-[240px_minmax(0,1fr)]">
-        <aside className="nc-market-rail" aria-label="扫描候选">
-          <div className="border-b border-nc-border px-2 py-1.5 text-xs font-medium text-nc-text-2">
-            扫描候选
-          </div>
-          <div className="min-h-0 flex-1 overflow-auto p-2">
-            <ScanCandidateRail market="crypto" />
-          </div>
-        </aside>
-        <div className="min-w-0 space-y-3">
-          {selected.error && (
-            <p role="alert" className="text-xs text-nc-bad">
-              候选读取失败：{selected.error.message}
-            </p>
-          )}
-          {candidate && <CandidatePlanRail candidate={candidate} />}
-          <PlanLevelsProvider value={levels}>
-            <Crypto />
-          </PlanLevelsProvider>
-        </div>
+      <div className="min-w-0 space-y-3">
+        {selected.error && (
+          <p role="alert" className="text-xs text-nc-bad">
+            候选读取失败：{selected.error.message}
+          </p>
+        )}
+        {candidate && <CandidatePlanRail candidate={candidate} />}
+        <PlanLevelsProvider value={levels}>
+          <Crypto />
+        </PlanLevelsProvider>
       </div>
     );
   }
   return (
-    <PlanLevelsProvider value={levels}>
-      <Market
-        leftCandidatesSlot={<ScanCandidateRail market="cn-equity" />}
-        rightPlanSlot={
-          <div className="space-y-2">
-            {selected.error && (
-              <p role="alert" className="text-xs text-nc-bad">
-                候选读取失败：{selected.error.message}
-              </p>
-            )}
-            {hasSnapshot && <ScreenPlan />}
-            {candidate && <CandidatePlanRail candidate={candidate} />}
-            {!candidate && !hasSnapshot && (
-              <p className="text-xs text-nc-text-3">
-                从左侧选择个股查看双价与交易计划。
-              </p>
-            )}
-          </div>
-        }
-        hasActivePlan={!!candidate || hasSnapshot}
-      />
-    </PlanLevelsProvider>
+    <div className="min-w-0 space-y-3">
+      {selected.error && (
+        <p role="alert" className="text-xs text-nc-bad">
+          候选读取失败：{selected.error.message}
+        </p>
+      )}
+      <PlanLevelsProvider value={levels}>
+        <Market leftCandidatesSlot={<ScanCandidateRail market="cn-equity" />} />
+      </PlanLevelsProvider>
+      {candidate && <CandidatePlanRail candidate={candidate} />}
+    </div>
   );
 }

@@ -934,7 +934,13 @@ test("market watchlist updates reach the monitor page and preserve chart selecti
   await expect(add).toBeEnabled();
   await add.click();
   const rail = page.getByRole("complementary", { name: "自选与扫描候选" });
-  await rail.getByRole("tab", { name: /^我的自选 \(/ }).click();
+  const expandList = page.getByRole("button", {
+    name: "展开列表",
+    exact: true,
+  });
+  const watchTab = rail.getByRole("tab", { name: /^我的自选 \(/ });
+  await expandList.click();
+  await watchTab.click();
   await expect(
     rail.getByRole("button", { name: "移除 sh600000", exact: true }),
   ).toBeVisible();
@@ -953,7 +959,9 @@ test("market watchlist updates reach the monitor page and preserve chart selecti
   await expect(
     page.getByRole("combobox", { name: "搜索品种名称或代码", exact: true }),
   ).toHaveValue("P0_FIXTURE · SH600000");
-  await rail.getByRole("tab", { name: /^我的自选 \(/ }).click();
+  await expect(expandList.or(watchTab)).toBeVisible();
+  if (await expandList.isVisible()) await expandList.click();
+  await watchTab.click();
   await rail
     .getByRole("button", { name: "移除 sh600000", exact: true })
     .click();

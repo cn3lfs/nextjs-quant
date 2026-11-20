@@ -348,29 +348,48 @@ test("financial details are a lazy security subview and preserve chart state", a
     finance.getByRole("heading", { name: "本地财务 · SH600040", exact: true }),
   ).toBeVisible();
   expect(bars.length).toBe(before);
+  await page.setViewportSize({ width: 1280, height: 720 });
   const rail = page.getByRole("complementary", { name: "自选与扫描候选" });
   const watchlist = rail.getByRole("table", { name: "我的自选", exact: true });
   const tabs = rail.getByRole("tablist", { name: "列表来源" });
+  const expandList = page.getByRole("button", {
+    name: "展开列表",
+    exact: true,
+  });
+  const collapseList = rail.getByRole("button", {
+    name: "收起列表",
+    exact: true,
+  });
+  await expect(expandList).toBeVisible();
+  await expect(expandList).toHaveAttribute("aria-expanded", "false");
+  await expect(rail).toBeHidden();
+  await expect(watchlist).toBeHidden();
+  await expandList.click();
+  await expect(rail).toBeVisible();
   await expect(
     tabs.getByRole("tab", { name: "扫描候选", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
   await tabs.getByRole("tab", { name: /^我的自选 \(/ }).click();
   await expect(watchlist).toBeVisible();
-  const expandList = page.getByRole("button", {
-    name: "展开列表",
-    exact: true,
-  });
-  await expect(expandList).toBeHidden();
+  await collapseList.click();
+  await expect(rail).toBeHidden();
+  await expect(watchlist).toBeHidden();
+  await expect(expandList).toBeVisible();
+  await expect(expandList).toHaveAttribute("aria-expanded", "false");
   await page.setViewportSize({ width: 1024, height: 768 });
   await expect(finance.getByRole("alert")).toHaveCount(0);
   await expect(
     finance.getByText("本地财务数据尚未准备好", { exact: false }),
   ).toBeVisible();
+  await expect(expandList).toBeVisible();
   await expect(expandList).toHaveAttribute("aria-expanded", "false");
+  await expect(rail).toBeHidden();
   await expect(watchlist).toBeHidden();
   await expandList.click();
+  await expect(rail).toBeVisible();
   await expect(watchlist).toBeVisible();
-  await rail.getByRole("button", { name: "收起列表", exact: true }).click();
+  await collapseList.click();
+  await expect(rail).toBeHidden();
   await expect(watchlist).toBeHidden();
   expect(
     await page

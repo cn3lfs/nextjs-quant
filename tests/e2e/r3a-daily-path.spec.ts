@@ -202,13 +202,10 @@ for (const width of [1440, 1024]) {
     await expect(
       page.getByRole("application", { name: /行情图：/ }),
     ).toBeVisible();
-    const planRail = page.getByRole("complementary", { name: "盘口与计划" });
-    await expect(
-      planRail.getByRole("tab", { name: "计划双价" }),
-    ).toHaveAttribute("aria-selected", "true");
-    await expect(
-      planRail.getByText(/入场 .*止损 .*目标 .* · 原价/),
-    ).toBeVisible();
+    const quoteRail = page.getByRole("complementary", { name: "盘口指标" });
+    await expect(quoteRail).toBeVisible();
+    await expect(page.getByRole("tab", { name: "计划双价" })).toHaveCount(0);
+    await expect(page.getByText(/入场 .*止损 .*目标 .* · 原价/)).toBeVisible();
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth > window.innerWidth + 1,

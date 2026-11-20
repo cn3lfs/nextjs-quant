@@ -7,7 +7,11 @@ import { Button } from "../ui/button";
 import { glossary } from "~/lib/common/ui-glossary";
 import { securityDisplayName } from "~/lib/market/security-display";
 import { cryptoDisplayName, cryptoSymbol } from "~/lib/market/crypto";
-import { strategyDisplayName } from "~/lib/strategy-facts/strategy-display";
+import {
+  extractCandidateTriggerReason,
+  strategyDisplayName,
+  strategyMethodInfo,
+} from "~/lib/strategy-facts/strategy-display";
 
 export type WorkspaceCandidate =
   RouterOutputs["workspaceCandidates"]["items"][number];
@@ -107,6 +111,7 @@ export function CandidateTable({
   onSelect,
   onPlan,
   canPlan,
+  onMethodSelect,
   emptyMessage = `尚无收盘扫描或${glossary.shadowForward}候选。先补齐数据并登记策略；缺失不会生成计划。`,
 }: {
   data: WorkspaceCandidate[];
@@ -121,6 +126,7 @@ export function CandidateTable({
   onSelect?: (row: WorkspaceCandidate) => void;
   onPlan?: (row: WorkspaceCandidate) => void;
   canPlan?: (row: WorkspaceCandidate) => boolean;
+  onMethodSelect?: (family: string) => void;
   emptyMessage?: string;
 }) {
   return (
@@ -209,6 +215,16 @@ export function CandidateTable({
                 ? "交易状态待核验"
                 : "",
             ].filter(Boolean);
+            // One badge per distinct method family behind this row, so the
+            // selection method is readable without opening the chart.
+            const methods = [
+              ...new Map(
+                r.sources.map((s) => {
+                  const info = strategyMethodInfo(s.strategyId);
+                  return [info.family, info] as const;
+                }),
+              ).values(),
+            ];
             return (
               <div className="max-w-[26rem] min-w-0">
                 <span className="flex flex-wrap items-center gap-1.5">
@@ -235,17 +251,58 @@ export function CandidateTable({
                     />
                   )}
                 </span>
+                <p className="flex flex-wrap items-center gap-1">
+                  {methods.map((m) =>
+                    onMethodSelect ? (
+                      <button
+                        key={m.family}
+                        type="button"
+                        onClick={() => onMethodSelect(m.family)}
+                        className="inline-flex cursor-pointer items-center rounded bg-nc-inset px-1.5 py-0.5 text-xs font-medium text-nc-text-2 hover:bg-nc-border-soft"
+                        title={m.ruleSummary}
+                      >
+                        【{m.label}】
+                      </button>
+                    ) : (
+                      <span
+                        key={m.family}
+                        className="inline-flex items-center rounded bg-nc-inset px-1.5 py-0.5 text-xs font-medium text-nc-text-2"
+                        title={m.ruleSummary}
+                      >
+                        【{m.label}】
+                      </span>
+                    ),
+                  )}
+                  <span
+                    className="min-w-0 truncate text-sub text-nc-text-3"
+                    title={reasonTitle}
+                  >
+                    {r.sources
+                      .map(
+                        (s) =>
+                          `${strategyDisplayName(s.strategyId)} · ${shortDate(s.scanAt)}`,
+                      )
+                      .join(" / ")}{" "}
+                    · {r.bar}
+                  </span>
+                </p>
                 <p
-                  className="truncate text-sub text-nc-text-3"
+                  className="whitespace-normal break-words text-xs text-nc-text-3"
                   title={reasonTitle}
                 >
+                  入选依据：
                   {r.sources
-                    .map(
-                      (s) =>
-                        `${strategyDisplayName(s.strategyId)} · ${shortDate(s.scanAt)}`,
+                    .map((s) =>
+                      extractCandidateTriggerReason({
+                        strategyId: s.strategyId,
+                        reason: s.reason,
+                        bar: s.bar,
+                        price: r.price,
+                        stop: r.stop,
+                        target: r.target,
+                      }),
                     )
-                    .join(" / ")}{" "}
-                  · {r.bar}
+                    .join("；")}
                 </p>
                 {warnings.length > 0 && (
                   <p className="truncate text-sub text-nc-warn">
@@ -281,7 +338,7 @@ export function CandidateTable({
               snapshot
                 ? `${snapshot.basis === "post-close" ? "收盘快照" : "盘中核对"} · ${new Date(snapshot.at).toLocaleString("zh-CN")}${
                     snapshot.unassignedValue > 0
-                      ? ` · 未分配分仓 ${formatNumber(snapshot.unassignedValue)}，已计入市场占用，请分配`
+                      ? ` · 既有未归属持仓已计入市场总占用（${formatNumber(snapshot.unassignedValue)}）`
                       : ""
                   }`
                 : null,
@@ -291,9 +348,6 @@ export function CandidateTable({
             return (
               <span className="block text-right tabular-nums" title={title}>
                 {formatNumber(r.quantity, r.market === "crypto" ? 6 : 0)}
-                {snapshot && snapshot.unassignedValue > 0 && (
-                  <span className="ml-1 text-sub text-nc-warn">未分配</span>
-                )}
               </span>
             );
           },

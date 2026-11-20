@@ -201,7 +201,8 @@
 
 /* Table */
 .nc-table-scroll {
-  overflow-x: auto;
+  max-height: 480px;
+  overflow: auto;
 }
 .nc-table-head,
 .nc-table-row {
@@ -211,6 +212,10 @@
   align-items: center;
 }
 .nc-table-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--nc-card);
   padding: 0 4px calc(var(--nc-cell-py) - 3px);
   border-bottom: 1px solid var(--nc-border-soft);
   font-size: var(--nc-font-size-sub);

@@ -495,9 +495,11 @@ export function SectorValuationView() {
                 }
                 minWidth={1360}
                 empty="当前分类没有可展示的板块。"
+                bottomSlot={
+                  <div ref={sentinel} aria-hidden="true" className="h-px" />
+                }
               />
             </BrowseSource>
-            <div ref={sentinel} aria-hidden="true" className="h-px" />
             <nav
               aria-label="板块估值分页"
               className="mt-4 flex items-center justify-between gap-2"

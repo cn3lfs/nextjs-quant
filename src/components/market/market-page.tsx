@@ -12,16 +12,10 @@ import { Button } from "../ui/button";
 export function MarketPage({
   embedded = false,
   leftCandidatesSlot,
-  rightPlanSlot,
-  hasActivePlan = false,
 }: {
   embedded?: boolean;
   /** 扫描候选筛选与列表，渲染在行情终端左轨的「扫描候选」签内。 */
   leftCandidatesSlot?: ReactNode;
-  /** 双价锁与交易计划，渲染在右轨的「计划双价」签内。 */
-  rightPlanSlot?: ReactNode;
-  /** 有选中候选时默认打开右轨计划签。 */
-  hasActivePlan?: boolean;
 }) {
   const visible = useScreenVisible();
   const source = api.status.useQuery(undefined, {
@@ -94,8 +88,6 @@ export function MarketPage({
         embedded={embedded}
         frozen={!!frozenId}
         leftCandidatesSlot={leftCandidatesSlot}
-        rightPlanSlot={rightPlanSlot}
-        hasActivePlan={hasActivePlan}
       />
     </>
   );

@@ -145,3 +145,92 @@ export function formatAlertReason(event: ReasonEvent): string {
   }
   return parts.join(" · ");
 }
+
+export type StrategyMethodInfo = {
+  family: string;
+  label: string;
+  ruleSummary: string;
+};
+
+const familyRules = new Map<string, Omit<StrategyMethodInfo, "family">>([
+  [
+    "double-breakout",
+    { label: "双突破", ruleSummary: "价格突破近期高点且均线/量能同步突破共振" },
+  ],
+  [
+    "chan-third-buy",
+    {
+      label: "缠论三买",
+      ruleSummary: "缠论中枢向上离开后次级别回抽不进中枢（第三类买点）",
+    },
+  ],
+  [
+    "historical-low",
+    {
+      label: "历史低位",
+      ruleSummary: "长周期价格处于历史低分位且深度回撤后企稳修复",
+    },
+  ],
+  [
+    "formula-range",
+    { label: "区间突破公式", ruleSummary: "价格放量突破近期横盘震荡箱体上沿" },
+  ],
+  [
+    "formula-ma",
+    {
+      label: "均线趋势公式",
+      ruleSummary: "短中长期均线多头排列且趋势斜率向上",
+    },
+  ],
+  [
+    "formula-pullback",
+    {
+      label: "趋势回踩公式",
+      ruleSummary: "上升趋势中缩量回踩关键均线或支撑位企稳",
+    },
+  ],
+  [
+    "rps-multi",
+    {
+      label: "多周期RPS",
+      ruleSummary: "多周期相对强度（RPS）横截面排名处于市场前列",
+    },
+  ],
+  [
+    "dual-ma",
+    { label: "双均线", ruleSummary: "短期均线上穿长期均线形成趋势金叉" },
+  ],
+  ["range", { label: "区间突破", ruleSummary: "突破近期价格通道上沿入场" }],
+]);
+
+export function strategyMethodInfo(strategyId: string): StrategyMethodInfo {
+  const family =
+    structuredId.exec(strategyId)?.[1] ??
+    Array.from(familyRules.keys()).find((key) => strategyId.includes(key)) ??
+    strategyId;
+  const known = familyRules.get(family);
+  if (known) return { family, ...known };
+  return {
+    family: "other",
+    label: strategyDisplayName(strategyId),
+    ruleSummary: "按量化策略收盘扫描条件触发入选",
+  };
+}
+
+export function extractCandidateTriggerReason(
+  source: Omit<ReasonEvent, "type"> & { strategyId: string },
+): string {
+  const clauses = formatAlertReason({ ...source, type: "entry" })
+    .split(" · ")
+    .map((clause) => clause.trim())
+    .filter(
+      (clause) =>
+        clause.length > 0 &&
+        !/^(收盘候选|收盘触发|收盘触发退出)$/.test(clause) &&
+        !/^(触发价|止损|目标|信号收盘)\s/.test(clause),
+    );
+  const { ruleSummary } = strategyMethodInfo(source.strategyId);
+  return clauses.length
+    ? `${ruleSummary}（${clauses.join(" · ")}）`
+    : ruleSummary;
+}

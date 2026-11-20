@@ -22,6 +22,10 @@ import {
 import type { WorkspaceCandidate } from "../overview/candidate-table";
 import { useScreenVisible } from "../workbench/use-task-visible";
 import { SimOrderForm, type SimMarket } from "../portfolio/sim-order-form";
+import {
+  extractCandidateTriggerReason,
+  strategyMethodInfo,
+} from "~/lib/strategy-facts/strategy-display";
 
 export type PlanSavedConfirmation = {
   id: string;
@@ -54,6 +58,9 @@ export function CandidatePlan({
     exitSpec?: WorkspaceCandidate["exitSpec"];
     sizingPolicy?: WorkspaceCandidate["sizingPolicy"];
     policyReason?: string | null;
+    strategyId?: string;
+    reason?: string;
+    bar?: string;
   };
   inline?: boolean;
   /** An already-saved/active plan gains the local simulated execution section. */
@@ -132,7 +139,7 @@ export function CandidatePlan({
       const confirmation: PlanSavedConfirmation = {
         id: p.id,
         symbol: p.symbol,
-        message: `已保存交易计划 · ${p.symbol} · 数量 ${formatNumber(p.quantity, p.market === "crypto" ? 6 : 0)}${p.sizingAudit?.overridden || (p.protection?.version === "plan-protection-1" && !p.protection.matchesStrategy) ? " · 已记录偏离策略参数" : ""}${p.positionSnapshot ? ` · ${p.positionSnapshot.basis === "post-close" ? "收盘快照" : "盘中核对"} ${new Date(p.positionSnapshot.at).toLocaleString("zh-CN")}${p.positionSnapshot.unassignedValue > 0 ? ` · 未分配分仓 ${formatNumber(p.positionSnapshot.unassignedValue)} 已计入市场占用，请分配` : ""}` : ""}`,
+        message: `已保存交易计划 · ${p.symbol} · 数量 ${formatNumber(p.quantity, p.market === "crypto" ? 6 : 0)}${p.sizingAudit?.overridden || (p.protection?.version === "plan-protection-1" && !p.protection.matchesStrategy) ? " · 已记录偏离策略参数" : ""}${p.positionSnapshot ? ` · ${p.positionSnapshot.basis === "post-close" ? "收盘快照" : "盘中核对"} ${new Date(p.positionSnapshot.at).toLocaleString("zh-CN")}${p.positionSnapshot.unassignedValue > 0 ? ` · 未分配分仓 ${formatNumber(p.positionSnapshot.unassignedValue)} 已计入市场占用` : ""}` : ""}`,
       };
       setMessage(confirmation.message);
       setSavedPlan({
@@ -206,6 +213,20 @@ export function CandidatePlan({
             });
           }}
         >
+          {candidate.strategyId && candidate.reason && (
+            <p className="rounded bg-nc-inset px-2 py-1.5 text-xs text-nc-text-2">
+              选股方法：【{strategyMethodInfo(candidate.strategyId).label}】 ·
+              入选依据：
+              {extractCandidateTriggerReason({
+                strategyId: candidate.strategyId,
+                reason: candidate.reason,
+                bar: candidate.bar ?? "",
+                price: candidate.price,
+                stop: candidate.stop,
+                target: candidate.target,
+              })}
+            </p>
+          )}
           <p>
             {candidate.symbol} ·
             数量复用所选策略与纸面账户的仓位规则，含撮合费用；
@@ -265,7 +286,7 @@ export function CandidatePlan({
               ：
               {new Date(candidate.positionSnapshot.at).toLocaleString("zh-CN")}
               {candidate.positionSnapshot.unassignedValue > 0
-                ? ` · 未分配分仓 ${formatNumber(candidate.positionSnapshot.unassignedValue)} 已计入市场占用，请分配`
+                ? ` · 未分配分仓 ${formatNumber(candidate.positionSnapshot.unassignedValue)} 已计入市场占用`
                 : ""}
             </p>
           )}

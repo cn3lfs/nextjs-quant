@@ -144,6 +144,34 @@ describe("infinite-scroll DataTable", () => {
     expect(markup).toContain("已全部加载 · 共 2 条");
     expect(markup).not.toContain("加载更多");
   });
+  it("bounds vertical scroll, keeps sticky headers, and places the sentinel inside the scroll container", () => {
+    const markup = render({ infiniteScroll: { hasMore: true, onLoadMore } });
+    const containerMatch =
+      /<div data-slot="table-container"[^>]*class="([^"]+)"/.exec(markup);
+    expect(containerMatch?.[1]).toContain("max-h-[480px]");
+    expect(containerMatch?.[1]).toContain("overflow-y-auto");
+    const headMatch = /<th data-slot="table-head"[^>]*class="([^"]+)"/.exec(
+      markup,
+    );
+    expect(headMatch?.[1]).toContain("sticky top-0");
+
+    const sentinel = '<div aria-hidden="true" class="h-px"></div>';
+    const tableEnd = markup.indexOf("</table>");
+    const sentinelIndex = markup.indexOf(sentinel);
+    expect(tableEnd).toBeGreaterThan(-1);
+    expect(sentinelIndex).toBe(tableEnd + "</table>".length);
+
+    const containerCloseIndex = sentinelIndex + sentinel.length;
+    expect(markup.slice(containerCloseIndex, containerCloseIndex + 6)).toBe(
+      "</div>",
+    );
+
+    const statusIndex = markup.indexOf("已加载 2 / 共 42 条");
+    const loadMoreIndex = markup.indexOf(">加载更多</button>");
+    expect(statusIndex).toBeGreaterThan(containerCloseIndex);
+    expect(loadMoreIndex).toBeGreaterThan(containerCloseIndex);
+    expect(render()).not.toContain('class="h-px"');
+  });
 });
 
 describe("useAccumulatedPages", () => {

@@ -7,7 +7,7 @@ import { isDeepStrictEqual } from "node:util";
 import { marketRules } from "trading-strategy-core/market-rules";
 import { executionCostsForDate } from "trading-strategy-core/costs";
 import type { Settings } from "~/lib/domain";
-import type { AlertEvent } from "~/lib/strategy-facts/alerts";
+import { universalMarketSleeve, type AlertEvent } from "~/lib/strategy-facts/alerts";
 import { AlertRepository } from "../db/alert-repository";
 import { PaperRepository } from "../db/paper-repository";
 import frozen from "../data/paper-candidates.json";
@@ -83,9 +83,11 @@ export function planSizingPolicy(
       ))
   )
     throw new Error("真实纸面执行上下文与冻结研究政策不一致");
-  const settingsSleeve = config.alerts.sleeves.find(
-    (s) => s.market === strategy.market && s.id === strategy.sleeve,
-  )!;
+  const settingsSleeve = universalMarketSleeve(
+    config.alerts,
+    strategy.market,
+    strategy.sleeve,
+  );
   const policy =
     sleeve ??
     (candidate

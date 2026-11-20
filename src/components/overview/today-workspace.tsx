@@ -43,6 +43,7 @@ import { useScreenVisible } from "../workbench/use-task-visible";
 import { AccountRiskLinks } from "../portfolio/account-risk-links";
 import { RiskDistanceBar } from "../portfolio/risk-distance-bar";
 import type { CloseScanPhase } from "~/lib/market/close-scan-window";
+import { strategyMethodInfo } from "~/lib/strategy-facts/strategy-display";
 const Overview = dynamic(() =>
   import("./today-overview").then((m) => m.TodayOverview),
 );
@@ -192,6 +193,7 @@ function DailyDecision() {
   const [confirmation, setConfirmation] =
     useState<PlanSavedConfirmation | null>(null);
   const [saving, setSaving] = useState(false);
+  const [methodFilter, setMethodFilter] = useState<string>("all");
   const query = api.todayWorkspace.useQuery(undefined, {
     enabled: visible,
     refetchInterval: visible ? 30000 : false,
@@ -402,6 +404,41 @@ function DailyDecision() {
   const plannableSources = (row: WorkspaceCandidate) =>
     row.sources.filter((source) => source.scanFreshness !== "stale");
   const planSource = plan?.row.sources.find((s) => s.key === plan.key) ?? null;
+  // Count each method family once per row so the filter reflects candidates,
+  // not the number of strategy sources behind them.
+  const methodCounts = new Map<string, { label: string; count: number }>();
+  for (const row of batches.rows) {
+    const families = new Map(
+      row.sources.map((source) => {
+        const info = strategyMethodInfo(source.strategyId);
+        return [info.family, info] as const;
+      }),
+    );
+    for (const [family, info] of families) {
+      const entry = methodCounts.get(family);
+      if (entry) entry.count += 1;
+      else methodCounts.set(family, { label: info.label, count: 1 });
+    }
+  }
+  const methodOptions = [...methodCounts.entries()].map(([family, value]) => ({
+    family,
+    ...value,
+  }));
+  const activeMethodFilter =
+    methodFilter !== "all" &&
+    methodOptions.some((option) => option.family === methodFilter)
+      ? methodFilter
+      : "all";
+  const methodRows =
+    activeMethodFilter === "all"
+      ? batches.rows
+      : batches.rows.filter((row) =>
+          row.sources.some(
+            (source) =>
+              strategyMethodInfo(source.strategyId).family ===
+              activeMethodFilter,
+          ),
+        );
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-nc-border-soft pb-2">
@@ -582,6 +619,44 @@ function DailyDecision() {
                     : "收盘扫描未完成，以下为历史候选，不是当次推荐。"}
                 </p>
               )}
+              {batches.rows.length > 0 && (
+                <div
+                  aria-label="选股方法筛选"
+                  role="group"
+                  className="flex flex-wrap items-center gap-1.5 rounded-lg border border-nc-border-soft bg-nc-inset px-2 py-1.5"
+                >
+                  <span className="text-xs text-nc-text-3">选股方法</span>
+                  {[
+                    {
+                      family: "all",
+                      label: "全部方法",
+                      count: batches.rows.length,
+                    },
+                    ...methodOptions,
+                  ].map((option) => {
+                    const active = activeMethodFilter === option.family;
+                    return (
+                      <button
+                        key={option.family}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => setMethodFilter(option.family)}
+                        className={`rounded-full border px-2 py-0.5 text-xs transition-colors ${
+                          active
+                            ? "border-nc-accent bg-nc-card font-medium text-nc-text"
+                            : "border-nc-border-soft text-nc-text-3 hover:bg-nc-card"
+                        }`}
+                      >
+                        {option.label} ({option.count})
+                      </button>
+                    );
+                  })}
+                  <span className="ml-auto text-[11px] text-nc-text-4">
+                    点击标的右侧方法标签或下方筛选可按选股方法（双突破 /
+                    缠论三买 / 历史低位 / 公式等）查看入选原因
+                  </span>
+                </div>
+              )}
               {batches.rows.length === 0 && view.rows === undefined ? (
                 view.error ? (
                   <StateBanner
@@ -603,10 +678,14 @@ function DailyDecision() {
                 )
               ) : (
                 <CandidateTable
-                  data={batches.rows}
+                  data={methodRows}
                   securityNames={names}
                   total={
-                    batches.rows.length > 0 ? batches.total : (view.total ?? 0)
+                    activeMethodFilter === "all"
+                      ? batches.rows.length > 0
+                        ? batches.total
+                        : (view.total ?? 0)
+                      : methodRows.length
                   }
                   infiniteScroll={{
                     hasMore: batches.hasMore,
@@ -643,6 +722,9 @@ function DailyDecision() {
                     planningPaused
                       ? undefined
                       : (row) => plannableSources(row).length > 0
+                  }
+                  onMethodSelect={(family) =>
+                    setMethodFilter((cur) => (cur === family ? "all" : family))
                   }
                   emptyMessage={view.emptyMessage ?? undefined}
                 />

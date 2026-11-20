@@ -18,11 +18,12 @@ for (const width of [1440, 1024]) {
     await expect(
       page.getByRole("application", { name: /行情图：/ }),
     ).toBeVisible();
-    const levels = page
-      .getByRole("complementary", { name: "盘口与计划" })
-      .getByText(/入场 .*止损 .*目标 .* · 原价/);
+    const quoteRail = page.getByRole("complementary", { name: "盘口指标" });
+    await expect(quoteRail).toBeVisible();
+    await expect(page.getByRole("tab", { name: "计划双价" })).toHaveCount(0);
+    const levels = page.getByText(/入场 .*止损 .*目标 .* · 原价/);
     await expect(levels).toBeVisible();
-    const geometry = await levels.evaluate((element) => {
+    const geometry = await quoteRail.evaluate((element) => {
       const workspace = element.closest(".nc-market-terminal")!;
       const rect = workspace.getBoundingClientRect();
       const sidebar = document.querySelector(".sidebar")!;
@@ -37,8 +38,12 @@ for (const width of [1440, 1024]) {
         overflow: document.documentElement.scrollWidth - window.innerWidth,
       };
     });
+    const levelsClip = await levels.evaluate(
+      (element) => element.scrollWidth - element.clientWidth,
+    );
     expect(geometry.workspaceWidth).toBeGreaterThan(width === 1440 ? 900 : 600);
     expect(geometry.clip).toBeLessThanOrEqual(1);
+    expect(levelsClip).toBeLessThanOrEqual(1);
     expect(geometry.workspaceRight).toBeLessThanOrEqual(geometry.viewport);
     expect(geometry.sidebarHeight).toBeGreaterThanOrEqual(
       geometry.pageHeight - 1,

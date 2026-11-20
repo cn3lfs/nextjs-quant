@@ -7,6 +7,7 @@ import { previewAlertPlan } from "./plans";
 import type { ShadowRegistration } from "./shadow";
 import {
   alertHistorySchema,
+  effectiveMarketCapital,
   type AlertEvent,
 } from "~/lib/strategy-facts/alerts";
 import { downloadReady } from "../jobs/workflow-scheduler";
@@ -271,10 +272,8 @@ export async function todayWorkspace(
           .filter((e) => e.market === s.market && e.sleeve === s.id)
           .reduce((n, e) => n + e.value, 0)
       : null;
-    const actual =
-      value !== null && config.alerts.capital[s.market] > 0
-        ? value / config.alerts.capital[s.market]
-        : null;
+    const marketCapital = effectiveMarketCapital(config.alerts, s.market);
+    const actual = value !== null ? value / marketCapital : null;
     return {
       ...s,
       value,
@@ -333,7 +332,10 @@ export async function todayWorkspace(
         .watchedStrategies()
         .filter((s) => s.market === "cn-equity").length,
     },
-    capital: config.alerts.capital,
+    capital: {
+      "cn-equity": effectiveMarketCapital(config.alerts, "cn-equity"),
+      crypto: effectiveMarketCapital(config.alerts, "crypto"),
+    },
     gaps: repo.dataGaps(),
     candidates: workspaceCandidates({ page: 0 }, repo, now, book.positions, {
       closeDate: equity.expectedDate,
