@@ -28,7 +28,6 @@ import { useAccumulatedPages, useTablePage } from "../ui/use-infinite-table";
 import { DataTable } from "../ui/data-table";
 import { LedgerInput, LedgerSelect } from "./ledger-fields";
 import { AlertStatus } from "./alert-status";
-import { SignalLedgerWorkspace } from "./signal-ledger-workspace";
 
 const alertModeShort: Record<AlertEvent["mode"], string> = {
   off: "关闭",
@@ -59,7 +58,6 @@ export function AlertWorkspace() {
     }));
   }
   const [message, setMessage] = useState("");
-  const [legacy, setLegacy] = useState(false);
   const [selected, setSelected] = useState<AlertEvent | null>(null);
   const [entries, setEntries] = useState("");
   const [stop, setStop] = useState("");
@@ -75,7 +73,7 @@ export function AlertWorkspace() {
   const planCursor = useTablePage(planKey);
   const securityNames = useSecurityNames().data ?? {};
   const catalog = api.strategyCenterCatalog.useQuery(undefined, {
-    enabled: visible && !legacy,
+    enabled: visible,
     staleTime: 300000,
   });
   const strategyNames = useMemo(
@@ -88,15 +86,14 @@ export function AlertWorkspace() {
   const history = api.alertHistory.useQuery(
     { ...filter, page: historyCursor.pageIndex },
     {
-      enabled: visible && !legacy,
+      enabled: visible,
       staleTime: 0,
-      refetchInterval:
-        visible && !legacy && historyCursor.pageIndex === 0 ? 30000 : false,
+      refetchInterval: visible && historyCursor.pageIndex === 0 ? 30000 : false,
     },
   );
   const plans = api.alertPlans.useQuery(
     { page: planCursor.pageIndex, id: planId },
-    { enabled: visible && !legacy, staleTime: 0 },
+    { enabled: visible, staleTime: 0 },
   );
   const historyPage =
     history.isSuccess && !history.isPlaceholderData ? history.data : undefined;
@@ -171,352 +168,340 @@ export function AlertWorkspace() {
     <div className="space-y-4 p-4">
       <h1>提醒历史与交易计划</h1>
       <AlertStatus />
-      <Button variant="outline" onClick={() => setLegacy(!legacy)}>
-        {legacy ? "返回提醒历史" : "查看旧信号台账"}
-      </Button>
-      {legacy ? (
-        <SignalLedgerWorkspace />
-      ) : (
-        <>
-          <p className="text-xs text-nc-text-3">
-            T为实际观察日；T+1开盘入场、T+5/10/20收盘，原价无成本滑点；A股按交易日、数字货币按UTC自然日。缺行情和除权证据留空。非策略业绩。
-          </p>
-          <div className="flex flex-wrap items-end gap-3">
-            <LedgerInput
-              label="完成行情起始日"
-              type="date"
-              value={filter.from}
-              onChange={(from) => change({ from: from || undefined })}
-            />
-            <LedgerInput
-              label="完成行情截止日"
-              type="date"
-              value={filter.to}
-              onChange={(to) => change({ to: to || undefined })}
-            />
-            <LedgerInput
-              label="提醒证券"
-              value={filter.symbol}
-              onChange={(symbol) => change({ symbol })}
-            />
-            <LedgerInput
-              label="来源策略"
-              value={filter.strategyId}
-              onChange={(strategyId) => change({ strategyId })}
-            />
-            <LedgerSelect
-              label="提醒类型"
-              value={filter.kind}
-              onChange={(kind) =>
-                change({
-                  kind: kind ? (kind as typeof filter.kind) : undefined,
-                })
-              }
-              options={[
-                { value: "all", label: "全部" },
-                ...alertKinds.map((value) => ({
-                  value,
-                  label: alertKindLabels[value],
-                })),
-              ]}
-            />
-            <LedgerSelect
-              label="记录模式"
-              value={filter.mode}
-              onChange={(mode) =>
-                change({
-                  mode: mode ? (mode as typeof filter.mode) : undefined,
-                })
-              }
-              options={[
-                { value: "all", label: "全部" },
-                ...alertModes.map((value) => ({
-                  value,
-                  label: alertModeLabels[value],
-                })),
-              ]}
-            />
-            <Button
-              disabled={exportHistory.isPending}
-              onClick={() => exportHistory.mutate(filter)}
-            >
-              导出提醒历史
-            </Button>
-          </div>
-          <DataTable
-            label="提醒历史"
-            data={events.rows}
-            rowCount={events.total}
-            loading={history.isFetching}
-            error={history.error?.message}
-            onRetry={() => {
-              void history.refetch();
-            }}
-            infiniteScroll={{
-              hasMore: events.hasMore,
-              loadingMore: historyCursor.pageIndex > 0 && history.isFetching,
-              onLoadMore: historyCursor.loadMore,
-            }}
-            sorting={[]}
-            onSortingChange={() => {}}
-            getRowId={(r) => r.key}
-            columns={[
-              {
-                id: "bar",
-                header: "日期 / 策略",
-                cell: ({ row }) => (
-                  <div className="space-y-0.5">
-                    <span className="block text-xs text-nc-text-3 tabular-nums">
-                      {row.original.bar}
-                    </span>
-                    <span
-                      className="block text-sm font-medium"
-                      title={`${row.original.strategyId} v${row.original.version}`}
-                    >
-                      {strategyDisplayName(
-                        row.original.strategyId,
-                        strategyNames,
-                      )}
-                    </span>
-                  </div>
-                ),
-              },
-              {
-                id: "symbol",
-                header: "标的 / 信号",
-                cell: ({ row }) => (
-                  <div className="space-y-1">
-                    <Link
-                      href={alertChartHref(row.original)}
-                      className="font-medium text-nc-accent hover:underline"
-                      title="打开行情图表"
-                    >
-                      {symbolLabel(row.original.symbol, row.original.market)}
-                    </Link>
-                    <span className="block text-xs text-nc-text-3">
-                      {alertKindLabels[row.original.type]}
-                    </span>
-                  </div>
-                ),
-              },
-              {
-                id: "mode",
-                header: "状态",
-                cell: ({ row }) =>
-                  `${alertModeShort[row.original.mode]} · ${
-                    row.original.status === "missed" ? "错过窗口" : "已记录"
-                  }`,
-              },
-              {
-                id: "reason",
-                header: "信号说明",
-                cell: ({ row }) => (
-                  <p
-                    className="m-0 max-w-md whitespace-normal break-words text-xs leading-relaxed text-nc-text-2"
-                    title={row.original.reason}
-                  >
-                    {formatAlertReason(row.original)}
-                  </p>
-                ),
-              },
-              ...([5, 10, 20] as const).map((h) => ({
-                id: `t${h}`,
-                header: `T+${h}%`,
-                cell: ({ row }: { row: { original: AlertEvent } }) => {
-                  const o = row.original.outcomes.find((v) => v.horizon === h);
-                  return (
-                    <span title={o?.reasons.join("；")}>
-                      {number(o?.returnPct ?? null)}
-                    </span>
-                  );
-                },
-              })),
-              {
-                id: "plan",
-                header: "计划",
-                cell: ({ row }) =>
-                  row.original.type === "entry" &&
-                  row.original.status !== "missed" ? (
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        const e = row.original;
-                        setSelected(e);
-                        setEntries(String(e.price ?? ""));
-                        setStop(String(e.stop ?? ""));
-                        setTarget(String(e.target ?? ""));
-                      }}
-                    >
-                      加入计划
-                    </Button>
-                  ) : (
-                    "—"
-                  ),
-              },
-            ]}
-          />
-          {selected && (
-            <form
-              className="space-y-3 rounded border p-4"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!expiry || !Number.isFinite(Date.parse(expiry))) {
-                  setMessage("请填写有效到期时间");
-                  return;
-                }
-                create.mutate({
-                  eventKey: selected.key,
-                  stages: entries
-                    .split(/[,，\s]+/)
-                    .filter(Boolean)
-                    .map(Number),
-                  stop: Number(stop),
-                  target: target ? Number(target) : null,
-                  expiresAt: new Date(expiry).toISOString(),
-                  ...(selected.market === "crypto"
-                    ? {
-                        quantityRules: {
-                          step: Number(step),
-                          minimum: Number(minimum),
-                          source: rulesSource,
-                        },
-                      }
-                    : {}),
-                });
-              }}
-            >
-              <h2>
+      <p className="text-xs text-nc-text-3">
+        T为实际观察日；T+1开盘入场、T+5/10/20收盘，原价无成本滑点；A股按交易日、数字货币按UTC自然日。缺行情和除权证据留空。非策略业绩。
+      </p>
+      <div className="flex flex-wrap items-end gap-3">
+        <LedgerInput
+          label="完成行情起始日"
+          type="date"
+          value={filter.from}
+          onChange={(from) => change({ from: from || undefined })}
+        />
+        <LedgerInput
+          label="完成行情截止日"
+          type="date"
+          value={filter.to}
+          onChange={(to) => change({ to: to || undefined })}
+        />
+        <LedgerInput
+          label="提醒证券"
+          value={filter.symbol}
+          onChange={(symbol) => change({ symbol })}
+        />
+        <LedgerInput
+          label="来源策略"
+          value={filter.strategyId}
+          onChange={(strategyId) => change({ strategyId })}
+        />
+        <LedgerSelect
+          label="提醒类型"
+          value={filter.kind}
+          onChange={(kind) =>
+            change({
+              kind: kind ? (kind as typeof filter.kind) : undefined,
+            })
+          }
+          options={[
+            { value: "all", label: "全部" },
+            ...alertKinds.map((value) => ({
+              value,
+              label: alertKindLabels[value],
+            })),
+          ]}
+        />
+        <LedgerSelect
+          label="记录模式"
+          value={filter.mode}
+          onChange={(mode) =>
+            change({
+              mode: mode ? (mode as typeof filter.mode) : undefined,
+            })
+          }
+          options={[
+            { value: "all", label: "全部" },
+            ...alertModes.map((value) => ({
+              value,
+              label: alertModeLabels[value],
+            })),
+          ]}
+        />
+        <Button
+          disabled={exportHistory.isPending}
+          onClick={() => exportHistory.mutate(filter)}
+        >
+          导出提醒历史
+        </Button>
+      </div>
+      <DataTable
+        label="提醒历史"
+        data={events.rows}
+        rowCount={events.total}
+        loading={history.isFetching}
+        error={history.error?.message}
+        onRetry={() => {
+          void history.refetch();
+        }}
+        infiniteScroll={{
+          hasMore: events.hasMore,
+          loadingMore: historyCursor.pageIndex > 0 && history.isFetching,
+          onLoadMore: historyCursor.loadMore,
+        }}
+        sorting={[]}
+        onSortingChange={() => {}}
+        getRowId={(r) => r.key}
+        columns={[
+          {
+            id: "bar",
+            header: "日期 / 策略",
+            cell: ({ row }) => (
+              <div className="space-y-0.5">
+                <span className="block text-xs text-nc-text-3 tabular-nums">
+                  {row.original.bar}
+                </span>
+                <span
+                  className="block text-sm font-medium"
+                  title={`${row.original.strategyId} v${row.original.version}`}
+                >
+                  {strategyDisplayName(row.original.strategyId, strategyNames)}
+                </span>
+              </div>
+            ),
+          },
+          {
+            id: "symbol",
+            header: "标的 / 信号",
+            cell: ({ row }) => (
+              <div className="space-y-1">
                 <Link
-                  href={alertChartHref(selected)}
+                  href={alertChartHref(row.original)}
                   className="font-medium text-nc-accent hover:underline"
                   title="打开行情图表"
                 >
-                  {symbolLabel(selected.symbol, selected.market)}
-                </Link>{" "}
-                · {sleeveDisplayName(selected.sleeve)} 加入计划
-              </h2>
-              <div className="flex flex-wrap gap-3">
-                <LedgerInput
-                  label="分批入场价（逗号分隔）"
-                  value={entries}
-                  onChange={setEntries}
-                />
-                <LedgerInput label="计划止损" value={stop} onChange={setStop} />
-                <LedgerInput
-                  label="计划目标（可空）"
-                  value={target}
-                  onChange={setTarget}
-                />
-                <LedgerInput
-                  label="计划到期时间"
-                  type="datetime-local"
-                  value={expiry}
-                  onChange={setExpiry}
-                />
-                {selected.market === "crypto" && (
-                  <>
-                    <LedgerInput
-                      label="平台数量步长"
-                      value={step}
-                      onChange={setStep}
-                    />
-                    <LedgerInput
-                      label="平台最小数量"
-                      value={minimum}
-                      onChange={setMinimum}
-                    />
-                    <LedgerInput
-                      label="数量规则来源"
-                      value={rulesSource}
-                      onChange={setRulesSource}
-                    />
-                  </>
-                )}
+                  {symbolLabel(row.original.symbol, row.original.market)}
+                </Link>
+                <span className="block text-xs text-nc-text-3">
+                  {alertKindLabels[row.original.type]}
+                </span>
               </div>
-              <p>
-                数量复用所选策略的分仓风险与剩余额度，已预留撮合费用；实际成交与滑点需核对。分批档位均为向上达到入场价后提醒。
-              </p>
-              <Button disabled={create.isPending}>保存交易计划</Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setSelected(null)}
+            ),
+          },
+          {
+            id: "mode",
+            header: "状态",
+            cell: ({ row }) =>
+              `${alertModeShort[row.original.mode]} · ${
+                row.original.status === "missed" ? "错过窗口" : "已记录"
+              }`,
+          },
+          {
+            id: "reason",
+            header: "信号说明",
+            cell: ({ row }) => (
+              <p
+                className="m-0 max-w-md whitespace-normal break-words text-xs leading-relaxed text-nc-text-2"
+                title={row.original.reason}
               >
-                关闭
-              </Button>
-            </form>
-          )}
-          <h2>交易计划</h2>
-          <DataTable
-            label="交易计划"
-            data={planRows.rows}
-            rowCount={planRows.total}
-            loading={plans.isFetching}
-            error={plans.error?.message}
-            onRetry={() => void plans.refetch()}
-            infiniteScroll={{
-              hasMore: planRows.hasMore,
-              loadingMore: planCursor.pageIndex > 0 && plans.isFetching,
-              onLoadMore: planCursor.loadMore,
-            }}
-            sorting={[]}
-            onSortingChange={() => {}}
-            getRowId={(p) => p.id}
-            columns={[
-              {
-                id: "symbol",
-                header: "标的 / 分仓",
-                cell: ({ row }) => (
-                  <div className="space-y-1">
-                    <Link
-                      href={alertChartHref({
-                        symbol: row.original.symbol,
-                        market: row.original.market,
-                      })}
-                      className="font-medium text-nc-accent hover:underline"
-                      title="打开行情图表"
-                    >
-                      {symbolLabel(row.original.symbol, row.original.market)}
-                    </Link>
-                    <span className="block text-xs text-nc-text-3">
-                      {sleeveDisplayName(row.original.sleeve)}
-                    </span>
-                  </div>
-                ),
-              },
-              {
-                id: "entry",
-                header: "入场/数量/止损/目标",
-                cell: ({ row }) =>
-                  `${row.original.entry} / ${row.original.quantity ?? "—"} / ${row.original.stop ?? "—"} / ${row.original.target ?? "—"}`,
-              },
-              {
-                id: "expiry",
-                header: "到期/状态",
-                cell: ({ row }) =>
-                  `${row.original.expiresAt ?? "—"} / ${row.original.closeReason === "cancelled" ? "已取消" : row.original.status === "expired" ? "已到期" : row.original.status === "closed" ? "触发完成" : "待触发"}`,
-              },
-              {
-                id: "cancel",
-                header: "管理",
-                cell: ({ row }) =>
-                  row.original.status === "open" ? (
-                    <Button
-                      size="sm"
-                      disabled={cancel.isPending}
-                      onClick={() => cancel.mutate(row.original.id)}
-                    >
-                      取消计划
-                    </Button>
-                  ) : (
-                    "—"
-                  ),
-              },
-            ]}
-          />
-          {message && <p role="status">{message}</p>}
-        </>
+                {formatAlertReason(row.original)}
+              </p>
+            ),
+          },
+          ...([5, 10, 20] as const).map((h) => ({
+            id: `t${h}`,
+            header: `T+${h}%`,
+            cell: ({ row }: { row: { original: AlertEvent } }) => {
+              const o = row.original.outcomes.find((v) => v.horizon === h);
+              return (
+                <span title={o?.reasons.join("；")}>
+                  {number(o?.returnPct ?? null)}
+                </span>
+              );
+            },
+          })),
+          {
+            id: "plan",
+            header: "计划",
+            cell: ({ row }) =>
+              row.original.type === "entry" &&
+              row.original.status !== "missed" ? (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const e = row.original;
+                    setSelected(e);
+                    setEntries(String(e.price ?? ""));
+                    setStop(String(e.stop ?? ""));
+                    setTarget(String(e.target ?? ""));
+                  }}
+                >
+                  加入计划
+                </Button>
+              ) : (
+                "—"
+              ),
+          },
+        ]}
+      />
+      {selected && (
+        <form
+          className="space-y-3 rounded border p-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!expiry || !Number.isFinite(Date.parse(expiry))) {
+              setMessage("请填写有效到期时间");
+              return;
+            }
+            create.mutate({
+              eventKey: selected.key,
+              stages: entries
+                .split(/[,，\s]+/)
+                .filter(Boolean)
+                .map(Number),
+              stop: Number(stop),
+              target: target ? Number(target) : null,
+              expiresAt: new Date(expiry).toISOString(),
+              ...(selected.market === "crypto"
+                ? {
+                    quantityRules: {
+                      step: Number(step),
+                      minimum: Number(minimum),
+                      source: rulesSource,
+                    },
+                  }
+                : {}),
+            });
+          }}
+        >
+          <h2>
+            <Link
+              href={alertChartHref(selected)}
+              className="font-medium text-nc-accent hover:underline"
+              title="打开行情图表"
+            >
+              {symbolLabel(selected.symbol, selected.market)}
+            </Link>{" "}
+            · {sleeveDisplayName(selected.sleeve)} 加入计划
+          </h2>
+          <div className="flex flex-wrap gap-3">
+            <LedgerInput
+              label="分批入场价（逗号分隔）"
+              value={entries}
+              onChange={setEntries}
+            />
+            <LedgerInput label="计划止损" value={stop} onChange={setStop} />
+            <LedgerInput
+              label="计划目标（可空）"
+              value={target}
+              onChange={setTarget}
+            />
+            <LedgerInput
+              label="计划到期时间"
+              type="datetime-local"
+              value={expiry}
+              onChange={setExpiry}
+            />
+            {selected.market === "crypto" && (
+              <>
+                <LedgerInput
+                  label="平台数量步长"
+                  value={step}
+                  onChange={setStep}
+                />
+                <LedgerInput
+                  label="平台最小数量"
+                  value={minimum}
+                  onChange={setMinimum}
+                />
+                <LedgerInput
+                  label="数量规则来源"
+                  value={rulesSource}
+                  onChange={setRulesSource}
+                />
+              </>
+            )}
+          </div>
+          <p>
+            数量复用所选策略的分仓风险与剩余额度，已预留撮合费用；实际成交与滑点需核对。分批档位均为向上达到入场价后提醒。
+          </p>
+          <Button disabled={create.isPending}>保存交易计划</Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setSelected(null)}
+          >
+            关闭
+          </Button>
+        </form>
       )}
+      <h2>交易计划</h2>
+      <DataTable
+        label="交易计划"
+        data={planRows.rows}
+        rowCount={planRows.total}
+        loading={plans.isFetching}
+        error={plans.error?.message}
+        onRetry={() => void plans.refetch()}
+        infiniteScroll={{
+          hasMore: planRows.hasMore,
+          loadingMore: planCursor.pageIndex > 0 && plans.isFetching,
+          onLoadMore: planCursor.loadMore,
+        }}
+        sorting={[]}
+        onSortingChange={() => {}}
+        getRowId={(p) => p.id}
+        columns={[
+          {
+            id: "symbol",
+            header: "标的 / 分仓",
+            cell: ({ row }) => (
+              <div className="space-y-1">
+                <Link
+                  href={alertChartHref({
+                    symbol: row.original.symbol,
+                    market: row.original.market,
+                  })}
+                  className="font-medium text-nc-accent hover:underline"
+                  title="打开行情图表"
+                >
+                  {symbolLabel(row.original.symbol, row.original.market)}
+                </Link>
+                <span className="block text-xs text-nc-text-3">
+                  {sleeveDisplayName(row.original.sleeve)}
+                </span>
+              </div>
+            ),
+          },
+          {
+            id: "entry",
+            header: "入场/数量/止损/目标",
+            cell: ({ row }) =>
+              `${row.original.entry} / ${row.original.quantity ?? "—"} / ${row.original.stop ?? "—"} / ${row.original.target ?? "—"}`,
+          },
+          {
+            id: "expiry",
+            header: "到期/状态",
+            cell: ({ row }) =>
+              `${row.original.expiresAt ?? "—"} / ${row.original.closeReason === "cancelled" ? "已取消" : row.original.status === "expired" ? "已到期" : row.original.status === "closed" ? "触发完成" : "待触发"}`,
+          },
+          {
+            id: "cancel",
+            header: "管理",
+            cell: ({ row }) =>
+              row.original.status === "open" ? (
+                <Button
+                  size="sm"
+                  disabled={cancel.isPending}
+                  onClick={() => cancel.mutate(row.original.id)}
+                >
+                  取消计划
+                </Button>
+              ) : (
+                "—"
+              ),
+          },
+        ]}
+      />
+      {message && <p role="status">{message}</p>}
     </div>
   );
 }

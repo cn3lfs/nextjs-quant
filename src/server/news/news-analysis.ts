@@ -11,7 +11,10 @@ import { get, put, atomic } from "../db";
 import { sharedRead } from "../infra/shared-read";
 import { keyedSlots } from "../infra/keyed-slots";
 import { newsPageSelectionSchema } from "~/lib/news/news-workspace";
-import { freezeNewsWorkspacePage } from "../db/news-workspace-query";
+import {
+  freezeNewsWorkspacePage,
+  readClsNewsByIds,
+} from "../db/news-workspace-query";
 import { resolveNewsArchive } from "./news-archives";
 const claimNews = keyedSlots();
 export const newsMethodFiles = ["SKILL.md", "references/sw-industries.md"];
@@ -21,8 +24,13 @@ export const newsAnalysisInput = z.object({
   page: z.number().int().min(0).default(0),
   query: z.string().max(100).default(""),
   historical: z.boolean().default(true),
-  scope: z.enum(["page", "range"]).default("page"),
+  scope: z.enum(["page", "range", "selected"]).default("page"),
   maxItems: z.number().int().min(50).max(1000).default(200),
+  selectedIds: z.array(z.number().int().positive()).min(1).max(200).optional(),
+  selectedSource: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/)
+    .optional(),
   before: z
     .object({
       time: z.number().int().nonnegative(),
@@ -63,7 +71,7 @@ export type NewsAnalysis = {
   totalMatches?: number;
   hitLimit?: boolean;
   requestCoverage?: {
-    scope: "page" | "range";
+    scope: "page" | "range" | "selected";
     totalMatches: number;
     hitLimit: boolean;
   };
@@ -284,6 +292,22 @@ export async function analyzeNews(
     throw new Error("页面身份仅用于新建当前页分析");
   if (input.before && input.scope !== "range")
     throw new Error("新闻游标仅用于查询范围分析");
+  if (
+    input.scope === "selected" &&
+    !input.resumeId &&
+    !input.selectedIds?.length
+  )
+    throw new Error("请至少选择一条新闻进行 AI 分析");
+  if (
+    (input.selectedIds || input.selectedSource) &&
+    (input.scope !== "selected" || input.resumeId)
+  )
+    throw new Error("所选新闻参数仅用于新建所选新闻分析");
+  if (
+    input.selectedIds &&
+    new Set(input.selectedIds).size !== input.selectedIds.length
+  )
+    throw new Error("所选新闻包含重复记录");
   signal?.throwIfAborted();
   const frozen = input.resumeId ? get<NewsAnalysis>(input.resumeId) : undefined;
   if (input.resumeId && !frozen)
@@ -317,13 +341,28 @@ export async function analyzeNews(
           input.pageSelection,
         )
       : undefined;
-    const result = selectedPage
-      ? { items: selectedPage.items, count: selectedPage.total }
-      : readClsNews(settings().clsDbPath, {
-          ...input,
-          page: input.scope === "range" ? 0 : input.page,
-          limit: input.scope === "range" ? input.maxItems : 50,
-        });
+    const result =
+      input.scope === "selected" && input.selectedIds
+        ? (() => {
+            const items = readClsNewsByIds(
+              settings().clsDbPath,
+              {
+                cutoff: input.cutoff,
+                query: input.query,
+                historical: input.historical,
+              },
+              input.selectedIds,
+              input.selectedSource,
+            );
+            return { items, count: items.length };
+          })()
+        : selectedPage
+          ? { items: selectedPage.items, count: selectedPage.total }
+          : readClsNews(settings().clsDbPath, {
+              ...input,
+              page: input.scope === "range" ? 0 : input.page,
+              limit: input.scope === "range" ? input.maxItems : 50,
+            });
     totalMatches = result.count ?? result.items.length;
     news.push(...result.items);
     if (new Set(news.map((n) => n.id)).size !== news.length)

@@ -21,7 +21,6 @@ import {
 } from "../ui/use-infinite-table";
 import { useTaskVisible } from "../workbench/use-task-visible";
 import { ArchiveText } from "../research/archive-evidence";
-import { useArchiveDownload } from "../research/use-archive-download";
 import {
   NewsArchiveSwitch,
   NewsError,
@@ -63,6 +62,7 @@ export function NewsPanel() {
     [feedback, setFeedback] = useState(""),
     [scope, setScope] = useState<"page" | "range">("page"),
     [maxItems, setMaxItems] = useState(200),
+    [selectedIds, setSelectedIds] = useState<number[]>([]),
     [returnTarget, setReturnTarget] = useState<{
       selector: string;
       scroll: number;
@@ -262,6 +262,7 @@ export function NewsPanel() {
       historical: parsed.data.historical,
     });
     setPages([undefined]);
+    setSelectedIds([]);
     setError("");
     urlSelection(null, null, "news", parsed.data);
     if (unchanged) void news.refetch();
@@ -279,6 +280,7 @@ export function NewsPanel() {
     };
     setFilter(next);
     setPages([undefined]);
+    setSelectedIds([]);
     setError("");
     urlSelection(null, null, "news", next);
   }
@@ -310,6 +312,29 @@ export function NewsPanel() {
     loading: news.isFetching,
     onLoadMore: loadMore,
   });
+  const loadedIds = batches.rows.map((row) => row.id);
+  const loadedIdSet = new Set(loadedIds);
+  const selectedVisibleIds = selectedIds.filter((id) => loadedIdSet.has(id));
+  const selectedSet = new Set(selectedVisibleIds);
+  const allLoadedSelected =
+    loadedIds.length > 0 && loadedIds.every((id) => selectedSet.has(id));
+  const canAnalyzeContext = !busy && !dirty && !!context.data && !context.error;
+  const canAnalyzeList =
+    analysisAllowed &&
+    canAnalyzeContext &&
+    !news.isFetching &&
+    !news.error &&
+    batches.rows.length > 0;
+  function analyzeSelected(ids: number[], source = news.data?.source) {
+    if (!ids.length || ids.length > 200) return;
+    analyze.mutate({
+      ...filter,
+      page: 0,
+      scope: "selected",
+      selectedIds: ids,
+      ...(source ? { selectedSource: source } : {}),
+    });
+  }
   // The route is prerendered. Current time and URL/session state only become
   // authoritative after mount; never hydrate a build-time date as today's date.
   if (!ready)
@@ -399,6 +424,8 @@ export function NewsPanel() {
           key={`${original.source}:${original.id}`}
           filter={filter}
           selection={original}
+          canAnalyze={canAnalyzeContext}
+          onAnalyze={() => analyzeSelected([original.id], original.source)}
           onBack={back}
         />
       ) : tab === "history" ? (
@@ -495,6 +522,48 @@ export function NewsPanel() {
           <Panel
             title="新闻列表"
             note={complementSelected ? "互补档案仅供阅读。" : undefined}
+            actions={
+              batches.rows.length > 0 && analysisAllowed ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() =>
+                      setSelectedIds(
+                        allLoadedSelected ? [] : loadedIds.slice(0, 200),
+                      )
+                    }
+                  >
+                    {allLoadedSelected
+                      ? "取消全选"
+                      : `全选已加载（${Math.min(loadedIds.length, 200)}）`}
+                  </Button>
+                  {selectedVisibleIds.length > 0 && (
+                    <>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => setSelectedIds([])}
+                      >
+                        清空已选
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={!canAnalyzeList}
+                        onClick={() => analyzeSelected(selectedVisibleIds)}
+                      >
+                        AI 分析已选（{selectedVisibleIds.length}）
+                      </Button>
+                    </>
+                  )}
+                </div>
+              ) : undefined
+            }
             meta={
               news.data
                 ? `${selectedArchive ? `${selectedArchive.primary ? "主档案" : "互补档案"} · ${selectedArchive.label} · ` : ""}匹配 ${news.data.total} 条 · 库中最新发布 ${newsTime(news.data.latestPublishedAt)}${news.isFetching ? " · 更新中" : ""}`
@@ -510,24 +579,60 @@ export function NewsPanel() {
                   className="rounded border border-nc-border p-3 text-sm"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <strong className="min-w-0 break-words">
-                      {item.title ||
-                        item.preview.slice(0, 80) ||
-                        `新闻${item.id}`}
-                    </strong>
-                    <Button
-                      size="sm"
-                      data-news-original={item.id}
-                      onClick={() => {
-                        rememberReturn(`[data-news-original="${item.id}"]`);
-                        urlSelection(null, {
-                          id: item.id,
-                          source: news.data!.source,
-                        });
-                      }}
-                    >
-                      阅读原文
-                    </Button>
+                    <div className="flex min-w-0 items-center gap-2">
+                      {analysisAllowed && (
+                        <input
+                          type="checkbox"
+                          aria-label={`选择新闻：${item.title || `新闻${item.id}`}`}
+                          checked={selectedSet.has(item.id)}
+                          disabled={
+                            busy ||
+                            (!selectedSet.has(item.id) &&
+                              selectedVisibleIds.length >= 200)
+                          }
+                          onChange={() =>
+                            setSelectedIds((prev) =>
+                              prev.includes(item.id)
+                                ? prev.filter((value) => value !== item.id)
+                                : prev.length >= 200
+                                  ? prev
+                                  : [...prev, item.id],
+                            )
+                          }
+                        />
+                      )}
+                      <strong className="min-w-0 break-words">
+                        {item.title ||
+                          item.preview.slice(0, 80) ||
+                          `新闻${item.id}`}
+                      </strong>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {analysisAllowed && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={!canAnalyzeList}
+                          onClick={() => analyzeSelected([item.id])}
+                        >
+                          AI 分析
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        data-news-original={item.id}
+                        onClick={() => {
+                          rememberReturn(`[data-news-original="${item.id}"]`);
+                          urlSelection(null, {
+                            id: item.id,
+                            source: news.data!.source,
+                          });
+                        }}
+                      >
+                        阅读原文
+                      </Button>
+                    </div>
                   </div>
                   <p>
                     <NewsTime value={item.publishedAt} /> · 采集：
@@ -643,18 +748,38 @@ export function NewsPanel() {
 function Original({
   filter,
   selection,
+  canAnalyze,
+  onAnalyze,
   onBack,
 }: {
   filter: NewsWorkspaceInput;
   selection: { id: number; source: string };
+  canAnalyze: boolean;
+  onAnalyze: () => void;
   onBack: () => void;
 }) {
   const visible = useTaskVisible(),
+    [copied, setCopied] = useState(false),
+    [copyError, setCopyError] = useState(""),
     query = api.newsOriginal.useQuery(
       { filter, ...selection },
       { enabled: visible, gcTime: 0, staleTime: 0 },
-    ),
-    download = useArchiveDownload();
+    );
+  const item = query.data?.item;
+  const archivePrimary = query.data?.archive
+    ? query.data.archive.primary
+    : true;
+  async function copyContent() {
+    if (!item) return;
+    const text = [item.title, item.content].filter(Boolean).join("\n\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setCopyError("");
+    } catch {
+      setCopyError("复制失败，请手动选中原文复制");
+    }
+  }
   return (
     <Panel
       title="新闻原文"
@@ -666,14 +791,13 @@ function Original({
         stale={!!query.data}
       />
       {query.isLoading && <p>正在读取原文…</p>}
-      {query.data && (
+      {query.data && item && (
         <div className="mx-auto min-w-0 max-w-[840px] space-y-4 text-sm leading-7">
-          <h2>{query.data.item.title}</h2>
+          <h2>{item.title}</h2>
           <p>
             发布：
-            <NewsTime value={query.data.item.publishedAt} /> · 采集：
-            <NewsTime value={query.data.item.collectedAt} /> · ID{" "}
-            {query.data.item.id}
+            <NewsTime value={item.publishedAt} /> · 采集：
+            <NewsTime value={item.collectedAt} /> · ID {item.id}
           </p>
           {query.data.archive && (
             <p className="text-nc-text-3">
@@ -683,24 +807,27 @@ function Original({
               {query.data.archive.primary ? "" : "（只读，不参与模型分析）"}
             </p>
           )}
-          <ArchiveText text={query.data.item.content} />
-          {query.data.item.url && (
-            <a href={query.data.item.url} target="_blank" rel="noreferrer">
-              查看来源网页
-            </a>
-          )}
-          <Button
-            onClick={() =>
-              download.save(
-                () => JSON.stringify(query.data, null, 2),
-                `新闻原文-${selection.id}.json`,
-                "application/json;charset=utf-8",
-              )
-            }
-          >
-            下载完整新闻原文
-          </Button>
-          {download.error && <p role="alert">{download.error}</p>}
+          <ArchiveText text={item.content} />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void copyContent()}
+            >
+              {copied ? "已复制" : "复制"}
+            </Button>
+            <Button
+              type="button"
+              disabled={!canAnalyze || !archivePrimary}
+              title={
+                archivePrimary ? undefined : "互补档案仅供阅读，不参与模型分析"
+              }
+              onClick={onAnalyze}
+            >
+              {archivePrimary ? "AI 分析" : "互补档案不可分析"}
+            </Button>
+          </div>
+          {copyError && <p role="alert">{copyError}</p>}
         </div>
       )}
     </Panel>

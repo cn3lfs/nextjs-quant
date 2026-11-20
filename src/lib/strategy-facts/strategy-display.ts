@@ -68,9 +68,10 @@ export function alertChartHref(target: {
 }
 
 function priceText(value: number): string {
-  return Number(value.toFixed(2)) === value
-    ? formatNumber(value)
-    : String(value);
+  const clean = Number(value.toPrecision(12));
+  return Number(clean.toFixed(2)) === clean
+    ? formatNumber(clean)
+    : String(clean);
 }
 
 type ReasonEvent = Pick<

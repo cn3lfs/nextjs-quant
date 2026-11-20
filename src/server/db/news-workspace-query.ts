@@ -318,6 +318,32 @@ export function newsWorkspaceDetail(
     };
   });
 }
+export function readClsNewsByIds(
+  path: string,
+  raw: NewsWorkspaceInput,
+  ids: number[],
+  expectedSource?: string,
+) {
+  const input = newsWorkspaceSchema.parse(raw);
+  const uniqueIds = [...new Set(ids)];
+  if (!uniqueIds.length) throw new Error("请至少选择一条新闻");
+  if (uniqueIds.some((value) => !Number.isSafeInteger(value) || value < 1))
+    throw new Error("所选新闻 ID 无效");
+  return readSource(path, (db, source) => {
+    if (expectedSource && source !== expectedSource)
+      throw new Error("新闻来源已改变，请刷新后重试");
+    const base = scope(input);
+    const placeholders = uniqueIds.map(() => "?").join(",");
+    const rows = db
+      .prepare(
+        `SELECT id,ctime,collected_at,title,content,shareurl FROM news WHERE ${base.where} AND id IN (${placeholders}) ORDER BY ctime DESC,id DESC`,
+      )
+      .all(...base.values, ...uniqueIds) as NewsRow[];
+    if (rows.length !== uniqueIds.length)
+      throw new Error("部分所选新闻不存在或不在当前查询范围内");
+    return rows.map(item);
+  });
+}
 export function freezeNewsWorkspacePage(
   path: string,
   raw: NewsWorkspaceInput,

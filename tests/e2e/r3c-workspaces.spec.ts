@@ -161,9 +161,6 @@ for (const width of [1440, 1024]) {
     await expect(
       page.getByRole("region", { name: "明日计划", exact: true }),
     ).toBeVisible();
-    await expect(
-      page.getByRole("region", { name: "持仓与计划情报" }),
-    ).toContainText("sh600000 今日QA公告");
     const candidate = page
       .getByRole("region", { name: "明日计划", exact: true })
       .getByRole("link", { name: /sh600000 · 打开图表/ });

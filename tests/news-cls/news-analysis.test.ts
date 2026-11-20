@@ -870,3 +870,67 @@ it("associates a shared flight for the remaining caller after one cancels", asyn
   expect(cancelled).not.toHaveBeenCalled();
   expect(state.model).toHaveBeenCalledOnce();
 });
+it("analyzes single and multi-selected news ids from the primary archive and validates inputs", async () => {
+  const root = await mkdtemp(join(tmpdir(), "quant-news-selected-"));
+  const dbPath = join(root, "news.sqlite");
+  const db = new Database(dbPath);
+  try {
+    seedNewsSource(db, 121, true);
+    state.path = dbPath;
+    const filter = {
+      cutoff: newsFixtureCutoff,
+      query: "",
+      historical: true,
+    };
+    const first = newsWorkspacePage(config(dbPath), filter);
+    const singleId = first.items[0]!.id;
+    const single = await analyzeNews({
+      ...filter,
+      scope: "selected",
+      selectedIds: [singleId],
+      selectedSource: first.source,
+    });
+    expect(single.news.map((n) => n.id)).toEqual([singleId]);
+    expect(single.items.map((i) => i.id)).toEqual([singleId]);
+    expect(single.requestCoverage).toEqual({
+      scope: "selected",
+      totalMatches: 1,
+      hitLimit: false,
+    });
+
+    const multiIds = [first.items[2]!.id, first.items[5]!.id];
+    const multi = await analyzeNews({
+      ...filter,
+      scope: "selected",
+      selectedIds: multiIds,
+      selectedSource: first.source,
+    });
+    expect(multi.news.map((n) => n.id)).toEqual(multiIds);
+    expect(multi.items.map((i) => i.id)).toEqual(multiIds);
+
+    await expect(
+      analyzeNews({
+        ...filter,
+        scope: "selected",
+      }),
+    ).rejects.toThrow(/至少选择/);
+    await expect(
+      analyzeNews({
+        ...filter,
+        scope: "selected",
+        selectedIds: [singleId, singleId],
+        selectedSource: first.source,
+      }),
+    ).rejects.toThrow(/重复/);
+    await expect(
+      analyzeNews({
+        ...filter,
+        scope: "selected",
+        selectedIds: [singleId],
+        selectedSource: "a".repeat(64),
+      }),
+    ).rejects.toThrow(/来源/);
+  } finally {
+    db.close();
+  }
+});

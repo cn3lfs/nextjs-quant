@@ -4,10 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { api } from "~/trpc/react";
-import {
-  formatNumber,
-  formatPercent,
-} from "trading-strategy-core/format-number";
+import { formatNumber } from "trading-strategy-core/format-number";
 import {
   MethodologyPopover,
   Panel,
@@ -43,13 +40,8 @@ import { LedgerSelect } from "../signals/ledger-fields";
 import { DataTable } from "../ui/data-table";
 import { useAccumulatedPages } from "../ui/use-infinite-table";
 import { useScreenVisible } from "../workbench/use-task-visible";
-import { PaperFacts } from "../portfolio/paper-accounts-panel";
 import { AccountRiskLinks } from "../portfolio/account-risk-links";
 import { RiskDistanceBar } from "../portfolio/risk-distance-bar";
-import { TodayIntel } from "../news/today-intel";
-import { PaperShadowPrompt } from "../research/paper-shadow-prompt";
-import { CryptoRiskNotes } from "../portfolio/crypto-risk-notes";
-import { PaperForwardStatus } from "../portfolio/paper-forward-status";
 import type { CloseScanPhase } from "~/lib/market/close-scan-window";
 const Overview = dynamic(() =>
   import("./today-overview").then((m) => m.TodayOverview),
@@ -395,11 +387,6 @@ function DailyDecision() {
     {
       label: "数据就绪",
       detail: `该日下载回执${d.readiness.equity.receipt ? "已就绪" : "未就绪"}，已启用 A 股策略 ${close.strategies} 条。就绪状态读取本地回执与官方归档索引，不自动回填。`,
-    },
-    {
-      label: "市场状态与温度",
-      detail:
-        "趋势=收盘/SMA20/SMA60；温度=近120根收盘分位，非完整市场温度。低位=5–10年价格分位与回撤；无财务佐证时仅价格依据。",
     },
     {
       label: "止损单",
@@ -916,176 +903,8 @@ function DailyDecision() {
               </section>
             )}
           </Panel>
-          <Panel title="市场状态与分仓占用" meta="偏离阈值 10 个百分点">
-            <div className="grid grid-cols-2 gap-2">
-              {d.regimes.map((r) => (
-                <div
-                  key={r.symbol}
-                  className="min-w-0 rounded border border-nc-border-soft p-2"
-                  title={r.value?.bar ?? "时点未记录"}
-                >
-                  <span className="block truncate text-sub text-nc-text-4">
-                    {r.symbol}
-                  </span>
-                  <span className="block truncate text-sm">
-                    {r.value
-                      ? `${{ up: "上升", down: "下降", mixed: "震荡" }[r.value.trend]} · 温度 ${formatNumber(r.value.temperature, 1)}`
-                      : "尚无有效观察"}
-                  </span>
-                  {r.market === "cn-equity" && (
-                    <span
-                      className="block truncate text-sub text-nc-text-4"
-                      title={`历史低位深度 ${r.value?.low?.depth ?? "未知"} · ${r.value?.low?.confidence ?? "待数据"}`}
-                    >
-                      低位 {r.value?.low?.depth ?? "未知"}
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 space-y-2">
-              {d.sleeves.map((s) => {
-                const actual = s.actual ?? 0;
-                const capacity = Math.max(actual, s.share, 0.01);
-                const actualPct = Math.min(100, (actual / capacity) * 100);
-                const targetPct = Math.min(100, (s.share / capacity) * 100);
-                const label = `${s.market === "crypto" ? "币种" : "A股"} · ${s.id}`;
-                const aria = `${label}：实际 ${formatPercent(s.actual === null ? null : actual * 100)}，目标 ${formatPercent(s.share * 100)}${s.drift ? "，已偏离" : ""}${s.fresh ? "" : "，待更新核对"}`;
-                return (
-                  <div key={`${s.market}:${s.id}`} className="space-y-1">
-                    <div className="flex items-baseline justify-between gap-2 text-sm">
-                      <span className="truncate">{label}</span>
-                      <span
-                        className={`tabular whitespace-nowrap ${s.drift ? "text-nc-warn" : "text-nc-text-3"}`}
-                        title={
-                          s.at !== null
-                            ? `${s.snapshotBasis === "post-close" ? "收盘后快照" : "盘中快照"} · ${new Date(s.at).toLocaleString("zh-CN")} · ${formatNumber(s.value)}`
-                            : undefined
-                        }
-                      >
-                        实际{" "}
-                        {formatPercent(
-                          s.actual === null ? null : s.actual * 100,
-                        )}{" "}
-                        / 目标 {formatPercent(s.share * 100)}
-                        {s.drift ? " · 偏离" : ""}
-                        {s.fresh ? "" : " · 待核对"}
-                      </span>
-                    </div>
-                    <div
-                      className="relative h-1.5 overflow-hidden rounded-full bg-nc-inset"
-                      role="img"
-                      aria-label={aria}
-                    >
-                      <span
-                        className={`absolute inset-y-0 left-0 rounded-full ${s.drift ? "bg-nc-warn" : "bg-nc-accent"}`}
-                        style={{ width: `${actualPct.toFixed(1)}%` }}
-                      />
-                      <span
-                        className="absolute inset-y-0 w-0.5 bg-nc-text-3"
-                        style={{ left: `${targetPct.toFixed(1)}%` }}
-                        aria-hidden="true"
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </Panel>
-          <Panel title="最新提醒与关联情报" meta="今日最新 5 条">
-            <div className="space-y-1">
-              {d.triggered.items.length ? (
-                d.triggered.items.slice(0, 5).map((e) => (
-                  <p key={e.key} className="truncate text-sm" title={e.reason}>
-                    <span className="font-medium">
-                      {alertModeLabel(e.mode)} · {e.symbol}
-                    </span>{" "}
-                    · {e.reason}
-                  </p>
-                ))
-              ) : (
-                <p className="text-sm text-nc-text-3">今日尚无提醒。</p>
-              )}
-              <div className="flex justify-end">
-                <Link className="text-sub underline" href="/accounts/alerts">
-                  完整历史 →
-                </Link>
-              </div>
-            </div>
-            <div className="mt-3 border-t border-nc-border-soft pt-3">
-              <TodayIntel />
-            </div>
-          </Panel>
         </div>
       </div>
-      <details className="rounded-lg border bg-nc-card">
-        <summary className="cursor-pointer px-4 py-2 text-sm font-medium text-nc-text">
-          模拟盘与系统明细
-        </summary>
-        <div className="space-y-4 border-t border-nc-border-soft px-4 py-3">
-          <PaperShadowPrompt />
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold">今日模拟账户变化</h3>
-              <PaperFacts today />
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold">数据就绪</h3>
-              <p className="text-sm">
-                A股本地日线：{d.readiness.equity.localDate ?? "未知"} ·
-                应到交易日：{d.readiness.equity.expectedDate ?? "待日历"} ·
-                该日下载回执：
-                {d.readiness.equity.receipt ? "已就绪" : "未就绪"} · A股扫描：
-                {d.readiness.equity.ready
-                  ? "就绪"
-                  : d.readiness.equity.status === "unknown"
-                    ? "交易日历或本地证据待核验"
-                    : "日线或回执待补齐"}{" "}
-                · BTC/ETH 1d/4h：
-                {d.readiness.crypto.ready ? "就绪" : "待补齐"} ·
-                提醒引擎最近运行：
-                {d.runtime
-                  ? new Date(d.runtime.lastCheck).toLocaleString("zh-CN")
-                  : "尚未运行"}
-              </p>
-              {d.readiness.crypto.series.map((s) => (
-                <p
-                  key={`${s.symbol}:${s.interval}`}
-                  className="text-sub text-nc-text-3"
-                >
-                  {s.symbol} {s.interval} · 本地最新 {s.end ?? "缺失"} ·{" "}
-                  {s.ready
-                    ? "当前周期就绪"
-                    : `待核验（缺口${s.gaps ?? "未知"}）`}
-                </p>
-              ))}
-              {d.gaps.length > 0 && (
-                <div role="alert" className="text-sm text-nc-warn">
-                  <p>扫描数据缺口（最近20项）：</p>
-                  {d.gaps.map((g) => (
-                    <p key={g.id}>
-                      {g.id} · {g.reason} ·{" "}
-                      {new Date(g.at).toLocaleString("zh-CN")}
-                    </p>
-                  ))}
-                </div>
-              )}
-              <p className="text-sub text-nc-text-3">
-                {d.archive.series.filter((s) => s.manifest).length}/
-                {d.archive.series.length} 组原生周期有索引；校验与覆盖详情见{" "}
-                <Link href="/system" className="underline">
-                  数据与连接
-                </Link>
-                。
-              </p>
-            </div>
-          </div>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <PaperForwardStatus compact />
-            <CryptoRiskNotes />
-          </div>
-        </div>
-      </details>
       <Dialog
         open={plan !== null}
         onOpenChange={(open) => {

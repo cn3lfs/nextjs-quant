@@ -214,6 +214,14 @@ describe("formatAlertReason", () => {
     expect(formatAlertReason({ ...event, reason: "入场条件未通过" })).toBe(
       "入场条件未通过",
     );
+    expect(
+      formatAlertReason({
+        ...event,
+        price: 58.2,
+        stop: 58.2 * 0.75,
+        reason: "已完成bar策略触发",
+      }),
+    ).toBe("收盘触发 · 触发价 58.20 · 止损 43.65");
   });
 
   it("does not turn absent observations into zero or erase a recorded zero", () => {

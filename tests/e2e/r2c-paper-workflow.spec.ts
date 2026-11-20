@@ -7,13 +7,6 @@ for (const width of [1440, 1024]) {
   }) => {
     await page.setViewportSize({ width, height: 1000 });
     await page.goto("/");
-    await page
-      .locator("summary")
-      .filter({ hasText: /^模拟盘与系统明细$/ })
-      .click();
-    await expect(
-      page.getByRole("heading", { name: "今日模拟账户变化" }),
-    ).toBeVisible();
     const candidates = page.getByRole("region", {
       name: "明日计划",
       exact: true,
