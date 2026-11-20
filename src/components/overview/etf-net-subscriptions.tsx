@@ -7,6 +7,7 @@ import type {
   EtfNetSubscriptions as EtfNetData,
 } from "~/server/market/etf-net-subscriptions";
 import { api } from "~/trpc/react";
+import { Pill } from "../panels";
 import { Button } from "../ui/button";
 import {
   Table,
@@ -32,6 +33,24 @@ const toneOf = (value: number | null) =>
     : value > 0
       ? "text-nc-up"
       : "text-nc-down";
+
+const regimeTone = (
+  regime: string | null | undefined,
+): "ok" | "accent" | "warn" | "bad" | "neutral" => {
+  switch (regime) {
+    case "托底期":
+      return "accent";
+    case "企稳确认":
+    case "反弹期":
+      return "ok";
+    case "撤退预警":
+      return "warn";
+    case "撤退期":
+      return "bad";
+    default:
+      return "neutral";
+  }
+};
 
 /**
  * 红正绿负柱表示亿元净申赎，灰色折线表示精确同日的上证指数点数。
@@ -82,7 +101,7 @@ function TrendChart({ points }: { points: EtfNetSubscriptionPoint[] }) {
       viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
       className="block h-auto max-h-52 w-full"
       role="img"
-      aria-label="ETF 全市场日度净申赎柱与上证指数折线，按记录日共用横轴"
+      aria-label="宽基 ETF 日度净申赎柱与上证指数折线，按记录日共用横轴"
     >
       <line
         x1={PAD_X}
@@ -142,7 +161,7 @@ function Body({ data }: { data: EtfNetData }) {
       </p>
       <div className="mb-2 flex flex-wrap items-baseline gap-x-5 gap-y-1.5 text-[13px]">
         <span className="inline-flex items-baseline gap-1.5">
-          <span className="text-nc-text-3">最新净申赎</span>
+          <span className="text-nc-text-3">最新净申赎（12只合计）</span>
           <strong
             className={cn(
               "text-[15px] font-medium tabular-nums",
@@ -152,6 +171,24 @@ function Body({ data }: { data: EtfNetData }) {
             {latest?.net == null ? "缺失" : `${signedAmount(latest.net)} 亿元`}
           </strong>
         </span>
+        {latest?.coreNet != null && (
+          <span className="inline-flex items-baseline gap-1.5">
+            <span className="text-nc-text-3">核心池（7只）</span>
+            <strong className={cn("tabular-nums", toneOf(latest.coreNet))}>
+              {signedAmount(latest.coreNet)} 亿元
+            </strong>
+          </span>
+        )}
+        {latest?.regime && (
+          <span className="inline-flex items-center gap-1.5">
+            <Pill tone={regimeTone(latest.regime)}>{latest.regime}</Pill>
+            {latest.score !== null && (
+              <span className="tabular-nums text-nc-text-3">
+                力度 {formatNumber(latest.score, 0)}
+              </span>
+            )}
+          </span>
+        )}
         <span className="inline-flex items-baseline gap-1.5">
           <span className="text-nc-text-3">区间合计</span>
           {data.summary.total === null ? (
@@ -178,7 +215,7 @@ function Body({ data }: { data: EtfNetData }) {
         </span>
       </div>
       <div className="flex items-center justify-between text-[12px] text-nc-text-4">
-        <span>净申赎（亿元）</span>
+        <span>净申赎（亿元 · 12只宽基合计）</span>
         <span>上证指数（点，灰色折线）</span>
       </div>
       <TrendChart points={data.points} />
@@ -214,8 +251,8 @@ function Body({ data }: { data: EtfNetData }) {
         </summary>
         <div className="mt-2 max-h-72 overflow-auto">
           <Table
-            className="min-w-[360px] text-[13px]"
-            aria-label="ETF 全市场日度净申赎逐日明细"
+            className="min-w-[460px] text-[13px]"
+            aria-label="宽基 ETF 日度净申赎逐日明细"
           >
             <TableHeader>
               <TableRow>
@@ -226,7 +263,19 @@ function Body({ data }: { data: EtfNetData }) {
                   scope="col"
                   className="py-1 text-right text-nc-text-4"
                 >
-                  净申赎（亿元）
+                  合计净申赎（亿元）
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="py-1 text-right text-nc-text-4"
+                >
+                  核心池（亿元）
+                </TableHead>
+                <TableHead
+                  scope="col"
+                  className="py-1 text-right text-nc-text-4"
+                >
+                  阶段 / 力度
                 </TableHead>
                 <TableHead
                   scope="col"
@@ -245,12 +294,27 @@ function Body({ data }: { data: EtfNetData }) {
                   >
                     {point.date}
                   </TableHead>
-                  <TableCell className="py-1 text-right">
+                  <TableCell
+                    className={cn(
+                      "py-1 text-right font-medium",
+                      toneOf(point.net),
+                    )}
+                  >
                     {point.net === null
                       ? duplicateDates.has(point.date)
                         ? "歧义（重复）"
                         : "缺失"
-                      : formatNumber(point.net, 2)}
+                      : signedAmount(point.net)}
+                  </TableCell>
+                  <TableCell
+                    className={cn("py-1 text-right", toneOf(point.coreNet))}
+                  >
+                    {point.coreNet === null ? "—" : signedAmount(point.coreNet)}
+                  </TableCell>
+                  <TableCell className="py-1 text-right text-nc-text-3">
+                    {point.regime
+                      ? `${point.regime}${point.score !== null ? ` · ${formatNumber(point.score, 0)}` : ""}`
+                      : "—"}
                   </TableCell>
                   <TableCell className="py-1 text-right">
                     {point.index === null
@@ -268,9 +332,8 @@ function Body({ data }: { data: EtfNetData }) {
 }
 
 /**
- * 今日概况里的全市场 ETF 日度净申赎历史。只在首次显示和用户点按
- * 「重读本地记录」时读取本地 SC38 与上证日线，不访问网络、不写库、不轮询。
- * 未配置、无记录和读取失败各自可辨识，重试只重读本地文件。
+ * 大盘总览里的宽基 ETF 日度净申赎（来自国家队指标本地每日缓存）。
+ * 只在首次显示和用户点按「重读本地记录」时读取缓存 CSV 与上证日线，不访问网络。
  */
 export function EtfNetSubscriptions() {
   const visible = useTaskVisible();
@@ -298,15 +361,15 @@ export function EtfNetSubscriptions() {
 
   return (
     <section
-      aria-label="ETF 全市场日度净申赎"
+      aria-label="宽基 ETF 日度净申赎"
       className="rounded-lg border border-nc-border bg-nc-card p-4"
     >
       <header className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
         <h3 className="m-0 text-[15px] font-medium text-nc-text">
-          ETF 全市场日度净申赎
+          宽基 ETF 日度净申赎
         </h3>
         <span className="text-[12px] text-nc-text-4">
-          通达信本地 · SC38 第二列
+          国家队指标 · 12只主流宽基 ETF（每日 08:20 更新至前收盘）
         </span>
         {retry}
       </header>
@@ -316,25 +379,26 @@ export function EtfNetSubscriptions() {
         </p>
       ) : !data ? (
         <p className="m-0 text-[13px] text-nc-text-3">
-          正在读取本地 SC38 记录…
+          正在读取国家队指标本地缓存…
         </p>
       ) : data.state === "source-unconfigured" ? (
         <p className="m-0 text-[13px] text-nc-text-3">
-          通达信本地目录尚未配置；净申赎只读本地 SC38，不访问网络。
+          国家队指标缓存目录未配置。
         </p>
       ) : data.state === "no-history" ? (
         <p className="m-0 text-[13px] text-nc-text-3">
-          {data.warning ?? "所选截止日及之前没有本地 SC38 记录。"}
+          {data.warning ?? "所选截止日及之前没有国家队指标净申赎记录。"}
         </p>
       ) : (
         <Body data={data} />
       )}
       <p className="mb-0 mt-2 text-[12px] leading-[1.5] text-nc-text-4">
-        数据：通达信本地 gpsh999999.dat（SC38 第二列 ETF
-        净申赎，亿元；第一列规模不混用）。最多 60
-        个记录日，缺失不补零、同日重复按缺失、不插值；指数仅取精确同日，不跨日填补。真实单点样例：
+        数据：国家队指标本地缓存 state_history.csv（份额日变化 × 当日 ETF
+        收盘价，覆盖沪深300/科创50/创业板/上证50/中证500/1000/A500 共 12 只宽基
+        ETF；交易所于次日早间公布份额，08:20 自动增量更新）。最多 60
+        个记录日，缺失不补零、同日重复按缺失。最新样例：
         {data?.latest && data.points.at(-1)?.net != null
-          ? `${data.latest} = ${formatNumber(data.points.at(-1)!.net!, 2)} 亿元`
+          ? `${data.latest} = ${signedAmount(data.points.at(-1)!.net!)} 亿元`
           : "最新记录不可用"}
         。
       </p>

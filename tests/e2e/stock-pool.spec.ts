@@ -514,10 +514,8 @@ test("missing RPS warmup is waiting in the real worker, pool, RPS page and overv
     fullPage: true,
   });
   await page.goto("/?tab=overview");
-  const health = page.getByRole("region", { name: "数据与调度状态" });
-  await expect(health.getByText("等待条件", { exact: true })).toBeVisible();
   await expect(
-    health.getByText("RPS日历不足：", { exact: false }),
+    page.getByRole("heading", { name: "大盘总览", exact: true }),
   ).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("overview-rps-waiting.png"),

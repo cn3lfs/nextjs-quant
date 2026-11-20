@@ -454,7 +454,7 @@ export const marketRouter = createTRPCRouter({
   overviewQuotes: p("market", "read")
     .input(z.array(z.string().min(1).max(32)).max(500))
     .query(({ input, signal }) => fetchOverviewQuotes(input, { signal })),
-  /** 通达信本地 SC38 全市场 ETF 日度净申赎；只读本地文件，指数同日可选。 */
+  /** 宽基 ETF 日度净申赎（读取国家队指标本地缓存）；指数同日可选。 */
   etfNetSubscriptions: p("market", "read").query(() =>
     etfNetSubscriptions(settings().tdxRoot),
   ),

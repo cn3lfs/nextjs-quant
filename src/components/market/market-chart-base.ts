@@ -1,4 +1,4 @@
-import { intelChartMarkers, type IntelEvent } from "~/lib/news/intel-events";
+import { type IntelEvent } from "~/lib/news/intel-events";
 import type { RefObject } from "react";
 import {
   LineSeries,
@@ -40,7 +40,7 @@ export function updateMarketBase(
     showBreakout,
     compare,
     setHistoryStart,
-    newsEvents,
+    newsEvents: _newsEvents,
   }: {
     newsEvents?: readonly IntelEvent[];
     bars: Bar[];
@@ -160,7 +160,6 @@ export function updateMarketBase(
       [
         ...(czsc && showCzsc ? czscChartMarkers(czsc, period, start) : []),
         ...(overlay?.markers ?? []),
-        ...intelChartMarkers(newsEvents ?? [], bars.slice(start), period),
       ].sort((a, b) => String(a.time).localeCompare(String(b.time))),
     );
   };

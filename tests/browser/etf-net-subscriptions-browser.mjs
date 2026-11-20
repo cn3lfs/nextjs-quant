@@ -1,4 +1,4 @@
-/** ETF 全市场日度净申赎：真实 TodayOverview 子组件 + esbuild 夹具，无服务端/数据库。 */
+/** 宽基 ETF 日度净申赎（国家队指标）：真实组件 + esbuild 夹具，无服务端/数据库。 */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -12,15 +12,15 @@ try {
   const transport = `
     import {useQuery} from '@tanstack/react-query';
     const f=window.etfFixture={requests:[]};
-    const base={version:'etf-net-subscriptions-1',source:'通达信本地',scope:'本地',filename:'gpsh999999.dat',requestedDate:'2026-11-19',latest:null,sourceFirst:'2018-08-15',sourceLast:'2026-11-17',window:null,points:[],duplicates:[],summary:{total:null,valid:0,complete:false},index:{symbol:'sh000001',name:'上证指数',state:'unavailable',matched:0,sourceLast:null,warning:null},warning:null,loadedAt:1,generatedAt:1};
+    const base={version:'etf-net-subscriptions-2',source:'国家队指标',scope:'12只主流宽基 ETF 合计',filename:'state_history.csv',requestedDate:'2026-11-19',latest:null,sourceFirst:'2015-01-06',sourceLast:'2026-11-17',window:null,points:[],duplicates:[],summary:{total:null,coreTotal:null,valid:0,complete:false},index:{symbol:'sh000001',name:'上证指数',state:'unavailable',matched:0,sourceLast:null,warning:null},warning:null,loadedAt:1,generatedAt:1};
     const data={...base,state:'ok',latest:'2026-11-17',window:{start:'2026-11-11',end:'2026-11-17',count:5},points:[
-      {date:'2026-11-11',net:186.2,index:3584.58},
-      {date:'2026-11-12',net:-315.54,index:null},
-      {date:'2026-11-13',net:0,index:3610.2},
-      {date:'2026-11-16',net:null,index:3602.57},
-      {date:'2026-11-17',net:152.39,index:3580.1}],
+      {date:'2026-11-11',net:186.2,coreNet:102.4,regime:'企稳确认',score:45,index:3584.58},
+      {date:'2026-11-12',net:-315.54,coreNet:-180.1,regime:'撤退预警',score:-32,index:null},
+      {date:'2026-11-13',net:0,coreNet:0,regime:'观望',score:0,index:3610.2},
+      {date:'2026-11-16',net:null,coreNet:null,regime:null,score:null,index:3602.57},
+      {date:'2026-11-17',net:152.39,coreNet:88.5,regime:'托底期',score:51,index:3580.1}],
       duplicates:[{date:'2026-11-16',count:2}],
-      summary:{total:null,valid:4,complete:false},
+      summary:{total:null,coreTotal:null,valid:4,complete:false},
       index:{...base.index,state:'ok',matched:4,sourceLast:'2026-11-18'}};
     export const api={etfNetSubscriptions:{useQuery(_input,options){return useQuery({queryKey:['etfNetSubscriptions'],...options,queryFn:async()=>{f.requests.push(1);return data;}});}}};
   `;
@@ -77,10 +77,12 @@ try {
   await page.addStyleTag({ content: css.css });
   await page.addScriptTag({ content: bundle.outputFiles[0].text });
 
-  // 主路径：记录日、最新单点、未合计说明与指数同日覆盖。
-  await page.getByText("ETF 全市场日度净申赎").waitFor();
+  // 主路径：记录日、最新单点、核心池、阶段力度、未合计说明与指数同日覆盖。
+  await page.getByText("宽基 ETF 日度净申赎").waitFor();
   await page.getByText("截至 2026-11-17（记录日）", { exact: false }).waitFor();
-  await page.getByText("+152.39 亿元", { exact: false }).waitFor();
+  await page.getByText("+152.39 亿元", { exact: true }).waitFor();
+  await page.getByText("+88.50 亿元", { exact: false }).waitFor();
+  await page.getByText("托底期", { exact: true }).waitFor();
   await page.getByText("有效 4/5 日 · 未合计", { exact: false }).waitFor();
   await page.getByText("指数源截至 2026-11-18", { exact: false }).waitFor();
   await page
@@ -98,7 +100,7 @@ try {
   await page.locator("summary").focus();
   await page.keyboard.press("Enter");
   const table = page.getByRole("table", {
-    name: "ETF 全市场日度净申赎逐日明细",
+    name: "宽基 ETF 日度净申赎逐日明细",
   });
   await table.waitFor();
   assert.equal(await table.locator("tbody tr").count(), 5);
@@ -116,7 +118,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "ETF 净申赎浏览器：记录日/最新单点/未合计/指数同日覆盖/键盘明细/1024宽无横溢通过",
+    "宽基 ETF 净申赎浏览器：国家队指标/记录日/核心池/阶段力度/明细/无横溢通过",
   );
 } finally {
   await browser?.close();

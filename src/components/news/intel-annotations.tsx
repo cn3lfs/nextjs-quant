@@ -54,7 +54,8 @@ export function IntelAnnotations({
       >
         <h3>图表新闻事件</h3>
         <p className="text-xs text-nc-text-3">
-          已有新闻按名称/代码匹配；标注不参与策略求值。点击标注或标题展开。
+          已有新闻按名称/代码匹配；不在 K
+          线图叠加文字标签，点击下方标题展开详情。
         </p>
         {query.error && (
           <p className="text-xs" role="status">
