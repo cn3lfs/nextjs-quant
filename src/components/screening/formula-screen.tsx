@@ -18,6 +18,7 @@ import {
   arities,
   futureFunctions,
 } from "trading-strategies/formula/tdx-formula-check";
+import { patternFormulaPresets } from "trading-strategies/formula/pattern-formula-presets";
 import { usePanelVisible } from "~/components/workbench/keep-alive";
 import { MethodologyPopover } from "~/components/panels";
 const subscribeToReady = () => () => {};
@@ -73,6 +74,7 @@ export function FormulaScreen({
   const [source, setSource] = useState("选股:CROSS(MA(C,N1),MA(C,N2));");
   const [params, setParams] = useState('{"N1":5,"N2":20}');
   const [checked, setChecked] = useState<string | null>(null);
+  const [template, setTemplate] = useState("");
   const [marketSource, setMarketSource] = useState<"local" | "thsdk">("local");
   const [thsdkSymbolsText, setThsdkSymbolsText] = useState("");
   const [message, setMessage] = useState("");
@@ -97,6 +99,7 @@ export function FormulaScreen({
       // The draft replaces the editor but is never launched from here: the
       // user still runs the gate and confirms.
       setId(undefined);
+      setTemplate("");
       setName(request.slice(0, 40));
       setSource(result.source);
       setParams("{}");
@@ -176,10 +179,14 @@ export function FormulaScreen({
               setMessage("");
               if (f) {
                 setId(f.id);
+                setTemplate("");
                 setName(f.name);
                 setSource(f.source);
                 setParams(JSON.stringify(f.parameters));
-              } else setId(undefined);
+              } else {
+                setId(undefined);
+                setTemplate("");
+              }
             }}
           >
             <SelectTrigger aria-label="已保存公式" className="w-full">
@@ -205,6 +212,48 @@ export function FormulaScreen({
             onChange={(e) => setName(e.target.value)}
           />
         </label>
+      </div>
+      <div className="inline-form">
+        <label>
+          形态与突破标准模板
+          <Select
+            disabled={!ready}
+            value={template}
+            onValueChange={(selected) => {
+              const preset = patternFormulaPresets.find(
+                (p) => p.name === selected,
+              );
+              setTemplate(selected);
+              setChecked(null);
+              setMessage("");
+              if (!preset) return;
+              // A preset is a starting point, not a saved formula: it must pass
+              // the syntax/future-function gate again before it can run.
+              setId(undefined);
+              setName(preset.name);
+              setSource(preset.source);
+              setParams(JSON.stringify(preset.parameters));
+            }}
+          >
+            <SelectTrigger
+              aria-label="形态与突破标准模板"
+              className="w-full"
+            >
+              <SelectValue placeholder="选择模板（可选）" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">不使用模板</SelectItem>
+              {patternFormulaPresets.map((preset) => (
+                <SelectItem key={preset.name} value={preset.name}>
+                  {preset.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </label>
+        <p className="text-xs text-muted-foreground">
+          模板用固定历史窗口近似形态，只用于公式粗筛；精确形态与缠论标签由「结构与形态突破」面板计算。
+        </p>
       </div>
       {formulas.isLoading && <p>正在读取公式…</p>}
       {formulas.error && (

@@ -153,7 +153,7 @@ function decodeFamily(
   config: 0 | 1100,
   bars: readonly Bar[],
   signalDetails: boolean,
-  research: boolean,
+  structures: boolean,
 ): CzscFamily {
   const hindsight = raw.signals
     .map((signal, row) => ({ signal, row }))
@@ -169,7 +169,8 @@ function decodeFamily(
     divergences: [],
   };
   // A single endpoint cannot form a stroke/segment. Do not render a false structure.
-  if (raw.pivots.length < 2) return empty;
+  if (raw.pivots.length < 2)
+    return structures ? { ...empty, breakouts: [] } : empty;
   const structure = (
     s: CzscRawFamily["signals"][number],
   ): CzscSignalStructure => {
@@ -207,7 +208,7 @@ function decodeFamily(
       ? {
           centerId: id(s.center),
           divergence: divergenceOf(s.divergence, s.type, s.context),
-          ...(research ? { structure: structure(s) } : {}),
+          ...(structures ? { structure: structure(s) } : {}),
         }
       : {}),
   }));
@@ -249,6 +250,19 @@ function decodeFamily(
       relation: c.relationToPrev,
       lifecycle: c.lifecycle,
     })),
+    ...(structures
+      ? {
+          breakouts: (raw.breakouts ?? []).map((b) => ({
+            centerId: id(b.center),
+            direction: (b.direction >= 0 ? 1 : -1) as 1 | -1,
+            leavePointId: id(b.leavePivot),
+            retestPointId: id(b.retestPivot),
+            third: b.third === 1,
+            confirmedAt: b.confirmedAt,
+            divergence: divergenceOf(b.divergence, 2, 0),
+          })),
+        }
+      : {}),
     signals,
     divergences,
     movements: hindsight.map(({ signal: s }) => ({
@@ -295,6 +309,7 @@ function decodeNative(
           index: s.index,
           kind: s.type,
           pointId: id(s.pivot),
+          pointConfirmedAt: high!.pivots[s.pivot]?.confirmedAt,
           segmentStartPointId: id(d.curStart),
           segmentEndPointId: id(d.curEnd),
           segmentStart: at(d.curStart),
@@ -335,6 +350,8 @@ export async function analyzeCzsc(
   movements = false,
   /** Chart-only structure settings (schema keys); research keeps DLL defaults. */
   settings?: CzscSettings,
+  /** Chart view needs the same structural tables as research, with custom settings. */
+  chartStructures = false,
 ): Promise<CzscResult> {
   if (researchStructures && settings)
     throw new Error("研究结构锁定默认配置（原0/1100）");
@@ -354,19 +371,26 @@ export async function analyzeCzsc(
     close: bars.map((b) => b.close),
     volume: bars.map((b) => b.volume),
   };
-  const research = signalDetails && researchStructures;
+  const fullStructures =
+    signalDetails && (researchStructures || chartStructures);
   const raw = await project(input, {
     ...(settings ? czscOverrides(settings) : {}),
-    recursion: research,
-    nested: research,
-    bars: research,
+    recursion: fullStructures,
+    nested: fullStructures,
+    bars: fullStructures,
   });
   const families: CzscFamily[] = ([0, 1100] as const).map((config) => {
     const family = raw.families[config];
     if (!family)
       throw new Error(`结构缺口：缺少${config ? "线段" : "笔"}级快照`);
-    const decoded = decodeFamily(family, config, bars, signalDetails, research);
-    if (!research) return decoded;
+    const decoded = decodeFamily(
+      family,
+      config,
+      bars,
+      signalDetails,
+      fullStructures,
+    );
+    if (!fullStructures) return decoded;
     const lowSignals = raw.families[0]!.signals;
     const nested: CzscNestedStructure[] =
       config === 0

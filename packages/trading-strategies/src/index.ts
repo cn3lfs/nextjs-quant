@@ -69,3 +69,19 @@ export * from "./theory-selection-components.js";
 export * from "./theory-grid.js";
 export * from "./theory-composition.js";
 export * from "./theory-watchlist.js";
+
+export * from "./pattern-breakout.js";
+export * from "./formula/pattern-formula-presets.js";
+export * from "./research/chan/chan-signal-evaluator.js";
+export type {
+  CzscBreakout,
+  CzscFamily,
+  CzscResult,
+} from "./research/chan/czsc.js";
+export {
+  doubleBreakoutFilterSchema,
+  evaluateBreakoutFilter,
+  type DoubleBreakoutFilter,
+  type BreakoutSide,
+  type BreakoutPoint,
+} from "./research/breakout/breakout.js";

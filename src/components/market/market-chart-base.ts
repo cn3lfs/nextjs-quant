@@ -12,12 +12,14 @@ import {
   breakoutChartData,
   czscChartLines,
   czscChartMarkers,
+  patternChartData,
 } from "~/lib/chart/chart-data";
 import { restoreChartRange } from "~/lib/chart/chart-viewport";
 import type { Bar } from "~/lib/domain";
 import type { ChartPeriod } from "~/lib/chart/chart-view";
 import type { BreakoutResult } from "trading-strategies/research/breakout/breakout";
 import type { CzscResult } from "trading-strategies/research/chan/czsc";
+import type { PatternBreakoutResult } from "trading-strategies";
 import type {
   MarketChartState,
   ChartViewport,
@@ -38,6 +40,8 @@ export function updateMarketBase(
     showCzsc,
     breakout,
     showBreakout,
+    patternBreakout,
+    showPatterns,
     compare,
     setHistoryStart,
     newsEvents: _newsEvents,
@@ -53,6 +57,8 @@ export function updateMarketBase(
     showCzsc: boolean;
     breakout?: BreakoutResult;
     showBreakout: boolean;
+    patternBreakout?: PatternBreakoutResult;
+    showPatterns?: boolean;
     compare?: readonly ChartCompare[];
     setHistoryStart: (start: number) => void;
   },
@@ -156,10 +162,27 @@ export function updateMarketBase(
         crosshairMarkerVisible: false,
       }).setData(item.data);
     }
+    const patternOverlay =
+      patternBreakout && showPatterns
+        ? patternChartData(patternBreakout, bars, start, breakoutIndex, period)
+        : null;
+    for (const item of patternOverlay?.lines ?? []) {
+      line({
+        color: item.color,
+        lineWidth: 2,
+        lineStyle: item.lineStyle,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+      }).setData(item.data);
+    }
     n.markers.setMarkers(
       [
-        ...(czsc && showCzsc ? czscChartMarkers(czsc, period, start) : []),
+        ...(czsc && showCzsc
+          ? czscChartMarkers(czsc, period, start, bars)
+          : []),
         ...(overlay?.markers ?? []),
+        ...(patternOverlay?.markers ?? []),
       ].sort((a, b) => String(a.time).localeCompare(String(b.time))),
     );
   };

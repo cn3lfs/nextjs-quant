@@ -152,7 +152,9 @@ for (const market of ["cn-equity", "crypto"] as const) {
                 exit: false,
                 stopLevel: definition.exit.stop
                   ? bars.at(-1)!.close * 0.9
-                  : null,
+                  : definition.entry.kind === "double-breakout"
+                    ? 23.8 // Confirmed swing low in the fixed equity fixture.
+                    : null,
               },
             },
           ]);

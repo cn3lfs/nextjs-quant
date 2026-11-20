@@ -1,4 +1,14 @@
 import {
+  preparePatternBreakout,
+  patternBreakoutKinds,
+} from "./pattern-breakout.js";
+import {
+  chanSignalCodes,
+  classifyCzscSignals,
+  type ChanSignalCode,
+} from "./research/chan/chan-signal-evaluator.js";
+import type { CzscResult } from "./research/chan/czsc.js";
+import {
   createTripleScreenRule,
   tripleScreenVariants,
   type TripleScreenInput,
@@ -29,6 +39,8 @@ import {
 import {
   analyzeBreakout,
   prepareBreakout,
+  doubleBreakoutFilterSchema,
+  evaluateBreakoutFilter,
 } from "./research/breakout/breakout.js";
 import { metrics } from "./research/technical/screening-metrics.js";
 import {
@@ -110,7 +122,20 @@ export const strategyRuleSchema = z.discriminatedUnion("kind", [
     .strict(),
   z
     .object({
+      kind: z.literal("pattern-breakout"),
+      patterns: z.array(z.enum(patternBreakoutKinds)).min(1),
+      direction: z.enum(["long", "short", "both"]).default("long"),
+      side: z.enum(["entry", "exit"]).default("entry"),
+      minVolumeRatio: z.number().finite().nonnegative().default(1.2),
+      minScore: z.number().int().min(1).max(5).default(2),
+      useStructureStop: z.boolean().default(true),
+    })
+    .strict(),
+  z
+    .object({
       kind: z.literal("double-breakout"),
+      filter: doubleBreakoutFilterSchema.optional(),
+      useStructureStop: z.boolean().optional(),
       side: z.enum(["entry", "exit"]),
     })
     .strict(),
@@ -131,6 +156,9 @@ export const strategyRuleSchema = z.discriminatedUnion("kind", [
   z
     .object({
       kind: z.literal("czsc-monitor"),
+      codes: z.array(z.enum(chanSignalCodes)).min(1).optional(),
+      direction: z.enum(["long", "short", "both"]).optional(),
+      minQuality: z.union([z.literal(1), z.literal(2)]).optional(),
       config: z.number().int().nonnegative(),
     })
     .strict(),
@@ -276,10 +304,13 @@ export const strategyObjectSchema = z
           code: "custom",
           message: "fast must be smaller than slow",
         });
-      if (r?.kind === "double-breakout" && s.period !== "day")
+      if (
+        (r?.kind === "double-breakout" || r?.kind === "pattern-breakout") &&
+        s.period !== "day"
+      )
         ctx.addIssue({
           code: "custom",
-          message: "double breakout requires daily bars",
+          message: `${r.kind} requires daily bars`,
         });
       if (r?.kind === "utc-orb" && (s.market !== "crypto" || s.period !== "5m"))
         ctx.addIssue({
@@ -385,6 +416,10 @@ export type StrategyExternalInputs = {
   lowZone?: readonly LowZoneFact[];
   monitorCzsc?: {
     observations: readonly MonitorCzscObservation[];
+    /** Full native projection used to produce the current alert observations. */
+    result?: CzscResult;
+    /** Native snapshots keyed by the completed observation date, indexed against signal bars. */
+    snapshots?: Readonly<Record<string, CzscResult>>;
     seenKeys?: readonly string[];
   };
   signals?: readonly {
@@ -407,11 +442,30 @@ export type MonitorCzscObservation = {
   date: string;
   availableAt: string;
   endpointDate: string;
+  code?: ChanSignalCode;
+  revokedAt?: number;
   config: number;
   key: string;
   kind: number;
   quality: number;
 };
+/** Record confirmation on the observation bar while retaining the historical endpoint. */
+export function classifiedMonitorObservations(
+  result: CzscResult,
+  bars: readonly Bar[],
+  index: number,
+) {
+  const date = bars[index]!.date;
+  return classifyCzscSignals(result, bars, { asOfIndex: index })
+    .filter((signal) => signal.confirmedAt === index)
+    .map((signal) => ({
+      ...signal,
+      date,
+      availableAt: date,
+      endpointDate: signal.date,
+      kind: 0,
+    }));
+}
 /** Observation date is the completed bar; the native endpoint may be historical. */
 export function selectCzscMonitorSignals(
   observations: readonly MonitorCzscObservation[],
@@ -433,7 +487,8 @@ export function selectCzscMonitorSignals(
       row.date === asOf &&
       row.config === config &&
       [1, 2].includes(row.quality) &&
-      [1, 2, 3].includes(Math.abs(row.kind)),
+      (row.revokedAt === undefined || row.revokedAt < 0) &&
+      (row.code !== undefined || [1, 2, 3].includes(Math.abs(row.kind))),
   );
   const seen = new Set(seenKeys);
   return {
@@ -696,6 +751,80 @@ export function prepareStrategy(
     }
     return breakoutCache.get(i)!;
   };
+  type BreakoutRule = Extract<StrategyRule, { kind: "double-breakout" }>;
+  const doubleAt = (rule: BreakoutRule, index: number) => {
+    const point = breakoutAt(index).points[0]!;
+    const direction = rule.side === "entry" ? "long" : "short";
+    const result = evaluateBreakoutFilter(point, bars[index]!, {
+      ...rule.filter,
+      direction,
+    });
+    const sides = [point[direction]];
+    const decision =
+      result.matched ||
+      (sides.some((side) => side.status === "未知") ? null : false);
+    return {
+      ...result,
+      decision,
+      sides,
+      volumeRatio: point.volumeRatio,
+      volume20: point.volume20,
+      missing: point.missing,
+    };
+  };
+  type PatternRule = Extract<StrategyRule, { kind: "pattern-breakout" }>;
+  const patternCache = new Map<
+    PatternRule,
+    ReturnType<typeof preparePatternBreakout>
+  >();
+  const patternAt = (rule: PatternRule, index: number) => {
+    let prepared = patternCache.get(rule);
+    if (!prepared) {
+      prepared = preparePatternBreakout(bars, {
+        ...rule,
+        kinds: rule.patterns,
+      });
+      patternCache.set(rule, prepared);
+    }
+    return prepared.at(index);
+  };
+  const monitorAt = (
+    rule: Extract<StrategyRule, { kind: "czsc-monitor" }>,
+    index: number,
+  ) => {
+    const facts = external.monitorCzsc;
+    if (!facts) throw new Error("Missing native monitor observations");
+    const date = bars[index]!.date;
+    const snapshot = facts.snapshots?.[date];
+    const observations = snapshot
+      ? classifiedMonitorObservations(snapshot, bars, index)
+      : facts.observations;
+    const selection = selectCzscMonitorSignals(
+      observations,
+      rule.config,
+      date,
+      facts.seenKeys,
+    );
+    const fresh = selection.fresh.filter((row) => {
+      const code =
+        row.code ??
+        (`${Math.abs(row.kind)}${row.kind > 0 ? "B" : "S"}` as ChanSignalCode);
+      const direction = code.endsWith("B") ? "long" : "short";
+      return (
+        (!rule.codes || rule.codes.includes(code)) &&
+        (!rule.direction ||
+          rule.direction === "both" ||
+          rule.direction === direction) &&
+        row.quality >= (rule.minQuality ?? 1)
+      );
+    });
+    return {
+      config: rule.config,
+      fresh,
+      baseline: facts.seenKeys === undefined,
+      matched: bars[index]!.volume > 0 && fresh.length > 0,
+    };
+  };
   const multiEvidence = new Map<
     StrategyRule,
     (
@@ -709,6 +838,7 @@ export function prepareStrategy(
   >();
   const compile = (
     rule: StrategyRule,
+    executionSide: "entry" | "exit" = "entry",
   ): ((index: number, position?: TripleScreenPosition) => boolean | null) => {
     switch (rule.kind) {
       case "triple-screen": {
@@ -843,19 +973,7 @@ export function prepareStrategy(
       case "constant":
         return () => rule.value;
       case "czsc-monitor":
-        return (i) => {
-          const facts = external.monitorCzsc;
-          if (!facts) throw new Error("Missing native monitor observations");
-          return (
-            bars[i]!.volume > 0 &&
-            selectCzscMonitorSignals(
-              facts.observations,
-              rule.config,
-              bars[i]!.date,
-              facts.seenKeys,
-            ).fresh.length > 0
-          );
-        };
+        return (i) => monitorAt(rule, i).matched;
       case "screening-metrics":
         return (i) => metrics(bars.slice(0, i + 1), rule)?.matched ?? null;
       case "external": {
@@ -904,14 +1022,13 @@ export function prepareStrategy(
             : result.signal === (rule.side === "entry" ? "BUY" : "SELL");
         };
       case "double-breakout":
-        return (i) => {
-          const result = breakoutAt(i).latest;
-          const status =
-            rule.side === "entry" ? result?.long.status : result?.short.status;
-          return status === undefined || status === "未知"
-            ? null
-            : status === "是";
-        };
+        return (i) => doubleAt(rule, i).decision;
+      case "pattern-breakout":
+        return (i) =>
+          patternAt(rule, i).some(
+            (match) =>
+              match.direction === (executionSide === "entry" ? "long" : "short"),
+          );
       case "rps":
         return (i) => {
           const point = external.rps?.find((x) => x.date === bars[i]!.date);
@@ -935,8 +1052,10 @@ export function prepareStrategy(
         };
     }
   };
-  const enter = compile(strategy.entry),
-    leave = strategy.exit.rule ? compile(strategy.exit.rule) : () => false;
+  const enter = compile(strategy.entry, "entry"),
+    leave = strategy.exit.rule
+      ? compile(strategy.exit.rule, "exit")
+      : () => false;
   const stop = strategy.exit.stop;
   // Index once per prepared rule; retain lazy validation at the observed bar.
   // Repeated filtering here made ATR research quadratic in history length.
@@ -1045,16 +1164,22 @@ export function prepareStrategy(
           })),
         };
       } else if (rule.kind === "double-breakout") {
-        const point = breakoutAt(index).latest,
-          side = rule.side === "entry" ? point?.long : point?.short;
+        const result = doubleAt(rule, index);
+        const side = result.side ?? result.sides[0];
         inputs = {
-          checks: side?.checks ?? null,
-          line: side?.line ?? null,
-          keyLevel: side?.keyLevel ?? null,
-          volume20: point?.volume20 ?? null,
-          volumeRatio: point?.volumeRatio ?? null,
-          missing: point?.missing ?? ["breakout observations"],
+          ...result,
+          checks: side?.checks,
+          line: side?.line,
+          keyLevel: side?.keyLevel,
         };
+      } else if (rule.kind === "pattern-breakout") {
+        inputs = {
+          patterns: rule.patterns,
+          direction: rule.direction,
+          matches: patternAt(rule, index),
+        };
+      } else if (rule.kind === "czsc-monitor") {
+        inputs = monitorAt(rule, index);
       } else if (rule.kind === "rps") {
         const point = external.rps?.find((p) => p.date === bar.date);
         inputs = {
@@ -1115,8 +1240,29 @@ export function prepareStrategy(
           throw new Error("Non-causal / invalid structure level");
         stopLevel = level?.value ?? null;
       }
+      const entry = exit === false ? enter(index, position) : false;
+      const rule = strategy.entry;
+      if (
+        entry &&
+        !stop &&
+        rule.kind === "double-breakout" &&
+        rule.useStructureStop !== false
+      ) {
+        const signal = doubleAt(rule, index);
+        if (signal.direction === "long") stopLevel = signal.stopPrice;
+      }
+      if (
+        entry &&
+        !stop &&
+        rule.kind === "pattern-breakout" &&
+        rule.useStructureStop
+      ) {
+        stopLevel =
+          patternAt(rule, index).find((match) => match.direction === "long")
+            ?.stopPrice ?? null;
+      }
       return {
-        entry: exit === false ? enter(index, position) : false,
+        entry,
         exit,
         stopLevel,
         ...(strategy.exit.chandelier

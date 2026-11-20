@@ -86,7 +86,11 @@ export function CzscMarketChart({
   viewportKey?: string;
 }) {
   const [annotationVisibility, setAnnotationVisibility] =
-    useState<ChartAnnotationVisibility>({ breakout: true, czsc: true });
+    useState<ChartAnnotationVisibility>({
+      breakout: true,
+      czsc: true,
+      patterns: false,
+    });
   const [paintedSnapshot, setPaintedSnapshot] = useState("");
   useEffect(() => {
     // Let the mounted price chart paint before starting annotation requests.
@@ -146,6 +150,18 @@ export function CzscMarketChart({
       retry: false,
     },
   );
+  const patternBreakout = api.patternBreakout.useQuery(
+    { snapshotId, chartSnapshot },
+    {
+      enabled:
+        annotationsReady &&
+        annotations &&
+        Boolean(annotationVisibility.patterns) &&
+        capabilityAllows("breakout", "compute"),
+      staleTime: Infinity,
+      retry: false,
+    },
+  );
   return (
     <MarketChart
       newsEvents={newsEvents}
@@ -187,6 +203,20 @@ export function CzscMarketChart({
             ? `双突破计算失败：${breakout.error.message}`
             : breakout.isPending
               ? "双突破标注后台加载中，K 线可正常浏览"
+              : undefined
+      }
+      patternBreakout={
+        annotations && annotationVisibility.patterns
+          ? patternBreakout.data
+          : undefined
+      }
+      patternBreakoutMessage={
+        !annotationsReady || !annotations || !annotationVisibility.patterns
+          ? undefined
+          : patternBreakout.error
+            ? `形态突破计算失败：${patternBreakout.error.message}`
+            : patternBreakout.isPending
+              ? "形态突破标注后台加载中，K 线可正常浏览"
               : undefined
       }
       czscMessage={

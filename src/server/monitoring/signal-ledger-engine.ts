@@ -33,6 +33,7 @@ export function ledgerSignals(
   for (const family of czsc.families)
     for (const point of family.signals) {
       if (![1, 2, 3].includes(Math.abs(point.kind))) continue;
+      if (point.revokedAt !== undefined && point.revokedAt >= 0) continue;
       const key = `${family.config}:${point.date}:${point.kind}:${point.quality}`;
       const seen = keys.has(key);
       keys.add(key);

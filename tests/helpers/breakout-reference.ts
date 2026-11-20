@@ -117,34 +117,52 @@ function trend(
   const pivots = points.filter(
     (p) => p.kind === (direction === "long" ? "high" : "low"),
   );
-  const a = pivots.at(-2),
-    b = pivots.at(-1);
-  if (!a || !b) return null;
-  const slope = (b.price - a.price) / (b.index - a.index);
   const sign = direction === "long" ? 1 : -1;
-  if (slope * sign >= 0) return null;
-  const line: TrendLine = {
-    direction,
-    anchors: [a, b],
-    slope,
-    touches: 2,
-    confirmedAt: b.confirmedAt,
-    value: 0,
-  };
-  line.value = priceOn(line, index);
-  if (line.value <= 0) return null;
-  for (let j = a.index + 1; j < index; j++) {
-    if ((bars[j]!.close - priceOn(line, j)) * sign > 1e-10) return null;
+  const latest = pivots.at(-1);
+  const previous = pivots.at(-2);
+  if (!latest || !previous) return null;
+  if ((latest.price - previous.price) * sign < 0)
+    return check(previous, latest);
+
+  // Enumerate alternative anchors newest-first only for a wrong-slope pair.
+  for (const [end, last] of [...pivots.entries()].reverse()) {
+    for (const first of pivots.slice(0, end).reverse()) {
+      if (
+        last.index - first.index < 3 ||
+        (last.price - first.price) * sign >= 0
+      )
+        continue;
+      const line = check(first, last);
+      if (line && line.touches >= 2) return line;
+    }
   }
-  line.touches = pivots.filter((p) => {
-    if (Math.abs(p.price / priceOn(line, p.index) - 1) > 0.005) return false;
-    // Older touches count only if their extension also has no intervening
-    // body-close violation; a coincidental extrapolated price is not a touch.
-    for (let j = p.index; j < a.index; j++)
-      if ((bars[j]!.close - priceOn(line, j)) * sign > 1e-10) return false;
-    return true;
-  }).length;
-  return line;
+  return null;
+
+  function check(a: Swing, b: Swing): TrendLine | null {
+    const slope = (b.price - a.price) / (b.index - a.index);
+    const line: TrendLine = {
+      direction,
+      anchors: [a, b],
+      slope,
+      touches: 2,
+      confirmedAt: b.confirmedAt,
+      value: 0,
+    };
+    line.value = priceOn(line, index);
+    if (line.value <= 0) return null;
+    for (let j = a.index + 1; j < index; j++) {
+      if ((bars[j]!.close - priceOn(line, j)) * sign > 1e-10) return null;
+    }
+    line.touches = pivots.filter((p) => {
+      if (Math.abs(p.price / priceOn(line, p.index) - 1) > 0.005) return false;
+      // Older touches count only if their extension also has no intervening
+      // body-close violation; a coincidental extrapolated price is not a touch.
+      for (let j = p.index; j < a.index; j++)
+        if ((bars[j]!.close - priceOn(line, j)) * sign > 1e-10) return false;
+      return true;
+    }).length;
+    return line;
+  }
 }
 
 // Preserve the existing five-pattern diagnostic contract. Extended candle

@@ -57,6 +57,17 @@ const condition = (value: unknown) =>
       ? "未通过"
       : "未知";
 
+function priceEvidence(input: Record<string, unknown>) {
+  return (
+    [
+      ["stopPrice", "止损"],
+      ["targetPrice", "目标"],
+    ] as const
+  ).flatMap(([key, label]) =>
+    finite(input[key]) === null ? [] : [`${label} ${number(input[key])}`],
+  );
+}
+
 /** Display recorded rule inputs. Unknown values stay unknown; raw formulas,
  * internal object layouts and unsampled conditions are not a user-facing why. */
 export function strategyDecisionReason(
@@ -126,6 +137,62 @@ export function strategyDecisionReason(
         )
           .map(([key, label]) => `${label}${condition(checks[key])}`)
           .join(" / "),
+      );
+      if (input.direction === "long") parts.push("方向 向上");
+      if (input.direction === "short") parts.push("方向 向下");
+      parts.push(...priceEvidence(input));
+    } else if (evidence.kind === "pattern-breakout") {
+      const matches = rows(input.matches).filter(
+        (match) => typeof match.label === "string",
+      );
+      for (const match of matches) {
+        const detail = [String(match.label)];
+        if (finite(match.score) !== null)
+          detail.push(`评分 ${number(match.score, 0)}/5`);
+        if (finite(match.pivotPrice) !== null)
+          detail.push(`突破位 ${number(match.pivotPrice)}`);
+        if (finite(match.volumeRatio) !== null)
+          detail.push(`量比 ${number(match.volumeRatio, 2)}`);
+        detail.push(...priceEvidence(match));
+        parts.push(detail.join(" / "));
+      }
+      if (!matches.length)
+        parts.push(
+          Array.isArray(input.matches) && !input.matches.length
+            ? "当根无匹配形态突破"
+            : "形态突破明细未记录",
+        );
+    } else if (evidence.kind === "czsc-monitor") {
+      const fresh = rows(input.fresh);
+      const level =
+        input.config === 0 ? "笔" : input.config === 1100 ? "段" : "";
+      for (const signal of fresh) {
+        const kind = finite(signal.kind);
+        let label = "缠论买卖点";
+        if (typeof signal.shortLabel === "string") label = signal.shortLabel;
+        else if (typeof signal.label === "string") label = signal.label;
+        else if (typeof signal.code === "string") label = signal.code;
+        else if (kind)
+          label = `${level}${Math.abs(kind)}${kind > 0 ? "买" : "卖"}`;
+        const detail = [label];
+        if (typeof signal.endpointDate === "string")
+          detail.push(`端点 ${signal.endpointDate}`);
+        if (finite(signal.quality) !== null)
+          detail.push(`质量 ${number(signal.quality, 0)}`);
+        detail.push(...priceEvidence(signal));
+        parts.push(detail.join(" / "));
+      }
+      if (!fresh.length) {
+        if (input.baseline === true) parts.push("缠论买卖点建立观察基线");
+        else if (Array.isArray(input.fresh)) parts.push("当根无新增缠论买卖点");
+        else parts.push("缠论买卖点明细未记录");
+      }
+    } else if (evidence.kind === "chan-third-buy") {
+      const firstIndex = finite(record(input.rule).firstIndex);
+      parts.push(
+        firstIndex === null
+          ? "缠论三买"
+          : `缠论三买 / 首个评估K线索引 ${number(firstIndex, 0)}`,
       );
     } else if (evidence.kind === "rps") {
       parts.push(

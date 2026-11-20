@@ -57,6 +57,12 @@ import {
   thsdkWencaiHotBlocks,
 } from "../../data-sources/thsdk/thsdk-wencai";
 
+import { patternFormulaPresets } from "trading-strategies";
+import {
+  patternScreenRequestSchema,
+  runPatternScreen,
+} from "../../screening/pattern-screen-service";
+
 export const screeningRouter = createTRPCRouter({
   thsdkWencaiQuery: p("market", "read")
     .input(thsdkWencaiQueryInputSchema)
@@ -217,6 +223,12 @@ export const screeningRouter = createTRPCRouter({
   rpsCurve: p("rps", "read")
     .input(symbolSchema)
     .query(({ input }) => new RpsStore(chartSqlite()).curve(input)),
+  patternScreenPresets: p("formulaScreen", "read").query(
+    () => patternFormulaPresets,
+  ),
+  patternScreenRun: p("formulaScreen", "compute")
+    .input(patternScreenRequestSchema)
+    .mutation(({ input }) => runPatternScreen(input)),
   formulas: p("formulaScreen", "read").query(() => savedFormulas()),
   saveFormula: p("formulaScreen", "configure")
     .input(formulaSchema)

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import type { Bar } from "trading-strategy-core/bars";
 import {
@@ -106,21 +107,15 @@ const average = (v: number[]) => v.reduce((s, x) => s + x, 0) / v.length;
 const priceOn = (line: TrendLine, index: number) =>
   line.anchors[0].price + line.slope * (index - line.anchors[0].index);
 
-// Connect the latest two same-kind pivots; do not cherry-pick older favorable
-// pairs. Earlier body closes through the line invalidate it. Touch tolerance
-// 0.5% is for reliability counts only, never for passing a breakout threshold.
-function trend(
-  points: Swing[],
+// Every candidate uses the same confirmation and body-close checks.
+function candidateLine(
+  a: Swing,
+  b: Swing,
+  pivots: Swing[],
   bars: readonly Bar[],
   index: number,
   direction: Direction,
 ): TrendLine | null {
-  const pivots = points.filter(
-    (p) => p.kind === (direction === "long" ? "high" : "low"),
-  );
-  const a = pivots.at(-2),
-    b = pivots.at(-1);
-  if (!a || !b) return null;
   const slope = (b.price - a.price) / (b.index - a.index);
   const sign = direction === "long" ? 1 : -1;
   if (slope * sign >= 0) return null;
@@ -146,6 +141,34 @@ function trend(
     return true;
   }).length;
   return line;
+}
+
+function trend(
+  points: Swing[],
+  bars: readonly Bar[],
+  index: number,
+  direction: Direction,
+): TrendLine | null {
+  const pivots = points.filter(
+    (p) => p.kind === (direction === "long" ? "high" : "low"),
+  );
+  const previous = pivots.at(-2),
+    latest = pivots.at(-1);
+  if (!previous || !latest) return null;
+  const sign = direction === "long" ? 1 : -1;
+  if ((latest.price - previous.price) * sign < 0)
+    return candidateLine(previous, latest, pivots, bars, index, direction);
+  // Only a counter-trend bounce permits a search through older anchor pairs.
+  for (let b = pivots.length - 1; b > 0; b--) {
+    for (let a = b - 1; a >= 0; a--) {
+      const first = pivots[a]!,
+        last = pivots[b]!;
+      if (last.index - first.index < 3) continue;
+      const line = candidateLine(first, last, pivots, bars, index, direction);
+      if (line && line.touches >= 2) return line;
+    }
+  }
+  return null;
 }
 
 // Preserve the existing five-pattern diagnostic contract. Extended candle
@@ -439,5 +462,87 @@ export function prepareBreakout(bars: readonly Bar[], chartBars = false) {
         throw new Error("Invalid breakout index");
       return point(bars, index, values, chartBars, invalidPrefix[index]!);
     },
+  };
+}
+
+export const doubleBreakoutFilterSchema = z
+  .object({
+    direction: z.enum(["long", "short", "both"]).optional(),
+    minScore: z.number().int().min(0).max(5).optional(),
+    minTouches: z.number().int().nonnegative().optional(),
+    minSpanBars: z.number().int().nonnegative().optional(),
+    minVolumeRatio: z.number().finite().nonnegative().optional(),
+    requireLargeBody: z.boolean().optional(),
+    minRewardMultiple: z.number().finite().nonnegative().optional(),
+  })
+  .strict();
+export type DoubleBreakoutFilter = z.infer<typeof doubleBreakoutFilterSchema>;
+
+export function evaluateBreakoutFilter(
+  point: BreakoutPoint,
+  bar: Bar,
+  filter: DoubleBreakoutFilter = {},
+): {
+  matched: boolean;
+  direction: Direction | null;
+  side: BreakoutSide | null;
+  stopPrice: number | null;
+  targetPrice: number | null;
+  rewardMultiple: number | null;
+  summary: string;
+} {
+  for (const side of [point.long, point.short]) {
+    if (
+      filter.direction &&
+      filter.direction !== "both" &&
+      filter.direction !== side.direction
+    )
+      continue;
+    if (side.status !== "是" || !side.line) continue;
+    const [first, last] = side.line.anchors;
+    if (
+      filter.minScore !== undefined &&
+      (side.score === null || side.score < filter.minScore)
+    )
+      continue;
+    if (
+      side.line.touches < (filter.minTouches ?? 0) ||
+      last.index - first.index < (filter.minSpanBars ?? 0)
+    )
+      continue;
+    if (
+      filter.minVolumeRatio !== undefined &&
+      (point.volumeRatio === null || point.volumeRatio < filter.minVolumeRatio)
+    )
+      continue;
+    if (
+      filter.requireLargeBody &&
+      (body(bar) < 0.03 * bar.open || body(bar) < 0.6 * (bar.high - bar.low))
+    )
+      continue;
+    const { stop, target1, target2, rewardMultiple } = side.risk;
+    if (
+      filter.minRewardMultiple !== undefined &&
+      (rewardMultiple === null || rewardMultiple < filter.minRewardMultiple)
+    )
+      continue;
+    return {
+      matched: true,
+      direction: side.direction,
+      side,
+      stopPrice: stop?.price ?? null,
+      targetPrice: target2?.price ?? target1?.price ?? null,
+      rewardMultiple,
+      summary: `${side.direction === "long" ? "向上双突破" : "向下双破位"}，评分 ${side.quality}，趋势线 ${side.line.touches} 个触点`,
+    };
+  }
+  return {
+    matched: false,
+    direction: null,
+    side: null,
+    stopPrice: null,
+    targetPrice: null,
+    rewardMultiple: null,
+    summary: "无符合过滤条件的双突破",
   };
 }

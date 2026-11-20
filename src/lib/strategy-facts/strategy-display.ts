@@ -4,7 +4,9 @@ import type { AlertEvent } from "./alerts";
 const families = new Map([
   ["historical-low", "历史低位"],
   ["chan-third-buy", "缠论三买"],
+  ["czsc-monitor", "缠论买卖点"],
   ["double-breakout", "双突破"],
+  ["pattern-breakout", "形态突破"],
   ["formula-ma", "均线公式"],
   ["formula-pullback", "回踩公式"],
   ["formula-range", "区间公式"],

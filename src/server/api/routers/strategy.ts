@@ -2,6 +2,7 @@ import { readArchiveRecord } from "../../db/archive-records";
 import { analyzeCzsc, czscConfigSchema } from "../../strategies/chan/czsc";
 import { czscSettingsSchema } from "~/lib/chart/czsc-settings";
 import { analyzeBreakout } from "trading-strategies/research/breakout/breakout";
+import { analyzePatternBreakouts } from "trading-strategies";
 import { completedBarFilter } from "~/lib/completed-bars";
 import { financialGrowth } from "../../strategies/value/financial-growth";
 import { financialQualityJob } from "../../strategies/value/financial-quality";
@@ -71,6 +72,32 @@ export const strategyRouter = createTRPCRouter({
         0,
       );
     }),
+  patternBreakout: p("breakout", "compute")
+    .input(
+      z.object({
+        snapshotId: z.string().min(1),
+        chartSnapshot: z.boolean().default(false),
+      }),
+    )
+    .query(({ input }) => {
+      const source = storedSnapshot(input.snapshotId);
+      if (!source || !Array.isArray(source.bars))
+        throw new Error("行情快照不存在");
+      if (input.chartSnapshot) {
+        if (!source.id.startsWith("chart-snapshot-"))
+          throw new Error("图表快照不匹配");
+        const forming = new Set(source.barStore?.formingDates);
+        return analyzePatternBreakouts(
+          forming.size
+            ? source.bars.filter((b) => !forming.has(b.date))
+            : source.bars,
+        );
+      }
+      const completed = completedBarFilter(source.period, Date.now());
+      return analyzePatternBreakouts(
+        source.bars.filter((b) => completed(b.date)),
+      );
+    }),
   czsc: p("nativeChart", "compute")
     .input(
       z.object({
@@ -86,12 +113,13 @@ export const strategyRouter = createTRPCRouter({
 
       return analyzeCzsc(
         source.bars,
-        false,
+        true,
         undefined,
         false,
-        undefined,
+        1,
         false,
         input.settings,
+        true,
       );
     }),
   czscSchema: p("nativeChart", "read").query(() => czscConfigSchema()),

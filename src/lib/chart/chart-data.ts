@@ -12,11 +12,15 @@ import { boll, kdj, ma, macd, rsi, type IndicatorValue } from "../indicators";
 import { bias, cci, ema, obv, williams } from "./chart-extra-indicators";
 import type { LineData, Time, UTCTimestamp } from "lightweight-charts";
 import type { SeriesMarker } from "lightweight-charts";
+import type { PatternBreakoutMatch } from "trading-strategies";
+import { classifyCzscSignals } from "trading-strategies/research/chan/chan-signal-evaluator";
 import type {
   CzscPoint,
   CzscResult,
 } from "trading-strategies/research/chan/czsc";
 import type { BreakoutResult } from "trading-strategies/research/breakout/breakout";
+
+const breakoutColors = { long: "#7c3aed", short: "#28977f" };
 
 /** Render as-of evidence only; no chart-side fitting or indicator formulas. */
 export function breakoutChartData(
@@ -36,7 +40,7 @@ export function breakoutChartData(
       if (begin >= asOf) continue;
       lines.push({
         title: `${side.direction === "long" ? "下降" : "上升"}趋势线 · ${line.touches}触`,
-        color: "#7c3aed",
+        color: breakoutColors[side.direction],
         data: [
           {
             time: chartTime(bars[begin]!.date, period),
@@ -83,7 +87,7 @@ export function breakoutChartData(
             s.direction === "long"
               ? ("belowBar" as const)
               : ("aboveBar" as const),
-          color: "#7c3aed",
+          color: breakoutColors[s.direction],
           shape:
             s.direction === "long"
               ? ("arrowUp" as const)
@@ -92,6 +96,55 @@ export function breakoutChartData(
         })),
     );
   return { lines, markers, point };
+}
+
+export function patternChartData(
+  matches: readonly PatternBreakoutMatch[],
+  bars: readonly Bar[],
+  start: number,
+  asOf = bars.length - 1,
+  period: Period = "day",
+) {
+  const lines: {
+    title: string;
+    color: string;
+    lineStyle: 0 | 2;
+    data: LineData<Time>[];
+  }[] = [];
+  const markers: SeriesMarker<Time>[] = [];
+  for (const match of matches) {
+    if (match.index < start || match.index > asOf) continue;
+    const long = match.direction === "long";
+    const color = long ? "#d97706" : "#0891b2";
+    const arrow = long ? "↑" : "↓";
+    const label = match.label.replace(/(?:\s*[↑↓])+\s*$/, "");
+    markers.push({
+      time: chartTime(match.date, period),
+      position: long ? "belowBar" : "aboveBar",
+      color,
+      shape: long ? "arrowUp" : "arrowDown",
+      text: `${label}${arrow} ${match.score}/5`,
+    });
+    for (const line of match.geometry.lines) {
+      const data: LineData<Time>[] = [];
+      for (const point of line.points) {
+        if (point.index < start || point.index > asOf) continue;
+        const bar = bars[point.index];
+        if (bar)
+          data.push({ time: chartTime(bar.date, period), value: point.price });
+      }
+      if (!data.length) continue;
+      const isBreakoutLine =
+        line.kind === "neckline" || line.kind === (long ? "upper" : "lower");
+      lines.push({
+        title: line.label,
+        color: isBreakoutLine ? color : "#64748b",
+        lineStyle: line.style === "dashed" ? 2 : 0,
+        data,
+      });
+    }
+  }
+  return { lines, markers };
 }
 
 export function czscChartLines(
@@ -121,20 +174,51 @@ export function czscChartMarkers(
   result: CzscResult,
   period: Period,
   start: number,
+  bars?: readonly Bar[],
 ): SeriesMarker<Time>[] {
-  return result.families
-    .flatMap((f) =>
-      f.signals
-        .filter((s) => s.index >= start)
-        .map((s) => ({
-          time: chartTime(s.date, period),
-          position: s.kind > 0 ? ("belowBar" as const) : ("aboveBar" as const),
-          color: s.kind > 0 ? "#cf5562" : "#28977f",
-          shape: s.kind > 0 ? ("arrowUp" as const) : ("arrowDown" as const),
-          text: `${f.config === 0 ? "笔" : "段"}${Math.abs(s.kind)}${s.kind > 0 ? "买" : "卖"}`,
-        })),
-    )
-    .sort((a, b) => String(a.time).localeCompare(String(b.time)));
+  const marker = (
+    date: string,
+    long: boolean,
+    text: string,
+  ): SeriesMarker<Time> => ({
+    time: chartTime(date, period),
+    position: long ? "belowBar" : "aboveBar",
+    color: long ? "#cf5562" : "#28977f",
+    shape: long ? "arrowUp" : "arrowDown",
+    text,
+  });
+  const hasStructure = result.families.some(
+    (family) =>
+      family.breakouts !== undefined ||
+      family.diagnostics !== undefined ||
+      family.signals.some((signal) => signal.structure !== undefined),
+  );
+  const markers =
+    bars?.length && hasStructure
+      ? classifyCzscSignals(result, bars)
+          .filter((signal) => signal.index >= start)
+          .map((signal) => {
+            let label = signal.shortLabel;
+            if (signal.code !== "NB" && signal.code !== "NS") {
+              const prefix = signal.config === 0 ? "笔" : "段";
+              label = prefix + label.replace(/^[笔段]+/, "");
+            }
+            return marker(signal.date, signal.direction === "long", label);
+          })
+      : result.families.flatMap((family) =>
+          family.signals
+            .filter(
+              (signal) => signal.index >= start && (signal.revokedAt ?? -1) < 0,
+            )
+            .map((signal) =>
+              marker(
+                signal.date,
+                signal.kind > 0,
+                `${family.config === 0 ? "笔" : "段"}${Math.abs(signal.kind)}${signal.kind > 0 ? "买" : "卖"}`,
+              ),
+            ),
+        );
+  return markers.sort((a, b) => String(a.time).localeCompare(String(b.time)));
 }
 
 export const chartPageSize = 180;

@@ -39,6 +39,7 @@ import { useMarketSession } from "~/lib/stores/market-session";
 import { cn } from "~/lib/common/classnames";
 import { formatNumber } from "trading-strategy-core/format-number";
 import { Button } from "../ui/button";
+import { PatternScreenPanel } from "./pattern-screen-panel";
 const Market = dynamic(() =>
   import("../market/market-page").then((m) => m.MarketPage),
 );
@@ -114,8 +115,11 @@ function ScanWorkspaceBody() {
 function FormulaResults() {
   const search = useSearchParams();
   const hasSnapshot = search.has("screenSnapshot");
-  const [subTab, setSubTab] = useState<"formula" | "intraday">("formula");
+  const [subTab, setSubTab] = useState<"formula" | "pattern" | "intraday">(
+    "formula",
+  );
   const showFormula = subTab === "formula";
+  const showPattern = subTab === "pattern";
   return (
     <div className="min-w-0 space-y-3">
       <div className="flex flex-wrap items-center gap-3">
@@ -125,11 +129,12 @@ function FormulaResults() {
           onChange={setSubTab}
           options={[
             { value: "formula", label: "公式选股" },
+            { value: "pattern", label: "结构与形态突破" },
             { value: "intraday", label: "历史预选记录" },
           ]}
         />
       </div>
-      {showFormula ? (
+      {showFormula || showPattern ? (
         <div
           className={cn(
             "grid min-w-0 gap-4",
@@ -137,11 +142,11 @@ function FormulaResults() {
           )}
         >
           <div className="min-w-0 [&_.inline-form]:flex-wrap! [&_.inline-form>input]:basis-full!">
-            <Formula />
+            {showFormula ? <Formula /> : <PatternScreenPanel />}
           </div>
           {hasSnapshot && (
             <section
-              aria-label="公式候选图表"
+              aria-label={showFormula ? "公式候选图表" : "结构形态候选图表"}
               className="min-w-0 self-start space-y-3 xl:sticky xl:top-20"
             >
               <ScreenPlan />

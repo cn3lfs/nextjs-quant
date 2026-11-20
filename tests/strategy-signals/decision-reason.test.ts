@@ -64,6 +64,69 @@ it("distinguishes breakout check failures and unknowns from actual thresholds", 
   expect(reason).toContain(
     "趋势通过 / 关键位通过 / 量能未通过 / 指标未知 / K线通过",
   );
+  expect(reason).not.toMatch(/方向|止损|目标/);
+});
+it("includes the matched double-breakout direction and recorded risk levels", () => {
+  const reason = strategyDecisionReason({
+    ...common,
+    kind: "double-breakout",
+    inputs: { direction: "short", stopPrice: 13, targetPrice: 9 },
+  });
+  expect(reason).toContain("方向 向下；止损 13.0000；目标 9.0000");
+});
+it("shows pattern names, scores and price levels from recorded matches", () => {
+  const reason = strategyDecisionReason({
+    ...common,
+    kind: "pattern-breakout",
+    inputs: {
+      matches: [
+        {
+          label: "箱体突破↑",
+          score: 4,
+          pivotPrice: 11,
+          stopPrice: 9,
+          targetPrice: 16,
+        },
+        { label: "上升三角形↑", score: 3, pivotPrice: 10.5 },
+      ],
+    },
+  });
+  expect(reason).toContain(
+    "箱体突破↑ / 评分 4/5 / 突破位 11.0000 / 止损 9.0000 / 目标 16.0000",
+  );
+  expect(reason).toContain("上升三角形↑ / 评分 3/5 / 突破位 10.5000");
+});
+it("shows classified and legacy CZSC observations with their recorded endpoint dates", () => {
+  const reason = strategyDecisionReason({
+    ...common,
+    kind: "czsc-monitor",
+    inputs: {
+      config: 1100,
+      fresh: [
+        {
+          shortLabel: "区间套卖",
+          endpointDate: "2026-11-18",
+          quality: 2,
+          stopPrice: 13,
+        },
+        { kind: 3, endpointDate: "2026-11-19", quality: 1 },
+      ],
+    },
+  });
+  expect(reason).toContain(
+    "区间套卖 / 端点 2026-11-18 / 质量 2 / 止损 13.0000",
+  );
+  expect(reason).toContain("段3买 / 端点 2026-11-19 / 质量 1");
+});
+it("formats the three-buy rule's recorded start index without inventing a signal", () => {
+  const reason = strategyDecisionReason({
+    ...common,
+    kind: "chan-third-buy",
+    entry: null,
+    inputs: { rule: { kind: "chan-third-buy", firstIndex: 140 } },
+  });
+  expect(reason).toContain("入场条件未知");
+  expect(reason).toContain("缠论三买 / 首个评估K线索引 140");
 });
 it("includes actual RPS components, rank, market gate and rebalance difference", () => {
   const reason = strategyDecisionReason(

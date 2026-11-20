@@ -1,4 +1,5 @@
 import {
+  classifiedMonitorObservations,
   usesStrategyBook,
   type StrategyExternalInputs,
 } from "trading-strategies";
@@ -145,22 +146,22 @@ export async function evaluateStrategyInputs(ctx: AlertInputContext) {
           ).observations;
         const monitor = rules.find((r) => r.kind === "czsc-monitor");
         if (!paper && monitor?.kind === "czsc-monitor") {
-          const nativeResult = await analyzeCzsc(data.bars, true);
-          const signals =
-            nativeResult.families.find((f) => f.config === monitor.config)
-              ?.signals ?? [];
+          const nativeResult = await analyzeCzsc(
+            data.bars,
+            true,
+            undefined,
+            true,
+            1,
+          );
           const key = `native:${strategy.id}:${strategy.version}:${symbol}`;
-          const observations = signals.map((s) => ({
-            date: bar.date,
-            availableAt: bar.date,
-            endpointDate: s.date,
-            config: monitor.config,
-            key: `${monitor.config}:${s.date}:${s.kind}`,
-            kind: s.kind,
-            quality: s.quality,
-          }));
+          const observations = classifiedMonitorObservations(
+            nativeResult,
+            data.bars,
+            data.bars.length - 1,
+          );
           external.monitorCzsc = {
             observations,
+            result: nativeResult,
             seenKeys: repo.state<string[]>(key),
           };
           result.states.push({

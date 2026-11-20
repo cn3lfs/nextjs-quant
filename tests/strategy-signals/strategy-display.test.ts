@@ -40,6 +40,8 @@ describe("strategyDisplayName", () => {
     ["r2-crypto-dual-ma-1h-atr", "双均线 1小时 · ATR止损"],
     ["historical-low", "历史低位"],
     ["double-breakout", "双突破"],
+    ["pattern-breakout", "形态突破"],
+    ["czsc-monitor", "缠论买卖点"],
     ["dual-ma", "双均线"],
     ["chan-third-buy", "缠论三买"],
     ["rps-multi", "多周期RPS"],

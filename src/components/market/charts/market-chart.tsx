@@ -43,6 +43,7 @@ import type { Bar } from "~/lib/domain";
 import type { ChartAdjustment } from "~/lib/chart/chart-adjustment";
 import type { CzscResult } from "trading-strategies/research/chan/czsc";
 import type { BreakoutResult } from "trading-strategies/research/breakout/breakout";
+import type { PatternBreakoutResult } from "trading-strategies";
 import { linkedIndex, type CrosshairLink } from "~/lib/chart/crosshair-link";
 import {
   chartIndicators,
@@ -70,7 +71,11 @@ const mainIndicatorLabels: Record<MainIndicator, string> = {
   boll: "BOLL",
 };
 
-export type ChartAnnotationVisibility = { breakout: boolean; czsc: boolean };
+export type ChartAnnotationVisibility = {
+  breakout: boolean;
+  czsc: boolean;
+  patterns?: boolean;
+};
 export function MarketChart({
   pricePrecision = 2,
   volumeUnit = "股",
@@ -81,6 +86,8 @@ export function MarketChart({
   czscMessage,
   breakout,
   breakoutMessage,
+  patternBreakout,
+  patternBreakoutMessage,
   annotationVisibility,
   onAnnotationVisibilityChange,
   view,
@@ -127,6 +134,8 @@ export function MarketChart({
   czscMessage?: string;
   breakout?: BreakoutResult;
   breakoutMessage?: string;
+  patternBreakout?: PatternBreakoutResult;
+  patternBreakoutMessage?: string;
   annotationVisibility?: ChartAnnotationVisibility;
   onAnnotationVisibilityChange?: (value: ChartAnnotationVisibility) => void;
   view?: ChartView;
@@ -166,9 +175,15 @@ export function MarketChart({
       ? onViewChange({ ...view, mainIndicators: value })
       : setLocalMainIndicators(value);
   const [localAnnotations, setLocalAnnotations] =
-    useState<ChartAnnotationVisibility>({ breakout: true, czsc: true });
+    useState<ChartAnnotationVisibility>({
+      breakout: true,
+      czsc: true,
+      patterns: false,
+    });
   const shownAnnotations = annotationVisibility ?? localAnnotations;
   const { czsc: showCzsc, breakout: showBreakout } = shownAnnotations;
+  // Derived, not a hook: the chart test harness pins the hook slot order.
+  const showPatterns = Boolean(shownAnnotations.patterns);
   const changeAnnotation = (patch: Partial<ChartAnnotationVisibility>) => {
     const next = { ...shownAnnotations, ...patch };
     if (onAnnotationVisibilityChange) onAnnotationVisibilityChange(next);
@@ -435,6 +450,8 @@ export function MarketChart({
       showCzsc,
       breakout,
       showBreakout,
+      patternBreakout,
+      showPatterns,
       compare,
       setHistoryStart,
       newsEvents,
@@ -452,6 +469,8 @@ export function MarketChart({
     cost,
     compare,
     newsEvents,
+    patternBreakout,
+    showPatterns,
   ]);
 
   useEffect(() => {
@@ -721,6 +740,15 @@ export function MarketChart({
               />{" "}
               缠论结构
             </label>
+            <label>
+              <Checkbox
+                checked={showPatterns}
+                onCheckedChange={(checked) =>
+                  changeAnnotation({ patterns: checked === true })
+                }
+              />{" "}
+              形态突破
+            </label>
           </>
         )}
         {selectedSubcharts.includes("rps") && period === "day" && (
@@ -830,6 +858,19 @@ export function MarketChart({
                 : czsc
                   ? `笔 ${Math.max(0, (czsc.families.find((f) => f.config === 0)?.points.length ?? 0) - 1)} · 线段端点 ${czsc.families.find((f) => f.config === 1100)?.points.length ?? 0} · 中枢 ${czsc.families.reduce((n, f) => n + f.centers.length, 0)} · 金色笔 / 紫色线段 · 阴影背驰`
                   : "")}
+          </span>
+        )}
+        {annotations && showPatterns && (
+          <span
+            data-testid="pattern-status"
+            className={patternBreakoutMessage ? undefined : "sr-only"}
+          >
+            {patternBreakoutMessage ??
+              (patternBreakout
+                ? patternBreakout.length
+                  ? `形态突破 ${patternBreakout.length} 处 · 橙色买点 / 青色卖点`
+                  : "当前快照无形态突破"
+                : "")}
           </span>
         )}
       </div>

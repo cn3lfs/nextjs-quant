@@ -39,11 +39,28 @@ export interface CzscCenter {
   /** 0 extension / 1 expansion / 2 newborn up / 3 newborn down / -1 first. */
   lifecycle?: number;
 }
+/** Decoded native single-center departure. Object references are one-based. */
+export type CzscBreakout = {
+  centerId: number;
+  direction: 1 | -1;
+  leavePointId: number;
+  retestPointId: number;
+  third: boolean;
+  confirmedAt?: number;
+  divergence?: {
+    areaRatio: number;
+    priceRatio: number;
+    speedRatio: number;
+    flags: number;
+    semantic: number;
+  };
+};
 export interface CzscFamily {
   /** Level slot: 0 stroke level / 1100 segment level (names kept from the pre-v20 config codes). */
   config: 0 | 1100;
   points: CzscPoint[];
   centers: CzscCenter[];
+  breakouts?: CzscBreakout[];
   signals: {
     index: number;
     date: string;
@@ -169,6 +186,8 @@ export type CzscHighCandidate = {
   index: number;
   kind: number;
   pointId: number;
+  /** Keep cross-level timing when the chart hides the high-level family. */
+  pointConfirmedAt?: number;
   segmentStartPointId: number;
   segmentEndPointId: number;
   segmentStart: number | null;
