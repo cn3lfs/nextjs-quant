@@ -6,7 +6,7 @@ const config = {
   serverExternalPackages: ["better-sqlite3", "koffi"],
   outputFileTracingIncludes: { "/*": ["./runtime/**/*"] },
   outputFileTracingExcludes: {
-    "/*": [
+    "/**": [
       "./release/**/*",
       "./.test-data/**/*",
       "./test-results/**/*",

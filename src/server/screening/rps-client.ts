@@ -44,9 +44,12 @@ export class RpsWorkerClient {
     const cancel = new SharedArrayBuffer(4);
     this.cancellation = new Int32Array(cancel);
     try {
-      this.worker = new Worker(resolve("runtime/rps-worker.cjs"), {
-        workerData: { request, now, progress, cancel },
-      });
+      this.worker = new Worker(
+        resolve(/*turbopackIgnore: true*/ "runtime/rps-worker.cjs"),
+        {
+          workerData: { request, now, progress, cancel },
+        },
+      );
     } catch (error) {
       recordRuntimeError("rps-worker", error, { requestId: progress.id });
       store.finish({
