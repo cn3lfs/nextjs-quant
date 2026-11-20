@@ -221,7 +221,8 @@ export function FuturesView() {
           >
             <SelectTrigger
               aria-label="期货数据源"
-              className="ml-auto w-auto min-w-44"
+              title="自动按 Yahoo → 东方财富 → 新浪 顺序读取；新浪仅支持日线"
+              className="ml-auto w-auto min-w-24"
             >
               <SelectValue />
             </SelectTrigger>

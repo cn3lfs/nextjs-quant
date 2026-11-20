@@ -77,10 +77,10 @@ export const cryptoSourceSchema = z.enum([
 export type CryptoSource = z.infer<typeof cryptoSourceSchema>;
 export type CryptoVenue = Exclude<CryptoSource, "auto">;
 export const cryptoSourceLabels: Record<CryptoSource, string> = {
-  auto: "自动（币安 → OKX → Gate → Coinbase → Bybit）",
+  auto: "自动",
   binance: "币安",
   okx: "OKX",
-  gate: "Gate.io",
+  gate: "Gate",
   coinbase: "Coinbase",
   bybit: "Bybit",
 };

@@ -272,13 +272,13 @@ test("R2a scoreboard keeps bias labels, server pages, keyboard market switch and
     await expect(region.getByText(`${prefix}20`, { exact: true })).toHaveCount(
       0,
     );
-    await region.getByRole("button", { name: /下一页/ }).click();
+    await region.getByRole("button", { name: "加载更多", exact: true }).click();
     await expect(
       region.getByText(`${prefix}20`, { exact: true }),
     ).toBeVisible();
-    await expect(region.getByText(`${prefix}00`, { exact: true })).toHaveCount(
-      0,
-    );
+    await expect(
+      region.getByText(`${prefix}00`, { exact: true }),
+    ).toBeVisible();
     const market = region.getByRole("radiogroup", { name: "研究市场" });
     await market.getByRole("radio", { name: "A 股", exact: true }).focus();
     await page.keyboard.press("ArrowRight");
@@ -1097,10 +1097,14 @@ test("overview uses its framework route and restores the ranking selection from 
   });
   await page.goto("/system/tasks");
   await expect(page.locator('[aria-label="任务列表"]')).toBeVisible();
-  await page.locator('a[href="/"]').first().click();
-  await page
-    .getByRole("radio", { name: "市场与数据总览", exact: true })
-    .click();
+  const nav = page.getByRole("navigation", {
+    name: "工作台导航",
+    exact: true,
+  });
+  const groupBtn = nav.getByRole("button", { name: "今日交易", exact: true });
+  if ((await groupBtn.getAttribute("aria-expanded")) === "false")
+    await groupBtn.click();
+  await nav.getByRole("link", { name: "大盘总览", exact: true }).click();
   const ranking = page.getByRole("radiogroup", {
     name: "RPS 口径",
     exact: true,
@@ -1251,10 +1255,12 @@ test("R2b shadow history filters, exports and creates then cancels a staged plan
     await page.getByLabel("来源策略", { exact: true }).fill("p0-r2b-alert");
     const history = page.getByRole("region", { name: "提醒历史", exact: true });
     await expect(history).toContainText("25");
-    await history.getByRole("button", { name: /下一页/ }).click();
+    await history
+      .getByRole("button", { name: "加载更多", exact: true })
+      .click();
     await expect(
       history.getByRole("button", { name: "加入计划", exact: true }),
-    ).toHaveCount(5);
+    ).toHaveCount(25);
     const archive = await download(page, "导出提醒历史");
     expect(archive.items).toHaveLength(25);
     expect(

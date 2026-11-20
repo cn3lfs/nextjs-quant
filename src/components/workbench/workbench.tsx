@@ -24,7 +24,10 @@ import { ShortcutHelpDialog } from "./shortcut-help-dialog";
 import { useWorkbenchState } from "./use-workbench-state";
 import { WorkbenchNotifyProvider } from "./workbench-notify";
 import { ChartNavigationProvider } from "../market/open-chart";
-import { BinanceHistoryNotice } from "../common/binance-history-notice";
+import {
+  BinanceHistoryNotice,
+  isBinanceNoticeRoute,
+} from "../common/binance-history-notice";
 
 function isEditableTarget(target: EventTarget | null) {
   return (
@@ -165,7 +168,9 @@ export function Workbench({ children }: { children?: ReactNode }) {
           />
         )}
         <div className="page">
-          <BinanceHistoryNotice />
+          {isBinanceNoticeRoute(pathname, search.get("tab")) && (
+            <BinanceHistoryNotice />
+          )}
           <WorkbenchNotifyProvider value={notify}>
             <ChartNavigationProvider>
               <PanelCache active={pathname} panels={retainedPanels} />

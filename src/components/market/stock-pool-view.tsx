@@ -10,22 +10,24 @@ import {
 import { useOpenChart } from "./open-chart";
 import { MarketPoolBrowser } from "./market-pool-browser";
 
+function updateLocation(action: SetStateAction<MarketPoolLocation>) {
+  const current = readMarketPoolLocation(window.location.search);
+  const next = typeof action === "function" ? action(current) : action;
+  if (next !== current)
+    window.history.replaceState(null, "", marketPoolLocationHref(next));
+}
+
 export function StockPoolView() {
   const search = useSearchParams();
   const router = useRouter();
   const openChart = useOpenChart();
   const location = readMarketPoolLocation(search.toString());
-  const update = (action: SetStateAction<MarketPoolLocation>) => {
-    const current = readMarketPoolLocation(window.location.search);
-    const next = typeof action === "function" ? action(current) : action;
-    window.history.replaceState(null, "", marketPoolLocationHref(next));
-  };
   return (
     <MarketPoolBrowser
       location={location}
-      onLocationChange={update}
+      onLocationChange={updateLocation}
       onSelect={(symbol) => {
-        update((current) => ({
+        updateLocation((current) => ({
           ...current,
           query: { ...current.query, selected: symbol },
         }));

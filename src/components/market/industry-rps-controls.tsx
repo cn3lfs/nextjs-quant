@@ -24,6 +24,7 @@ import {
 import { RpsConditionEditor } from "./rps-condition-editor";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { useAccumulatedPages, useTablePage } from "../ui/use-infinite-table";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
 import { PoolMembersLink } from "./pool-members-link";
 import { usePanelVisible } from "../workbench/keep-alive";
@@ -37,6 +38,7 @@ import {
 import type { RouterOutputs } from "~/trpc/react";
 
 type Row = RouterOutputs["industryRpsPage"]["rows"][number];
+const rowKey = (row: Row) => row.name;
 function columns(conditions: RpsCondition[]): DataTableColumn<Row>[] {
   return [
     {
@@ -122,8 +124,9 @@ export function IndustryRpsControls() {
   const [date, setDate] = useState("");
   const [period, setPeriod] = useState(20);
   const [conditions, setConditions] = useState<RpsCondition[]>([]);
-  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 20 });
   const [order, setOrder] = useState<TableSort>(null);
+  const resetKey = JSON.stringify([date, period, conditions, order]);
+  const cursor = useTablePage(resetKey);
   const visible = usePanelVisible();
   const status = api.industryRpsStatus.useQuery(undefined, {
     enabled: visible,
@@ -134,24 +137,41 @@ export function IndustryRpsControls() {
       date: date || undefined,
       period,
       conditions,
-      page: pagination.pageIndex,
+      page: cursor.pageIndex,
       order,
     },
     {
       enabled: visible,
+      staleTime: 0,
       refetchInterval:
-        status.data?.progress?.status === "running" ? 4000 : false,
+        cursor.pageIndex === 0 && status.data?.progress?.status === "running"
+          ? 4000
+          : false,
     },
   );
   // Only the current key's successful response is evidence for the summary,
   // rows, bases and paging. A same-key background refresh keeps it; a key
   // change or a failed refresh never shows the previous batch as this one.
-  const confirmed = page.isSuccess ? page.data : undefined;
+  const result =
+    page.isSuccess && !page.isPlaceholderData ? page.data : undefined;
+  const batches = useAccumulatedPages({
+    resetKey,
+    pageIndex: cursor.pageIndex,
+    items: result?.rows,
+    total: result?.total,
+    metadata: result,
+    getKey: rowKey,
+  });
+  const confirmed = page.isError ? undefined : batches.metadata;
+  function refresh() {
+    if (cursor.pageIndex === 0) void page.refetch();
+    else cursor.restart();
+  }
   const onError = (error: { message: string }) => setMessage(error.message);
   const onSuccess = () => {
     setMessage("请求已处理");
     void status.refetch();
-    void page.refetch();
+    refresh();
   };
   const configure = api.industryRpsConfigure.useMutation({
     onSuccess,
@@ -167,9 +187,9 @@ export function IndustryRpsControls() {
   const running = status.data?.progress?.status === "running";
   const wasRunning = useRef(false);
   useEffect(() => {
-    if (wasRunning.current && !running) void page.refetch();
+    if (wasRunning.current && !running) refresh();
     wasRunning.current = running;
-  }, [running, page]);
+  });
   const directoryDirty = root !== undefined && root !== status.data?.root;
   const busy =
     running ||
@@ -308,7 +328,6 @@ export function IndustryRpsControls() {
             value={date}
             onChange={(e) => {
               setDate(e.target.value);
-              setPagination({ pageIndex: 0, pageSize: 20 });
             }}
           />
         </label>
@@ -316,7 +335,6 @@ export function IndustryRpsControls() {
           value={String(period)}
           onValueChange={(v) => {
             setPeriod(Number(v));
-            setPagination({ pageIndex: 0, pageSize: 20 });
           }}
         >
           <SelectTrigger aria-label="行业RPS周期">
@@ -334,11 +352,9 @@ export function IndustryRpsControls() {
           applied={conditions}
           onApply={(next) => {
             setConditions(next);
-            setPagination({ pageIndex: 0, pageSize: 20 });
           }}
           onClear={() => {
             setConditions([]);
-            setPagination({ pageIndex: 0, pageSize: 20 });
           }}
         />
       </div>
@@ -389,21 +405,26 @@ export function IndustryRpsControls() {
       )}
       <DataTable
         columns={columns(conditions)}
-        data={conditionUnavailable ? [] : (confirmed?.rows ?? [])}
-        rowCount={conditionUnavailable ? 0 : (confirmed?.total ?? 0)}
-        pagination={pagination}
-        onPaginationChange={setPagination}
+        data={
+          conditionUnavailable || (page.isError && cursor.pageIndex === 0)
+            ? []
+            : batches.rows
+        }
+        rowCount={conditionUnavailable ? undefined : confirmed?.total}
         sorting={sortingState(order)}
         onSortingChange={(updater) => {
           setOrder(nextTableSort(updater, order));
-          setPagination({ pageIndex: 0, pageSize: 20 });
         }}
-        getRowId={(r) => r.name}
+        getRowId={rowKey}
         label="行业RPS排名与成分审计"
-        loading={page.isPending}
+        loading={page.isFetching || page.isPending}
         error={page.error?.message}
         onRetry={() => void page.refetch()}
-        showPagination={confirmed !== undefined && !conditionUnavailable}
+        infiniteScroll={{
+          hasMore: !conditionUnavailable && batches.hasMore,
+          loadingMore: cursor.pageIndex > 0 && page.isFetching,
+          onLoadMore: cursor.loadMore,
+        }}
         emptyMessage={
           !confirmed
             ? "等待当前条件的成功查询结果。"

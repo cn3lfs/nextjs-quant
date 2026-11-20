@@ -1,9 +1,19 @@
+import { rpsPeriods } from "quant-rps";
 import {
   poolCategorySchema,
   poolSelectionSchema,
   marketPoolQuerySchema,
+  rpsSortColumnId,
   type MarketPoolQuery,
 } from "./market-pool";
+
+const sortColumns = new Set([
+  "symbol",
+  "rps",
+  "return",
+  "status",
+  ...rpsPeriods.map(rpsSortColumnId),
+]);
 
 /** URL state predates RPS conditions; keep its object shape unchanged. */
 export type MarketPoolLocationQuery = Omit<MarketPoolQuery, "conditions">;
@@ -25,6 +35,7 @@ export function readMarketPoolLocation(search: string): MarketPoolLocation {
     return value?.trim() ? Number(value) : undefined;
   };
   const searchText = params.get("search") ?? "";
+  const sortColumn = params.get("sortColumn");
   const fields = marketPoolQuerySchema.shape;
   return {
     category: category.success ? category.data : "all",
@@ -37,11 +48,9 @@ export function readMarketPoolLocation(search: string): MarketPoolLocation {
       minimumRps: fields.minimumRps.catch(null).parse(numeric("minimumRps")),
       sort: fields.sort.catch("rps").parse(params.get("sort") ?? undefined),
       order: fields.order.catch(null).parse(
-        ["symbol", "rps", "return", "status"].includes(
-          params.get("sortColumn") ?? "",
-        )
+        sortColumn && sortColumns.has(sortColumn)
           ? {
-              id: params.get("sortColumn"),
+              id: sortColumn,
               desc: params.get("descending") === "true",
             }
           : null,

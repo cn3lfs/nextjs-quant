@@ -8,14 +8,20 @@ import {
   sortingState,
   type TableSort,
 } from "~/lib/common/server-sort";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import { rpsPeriodLabel } from "~/lib/screening/rps";
 import type { RpsCondition } from "~/lib/screening/rps-conditions";
-import type { MarketPoolRow } from "~/lib/market/market-pool";
+import {
+  defaultRpsTablePeriods,
+  rpsSortColumnId,
+  type MarketPoolRow,
+} from "~/lib/market/market-pool";
 import { ChartSymbolLink } from "./chart-symbol-link";
 import { Button } from "../ui/button";
+import { Checkbox } from "../ui/checkbox";
 import { Input } from "../ui/input";
+import { useAccumulatedPages, useTablePage } from "../ui/use-infinite-table";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
 import { usePanelVisible } from "../workbench/keep-alive";
 import {
@@ -36,6 +42,7 @@ import {
 } from "../panels";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 
+const rowKey = (row: MarketPoolRow) => row.symbol;
 const rpsRankingMethodology = [
   {
     label: "排名口径",
@@ -50,12 +57,12 @@ const rpsRankingMethodology = [
   {
     label: "换股",
     detail:
-      "点击股票名跳转到行情图表页查看 K 线；图表中 PageUp/PageDown 按本页顺序换股。",
+      "点击股票名跳转到行情图表页查看 K 线；图表中 PageUp/PageDown 按已加载列表的顺序换股。",
   },
   {
     label: "结果语义",
     detail:
-      "批次、基数、命中数与分页只来自当前条件的成功查询结果；草稿修改不会改变上表。",
+      "批次、基数与命中数只来自当前条件的成功查询结果；草稿修改不会改变上表。",
   },
 ];
 
@@ -86,9 +93,33 @@ export function StockRpsRanking() {
   // Applied conditions are the only ones in the query key; draft edits wait for
   // 「应用条件」 so typing a threshold cannot produce a request per keystroke.
   const [conditions, setConditions] = useState<RpsCondition[]>([]);
-  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 20 });
   const [order, setOrder] = useState<TableSort>(null);
+  const resetKey = JSON.stringify([search, period, conditions, order]);
+  const cursor = useTablePage(resetKey);
   const [conditionsOpen, setConditionsOpen] = useState(false);
+  // RPS column visibility is page-local UI state; the primary period is forced
+  // visible below so choosing RPS1/RPS120 in the period select always shows it.
+  const [visibleRpsPeriods, setVisibleRpsPeriods] = useState<number[]>([
+    ...defaultRpsTablePeriods,
+  ]);
+  const sortedPeriod = rpsPeriods.find((p) => order?.id === rpsSortColumnId(p));
+  const displayedRpsPeriods = useMemo(
+    () =>
+      [
+        ...new Set([
+          ...visibleRpsPeriods,
+          period,
+          ...(sortedPeriod ? [sortedPeriod] : []),
+        ]),
+      ].sort((a, b) => a - b),
+    [visibleRpsPeriods, period, sortedPeriod],
+  );
+  const toggleRpsPeriod = (target: number) =>
+    setVisibleRpsPeriods((current) =>
+      current.includes(target)
+        ? current.filter((value) => value !== target)
+        : [...current, target].sort((a, b) => a - b),
+    );
   // Ranks only change when an RPS batch writes a new day: poll while one runs.
   const job = api.rpsStatus.useQuery(undefined, {
     enabled: visible,
@@ -104,28 +135,41 @@ export function StockRpsRanking() {
       conditions,
       sort: "rps",
       order,
-      page: pagination.pageIndex,
+      page: cursor.pageIndex,
     },
     {
       enabled: visible,
-      refetchInterval: running ? 10000 : false,
+      staleTime: 0,
+      refetchInterval: running && cursor.pageIndex === 0 ? 10000 : false,
     },
   );
   // Only a successful response for the current query key is evidence for this
   // page. A same-key refetch keeps it; a key change or a failed refresh does not.
-  const confirmed = page.isSuccess ? page.data : undefined;
+  const result =
+    page.isSuccess && !page.isPlaceholderData ? page.data : undefined;
+  const batches = useAccumulatedPages({
+    resetKey,
+    pageIndex: cursor.pageIndex,
+    items: result?.rows,
+    total: result?.total,
+    isSuccess: !page.isFetching,
+    snapshotKey: `${result?.rps?.date ?? ""}:${result?.rps?.inputHash ?? ""}:${result?.rps?.observation?.createdAt ?? ""}`,
+    onSnapshotDrift: cursor.restart,
+    pageSize: 20,
+    metadata: result,
+    getKey: rowKey,
+  });
+  const confirmed = page.isError ? undefined : batches.metadata;
+  function refresh() {
+    if (cursor.pageIndex === 0) void page.refetch();
+    else cursor.restart();
+  }
   const rankingReady = confirmed?.availability.rps === "ready";
   const wasRunning = useRef(false);
   useEffect(() => {
-    if (wasRunning.current && !running) void page.refetch();
+    if (wasRunning.current && !running) refresh();
     wasRunning.current = running;
-  }, [running, page]);
-  const reset =
-    <T,>(apply: (value: T) => void) =>
-    (value: T) => {
-      apply(value);
-      setPagination({ pageIndex: 0, pageSize: 20 });
-    };
+  });
   const appliedText = conditions.length
     ? conditions
         .map(
@@ -168,12 +212,23 @@ export function StockRpsRanking() {
       header: `RPS${period} 排名`,
       cell: ({ row }) => row.original.value?.rank ?? "—",
     },
-    {
-      id: "rps",
+    ...displayedRpsPeriods.map((p): DataTableColumn<MarketPoolRow> => ({
+      // The primary period keeps the plain "rps" id so the server's default
+      // rank sort stays highlighted; other periods sort by their own column.
+      id: p === period && p !== sortedPeriod ? "rps" : rpsSortColumnId(p),
       enableSorting: true,
-      header: `RPS${period}`,
-      cell: ({ row }) => displayNumber(row.original.value?.rps, 2) ?? "—",
-    },
+      header: `RPS${p}`,
+      cell: ({ row }) => {
+        const metric =
+          row.original.rpsValues?.[String(p)] ??
+          (p === period ? row.original.value : null);
+        return (
+          <span className="tabular-nums">
+            {displayNumber(metric?.rps, 2) ?? "—"}
+          </span>
+        );
+      },
+    })),
     {
       id: "return",
       enableSorting: true,
@@ -223,7 +278,7 @@ export function StockRpsRanking() {
         <FilterGroup>
           <Select
             value={String(period)}
-            onValueChange={reset((value: string) => setPeriod(Number(value)))}
+            onValueChange={(value) => setPeriod(Number(value))}
           >
             <SelectTrigger
               size="sm"
@@ -242,12 +297,62 @@ export function StockRpsRanking() {
           </Select>
         </FilterGroup>
         <FilterGroup>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm">
+                RPS列 · {displayedRpsPeriods.length}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              aria-label="选择显示的RPS列"
+              className="w-60 space-y-2"
+            >
+              <p className="text-sm font-medium">显示 RPS 列</p>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                {rpsPeriods.map((p) => (
+                  <label key={p} className="flex items-center gap-1.5 text-sm">
+                    <Checkbox
+                      checked={displayedRpsPeriods.includes(p)}
+                      disabled={p === period || p === sortedPeriod}
+                      onCheckedChange={() => toggleRpsPeriod(p)}
+                    />
+                    RPS{p}
+                    {p === period ? " (主)" : ""}
+                  </label>
+                ))}
+              </div>
+              <div className="flex items-center gap-1 border-t border-border pt-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex-1"
+                  title="恢复默认列 RPS3/5/10/20/50"
+                  onClick={() =>
+                    setVisibleRpsPeriods([...defaultRpsTablePeriods])
+                  }
+                >
+                  默认
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex-1"
+                  title="显示全部 RPS 周期"
+                  onClick={() => setVisibleRpsPeriods([...rpsPeriods])}
+                >
+                  全选
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </FilterGroup>
+        <FilterGroup>
           <Input
             className="h-8 w-44"
             aria-label="搜索股票代码或名称"
             placeholder="搜代码/名称"
             value={search}
-            onChange={(e) => reset(setSearch)(e.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
           />
         </FilterGroup>
         <Popover open={conditionsOpen} onOpenChange={setConditionsOpen}>
@@ -264,12 +369,10 @@ export function StockRpsRanking() {
               applied={conditions}
               onApply={(next) => {
                 setConditions(next);
-                setPagination({ pageIndex: 0, pageSize: 20 });
                 setConditionsOpen(false);
               }}
               onClear={() => {
                 setConditions([]);
-                setPagination({ pageIndex: 0, pageSize: 20 });
                 setConditionsOpen(false);
               }}
             />
@@ -280,7 +383,7 @@ export function StockRpsRanking() {
           variant="outline"
           size="sm"
           disabled={page.isFetching}
-          onClick={() => void page.refetch()}
+          onClick={refresh}
         >
           刷新
         </Button>
@@ -288,7 +391,7 @@ export function StockRpsRanking() {
           variant="ghost"
           size="sm"
           disabled={order === null}
-          onClick={() => reset(setOrder)(null)}
+          onClick={() => setOrder(null)}
         >
           重置排序
         </Button>
@@ -387,27 +490,29 @@ export function StockRpsRanking() {
             : `RPS${confirmed?.period ?? period} 列表`
         }
         symbols={
-          conditionUnavailable
-            ? []
-            : (confirmed?.rows ?? []).map((row) => row.symbol)
+          conditionUnavailable ? [] : batches.rows.map((row) => row.symbol)
         }
       >
         <DataTable
           columns={columns}
-          data={conditionUnavailable ? [] : (confirmed?.rows ?? [])}
-          rowCount={conditionUnavailable ? 0 : (confirmed?.total ?? 0)}
-          pagination={pagination}
-          onPaginationChange={setPagination}
-          sorting={sortingState(order)}
-          onSortingChange={(updater) =>
-            reset(setOrder)(nextTableSort(updater, order))
+          data={
+            conditionUnavailable || (page.isError && cursor.pageIndex === 0)
+              ? []
+              : batches.rows
           }
-          getRowId={(row) => row.symbol}
+          rowCount={conditionUnavailable ? undefined : confirmed?.total}
+          sorting={sortingState(order)}
+          onSortingChange={(updater) => setOrder(nextTableSort(updater, order))}
+          getRowId={rowKey}
           label="个股RPS排名"
-          loading={page.isPending}
+          loading={page.isFetching || page.isPending}
           error={page.error?.message}
           onRetry={() => void page.refetch()}
-          showPagination={confirmed !== undefined && !conditionUnavailable}
+          infiniteScroll={{
+            hasMore: !conditionUnavailable && batches.hasMore,
+            loadingMore: cursor.pageIndex > 0 && page.isFetching,
+            onLoadMore: cursor.loadMore,
+          }}
           emptyMessage={
             conditionUnavailable
               ? "条件不可用：当前批次未计算所需周期，条件没有执行；这不表示筛选结果为 0。"

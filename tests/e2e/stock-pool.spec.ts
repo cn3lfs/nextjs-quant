@@ -424,7 +424,10 @@ test("non-chart pages do not load a default snapshot; chart navigation owns sele
       page.getByRole("navigation", { name: "工作台导航" }),
     ).toBeVisible();
     // Exercise a client state change: SSR markup alone does not prove hydration.
-    const discovery = page.getByRole("button", { name: "发现", exact: true });
+    const discovery = page.getByRole("button", {
+      name: "选股筛选",
+      exact: true,
+    });
     const expanded = await discovery.getAttribute("aria-expanded");
     await discovery.click();
     await expect(discovery).toHaveAttribute(
@@ -449,8 +452,8 @@ test("non-chart pages do not load a default snapshot; chart navigation owns sele
   await page.goBack();
   await expect.poll(() => snapshots.length).toBe(3);
   expect(snapshots[2]).toContain("sh600000");
-  await page.getByRole("link", { name: "RPS 排名", exact: true }).click();
-  await expect(page).toHaveURL(/\/rps$/);
+  await page.getByRole("link", { name: "强势排名 (RPS)", exact: true }).click();
+  await expect(page).toHaveURL(/\/scan\?tab=rps$/);
   await page.getByRole("link", { name: "行情图表", exact: true }).click();
   await expect(
     page.getByRole("checkbox", { name: "双突破", exact: true }),
@@ -530,6 +533,10 @@ test("missing RPS warmup is waiting in the real worker, pool, RPS page and overv
 test("pool route keeps filters and pagination through chart navigation, back and reload", async ({
   page,
 }, testInfo) => {
+  // Exercise the manual fallback deterministically, including after reload.
+  await page.addInitScript(() => {
+    Reflect.deleteProperty(window, "IntersectionObserver");
+  });
   const snapshots: string[] = [];
   page.on("request", (request) => {
     if (
@@ -543,7 +550,7 @@ test("pool route keeps filters and pagination through chart navigation, back and
   const response = await page.goto("/scan?tab=pool");
   expect(response?.status()).toBe(200);
   const pool = page.getByRole("region", { name: "股票池浏览" });
-  const table = page.getByLabel("股票池成分", { exact: true }).first();
+  const table = pool.getByRole("region", { name: "股票池成分", exact: true });
   await expect(pool).toBeVisible();
   await expect(
     table.getByRole("button", { name: "P0_FIXTURE · SH600000", exact: true }),
@@ -559,10 +566,13 @@ test("pool route keeps filters and pagination through chart navigation, back and
   await page.getByRole("combobox", { name: "股票排序", exact: true }).click();
   await page.getByRole("option", { name: "代码顺序", exact: true }).click();
   await expect(page).toHaveURL(/sort=symbol/);
-  await table.getByRole("button", { name: "下一页", exact: true }).click();
-  await expect(page).toHaveURL(/page=1/);
-  await table.getByRole("button", { name: "下一页", exact: true }).click();
-  await expect(page).toHaveURL(/page=2/);
+  await expect(table.getByText("已加载 20 / 共 41 条")).toBeVisible();
+  const more = table.getByRole("button", { name: "加载更多", exact: true });
+  await more.click();
+  await expect(table.getByText("已加载 40 / 共 41 条")).toBeVisible();
+  await more.click();
+  await expect(table.getByText("已全部加载 · 共 41 条")).toBeVisible();
+  await expect(table.getByRole("row")).toHaveCount(42);
   await table
     .getByRole("button", { name: "P1_POOL_40 · SH600040", exact: true })
     .click();
@@ -606,15 +616,19 @@ test("pool route keeps filters and pagination through chart navigation, back and
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
+  const allPages = page.getByRole("button", {
+    name: "展开全部页面导航",
+    exact: true,
+  });
+  const nav = (await allPages.isVisible())
+    ? (await allPages.click(),
+      page.getByRole("navigation", { name: "全部页面导航" }))
+    : page.getByRole("navigation", { name: "工作台导航" });
   await expect(
-    page
-      .getByRole("navigation", { name: "工作台导航" })
-      .getByRole("link", { name: "证券池", exact: true }),
+    nav.getByRole("link", { name: "股票池", exact: true }),
   ).toBeVisible();
   await expect(
-    page
-      .getByRole("navigation", { name: "工作台导航" })
-      .getByRole("link", { name: "RPS 排名", exact: true }),
+    nav.getByRole("link", { name: "强势排名 (RPS)", exact: true }),
   ).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("pool-1024.png"),

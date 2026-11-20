@@ -71,7 +71,7 @@ test("THSDK defaults to disabled and makes no data requests during initial navig
     ],
     [
       "/scan?tab=sentiment",
-      page.getByRole("button", { name: "展开同花顺参考" }),
+      page.getByRole("radiogroup", { name: "打板数据源" }),
     ],
     [
       "/scan?tab=formula",
@@ -202,14 +202,18 @@ test("THSDK sentiment, Wencai, news, formula and backtest surfaces work offline"
 }) => {
   await installOfflineVisualApi(page);
 
-  const expand = page.getByRole("button", { name: "展开同花顺参考" });
+  const sourcePicker = page.getByRole("radiogroup", { name: "打板数据源" });
+  const thsdkSource = sourcePicker.getByRole("radio", {
+    name: "同花顺",
+    exact: true,
+  });
   const eastmoney = page.getByRole("heading", {
     name: "打板情绪",
     exact: true,
   });
-  const collapsedCalls = await trpcCalls(page, async () => {
-    await openPage(page, "/scan?tab=sentiment", expand);
-    await expect(expand).toHaveAttribute("aria-expanded", "false");
+  const eastmoneyCalls = await trpcCalls(page, async () => {
+    await openPage(page, "/scan?tab=sentiment", sourcePicker);
+    await expect(thsdkSource).toHaveAttribute("aria-checked", "false");
     await expect(
       page.getByRole("radiogroup", { name: "同花顺参考视图" }),
     ).toBeHidden();
@@ -218,11 +222,12 @@ test("THSDK sentiment, Wencai, news, formula and backtest surfaces work offline"
       page.getByText(`读取失败：${offlineMessage}`, { exact: true }),
     ).toBeVisible();
   });
-  expect(collapsedCalls).toContain("limitSentiment");
-  expect(thsdkCallsExceptStatus(collapsedCalls)).toEqual([]);
+  expect(eastmoneyCalls).toContain("limitSentiment");
+  expect(thsdkCallsExceptStatus(eastmoneyCalls)).toEqual([]);
 
-  const expandedCalls = await trpcCalls(page, async () => {
-    await expand.click();
+  const thsdkCalls = await trpcCalls(page, async () => {
+    await thsdkSource.click();
+    await expect(thsdkSource).toHaveAttribute("aria-checked", "true");
     const views = page.getByRole("radiogroup", { name: "同花顺参考视图" });
     for (const name of ["实时信号", "大盘异动", "竞价异动", "个股涨停归因"]) {
       await expect(
@@ -239,9 +244,7 @@ test("THSDK sentiment, Wencai, news, formula and backtest surfaces work offline"
       page.getByRole("button", { name: "查询日期", exact: true }),
     ).toBeEnabled();
   });
-  expect(thsdkCallsExceptStatus(expandedCalls)).toEqual([
-    "thsdkRealtimeSignal",
-  ]);
+  expect(thsdkCallsExceptStatus(thsdkCalls)).toEqual(["thsdkRealtimeSignal"]);
 
   const wencaiCalls = await trpcCalls(page, async () => {
     const query = page.getByRole("textbox", { name: "问财选股条件" });

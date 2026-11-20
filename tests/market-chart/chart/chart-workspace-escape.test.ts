@@ -71,6 +71,8 @@ vi.mock("~/trpc/react", () => ({
   ),
 }));
 import { ChartWorkspace } from "../../../src/components/market/chart-workspace";
+import { CzscMarketChart } from "../../../src/components/market/chart";
+import { IntelAnnotations } from "../../../src/components/news/intel-annotations";
 import { defaultChartView } from "../../../src/lib/chart/chart-view";
 import { api } from "../../../src/trpc/react";
 
@@ -87,15 +89,10 @@ function text(node: ReactNode): string {
     return text((node as ReactElement<{ children: ReactNode }>).props.children);
   return node == null ? "" : String(node);
 }
-let render: (props?: Record<string, unknown>) => Node;
-afterEach(() => vi.restoreAllMocks());
-beforeEach(() => {
-  hooks.slots = [];
-  hooks.cursor = 0;
-  tdx.tradable = false;
-  const snapshot = {
+function fixture(symbol: string) {
+  return {
     id: "drawing-fixture",
-    symbol: "sh600000",
+    symbol,
     bars: [],
     period: "day" as const,
     source: "tdx-local",
@@ -103,6 +100,14 @@ beforeEach(() => {
     hash: "fixture",
     createdAt: 1,
   };
+}
+let render: (props?: Record<string, unknown>) => Node;
+afterEach(() => vi.restoreAllMocks());
+beforeEach(() => {
+  hooks.slots = [];
+  hooks.cursor = 0;
+  tdx.tradable = false;
+  const snapshot = fixture("sh600000");
   vi.spyOn(api.chartView, "useQuery").mockReturnValue({
     data: defaultChartView,
   } as ReturnType<typeof api.chartView.useQuery>);
@@ -123,6 +128,25 @@ beforeEach(() => {
     });
   };
 });
+/** Full mount path: ChartWorkspace computes its defaults, then renders the pane. */
+function mount(symbol: string): Node {
+  const snapshot = fixture(symbol);
+  vi.spyOn(api.chartBars, "useQuery").mockReturnValue({
+    data: snapshot,
+  } as ReturnType<typeof api.chartBars.useQuery>);
+  hooks.slots = [];
+  hooks.cursor = 0;
+  const workspace = ChartWorkspace({
+    snapshot,
+    period: "day",
+    adjustment: "none",
+  }) as Node;
+  hooks.slots = [];
+  hooks.cursor = 0;
+  return (workspace.type as (props: typeof workspace.props) => Node)(
+    workspace.props,
+  );
+}
 function choose(ui: Node, tool: string) {
   const button = elements(ui).find(
     (node) =>
@@ -194,4 +218,22 @@ it("frozen evidence stays on K 线 without forgetting the live 分时 choice", (
   expect(pane(frozen).props.chartSnapshot).toBe(true);
   // Leaving the frozen page must not have overwritten lastIntraday.
   expect(pane(render()).props.chartSnapshot).toBeUndefined();
+});
+it("drops chart news markers and the 图表新闻事件 box for crypto", () => {
+  const ui = mount("cxBTCUSDT");
+  // IntelAnnotations owns the event query, markers and the box below the
+  // chart; crypto must not mount it at all.
+  expect(elements(ui).some((node) => node.type === IntelAnnotations)).toBe(
+    false,
+  );
+  const chartNode = elements(ui).find((node) => node.type === CzscMarketChart);
+  expect(chartNode).toBeDefined();
+  expect(chartNode!.props.newsEvents).toBeUndefined();
+  expect(chartNode!.props.onNewsEvent).toBeUndefined();
+});
+it("keeps chart news annotations for A-share symbols", () => {
+  const ui = mount("sh600519");
+  expect(elements(ui).some((node) => node.type === IntelAnnotations)).toBe(
+    true,
+  );
 });

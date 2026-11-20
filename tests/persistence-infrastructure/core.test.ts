@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import Database from "better-sqlite3";
+import { migrate } from "~/server/db/migrations";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -44,6 +46,45 @@ function series(n = 80): Bar[] {
   }));
 }
 beforeEach(() => sqlite().prepare("DELETE FROM records").run());
+it("v20 升级仅新增模拟域，复合外键拒绝跨户成交和结算", () => {
+  const db = new Database(":memory:");
+  try {
+    db.exec(`CREATE TABLE records(id TEXT PRIMARY KEY,kind TEXT NOT NULL,payload TEXT NOT NULL,updated_at INTEGER NOT NULL);
+      INSERT INTO records VALUES('original','snapshot','{"name":"原始记录"}',20);
+      PRAGMA user_version=20`);
+    const before = db.prepare("SELECT * FROM records").all();
+    migrate(db);
+    migrate(db);
+    expect(db.pragma("user_version", { simple: true })).toBe(21);
+    expect(db.prepare("SELECT * FROM records").all()).toEqual(before);
+    expect(
+      db
+        .prepare(
+          "SELECT count(*) AS n FROM pragma_table_list WHERE strict=1 AND (name GLOB 'sim_*' OR name='paper_cleanup_receipts')",
+        )
+        .get(),
+    ).toEqual({ n: 5 });
+    db.exec(`INSERT INTO sim_accounts(id,name,market,currency,initial_capital_atoms,created_at,updated_at)
+      VALUES('a','账户甲','cn-equity','CNY',10000,1,1),('b','账户乙','cn-equity','CNY',10000,1,1);
+      INSERT INTO sim_orders VALUES('a','o','req','hash','sh600519','buy','manual',NULL,100,100,'2026-11-20',1,'{}')`);
+    const fill = db.prepare(
+      "INSERT INTO sim_fills VALUES(?,'f','o','sh600519','buy',100,100,10000,500,0,5,'2026-11-20',1)",
+    );
+    expect(() => fill.run("b")).toThrow(/foreign key/i);
+    fill.run("a");
+    const settle = db.prepare(
+      "INSERT INTO sim_cash_flows VALUES(?,'c','req','settlement',-10505,'f',1,'')",
+    );
+    expect(() => settle.run("b")).toThrow(/foreign key/i);
+    settle.run("a");
+    expect(() => db.exec("DELETE FROM sim_fills WHERE account_id='a'")).toThrow(
+      /foreign key/i,
+    );
+    expect(db.pragma("foreign_key_check")).toEqual([]);
+  } finally {
+    db.close();
+  }
+});
 describe("本地数据边界", () => {
   it("按小端读取 A 股价格与原始股数", () =>
     expect(parseBars(day(), "day")).toEqual([

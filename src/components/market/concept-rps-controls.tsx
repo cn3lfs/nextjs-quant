@@ -22,6 +22,7 @@ import { RpsConditionEditor } from "./rps-condition-editor";
 import { industryExclusionLabels } from "./industry-rps-status";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { useAccumulatedPages, useTablePage } from "../ui/use-infinite-table";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
 import { PoolMembersLink } from "./pool-members-link";
 import {
@@ -33,6 +34,7 @@ import {
 } from "../ui/select";
 
 type Row = RouterOutputs["conceptRpsPage"]["rows"][number];
+const rowKey = (row: Row) => row.name;
 function columns(conditions: RpsCondition[]): DataTableColumn<Row>[] {
   return [
     {
@@ -101,8 +103,9 @@ export function ConceptRpsControls() {
   const [date, setDate] = useState("");
   const [period, setPeriod] = useState(50);
   const [conditions, setConditions] = useState<RpsCondition[]>([]);
-  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 20 });
   const [order, setOrder] = useState<TableSort>(null);
+  const resetKey = JSON.stringify([date, period, conditions, order]);
+  const cursor = useTablePage(resetKey);
   const [message, setMessage] = useState("");
   const visible = usePanelVisible();
   const status = api.conceptRpsStatus.useQuery(undefined, {
@@ -114,19 +117,36 @@ export function ConceptRpsControls() {
       date: date || undefined,
       period,
       conditions,
-      page: pagination.pageIndex,
+      page: cursor.pageIndex,
       order,
     },
     {
       enabled: visible,
+      staleTime: 0,
       refetchInterval:
-        status.data?.progress?.status === "running" ? 5000 : false,
+        cursor.pageIndex === 0 && status.data?.progress?.status === "running"
+          ? 5000
+          : false,
     },
   );
   // Only the current key's successful response is evidence for the summary,
   // rows, bases and paging. A same-key background refresh keeps it; a key
   // change or a failed refresh never shows the previous batch as this one.
-  const confirmed = page.isSuccess ? page.data : undefined;
+  const result =
+    page.isSuccess && !page.isPlaceholderData ? page.data : undefined;
+  const batches = useAccumulatedPages({
+    resetKey,
+    pageIndex: cursor.pageIndex,
+    items: result?.rows,
+    total: result?.total,
+    metadata: result,
+    getKey: rowKey,
+  });
+  const confirmed = page.isError ? undefined : batches.metadata;
+  function refresh() {
+    if (cursor.pageIndex === 0) void page.refetch();
+    else cursor.restart();
+  }
   const onError = (e: { message: string }) => setMessage(e.message);
   const start = api.rpsStart.useMutation({
     onError,
@@ -139,9 +159,9 @@ export function ConceptRpsControls() {
   const running = status.data?.progress?.status === "running";
   const wasRunning = useRef(false);
   useEffect(() => {
-    if (wasRunning.current && !running) void page.refetch();
+    if (wasRunning.current && !running) refresh();
     wasRunning.current = running;
-  }, [running, page]);
+  });
   const busy =
     running ||
     start.isPending ||
@@ -226,7 +246,6 @@ export function ConceptRpsControls() {
             value={date}
             onChange={(e) => {
               setDate(e.target.value);
-              setPagination({ pageIndex: 0, pageSize: 20 });
             }}
           />
         </label>
@@ -234,7 +253,6 @@ export function ConceptRpsControls() {
           value={String(period)}
           onValueChange={(value) => {
             setPeriod(Number(value));
-            setPagination({ pageIndex: 0, pageSize: 20 });
           }}
         >
           <SelectTrigger aria-label="概念RPS周期">
@@ -252,11 +270,9 @@ export function ConceptRpsControls() {
           applied={conditions}
           onApply={(next) => {
             setConditions(next);
-            setPagination({ pageIndex: 0, pageSize: 20 });
           }}
           onClear={() => {
             setConditions([]);
-            setPagination({ pageIndex: 0, pageSize: 20 });
           }}
         />
       </div>
@@ -299,21 +315,26 @@ export function ConceptRpsControls() {
       )}
       <DataTable
         columns={columns(conditions)}
-        data={conditionUnavailable ? [] : (confirmed?.rows ?? [])}
-        rowCount={conditionUnavailable ? 0 : (confirmed?.total ?? 0)}
-        pagination={pagination}
-        onPaginationChange={setPagination}
+        data={
+          conditionUnavailable || (page.isError && cursor.pageIndex === 0)
+            ? []
+            : batches.rows
+        }
+        rowCount={conditionUnavailable ? undefined : confirmed?.total}
         sorting={sortingState(order)}
         onSortingChange={(updater) => {
           setOrder(nextTableSort(updater, order));
-          setPagination({ pageIndex: 0, pageSize: 20 });
         }}
-        getRowId={(r) => r.name}
+        getRowId={rowKey}
         label="概念RPS排名"
-        loading={page.isPending}
+        loading={page.isFetching || page.isPending}
         error={page.error?.message}
         onRetry={() => void page.refetch()}
-        showPagination={confirmed !== undefined && !conditionUnavailable}
+        infiniteScroll={{
+          hasMore: !conditionUnavailable && batches.hasMore,
+          loadingMore: cursor.pageIndex > 0 && page.isFetching,
+          onLoadMore: cursor.loadMore,
+        }}
         emptyMessage={
           !confirmed
             ? "等待当前条件的成功查询结果。"

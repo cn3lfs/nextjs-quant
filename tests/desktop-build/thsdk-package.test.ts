@@ -115,9 +115,9 @@ describe("THSDK config in an isolated data directory", () => {
     expect(existsSync(sqlitePath)).toBe(false);
   });
 
-  it("persists and reads THSDK config without migrating schema v20", () => {
+  it("persists and reads THSDK config without migrating schema v21", () => {
     const db = database.sqlite();
-    expect(db.pragma("user_version", { simple: true })).toBe(20);
+    expect(db.pragma("user_version", { simple: true })).toBe(21);
 
     const patch = {
       dllPath: join(dataDirectory, "hq.dll"),
@@ -126,6 +126,6 @@ describe("THSDK config in an isolated data directory", () => {
     const saved = auth.saveThsdkConfig(patch);
     expect(saved).toMatchObject(patch);
     expect(auth.readThsdkConfig()).toEqual(saved);
-    expect(db.pragma("user_version", { simple: true })).toBe(20);
+    expect(db.pragma("user_version", { simple: true })).toBe(21);
   });
 });

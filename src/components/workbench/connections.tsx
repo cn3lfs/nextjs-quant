@@ -37,6 +37,16 @@ const connectionSections = [
   { value: "thsdk", label: "同花顺行情" },
 ] as const;
 type ConnectionSection = (typeof connectionSections)[number]["value"];
+
+/** `?section=thsdk` deep link, validated against the known sections. */
+function requestedSection(): ConnectionSection | null {
+  if (typeof window === "undefined") return null;
+  const value = new URLSearchParams(window.location.search).get("section");
+  return connectionSections.some((item) => item.value === value)
+    ? (value as ConnectionSection)
+    : null;
+}
+
 export function Connections({
   value,
   channels,
@@ -57,6 +67,13 @@ export function Connections({
   scanning: boolean;
 }) {
   const [section, setSection] = useState<ConnectionSection>("data");
+  // Read the deep link after hydration so server and client render the same
+  // initial section; the browser fixture has no router context, hence the
+  // plain `window.location` read.
+  useEffect(() => {
+    const requested = requestedSection();
+    if (requested) setSection(requested);
+  }, []);
   const visible = usePanelVisible();
   const budget = api.newsBudget.useQuery(undefined, {
     enabled: visible,
@@ -272,22 +289,15 @@ export function Connections({
             {saveError}
           </p>
         )}
+        <div className="mt-3 border-t border-nc-border-soft pt-3">
+          <Segmented
+            label="数据与连接领域"
+            value={section}
+            onChange={setSection}
+            options={connectionSections}
+          />
+        </div>
       </Panel>
-      <div className="nc-span-12">
-        <AlertSettings
-          value={config.alerts}
-          onChange={(alerts) => setConfig({ ...config, alerts })}
-        />
-        <AlertControls channels={channels} />
-      </div>
-      <div className="nc-span-12">
-        <Segmented
-          label="数据与连接领域"
-          value={section}
-          onChange={setSection}
-          options={connectionSections}
-        />
-      </div>
       <PanelVisibility visible={section === "data"}>
         <div hidden={section !== "data"} className="nc-span-12 min-w-0">
           <DataSection
@@ -301,6 +311,7 @@ export function Connections({
             onScan={onScan}
             value={value}
             coverage={coverage}
+            onOpenThsdk={() => setSection("thsdk")}
           />
         </div>
       </PanelVisibility>
@@ -360,6 +371,13 @@ export function Connections({
           <ThsdkSection />
         </div>
       </PanelVisibility>
+      <div className="nc-span-12">
+        <AlertSettings
+          value={config.alerts}
+          onChange={(alerts) => setConfig({ ...config, alerts })}
+        />
+        <AlertControls channels={channels} />
+      </div>
       <details className="nc-span-12 rounded-lg border bg-card p-4">
         <summary className="text-sm font-medium">
           连接诊断 · 基于已保存设置

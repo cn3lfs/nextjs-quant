@@ -92,14 +92,8 @@ export const paperRouter = createTRPCRouter({
     .mutation(({ input }) => {
       const repo = new PaperRepository();
       return repo.atomic(() => {
-        const previous = paperSettingsSchema.parse(get("paper-settings") ?? {});
-        if (repo.ids().length && previous.grouping !== input.grouping) {
-          const startedAt = Math.min(
-            ...repo.summaries().map((a) => a.startedAt),
-          );
-          repo.regroupEmptyAccounts();
-          registerPaperCandidates(repo, startedAt, input);
-        }
+        // Saving settings never deletes paper_accounts rows: account removal is
+        // only allowed through the audited legacy cleanup manifest/backup flow.
         for (const id of repo.ids()) {
           const a = repo.account(id)!;
           if (!a.lastBar)

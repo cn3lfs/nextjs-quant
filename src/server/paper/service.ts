@@ -1,8 +1,6 @@
 import { PaperRepository } from "../db/paper-repository";
-import { get } from "../db";
 import { recordRuntimeError } from "../infra/runtime-errors";
 import { capabilityAllows } from "~/lib/common/capabilities";
-import { registerPaperCandidates } from "./registration";
 import { advancePaper, refreshPaperSummary } from "./advance";
 import { loadPaperInput } from "./inputs";
 import { synchronizePaperMirror } from "./mirror";
@@ -12,7 +10,8 @@ export async function executePaperTick(work: PaperWork) {
   if (!capabilityAllows("portfolio", "compute"))
     throw new Error("纸面账户计算未开放");
   const repo = new PaperRepository();
-  registerPaperCandidates(repo, work.now, get("paper-settings") ?? {});
+  // Retired hardcoded r2a-* accounts must never be re-created by a runtime
+  // tick: advance only accounts that already exist (user-owned, manual).
   for (const id of repo.ids()) {
     try {
       const account = repo.account(id)!;

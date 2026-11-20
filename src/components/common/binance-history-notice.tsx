@@ -1,11 +1,30 @@
 "use client";
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { api } from "~/trpc/react";
+
+export function isBinanceNoticeRoute(
+  pathname: string,
+  tab: string | null,
+): boolean {
+  return (
+    pathname === "/system" ||
+    pathname === "/accounts/crypto" ||
+    pathname === "/crypto" ||
+    pathname.startsWith("/crypto/") ||
+    ((pathname === "/scan" || pathname === "/accounts") && tab === "crypto")
+  );
+}
+
 export function BinanceHistoryNotice() {
+  const pathname = usePathname();
+  const search = useSearchParams();
+  const shouldShow = isBinanceNoticeRoute(pathname, search.get("tab"));
   const status = api.binancePublicDataStatus.useQuery(undefined, {
+    enabled: shouldShow,
     staleTime: 300000,
   });
-  if (!status.data?.needsBackfill) return null;
+  if (!shouldShow || !status.data?.needsBackfill) return null;
   return (
     <p
       role="status"

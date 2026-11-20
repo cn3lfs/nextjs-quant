@@ -25,7 +25,7 @@ export const marketSourceLabels: Record<MarketSource, string> = {
   pytdx: "tstdx",
   tencent: "腾讯自选股",
   eastmoney: "东方财富",
-  thsdk: "同花顺 (THSDK)",
+  thsdk: "同花顺",
 };
 export function marketSourceLabel(source: string) {
   return (

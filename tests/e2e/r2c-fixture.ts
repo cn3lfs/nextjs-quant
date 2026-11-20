@@ -14,7 +14,7 @@ import type { StrategyObjectInput } from "trading-strategies";
 export function seedR2cFixture(db: Database.Database) {
   const repo = new PaperRepository(db);
   const now = Date.parse("2026-11-16T00:01:00Z");
-  registerPaperCandidates(repo, now);
+  registerPaperCandidates(repo, now, {}, { allowLegacyFixtures: true });
   const strategy: StrategyObjectInput = {
     id: "QA-r2c",
     version: 1,

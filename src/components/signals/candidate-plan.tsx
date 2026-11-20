@@ -1,12 +1,27 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "~/trpc/react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { formatNumber } from "trading-strategy-core/format-number";
 import { Checkbox } from "../ui/checkbox";
+import { Switch } from "../ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "../ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 import type { WorkspaceCandidate } from "../overview/candidate-table";
 import { useScreenVisible } from "../workbench/use-task-visible";
+import { SimOrderForm, type SimMarket } from "../portfolio/sim-order-form";
 
 export type PlanSavedConfirmation = {
   id: string;
@@ -14,9 +29,18 @@ export type PlanSavedConfirmation = {
   message: string;
 };
 
+/** A saved plan that can be replayed into a local simulated account. */
+export type SimExecutablePlan = {
+  id: string;
+  symbol: string;
+  entry: number;
+  quantity: number | null;
+};
+
 export function CandidatePlan({
   candidate,
   inline = false,
+  plan: existingPlan,
   onSaved,
   onPendingChange,
   onClose,
@@ -32,6 +56,8 @@ export function CandidatePlan({
     policyReason?: string | null;
   };
   inline?: boolean;
+  /** An already-saved/active plan gains the local simulated execution section. */
+  plan?: SimExecutablePlan;
   onSaved?: (confirmation: PlanSavedConfirmation) => void;
   /** Lets a parent dialog hold its close affordances while the plan is saving. */
   onPendingChange?: (pending: boolean) => void;
@@ -41,13 +67,66 @@ export function CandidatePlan({
   const [message, setMessage] = useState("");
   const [overrideCaps, setOverrideCaps] = useState(false);
   const [overrideSizing, setOverrideSizing] = useState(false);
+  const [savedPlan, setSavedPlan] = useState<SimExecutablePlan | null>(null);
+  const [execOpen, setExecOpen] = useState(false);
+  const [execMessage, setExecMessage] = useState("");
+  const [boundAccountId, setBoundAccountId] = useState("");
+  const [autoExecute, setAutoExecute] = useState(false);
+  const [bindingMessage, setBindingMessage] = useState("");
+  const executable = existingPlan ?? savedPlan;
+  const planId = executable?.id ?? "";
   const tranches = candidate.tranches ?? 1;
   const visible = useScreenVisible();
+  const market: SimMarket =
+    candidate.market === "crypto" ? "crypto" : "cn-equity";
+  const expectedCurrency = market === "crypto" ? "USDT" : "CNY";
   const correlation = api.planCorrelation.useQuery(candidate.key, {
     enabled: visible && (open || inline),
     retry: false,
   });
+  const bindingQuery = api.simPlanBindingGet.useQuery(planId, {
+    enabled: Boolean(planId),
+  });
+  const accountsQuery = api.simAccountsList.useQuery(undefined, {
+    enabled: Boolean(planId),
+    staleTime: 15000,
+  });
+  const compatibleAccounts = useMemo(
+    () =>
+      (accountsQuery.data ?? []).filter(
+        (account) =>
+          account.status === "active" &&
+          account.market === market &&
+          account.currency === expectedCurrency,
+      ),
+    [accountsQuery.data, market, expectedCurrency],
+  );
+  useEffect(() => {
+    if (!bindingQuery.isSuccess) return;
+    setBoundAccountId(bindingQuery.data?.accountId ?? "");
+    setAutoExecute(bindingQuery.data?.autoExecute ?? false);
+  }, [
+    bindingQuery.isSuccess,
+    bindingQuery.data?.accountId,
+    bindingQuery.data?.autoExecute,
+    planId,
+  ]);
   const utils = api.useUtils();
+  const bindingSave = api.simPlanBindingSave.useMutation({
+    onSuccess: (saved) => {
+      setBoundAccountId(saved.accountId);
+      setAutoExecute(saved.autoExecute);
+      setBindingMessage(
+        saved.autoExecute
+          ? "已保存本地模拟账户绑定与自动模拟成交偏好（仅本地模拟账户，绝不触发真实下单；当前仍可随时点击「按计划手动模拟成交」立即执行）"
+          : "已保存本地模拟账户绑定（仅本地模拟账户，绝不触发真实下单）",
+      );
+      void utils.simPlanBindingGet.invalidate(planId);
+    },
+    onError: (e) => {
+      setBindingMessage(e.message);
+    },
+  });
   const save = api.createAlertPlan.useMutation({
     onSuccess: (p) => {
       const confirmation: PlanSavedConfirmation = {
@@ -56,6 +135,12 @@ export function CandidatePlan({
         message: `已保存交易计划 · ${p.symbol} · 数量 ${formatNumber(p.quantity, p.market === "crypto" ? 6 : 0)}${p.sizingAudit?.overridden || (p.protection?.version === "plan-protection-1" && !p.protection.matchesStrategy) ? " · 已记录偏离策略参数" : ""}${p.positionSnapshot ? ` · ${p.positionSnapshot.basis === "post-close" ? "收盘快照" : "盘中核对"} ${new Date(p.positionSnapshot.at).toLocaleString("zh-CN")}${p.positionSnapshot.unassignedValue > 0 ? ` · 未分配分仓 ${formatNumber(p.positionSnapshot.unassignedValue)} 已计入市场占用，请分配` : ""}` : ""}`,
       };
       setMessage(confirmation.message);
+      setSavedPlan({
+        id: p.id,
+        symbol: p.symbol,
+        entry: p.entry,
+        quantity: p.quantity,
+      });
       setOpen(false);
       void utils.alertPlans.invalidate();
       void utils.workspaceCandidates.invalidate();
@@ -322,6 +407,160 @@ export function CandidatePlan({
         </form>
       )}
       {message && <p role={save.error ? "alert" : "status"}>{message}</p>}
+      {executable && (
+        <section
+          aria-label="执行到本地模拟账户"
+          className="space-y-3 rounded border border-nc-border-soft p-3"
+        >
+          <div className="space-y-1.5">
+            <h4 className="text-sm font-semibold">按计划手动模拟成交</h4>
+            <p className="text-xs text-nc-text-3">
+              计划 {executable.symbol} · 入场参考{" "}
+              {formatNumber(executable.entry)} · 数量{" "}
+              {executable.quantity === null
+                ? "待定"
+                : formatNumber(
+                    executable.quantity,
+                    candidate.market === "crypto" ? 6 : 0,
+                  )}
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              disabled={executable.quantity === null}
+              onClick={() => setExecOpen(true)}
+            >
+              按计划手动模拟成交
+            </Button>
+            {execMessage && (
+              <p role="status" className="text-sm">
+                {execMessage}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2 border-t border-nc-border-soft pt-3">
+            <h4 className="text-sm font-semibold">
+              绑定本地模拟账户（支持自动模拟成交）
+            </h4>
+            <label className="block text-sm">
+              选择模拟账户
+              <Select
+                value={boundAccountId || undefined}
+                onValueChange={(value) => {
+                  setBoundAccountId(value);
+                  setBindingMessage("");
+                }}
+              >
+                <SelectTrigger
+                  aria-label="绑定模拟账户"
+                  className="mt-1 w-full"
+                >
+                  <SelectValue placeholder="请选择兼容的本地模拟账户" />
+                </SelectTrigger>
+                <SelectContent>
+                  {compatibleAccounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {account.name} · {account.currency}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+            {accountsQuery.isSuccess && compatibleAccounts.length === 0 && (
+              <p role="alert" className="text-xs text-nc-warn">
+                尚无与该标的兼容的活跃模拟账户，请先在「持仓复盘 ·
+                本地模拟盘」新建。
+              </p>
+            )}
+            <label className="flex items-center gap-2 text-sm">
+              <Switch
+                checked={autoExecute}
+                onCheckedChange={(checked) => {
+                  setAutoExecute(checked);
+                  setBindingMessage("");
+                }}
+              />
+              自动模拟成交（仅本地模拟账户，绝不触发真实下单）
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={!boundAccountId || bindingSave.isPending}
+                onClick={() =>
+                  bindingSave.mutate({
+                    accountId: boundAccountId,
+                    planId: executable.id,
+                    autoExecute,
+                  })
+                }
+              >
+                {bindingSave.isPending ? "正在保存…" : "保存模拟绑定"}
+              </Button>
+              {bindingQuery.data && (
+                <span className="text-xs text-nc-text-3">
+                  当前已绑定：
+                  {compatibleAccounts.find(
+                    (account) => account.id === bindingQuery.data?.accountId,
+                  )?.name ?? bindingQuery.data.accountId}{" "}
+                  ·{" "}
+                  {bindingQuery.data.autoExecute
+                    ? "自动模拟成交已开启"
+                    : "仅手动模拟"}
+                </span>
+              )}
+            </div>
+            {bindingQuery.error && (
+              <p role="alert" className="text-xs text-nc-bad">
+                模拟绑定读取失败：{bindingQuery.error.message}
+              </p>
+            )}
+            {bindingMessage && (
+              <p
+                role={bindingSave.isError ? "alert" : "status"}
+                className="text-xs"
+              >
+                {bindingMessage}
+              </p>
+            )}
+          </div>
+
+          <Dialog open={execOpen} onOpenChange={setExecOpen}>
+            <DialogContent className="lg:max-w-xl">
+              <DialogTitle>
+                按计划手动模拟成交 · {executable.symbol}
+              </DialogTitle>
+              <DialogDescription>
+                按计划入场价与数量预填；选择兼容的模拟账户后先试算再确认。
+              </DialogDescription>
+              <SimOrderForm
+                key={`${executable.id}:plan-manual:${boundAccountId}`}
+                defaults={{
+                  accountId: boundAccountId || undefined,
+                  symbol: executable.symbol,
+                  side: "buy",
+                  price: String(executable.entry),
+                  quantity:
+                    executable.quantity === null
+                      ? ""
+                      : String(executable.quantity),
+                  executionMode: "plan-manual",
+                  planId: executable.id,
+                }}
+                marketHint={candidate.market}
+                onDone={(trade) => {
+                  setExecOpen(false);
+                  setExecMessage(
+                    `已按计划记录${trade.side === "buy" ? "买入" : "卖出"} ${trade.symbol} × ${trade.quantity} 到本地模拟账户`,
+                  );
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        </section>
+      )}
     </div>
   );
 }

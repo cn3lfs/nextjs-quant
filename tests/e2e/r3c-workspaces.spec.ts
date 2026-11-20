@@ -228,10 +228,26 @@ for (const width of [1440, 1024]) {
         .getByRole("table", { name: "提醒历史", exact: true })
         .getByRole("row"),
     ).toHaveCount(2);
-    await page
-      .getByRole("navigation", { name: "工作区子页" })
-      .getByRole("link", { name: "交割单与交易复盘", exact: true })
-      .focus();
+    const allPages = page.getByRole("button", {
+      name: "展开全部页面导航",
+      exact: true,
+    });
+    if (await allPages.isVisible()) {
+      await allPages.click();
+      await page
+        .getByRole("navigation", { name: "全部页面导航" })
+        .getByRole("link", { name: "交割单复盘", exact: true })
+        .focus();
+    } else {
+      const nav = page.getByRole("navigation", { name: "工作台导航" });
+      const groupBtn = nav.getByRole("button", {
+        name: "持仓复盘",
+        exact: true,
+      });
+      if ((await groupBtn.getAttribute("aria-expanded")) === "false")
+        await groupBtn.click();
+      await nav.getByRole("link", { name: "交割单复盘", exact: true }).focus();
+    }
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/\/accounts\/review$/);
     await expect(

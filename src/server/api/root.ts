@@ -1,6 +1,7 @@
 import { cryptoTradingRouter } from "./routers/crypto-trading";
 import { alertsRouter } from "./routers/alerts";
 import { paperRouter } from "./routers/paper";
+import { simAccountsRouter } from "./routers/sim-accounts";
 import { accountsRouter } from "./routers/accounts";
 import { marketRouter } from "./routers/market";
 import { screeningRouter } from "./routers/screening";
@@ -24,6 +25,7 @@ export const appRouter = mergeTRPCRouters(
   strategyLabRouter,
   accountsRouter,
   paperRouter,
+  simAccountsRouter,
   alertsRouter,
   marketRouter,
   screeningRouter,

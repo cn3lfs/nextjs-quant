@@ -1,6 +1,6 @@
 "use client";
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { api } from "~/trpc/react";
@@ -18,6 +18,7 @@ import {
 import { Button } from "../ui/button";
 import { alertModeLabel } from "~/lib/common/ui-glossary";
 import { CandidateTable, type WorkspaceCandidate } from "./candidate-table";
+import { useSecurityNames } from "../market/use-security-names";
 import {
   candidateView,
   dailyMainAction,
@@ -40,6 +41,7 @@ import {
 } from "../ui/dialog";
 import { LedgerSelect } from "../signals/ledger-fields";
 import { DataTable } from "../ui/data-table";
+import { useAccumulatedPages } from "../ui/use-infinite-table";
 import { useScreenVisible } from "../workbench/use-task-visible";
 import { PaperFacts } from "../portfolio/paper-accounts-panel";
 import { AccountRiskLinks } from "../portfolio/account-risk-links";
@@ -65,11 +67,6 @@ const closeScanLabel: Record<CloseScanPhase, string> = {
 };
 
 type TodayTab = "today" | "overview" | "intraday";
-const todayViewOptions = [
-  { value: "today", label: "今日决策" },
-  { value: "overview", label: "市场与数据总览" },
-  { value: "intraday", label: "盘中预选历史" },
-] as const satisfies readonly { value: TodayTab; label: string }[];
 
 /** One of the six fixed summary cells; unknown values stay an em dash. */
 function RibbonCell({
@@ -162,50 +159,40 @@ export function TodayWorkspace() {
   const rawTab = search.get("tab");
   const tab: TodayTab =
     rawTab === "overview" || rawTab === "intraday" ? rawTab : "today";
-  const switchTab = (value: TodayTab) =>
-    window.history.pushState(
-      null,
-      "",
-      value === "today" ? "/" : `/?tab=${value}`,
-    );
   return (
     <div className="space-y-4 [&_p]:my-0!">
       {tab === "overview" ? (
         <>
-          <Segmented
-            label="今日视图"
-            value={tab}
-            onChange={switchTab}
-            options={todayViewOptions}
-          />
+          <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-nc-border-soft pb-2">
+            <h1 className="m-0 text-[length:var(--nc-font-size-page)] leading-[var(--nc-line-height-page)] font-semibold whitespace-nowrap text-nc-text">
+              大盘总览
+            </h1>
+          </header>
           <Overview />
         </>
       ) : tab === "intraday" ? (
         <>
-          <Segmented
-            label="今日视图"
-            value={tab}
-            onChange={switchTab}
-            options={todayViewOptions}
-          />
+          <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-nc-border-soft pb-2">
+            <h1 className="m-0 text-[length:var(--nc-font-size-page)] leading-[var(--nc-line-height-page)] font-semibold whitespace-nowrap text-nc-text">
+              盘中记录
+            </h1>
+          </header>
           <Intraday />
         </>
       ) : (
-        <DailyDecision onTabChange={switchTab} />
+        <DailyDecision />
       )}
     </div>
   );
 }
-function DailyDecision({
-  onTabChange,
-}: {
-  onTabChange: (tab: TodayTab) => void;
-}) {
+function DailyDecision() {
   const visible = useScreenVisible();
+  const { data: names } = useSecurityNames();
   const [filter, setFilter] = useState<MarketFilter>({
     market: "all",
     page: 0,
   });
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const [plan, setPlan] = useState<{
     row: WorkspaceCandidate;
     key: string;
@@ -218,12 +205,20 @@ function DailyDecision({
     refetchInterval: visible ? 30000 : false,
   });
   const d = query.data;
-  // Shares the cache key with the paper-forward panel; one read serves both.
-  const paper = api.paperAccounts.useQuery(undefined, {
+  // Active local simulated accounts replace the retired fixed paper accounts;
+  // the foreground read above already refreshes the same query cache.
+  const simAccounts = api.simAccountsList.useQuery(undefined, {
     enabled: visible,
     refetchInterval: visible ? 30000 : false,
   });
   const scanCloseDate = d?.readiness.equity.expectedDate ?? null;
+  // A new reference close date starts a fresh candidate list at page 0; the
+  // old deep page cannot be reused against the new snapshot.
+  useEffect(() => {
+    setFilter((current) =>
+      current.page === 0 ? current : { ...current, page: 0 },
+    );
+  }, [scanCloseDate]);
   const useTodayBatch = isTodayBatch(filter.market, filter.page);
   // The filtered key keeps the today summary's 30s cadence only while it is on
   // screen and enabled; a hidden panel stops polling.
@@ -240,6 +235,37 @@ function DailyDecision({
     },
   );
   const summaryStale = Boolean(query.error) && d !== undefined;
+  // A close-date rollover belongs to the key: old and new candidates can never
+  // share an accumulated page buffer.
+  const resetKey = JSON.stringify([filter.market, refreshNonce, scanCloseDate]);
+  const currentRows = useTodayBatch
+    ? d?.candidates.items
+    : candidates.isSuccess && !candidates.isPlaceholderData
+      ? candidates.data?.items
+      : undefined;
+  const currentTotal = useTodayBatch
+    ? d?.candidates.total
+    : candidates.isSuccess && !candidates.isPlaceholderData
+      ? candidates.data?.total
+      : undefined;
+  const candidateTotal = !useTodayBatch
+    ? (candidates.data?.total ?? d?.candidates.total)
+    : d?.candidates.total;
+  const batches = useAccumulatedPages({
+    resetKey,
+    pageIndex: filter.page,
+    items: currentRows,
+    total: currentTotal,
+    getKey: (row) => row.key,
+    isSuccess: useTodayBatch
+      ? !summaryStale
+      : candidates.isSuccess && !candidates.isPlaceholderData,
+    snapshotKey: `${scanCloseDate ?? ""}:${candidateTotal ?? ""}`,
+    onSnapshotDrift: () =>
+      setFilter((current) =>
+        current.page === 0 ? current : { ...current, page: 0 },
+      ),
+  });
   const view = d
     ? candidateView({
         market: filter.market,
@@ -289,7 +315,7 @@ function DailyDecision({
         hour12: false,
       })
     : null;
-  const loaded = view.rows ?? [];
+  const loaded = batches.rows.length > 0 ? batches.rows : (view.rows ?? []);
   const historicalRows = loaded.filter((row) => row.scan?.hasHistorical).length;
   const candidateHistorical = d.candidates.items.filter(
     (row) => row.scan?.hasHistorical,
@@ -320,14 +346,16 @@ function DailyDecision({
       : d.mode === "shadow"
         ? "只记录不推送"
         : "不推送";
-  const paperCount = paper.data ? paper.data.length : null;
-  const paperNote = paper.error
+  const activeSimAccounts =
+    simAccounts.data?.filter((account) => account.status === "active") ?? null;
+  const simCount = activeSimAccounts ? activeSimAccounts.length : null;
+  const simNote = simAccounts.error
     ? "读取失败"
-    : paper.data === undefined
+    : activeSimAccounts === null
       ? "读取中"
-      : paper.data.length === 0
-        ? "尚无模拟盘账号"
-        : (paper.data[0]?.currentAssessment.recommendation ?? "未记录评估");
+      : activeSimAccounts.length === 0
+        ? "尚无模拟账户"
+        : activeSimAccounts.map((account) => account.name).join("、");
   const conclusion = todayConclusion({
     date,
     dateStatus,
@@ -337,7 +365,7 @@ function DailyDecision({
     plans: d.openPlans.total,
     dueSoon: d.openPlans.dueSoon,
     mode: modeValue,
-    paperAccounts: paperCount,
+    paperAccounts: simCount,
   });
   const readinessOf = (market: "cn-equity" | "crypto") =>
     market === "crypto" ? d.readiness.crypto : d.readiness.equity;
@@ -396,12 +424,6 @@ function DailyDecision({
         <span className="tabular whitespace-nowrap text-sub text-nc-text-4">
           截至 {new Date(d.now).toLocaleString("zh-CN")}
         </span>
-        <Segmented
-          label="今日视图"
-          value="today"
-          onChange={onTabChange}
-          options={todayViewOptions}
-        />
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <span
             className="nc-status-chip"
@@ -471,15 +493,15 @@ function DailyDecision({
         />
         <RibbonCell
           label="本地模拟盘"
-          value={paperCount}
+          value={simCount}
           unit="个"
-          note={paperNote}
+          note={simNote}
           href="/accounts?tab=paper"
-          tone={paper.error ? "warn" : undefined}
+          tone={simAccounts.error ? "warn" : undefined}
           title={
-            paper.error
-              ? "模拟盘读取失败，点击核对"
-              : "只记录模拟成交与权益，不连接真实券商"
+            simAccounts.error
+              ? "模拟账户读取失败，点击核对"
+              : "仅统计活跃的本地模拟账户；只记录模拟成交与权益，不连接真实券商"
           }
         />
       </div>
@@ -531,7 +553,13 @@ function DailyDecision({
                   aria-label="刷新候选"
                   title="刷新候选"
                   disabled={activeQuery.isFetching}
-                  onClick={() => void activeQuery.refetch()}
+                  onClick={() => {
+                    setFilter((current) => ({ ...current, page: 0 }));
+                    setRefreshNonce((n) => n + 1);
+                    void (filter.market === "all"
+                      ? query.refetch()
+                      : candidates.refetch());
+                  }}
                 >
                   刷新
                 </Button>
@@ -567,7 +595,7 @@ function DailyDecision({
                     : "收盘扫描未完成，以下为历史候选，不是当次推荐。"}
                 </p>
               )}
-              {view.rows === undefined ? (
+              {batches.rows.length === 0 && view.rows === undefined ? (
                 view.error ? (
                   <StateBanner
                     state="error"
@@ -588,13 +616,26 @@ function DailyDecision({
                 )
               ) : (
                 <CandidateTable
-                  data={view.rows}
-                  total={view.total ?? 0}
-                  page={filter.page}
-                  onPage={(page) =>
-                    setFilter((current) => ({ ...current, page }))
+                  data={batches.rows}
+                  securityNames={names}
+                  total={
+                    batches.rows.length > 0 ? batches.total : (view.total ?? 0)
                   }
-                  loading={view.loading}
+                  infiniteScroll={{
+                    hasMore: batches.hasMore,
+                    loadingMore: filter.page > 0 && candidates.isFetching,
+                    onLoadMore: () =>
+                      setFilter((current) => ({
+                        ...current,
+                        page: current.page + 1,
+                      })),
+                  }}
+                  loading={batches.rows.length === 0 && view.loading}
+                  error={
+                    batches.rows.length > 0
+                      ? (view.error ?? undefined)
+                      : undefined
+                  }
                   onRetry={() => void candidates.refetch()}
                   onPlan={
                     planningPaused
@@ -1074,8 +1115,9 @@ function DailyDecision({
               inline
               onPendingChange={setSaving}
               onSaved={(saved) => {
+                // Keep the form mounted so the saved plan can be executed into
+                // a compatible local simulated account without another trip.
                 setSaving(false);
-                setPlan(null);
                 setConfirmation(saved);
               }}
               onClose={() => setPlan(null)}

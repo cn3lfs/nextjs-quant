@@ -26,7 +26,7 @@ export function MarketSourceSelect({
       disabled={disabled}
       onValueChange={(next) => onChange(marketSourceSchema.parse(next))}
     >
-      <SelectTrigger aria-label="行情数据源" className="w-auto min-w-48">
+      <SelectTrigger aria-label="行情数据源" className="w-auto min-w-28">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

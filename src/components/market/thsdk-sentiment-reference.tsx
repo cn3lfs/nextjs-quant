@@ -1,5 +1,6 @@
 "use client";
 import { useState, type ReactNode } from "react";
+import Link from "next/link";
 import { Fire } from "@phosphor-icons/react/ssr";
 import { api } from "~/trpc/react";
 import type { ThsdkLimitUpAttribution } from "~/lib/market/thsdk-sentiment";
@@ -74,6 +75,22 @@ function ErrorLine({ children }: { children: ReactNode }) {
   );
 }
 
+/** THSDK 未启用、未配置或未登录时，错误旁直接给出设置入口。 */
+const setupHintPattern =
+  /未启用|未配置|尚未配置|请先配置|请先登录|会话已失效|认证|凭据|DLL|组件/;
+
+function SetupHint({ message }: { message: string }) {
+  if (!setupHintPattern.test(message)) return null;
+  return (
+    <Link
+      href="/system?section=thsdk"
+      className="ml-2 underline text-nc-accent"
+    >
+      前往启用同花顺行情
+    </Link>
+  );
+}
+
 function StatusLine({ children }: { children: ReactNode }) {
   return (
     <p role="status" className="m-0 text-[12px] text-nc-text-3">
@@ -82,12 +99,36 @@ function StatusLine({ children }: { children: ReactNode }) {
   );
 }
 
+const referenceNote =
+  "同花顺参考视角，与东方财富已确认四池及复盘统计完全隔离；未登录或盘后无数据时不写入本地四池缓存。";
+
 /**
  * 同花顺打板与盘中异动参考。默认收起且收起时不挂载查询体，
  * 未展开的页面保持零 tRPC 请求，也不影响东方财富四池的既有流程。
+ * `embedded` 用于打板情绪的数据源切换：直接展开为当前视图，不再套一层收起开关。
  */
-export function ThsdkSentimentReference({ date }: { date: string }) {
+export function ThsdkSentimentReference({
+  date,
+  embedded = false,
+}: {
+  date: string;
+  embedded?: boolean;
+}) {
   const [open, setOpen] = useState(false);
+  if (embedded) {
+    return (
+      <Panel
+        span={12}
+        icon={Fire}
+        title="同花顺打板与盘中异动参考"
+        note={referenceNote}
+      >
+        <div id="thsdk-sentiment-reference">
+          <ThsdkSentimentReferenceBody date={date} />
+        </div>
+      </Panel>
+    );
+  }
   return (
     <Panel
       span={12}
@@ -104,7 +145,7 @@ export function ThsdkSentimentReference({ date }: { date: string }) {
           {open ? "收起" : "展开同花顺参考"}
         </Button>
       }
-      note="同花顺参考视角，与上方东方财富已确认四池及复盘统计完全隔离；未登录或盘后无数据时不写入本地四池缓存。"
+      note={referenceNote}
     >
       <div id="thsdk-sentiment-reference">
         {open ? (
@@ -176,6 +217,7 @@ function ThsdkSentimentReferenceBody({ date }: { date: string }) {
           {realtime.error ? (
             <ErrorLine>
               同花顺实时信号读取失败：{realtime.error.message}
+              <SetupHint message={realtime.error.message} />
             </ErrorLine>
           ) : !realtime.data ? (
             <StatusLine>正在读取同花顺实时信号…</StatusLine>
@@ -230,6 +272,7 @@ function ThsdkSentimentReferenceBody({ date }: { date: string }) {
           {market.error ? (
             <ErrorLine>
               同花顺大盘异动读取失败：{market.error.message}
+              <SetupHint message={market.error.message} />
             </ErrorLine>
           ) : !market.data ? (
             <StatusLine>正在读取同花顺大盘异动…</StatusLine>
@@ -289,6 +332,7 @@ function ThsdkSentimentReferenceBody({ date }: { date: string }) {
           {auction.error ? (
             <ErrorLine>
               同花顺竞价异动读取失败：{auction.error.message}
+              <SetupHint message={auction.error.message} />
             </ErrorLine>
           ) : !auction.data ? (
             <StatusLine>正在读取同花顺竞价异动…</StatusLine>
@@ -381,6 +425,7 @@ function ThsdkSentimentReferenceBody({ date }: { date: string }) {
           ) : attribution.error ? (
             <ErrorLine>
               同花顺涨停归因读取失败：{attribution.error.message}
+              <SetupHint message={attribution.error.message} />
             </ErrorLine>
           ) : !attribution.data ? (
             <StatusLine>正在读取同花顺涨停归因…</StatusLine>
@@ -389,9 +434,6 @@ function ThsdkSentimentReferenceBody({ date }: { date: string }) {
           )}
         </div>
       )}
-      <p className="m-0 text-[10.5px] text-nc-text-4">
-        同花顺参考视角，与上方东方财富已确认四池及复盘统计完全隔离；未登录或盘后无数据时不写入本地四池缓存。
-      </p>
     </div>
   );
 }

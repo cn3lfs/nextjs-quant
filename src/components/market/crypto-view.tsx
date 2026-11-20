@@ -112,7 +112,8 @@ export function CryptoQuotes() {
           >
             <SelectTrigger
               aria-label="数字货币数据源"
-              className="ml-auto w-auto min-w-44"
+              title="自动按 币安 → OKX → Gate → Coinbase → Bybit 顺序读取"
+              className="ml-auto w-auto min-w-24"
             >
               <SelectValue />
             </SelectTrigger>

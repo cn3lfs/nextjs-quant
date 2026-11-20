@@ -229,21 +229,35 @@ for (const width of [1440, 1024]) {
         return route.abort("connectionrefused");
       return route.continue();
     });
-    const markets = page.getByRole("radiogroup", {
-      name: "扫描市场",
-      exact: true,
-    });
-    await markets.getByRole("radio", { name: "A 股", exact: true }).focus();
-    await page.keyboard.press("ArrowRight");
+    const navigateViaSidebar = async (label: string, groupLabel: string) => {
+      const allPages = page.getByRole("button", {
+        name: "展开全部页面导航",
+        exact: true,
+      });
+      if (await allPages.isVisible()) {
+        await allPages.click();
+        await page
+          .getByRole("navigation", { name: "全部页面导航" })
+          .getByRole("link", { name: label, exact: true })
+          .click();
+        return;
+      }
+      const nav = page.getByRole("navigation", { name: "工作台导航" });
+      const groupBtn = nav.getByRole("button", {
+        name: groupLabel,
+        exact: true,
+      });
+      if ((await groupBtn.getAttribute("aria-expanded")) === "false")
+        await groupBtn.click();
+      await nav.getByRole("link", { name: label, exact: true }).click();
+    };
+    await navigateViaSidebar("数字货币", "行情看盘");
     await expect(page).toHaveURL(/\/scan\?tab=crypto$/);
     await expect(
       page.getByText("数字货币行情读取失败", { exact: false }),
     ).toBeVisible();
-    await markets.getByRole("radio", { name: "数字货币", exact: true }).focus();
-    await page.keyboard.press("ArrowLeft");
-    await expect(
-      markets.getByRole("radio", { name: "A 股", exact: true }),
-    ).toHaveAttribute("aria-checked", "true");
+    await navigateViaSidebar("A 股看盘", "行情看盘");
+    await expect(page).toHaveURL(/\/scan$/);
     await expect(
       page.getByRole("application", { name: /行情图：/ }),
     ).toBeVisible();

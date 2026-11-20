@@ -41,6 +41,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../ui/select";
+import { useAccumulatedPages, useTablePage } from "../../ui/use-infinite-table";
+import { PositionTradeScope } from "./trade-sources";
 import { DataTable, type DataTableColumn } from "../../ui/data-table";
 import { CryptoRiskNotes } from "../crypto-risk-notes";
 import { PositionCostPrice } from "../position-cost-price";
@@ -72,12 +74,14 @@ export function HoldingsExplorer({
     window.history.replaceState(null, "", holdingsHref(live, next));
   };
   return position ? (
-    <AccountPositionDetail
-      key={position}
-      id={position}
-      search={search}
-      filters={filters}
-    />
+    <PositionTradeScope value={position}>
+      <AccountPositionDetail
+        key={position}
+        id={position}
+        search={search}
+        filters={filters}
+      />
+    </PositionTradeScope>
   ) : (
     <UnifiedPositions search={search} filters={filters} update={update} />
   );
@@ -274,6 +278,8 @@ function ReconciliationStrip({
   );
 }
 
+const positionKey = (row: Position) => row.id;
+
 function UnifiedPositions({
   search,
   filters,
@@ -284,6 +290,8 @@ function UnifiedPositions({
   update: (patch: Partial<HoldingsFilters>) => void;
 }) {
   const { kind, market, source, stopStatus, group, sleeve, page } = filters;
+  const resetKey = JSON.stringify(filters);
+  const cursor = useTablePage(resetKey);
   const query = api.accountPositions.useQuery({
     kind,
     market,
@@ -291,8 +299,22 @@ function UnifiedPositions({
     sleeve,
     source,
     stopStatus,
-    page,
+    page: page + cursor.pageIndex,
   });
+  const result =
+    query.isSuccess && !query.isPlaceholderData ? query.data : undefined;
+  const batches = useAccumulatedPages({
+    resetKey,
+    pageIndex: cursor.pageIndex,
+    offset: page * 20,
+    items: result?.items,
+    total: result?.total,
+    getKey: positionKey,
+    metadata: result,
+  });
+  const summaryData = query.isPlaceholderData
+    ? batches.metadata
+    : (query.data ?? batches.metadata);
   // The reconciliation preview is only meaningful for the real ledger.
   const preferences = api.workspacePreferences.useQuery(undefined, {
     enabled: kind === "real",
@@ -303,10 +325,10 @@ function UnifiedPositions({
   const mode: ReconciliationMode =
     preferences.data?.holdingsReconciliation ?? "upper-bound";
   const reconciliation =
-    kind === "real" ? query.data?.reconciliation : undefined;
+    kind === "real" ? summaryData?.reconciliation : undefined;
 
-  const rows = query.data?.items ?? [];
-  const missingAccounts = query.data?.missingAccounts ?? [];
+  const rows = batches.rows;
+  const missingAccounts = summaryData?.missingAccounts ?? [];
   const stopCounts = rows.reduce(
     (counts, row) => {
       counts[stopStatusFor(row)] += 1;
@@ -314,7 +336,7 @@ function UnifiedPositions({
     },
     { touched: 0, above: 0, unknown: 0 },
   );
-  const exposures = query.data?.exposure ?? [];
+  const exposures = summaryData?.exposure ?? [];
   const knownExposures = exposures.filter(
     (item): item is typeof item & { value: number } =>
       item.value !== null && Number.isFinite(item.value),
@@ -369,7 +391,11 @@ function UnifiedPositions({
       cell: ({ row }) => (
         <Link
           className="underline"
-          href={holdingsHref(search, filters, row.original.id)}
+          href={holdingsHref(
+            search,
+            { ...filters, page: page + Math.floor(row.index / 20) },
+            row.original.id,
+          )}
         >
           {row.original.symbol} ·{" "}
           {row.original.market === "cn-equity" ? "A股" : "数字货币"}
@@ -585,7 +611,7 @@ function UnifiedPositions({
           const summary = reconciliation?.summaryByCurrency.find(
             (item) => item.currency === currency,
           );
-          const totals = query.data?.totals.find(
+          const totals = summaryData?.totals.find(
             (item) => item.currency === currency,
           );
           const value = summary
@@ -620,12 +646,12 @@ function UnifiedPositions({
           );
         })}
         <MetricCard
-          label="止损状态（本页）"
-          value={query.data ? String(stopCounts.touched) : null}
+          label="止损状态（已加载持仓）"
+          value={summaryData ? String(stopCounts.touched) : null}
           unit="笔已触及"
           tone={stopCounts.touched > 0 ? "warn" : "neutral"}
           note={
-            query.data
+            summaryData
               ? `安全 ${stopCounts.above} · 待核对 ${stopCounts.unknown}`
               : "正在读取…"
           }
@@ -676,7 +702,7 @@ function UnifiedPositions({
         label="统一持仓列表"
         columns={columns}
         data={rows}
-        rowCount={query.data?.total ?? 0}
+        rowCount={batches.total}
         emptyMessage={
           stopStatus === "touched"
             ? "当前范围没有已触及止损的持仓；按已读取价格与记录止损比较。"
@@ -686,19 +712,16 @@ function UnifiedPositions({
                 ? `当前范围（${sourceLabels[source]}）无持仓。`
                 : undefined
         }
-        pagination={{ pageIndex: page, pageSize: 20 }}
+        infiniteScroll={{
+          hasMore: batches.hasMore,
+          startOffset: page * 20,
+          loadingMore: cursor.pageIndex > 0 && query.isFetching,
+          onLoadMore: cursor.loadMore,
+        }}
         sorting={[]}
         onSortingChange={() => {}}
-        onPaginationChange={(u) =>
-          update({
-            page: (typeof u === "function"
-              ? u({ pageIndex: page, pageSize: 20 })
-              : u
-            ).pageIndex,
-          })
-        }
-        getRowId={(r) => r.id}
-        loading={query.isLoading}
+        getRowId={positionKey}
+        loading={query.isFetching || query.isPending}
         error={query.error?.message}
         onRetry={() => void query.refetch()}
       />

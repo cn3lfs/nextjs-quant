@@ -3,6 +3,12 @@ import SuperJSON from "superjson";
 import { trpcHeaders } from "./helpers";
 
 test.use({ permissions: ["clipboard-read", "clipboard-write"] });
+test.beforeEach(async ({ page }) => {
+  // Keep the manual load control available when a test scrolls it into view.
+  await page.addInitScript(() => {
+    Reflect.deleteProperty(window, "IntersectionObserver");
+  });
+});
 
 const account = "QA-r5-券商";
 const pairA = "local:QA-r5-sameday-a";
@@ -196,9 +202,9 @@ test("R3b R5 A 两来源持仓、筛选后翻页与详情返回保持", async ({
 
   await selectHoldingsFilter(page, "持仓来源", "券商交割单");
   await selectHoldingsFilter(page, "止损状态", "待核对");
-  await expect(page.getByText(/共 21 条 · 第 1 \/ 2 页/)).toBeVisible();
-  await page.getByRole("button", { name: "下一页", exact: true }).click();
-  await expect(page.getByText(/第 2 \/ 2 页/)).toBeVisible();
+  await expect(holdings.getByText("已加载 20 / 共 21 条")).toBeVisible();
+  await holdings.getByRole("button", { name: "加载更多", exact: true }).click();
+  await expect(holdings.getByText("已全部加载 · 共 21 条")).toBeVisible();
 
   const gets: string[] = [];
   page.on("request", (request) => {
@@ -220,12 +226,14 @@ test("R3b R5 A 两来源持仓、筛选后翻页与详情返回保持", async ({
   await detail.getByRole("link", { name: "返回统一持仓" }).click();
   await expect(holdings).toBeVisible();
   await expect(holdingsFilter(page, "持仓来源")).toHaveText("券商交割单");
-  await expect(page.getByText(/第 2 \/ 2 页/)).toBeVisible();
+  await expect(holdingsFilter(page, "止损状态")).toHaveText("待核对");
+  const restored = holdings.getByText("已加载 1 / 共 21 条 · 从第 21 条起");
+  await expect(restored).toBeVisible();
   await page.goBack();
   await expect(detail.getByRole("heading", { name: /sh600020/ })).toBeVisible();
   await page.goForward();
   await expect(holdings).toBeVisible();
-  await expect(page.getByText(/第 2 \/ 2 页/)).toBeVisible();
+  await expect(restored).toBeVisible();
 
   // Manual ledger + read price at the recorded stop explains 3000 shares,
   // the value and the in-row highlight.
@@ -241,9 +249,10 @@ test("R3b R5 A 两来源持仓、筛选后翻页与详情返回保持", async ({
   await expect(
     detail.getByText(/数量 3000.000000 · 市值 86100.00 CNY/),
   ).toBeVisible();
-  await expect(page.getByText("成交来源（第 1 页，共 30 笔）")).toBeVisible();
-  await page.getByRole("button", { name: "下一页成交", exact: true }).click();
-  await expect(page.getByText("成交来源（第 2 页，共 30 笔）")).toBeVisible();
+  const trades = detail.getByRole("region", { name: "成交来源明细" });
+  await expect(trades.getByText("已加载 20 / 共 30 条")).toBeVisible();
+  await trades.getByRole("button", { name: "加载更多", exact: true }).click();
+  await expect(trades.getByText("已全部加载 · 共 30 条")).toBeVisible();
 
   // The next detail starts its own trade page instead of inheriting page 2.
   // Only the ?position id changes, through Next's patched same-document
@@ -254,7 +263,8 @@ test("R3b R5 A 两来源持仓、筛选后翻页与详情返回保持", async ({
     detailHref(delivery("sh600020")),
   );
   await expect(detail.getByRole("heading", { name: /sh600020/ })).toBeVisible();
-  await expect(page.getByText("成交来源（第 1 页，共 1 笔）")).toBeVisible();
+  await expect(trades.getByText("已全部加载 · 共 1 条")).toBeVisible();
+  await expect(trades.getByRole("row")).toHaveCount(2);
 
   // Re-enter the same detail by a real direct navigation so the default-list
   // assertion below still covers a cold entry.
@@ -265,7 +275,7 @@ test("R3b R5 A 两来源持仓、筛选后翻页与详情返回保持", async ({
   await detail.getByRole("link", { name: "返回统一持仓" }).click();
   await expect(holdings).toBeVisible();
   await expect(holdingsFilter(page, "持仓来源")).toHaveText("全部来源");
-  await expect(page.getByText(/共 23 条 · 第 1 \/ 2 页/)).toBeVisible();
+  await expect(holdings.getByText("已加载 20 / 共 23 条")).toBeVisible();
 
   // Injected first-read failure only: the detail offers the same return path.
   await page.route(/\/api\/trpc\/[^?]*accountPosition(?!s)/, (route) =>
@@ -285,7 +295,9 @@ test("R3b R5 B 真实建议/手工关联、单请求保护与回执保留", asyn
   const external = trackExternal(page);
   const links = await installLinkCapture(page);
   await page.goto("/accounts?tab=trades");
-  await expect(page.getByText("成交来源（第 1 页")).toBeVisible();
+  const trades = page.getByRole("region", { name: "成交来源明细" });
+  const firstBatch = trades.getByText(/已加载 20 \/ 共 \d+ 条/);
+  await expect(firstBatch).toBeVisible();
 
   const row = (quantity: string) =>
     page.getByRole("row").filter({ hasText: quantity });
@@ -421,7 +433,7 @@ test("R3b R5 B 真实建议/手工关联、单请求保护与回执保留", asyn
   // confirmed receipt state survives the filter change.
   await page.getByRole("radio", { name: "全部", exact: true }).click();
   await page.getByRole("radio", { name: "真实", exact: true }).click();
-  await expect(page.getByText("成交来源（第 1 页")).toBeVisible();
+  await expect(firstBatch).toBeVisible();
 
   // Pagination protection is observable while a suggestion request is in
   // flight and no modal hides the list.
@@ -431,7 +443,7 @@ test("R3b R5 B 真实建议/手工关联、单请求保护与回执保留", asyn
     .getByRole("button", { name: /确认关联/ })
     .click();
   await expect(
-    page.getByRole("button", { name: "下一页成交", exact: true }),
+    trades.getByRole("button", { name: "加载中…", exact: true }),
   ).toBeDisabled();
   await expect(
     page.getByRole("status").filter({ hasText: `成交编号 ${pairA}` }),
@@ -476,18 +488,18 @@ test("R3b R5 C 回执复制使用真实剪贴板，拒绝与迟到反馈不串�
   const external = trackExternal(page);
   const links = await installLinkCapture(page);
   await page.goto("/accounts?tab=trades");
-  await page.getByRole("button", { name: "下一页成交", exact: true }).click();
-  await expect(page.getByText("成交来源（第 2 页")).toBeVisible();
   const dialog = page.getByRole("dialog", { name: "手工关联成交来源" });
   const list = page.getByRole("region", { name: "成交来源", exact: true });
+  const trades = list.getByRole("table", { name: "成交来源明细" });
+  await expect(trades.locator("tbody tr")).toHaveCount(20);
+  await list.getByRole("button", { name: "加载更多", exact: true }).click();
+  const appendedTrade = trades.locator("tbody tr").nth(20);
+  await expect(
+    appendedTrade.getByRole("cell", { name: "100.000000", exact: true }),
+  ).toBeVisible();
 
-  const linkManual = async (rowIndex: number) => {
-    await page
-      .getByRole("row")
-      .filter({ hasText: "100.000000" })
-      .nth(rowIndex)
-      .getByRole("button", { name: "手工关联" })
-      .click();
+  const linkManual = async () => {
+    await appendedTrade.getByRole("button", { name: "手工关联" }).click();
     await dialog.getByLabel("策略ID").fill("QA-r3b-decay");
     await dialog.getByLabel("策略版本").fill("1");
     await dialog.getByLabel("分仓ID").fill("swing");
@@ -504,7 +516,7 @@ test("R3b R5 C 回执复制使用真实剪贴板，拒绝与迟到反馈不串�
   };
 
   // Real Chromium clipboard, after the mutation ACK is on screen.
-  const first = await linkManual(0);
+  const first = await linkManual();
   const receipt = dialog
     .getByRole("status")
     .filter({ hasText: "关联已保存，审计记录保留。" });
@@ -645,16 +657,29 @@ test("R3b R5 D A股持仓图表直达，Back 与返回链接保留筛选、分�
   await selectHoldingsFilter(page, "分组方式", "按分仓");
   await expect(page).toHaveURL(/holdings_group=sleeve/);
   await expect(page).not.toHaveURL(/holdings_page=/);
-  await page.getByRole("button", { name: "下一页", exact: true }).click();
-  await expect(page.getByText(/第 2 \/ 2 页/)).toBeVisible();
+  await expect(holdings.getByText("已加载 20 / 共 23 条")).toBeVisible();
+  await holdings.getByRole("button", { name: "加载更多", exact: true }).click();
+  await expect(holdings.getByText("已全部加载 · 共 23 条")).toBeVisible();
+
+  // The appended row's detail link records its starting page for the return.
+  const row = holdings.getByRole("row").filter({ hasText: "sh600019" });
+  await row.getByRole("link", { name: /sh600019 · A股/ }).click();
+  const detail = page.getByRole("region", { name: "持仓归因与衰减" });
+  await expect(detail.getByRole("heading", { name: /sh600019/ })).toBeVisible();
+  await expect(page).toHaveURL(/position=/);
   await expect(page).toHaveURL(/holdings_page=1/);
+  await detail.getByRole("link", { name: "返回统一持仓" }).click();
+  await expect(holdings).toBeVisible();
+  await expect(page).toHaveURL(/holdings_group=sleeve/);
+  await expect(page).toHaveURL(/holdings_page=1/);
+  const restored = holdings.getByText("已加载 3 / 共 23 条 · 从第 21 条起");
+  await expect(restored).toBeVisible();
 
   // Reloading the list URL alone reproduces the same grouping and page.
   await page.reload();
   await expect(holdingsFilter(page, "分组方式")).toHaveText("按分仓");
-  await expect(page.getByText(/第 2 \/ 2 页/)).toBeVisible();
+  await expect(restored).toBeVisible();
 
-  const row = holdings.getByRole("row").filter({ hasText: "sh600019" });
   await expect(row).toBeVisible();
   const chart = row.getByRole("link", {
     name: "打开 sh600019 图表",
@@ -675,20 +700,8 @@ test("R3b R5 D A股持仓图表直达，Back 与返回链接保留筛选、分�
   await expect(page).toHaveURL(/holdings_page=1/);
   await expect(holdingsFilter(page, "市场")).toHaveText("A股");
   await expect(holdingsFilter(page, "分组方式")).toHaveText("按分仓");
-  await expect(page.getByText(/第 2 \/ 2 页/)).toBeVisible();
-
-  // The unchanged position link still opens the detail, and its return link
-  // carries the same filters, grouping and page.
-  await row.getByRole("link", { name: /sh600019 · A股/ }).click();
-  const detail = page.getByRole("region", { name: "持仓归因与衰减" });
-  await expect(detail.getByRole("heading", { name: /sh600019/ })).toBeVisible();
-  await expect(page).toHaveURL(/holdings_page=1/);
-  await expect(page).toHaveURL(/position=/);
-  await detail.getByRole("link", { name: "返回统一持仓" }).click();
-  await expect(holdings).toBeVisible();
-  await expect(page).toHaveURL(/holdings_group=sleeve/);
-  await expect(page).toHaveURL(/holdings_page=1/);
-  await expect(page.getByText(/第 2 \/ 2 页/)).toBeVisible();
+  await expect(restored).toBeVisible();
+  await expect(row).toBeVisible();
 
   // The chart opens in the same tab; no external request or second window.
   expect(page.context().pages()).toHaveLength(1);

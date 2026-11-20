@@ -1,7 +1,7 @@
 import { MarketSourceSelect } from "../../market/market-source-select";
 import Link from "next/link";
 import { Database, FolderOpen } from "@phosphor-icons/react/ssr";
-import { PageGrid, Panel, StatsPanel } from "../../panels";
+import { PageGrid, Panel, Pill, StatsPanel, type Tone } from "../../panels";
 import { Input } from "../../ui/input";
 import { Textarea } from "../../ui/textarea";
 import { Button } from "../../ui/button";
@@ -46,6 +46,25 @@ function CloseToTraySetting() {
   );
 }
 
+/** Compact THSDK status for the default-market-source callout. */
+function thsdkCallout(
+  status:
+    | {
+        enabled: boolean;
+        configured: boolean;
+        state: string;
+      }
+    | undefined,
+): { label: string; tone: Tone } {
+  if (!status) return { label: "读取状态…", tone: "idle" };
+  if (status.state === "authenticated")
+    return { label: "已认证可用", tone: "ok" };
+  if (status.state === "error") return { label: "异常", tone: "bad" };
+  if (!status.enabled) return { label: "当前未启用", tone: "idle" };
+  if (!status.configured) return { label: "未配置 hq.dll", tone: "idle" };
+  return { label: "未登录", tone: "warn" };
+}
+
 export function DataSection({
   config,
   setConfig,
@@ -57,6 +76,7 @@ export function DataSection({
   onScan,
   value,
   coverage,
+  onOpenThsdk,
 }: {
   config: Settings;
   setConfig: (draft: Settings) => void;
@@ -68,7 +88,13 @@ export function DataSection({
   onScan: () => void;
   value: Settings;
   coverage: Coverage | null;
+  onOpenThsdk?: () => void;
 }) {
+  const thsdk = api.thsdkStatus.useQuery(undefined, {
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const callout = thsdkCallout(thsdk.data);
   return (
     <PageGrid>
       <Panel
@@ -119,6 +145,29 @@ export function DataSection({
             }
           />
         </Field>
+        <div className="mt-3 rounded-lg border border-nc-border-soft bg-nc-inset p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <strong className="text-[13px] font-medium">
+              同花顺行情（THSDK）
+            </strong>
+            <Pill tone={callout.tone}>{callout.label}</Pill>
+          </div>
+          <p className="mt-1 text-[13px] leading-[1.6] text-nc-text-3">
+            需先配置本机 hq.dll 路径、打开启用开关并登录（支持账号密码或扫码）。
+          </p>
+          <div className="mt-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!onOpenThsdk}
+              onClick={onOpenThsdk}
+            >
+              {thsdk.data?.state === "authenticated"
+                ? "管理同花顺配置"
+                : "前往配置并启用"}
+            </Button>
+          </div>
+        </div>
         <details>
           <summary>交易日历参考（高级）</summary>
           <p className="text-nc-text-3">

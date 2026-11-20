@@ -12,9 +12,11 @@ export const sectorValuationSorts = [
   "pe",
   "pe5",
   "pe10",
+  "peAll",
   "pb",
   "pb5",
   "pb10",
+  "pbAll",
 ] as const;
 export type SectorValuationSort = (typeof sectorValuationSorts)[number];
 
@@ -41,8 +43,8 @@ export const sectorValuationInput = z
 export type SectorValuationInput = z.infer<typeof sectorValuationInput>;
 
 export type SectorValuationWindow = {
-  years: 5 | 10;
-  /** 观察日往前 N 个自然年的窗口起点。 */
+  years: 5 | 10 | "all";
+  /** 观察日往前 N 个自然年的窗口起点（全历史为本地序列起点）。 */
   windowStart: string | null;
   /** 窗口内最早的有效样本日。 */
   sampleStart: string | null;
@@ -71,6 +73,7 @@ export type SectorValuationMetric = {
   missing: SectorValuationMissing;
   y5: SectorValuationWindow;
   y10: SectorValuationWindow;
+  yAll?: SectorValuationWindow;
 };
 
 export type SectorValuationRow = {

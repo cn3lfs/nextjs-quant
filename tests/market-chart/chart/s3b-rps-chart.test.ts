@@ -76,6 +76,30 @@ describe("S3b persisted RPS chart", () => {
           .success,
       ).toBe(false);
   });
+  it.each([
+    { periods: [50, 120, 250], expected: [50, 120] },
+    { periods: [250], expected: [20, 50, 120] },
+    { periods: [], expected: [] },
+  ])(
+    "reads saved RPS periods $periods as $expected and preserves the threshold",
+    ({ periods, expected }) => {
+      const view = { ...defaultChartView, rps: { periods, threshold: 75 } };
+      expect(chartViewSchema.parse(view).rps).toEqual({
+        periods: expected,
+        threshold: 75,
+      });
+    },
+  );
+  it.each([
+    { periods: [50, 999] },
+    { periods: [250, 999] },
+    { periods: [2] },
+    { periods: [250, -1] },
+    { periods: [250, "250"] },
+  ])("rejects invalid RPS periods $periods", ({ periods }) => {
+    const view = { ...defaultChartView, rps: { periods, threshold: 75 } };
+    expect(chartViewSchema.safeParse(view).success).toBe(false);
+  });
 });
 
 it("wires persisted curves from the workspace and fixes the RPS pane range", async () => {

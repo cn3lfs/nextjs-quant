@@ -48,7 +48,10 @@ function missingFile(error: unknown) {
   return /ENOENT|no such file|文件不存在/i.test(message);
 }
 
-function emptyWindow(years: 5 | 10, reason: string): SectorValuationWindow {
+function emptyWindow(
+  years: 5 | 10 | "all",
+  reason: string,
+): SectorValuationWindow {
   return {
     years,
     windowStart: null,
@@ -70,6 +73,7 @@ function emptyMetric(
     missing,
     y5: emptyWindow(5, reason),
     y10: emptyWindow(10, reason),
+    yAll: emptyWindow("all", reason),
   } satisfies SectorValuationMetric;
 }
 
@@ -98,22 +102,26 @@ function windowSummary({
   observation: string;
   current: number | null;
   sourceFirst: string | null;
-  years: 5 | 10;
+  years: 5 | 10 | "all";
 }): SectorValuationWindow {
-  const windowStart = minusYears(observation, years);
+  const windowStart =
+    years === "all" ? sourceFirst : minusYears(observation, years);
   const entries = [...byDate.entries()]
     .filter(
       ([date, values]) =>
         values.length === 1 &&
         Number.isFinite(values[0]) &&
         values[0]! > 0 &&
-        date >= windowStart &&
+        (windowStart === null || date >= windowStart) &&
         date <= observation,
     )
     .sort(([a], [b]) => a.localeCompare(b));
   const samples = entries.length;
   const sampleStart = entries[0]?.[0] ?? null;
-  const complete = sourceFirst !== null && sourceFirst <= windowStart;
+  const complete =
+    years === "all"
+      ? samples > 0
+      : sourceFirst !== null && sourceFirst <= windowStart!;
   if (current === null || !Number.isFinite(current) || current <= 0)
     return {
       years,
@@ -125,7 +133,7 @@ function windowSummary({
       percentile: null,
       reason: "当前倍数缺失或非正，不计算分位",
     };
-  if (!complete)
+  if (years !== "all" && !complete)
     return {
       years,
       windowStart,
@@ -145,7 +153,8 @@ function windowSummary({
       samples,
       notAbove: null,
       percentile: null,
-      reason: "窗口内没有有效正历史值",
+      reason:
+        years === "all" ? "全历史没有有效正历史值" : "窗口内没有有效正历史值",
     };
   const notAbove = entries.filter(([, values]) => values[0]! <= current).length;
   return {
@@ -202,6 +211,13 @@ function metricSummary({
       current: value,
       sourceFirst,
       years: 10,
+    }),
+    yAll: windowSummary({
+      byDate,
+      observation,
+      current: value,
+      sourceFirst,
+      years: "all",
     }),
   };
 }
@@ -409,7 +425,9 @@ function sortValue(row: SectorValuationRow, sort: SectorValuationSort) {
       metric.value > 0
       ? metric.value
       : null;
-  return sort.endsWith("5") ? metric.y5.percentile : metric.y10.percentile;
+  if (sort.endsWith("5")) return metric.y5.percentile;
+  if (sort.endsWith("10")) return metric.y10.percentile;
+  return metric.yAll?.percentile ?? null;
 }
 
 function compareRows(

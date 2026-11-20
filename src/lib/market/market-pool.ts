@@ -3,6 +3,9 @@ import { z } from "zod";
 import { sortTableRows, tableSortSchema } from "../common/server-sort";
 import { rpsConditionsSchema } from "../screening/rps-conditions";
 
+export const defaultRpsTablePeriods = [3, 5, 10, 20, 50] as const;
+export const rpsSortColumnId = (period: number) => `rps:${period}`;
+
 export const poolCategorySchema = z.enum(["industry", "concept", "index"]);
 export const poolCategoryLabels = {
   industry: "申万行业",
@@ -63,6 +66,8 @@ export type MarketPoolRow = {
   localDay: boolean;
   fullDayCache?: boolean;
   value: RpsValue | null;
+  /** Full-market values keyed by the periods calculated in this snapshot. */
+  rpsValues?: Record<string, RpsValue | null>;
   /** Condition-period ranks from the same batch; present only with conditions. */
   conditionValues?: Record<string, RpsValue | null>;
   reason: string | null;
@@ -103,6 +108,14 @@ export function selectMarketPoolRows(
           : 0) || a.symbol.localeCompare(b.symbol),
     );
   return sortTableRows(filtered, input.order, {
+    ...Object.fromEntries(
+      rpsPeriods.map((period) => [
+        rpsSortColumnId(period),
+        (row: MarketPoolRow) =>
+          row.rpsValues?.[String(period)]?.rps ??
+          (input.period === period ? row.value?.rps : undefined),
+      ]),
+    ),
     symbol: (row) => row.symbol,
     name: (row) => row.name,
     rps: (row) => row.value?.rps,

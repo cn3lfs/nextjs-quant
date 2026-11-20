@@ -190,6 +190,52 @@ const migrations = [
     updated_at INTEGER NOT NULL
   ) STRICT;
   INSERT INTO workspace_preferences VALUES(1,'comfort',0,'["今日交易"]',0,'upper-bound',1,unixepoch()*1000);`,
+  `CREATE TABLE sim_accounts (
+    id TEXT PRIMARY KEY, name TEXT NOT NULL,
+    market TEXT NOT NULL CHECK(market IN ('cn-equity','crypto')),
+    currency TEXT NOT NULL CHECK(currency IN ('CNY','USDT')),
+    initial_capital_atoms INTEGER NOT NULL CHECK(initial_capital_atoms > 0),
+    status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','archived')),
+    revision INTEGER NOT NULL DEFAULT 0 CHECK(revision >= 0),
+    created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, archived_at INTEGER,
+    CHECK((market='cn-equity' AND currency='CNY') OR (market='crypto' AND currency='USDT'))
+  ) STRICT;
+  CREATE UNIQUE INDEX sim_accounts_active_name ON sim_accounts(market,name) WHERE status='active';
+  CREATE TABLE sim_orders (
+    account_id TEXT NOT NULL, id TEXT NOT NULL, client_request_id TEXT NOT NULL, input_hash TEXT NOT NULL,
+    symbol TEXT NOT NULL, side TEXT NOT NULL CHECK(side IN ('buy','sell')),
+    execution_mode TEXT NOT NULL DEFAULT 'manual' CHECK(execution_mode IN ('manual','plan-manual','plan-auto')),
+    plan_id TEXT, quantity_atoms INTEGER NOT NULL CHECK(quantity_atoms > 0),
+    price_atoms INTEGER NOT NULL CHECK(price_atoms > 0), trade_date TEXT NOT NULL,
+    confirmed_at INTEGER NOT NULL, rules_json TEXT NOT NULL CHECK(json_valid(rules_json)),
+    PRIMARY KEY(account_id,id), UNIQUE(account_id,client_request_id),
+    FOREIGN KEY(account_id) REFERENCES sim_accounts(id) ON DELETE RESTRICT
+  ) STRICT;
+  CREATE INDEX sim_orders_date ON sim_orders(account_id,trade_date DESC,id DESC);
+  CREATE TABLE sim_fills (
+    account_id TEXT NOT NULL, id TEXT NOT NULL, order_id TEXT NOT NULL, symbol TEXT NOT NULL,
+    side TEXT NOT NULL CHECK(side IN ('buy','sell')), quantity_atoms INTEGER NOT NULL CHECK(quantity_atoms > 0),
+    price_atoms INTEGER NOT NULL CHECK(price_atoms > 0), gross_atoms INTEGER NOT NULL CHECK(gross_atoms > 0),
+    commission_atoms INTEGER NOT NULL CHECK(commission_atoms >= 0), tax_atoms INTEGER NOT NULL CHECK(tax_atoms >= 0),
+    slippage_atoms INTEGER NOT NULL CHECK(slippage_atoms >= 0), trade_date TEXT NOT NULL, executed_at INTEGER NOT NULL,
+    PRIMARY KEY(account_id,id), UNIQUE(account_id,order_id),
+    FOREIGN KEY(account_id,order_id) REFERENCES sim_orders(account_id,id) ON DELETE RESTRICT
+  ) STRICT;
+  CREATE INDEX sim_fills_symbol_replay ON sim_fills(account_id,symbol,id);
+  CREATE TABLE sim_cash_flows (
+    account_id TEXT NOT NULL, id TEXT NOT NULL, request_id TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK(kind IN ('opening','deposit','withdrawal','settlement')),
+    delta_atoms INTEGER NOT NULL, fill_id TEXT, occurred_at INTEGER NOT NULL, note TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY(account_id,id), UNIQUE(account_id,request_id),
+    FOREIGN KEY(account_id) REFERENCES sim_accounts(id) ON DELETE RESTRICT,
+    FOREIGN KEY(account_id,fill_id) REFERENCES sim_fills(account_id,id) ON DELETE RESTRICT
+  ) STRICT;
+  CREATE UNIQUE INDEX sim_cash_flows_fill ON sim_cash_flows(account_id,fill_id) WHERE fill_id IS NOT NULL;
+  CREATE TABLE paper_cleanup_receipts (
+    manifest_hash TEXT NOT NULL, action TEXT NOT NULL CHECK(action IN ('archive','purge')),
+    applied_at INTEGER NOT NULL, manifest_json TEXT NOT NULL, result_json TEXT NOT NULL, backup_hash TEXT,
+    PRIMARY KEY(manifest_hash,action)
+  ) STRICT;`,
 ];
 export function migrate(connection: Database.Database) {
   const version = connection.pragma("user_version", { simple: true }) as number;

@@ -18,7 +18,7 @@ try {
   const transport = `
     import {useQuery} from '@tanstack/react-query';
     const f=window.limitFixture={requests:[],conceptRequests:[],sentimentCalls:0};
-    const stats={breakRate:null,maxHeight:2,promotionRate:null,limitUp:7,broken:2,limitDown:0,yesterdayAvgChange:null};
+    const stats={breakRate:null,maxHeight:3,promotionRate:null,limitUp:7,broken:2,limitDown:0,yesterdayAvgChange:null};
     const row=(symbol,name,firstSeal,industry,changePct=10,streak=1)=>({symbol,name,price:10,changePct,amount:1e8,floatCap:5e9,turnover:8,industry,streak,firstSeal,lastSeal:'14:59:59',sealFund:2e7,breaks:0,limitPrice:11,stat:'1天1板'});
     const zt=[
       row('sh600001','甲','09:31:02','半导体'),
@@ -30,8 +30,11 @@ try {
       row('sz000002','庚',null,'电池')
     ];
     const zb=[row('sz000003','辛','09:40:00','半导体',3),row('sz000004','壬',null,'电池',2)];
-    const data={available:true,final:false,date:'${today}',fetchedAt:1700000000000,stats,pools:{zt,zb,dt:[],yzt:[]},
-      ladder:[{height:2,count:2,names:['乙','戊']}],
+    // 昨日涨停池 120 只：验证渐进加载 50 → 100 → 120 与分页按钮的移除。
+    const yzt=Array.from({length:120},(_,i)=>row('sz'+String(100000+i),'昨'+i,null,'半导体'));
+    // 3 板名单里的“孤儿”在池内没有对应行，必须以纯文本保留。
+    const data={available:true,final:false,date:'${today}',fetchedAt:1700000000000,stats,pools:{zt,zb,dt:[],yzt},
+      ladder:[{height:3,count:1,names:['孤儿']},{height:2,count:2,names:['乙','戊']}],
       industries:[{name:'半导体',count:5},{name:'电池',count:2}]};
     const conceptRows={status:'ready',date:'${today}',poolFetchedAt:1700000000000,blocksObservedAt:1700000001000,
       limitUp:7,mapped:6,uncovered:1,
@@ -104,8 +107,27 @@ try {
   assert.equal(
     await page.getByText("盘中观测走势", { exact: false }).count(),
     0,
-    "旧响应没有 intraday 时不得挂载盘中图",
+    "盘中分钟走势已移除，不再挂载",
   );
+  // 梯队紧跟 KPI：每只股票都是直达K线的链接，池内没有对应行的名单保留为纯文本。
+  const ladder = page.getByRole("region", { name: "连板梯队" });
+  await ladder.waitFor();
+  assert.deepEqual(
+    await ladder
+      .getByRole("link")
+      .evaluateAll((links) =>
+        links.map((link) => [link.textContent, link.getAttribute("href")]),
+      ),
+    [
+      ["乙 · SH600002", "/scan?symbol=sh600002"],
+      ["戊 · SH600005", "/scan?symbol=sh600005"],
+    ],
+  );
+  assert.equal(
+    await ladder.getByRole("button", { name: "筛选3连板涨停股" }).innerText(),
+    "3 板 · 1",
+  );
+  assert.equal(await ladder.getByText("孤儿", { exact: true }).count(), 1);
   const poolGroup = page.getByRole("radiogroup", { name: "涨停板池" });
   await page.getByRole("radio", { name: "炸板 2" }).waitFor();
   assert.equal(
@@ -216,6 +238,25 @@ try {
       "筛选概念丙概念涨停，按首封时间升序",
     ],
   );
+  // 右侧默认预览排行第一的概念：成分股按连板降序、同板数按首封时间升序。
+  assert.equal(
+    await page
+      .getByRole("group", { name: "概念对应成分股" })
+      .getByText("概念甲 · 3 只涨停成分股", { exact: false })
+      .count(),
+    1,
+  );
+  assert.deepEqual(
+    await page
+      .getByRole("table", { name: "概念成分股" })
+      .locator(".nc-table-row")
+      .evaluateAll((rows) => rows.map((r) => r.innerText.split(" · ")[0])),
+    ["乙", "戊", "甲"],
+  );
+  assert.equal(
+    await page.getByRole("button", { name: "仅看该概念涨停池" }).count(),
+    1,
+  );
 
   // 先叠加连板高度，再点概念：必须同时清掉行业和高度。
   await page.getByRole("button", { name: "筛选2连板涨停股" }).click();
@@ -274,6 +315,18 @@ try {
       .locator(".nc-table-row")
       .evaluateAll((rows) => rows.map((r) => r.innerText.split(" · ")[0])),
     ["乙", "己"],
+  );
+  // 左列选中概念已同步到右侧成分股，并可一键清除池筛选。
+  assert.equal(
+    await page
+      .getByRole("group", { name: "概念对应成分股" })
+      .getByText("概念乙 · 2 只涨停成分股", { exact: false })
+      .count(),
+    1,
+  );
+  assert.equal(
+    await page.getByRole("button", { name: "清除池筛选" }).count(),
+    1,
   );
 
   // 切到炸板池只清离开池的概念，不重置该池自己的分页/筛选记忆。
@@ -378,9 +431,40 @@ try {
     await page.evaluate(() => window.limitFixture.requests.map((r) => r.date)),
     [today, today, previous],
   );
+
+  // 120 只的昨日涨停池：分页按钮换成渐进加载，先 50 只再追加。
+  await poolGroup.getByRole("radio", { name: "昨日涨停 120" }).click();
+  const yztTable = page.getByRole("table", { name: "昨日涨停池" });
+  await yztTable.waitFor();
+  await page.getByText("已显示 50 / 共 120 只", { exact: false }).waitFor();
+  assert.equal(await yztTable.locator(".nc-table-row").count(), 50);
+  assert.equal(await page.getByRole("button", { name: "上一页" }).count(), 0);
+  assert.equal(await page.getByRole("button", { name: "下一页" }).count(), 0);
+  await page.getByRole("button", { name: "加载更多" }).click();
+  await page.waitForFunction(
+    () =>
+      document.querySelectorAll(
+        '[role="table"][aria-label="昨日涨停池"] .nc-table-row',
+      ).length > 50,
+  );
+  const appended = await yztTable.locator(".nc-table-row").count();
+  assert.ok(
+    appended === 100 || appended === 120,
+    `加载更多应追加一批，实际 ${appended}`,
+  );
+  // 触底观察器可能顺带补齐；无论分几步，最终都能看到全部 120 只。
+  for (
+    let i = 0;
+    i < 5 && (await page.getByRole("button", { name: "加载更多" }).count()) > 0;
+    i++
+  )
+    await page.getByRole("button", { name: "加载更多" }).click();
+  await page.getByText("已显示 120 / 共 120 只", { exact: false }).waitFor();
+  assert.equal(await page.getByRole("button", { name: "加载更多" }).count(), 0);
+
   assert.deepEqual(errors, []);
   console.log(
-    "涨停首封下钻：行业与概念按需下钻/概念人数与表一致/清行业高度/切池只清离开概念/刷新同步不冒充空表/改日期清空通过",
+    "涨停首封下钻：盘中图移除/梯队可点开K线/概念左右联动/行业与概念按需下钻/概念人数与表一致/清行业高度/切池只清离开概念/刷新同步不冒充空表/改日期清空/渐进加载通过",
   );
 } finally {
   await browser?.close();

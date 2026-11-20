@@ -147,6 +147,11 @@ const canonicalChartViewSchema = z
     drawings: z.array(drawingSchema).max(200),
   })
   .strict();
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== "object") return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
 export const chartViewSchema = z.preprocess((value) => {
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
   const record = value as Record<string, unknown>;
@@ -157,6 +162,18 @@ export const chartViewSchema = z.preprocess((value) => {
   delete next.showBoll;
   // Discard the retired display flag when reading saved views.
   delete next.dark;
+  const { rps } = next;
+  if (
+    isPlainRecord(rps) &&
+    Array.isArray(rps.periods) &&
+    rps.periods.includes(250)
+  ) {
+    const periods = [...rps.periods].filter((period) => period !== 250);
+    next.rps = {
+      ...rps,
+      periods: periods.length ? periods : defaultChartView.rps.periods,
+    };
+  }
   return "subchart" in next
     ? { ...next, subchart: normalizeSubcharts(next.subchart) }
     : next;

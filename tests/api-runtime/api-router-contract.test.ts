@@ -1,5 +1,9 @@
 /// <reference types="vite/client" />
 import { expect, it } from "vitest";
+import {
+  capabilityAllows,
+  isCapabilityBinding,
+} from "~/lib/common/capabilities";
 import { appRouter } from "~/server/api/root";
 
 type ProcedureKind = "query" | "mutation";
@@ -88,5 +92,29 @@ it.each([
       (appRouter._def.procedures as DomainRouter["_def"]["procedures"])[path]
         ?._def.type,
     ).toBe(kind);
+  },
+);
+
+it.each([
+  ["simAccountsList", "query", "read"],
+  ["simAccountDetail", "query", "read"],
+  ["simAccountCreate", "mutation", "configure"],
+  ["simAccountRename", "mutation", "configure"],
+  ["simAccountCashFlow", "mutation", "configure"],
+  ["simAccountDelete", "mutation", "configure"],
+  ["simOrderPreview", "mutation", "read"],
+  ["simOrderConfirm", "mutation", "configure"],
+  ["simPlanBindingGet", "query", "read"],
+  ["simPlanBindingSave", "mutation", "configure"],
+] as const)(
+  "exposes %s as a %s with portfolio/%s access",
+  (path, kind, operation) => {
+    const { type, meta } = appRouter._def.procedures[path]._def;
+    expect(type).toBe(kind);
+    expect(meta).toEqual({ capability: "portfolio", operation });
+    expect(
+      isCapabilityBinding(meta) &&
+        capabilityAllows(meta.capability, meta.operation),
+    ).toBe(true);
   },
 );

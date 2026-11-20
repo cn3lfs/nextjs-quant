@@ -4,14 +4,7 @@ import dynamic from "next/dynamic";
 import { Suspense, useState } from "react";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { PanelCache } from "../workbench/keep-alive";
-import {
-  FilterDivider,
-  FilterGroup,
-  FilterToolbar,
-  MethodologyPopover,
-  Segmented,
-  StateBanner,
-} from "../panels";
+import { StateBanner } from "../panels";
 import { chartAdjustmentLabels } from "~/lib/chart/chart-adjustment";
 import {
   Select,
@@ -32,7 +25,12 @@ import { RiskDistanceBar } from "../portfolio/risk-distance-bar";
 import { useTaskVisible } from "../workbench/use-task-visible";
 import { useSecurityNames } from "../market/use-security-names";
 import { securityDisplayName } from "~/lib/market/security-display";
-import { cryptoDisplayName } from "~/lib/market/crypto";
+import {
+  cryptoDisplayName,
+  cryptoSymbol,
+  isCryptoSymbol,
+} from "~/lib/market/crypto";
+import { strategyDisplayName } from "~/lib/strategy-facts/strategy-display";
 import { useMarketSession } from "~/lib/stores/market-session";
 import { cn } from "~/lib/common/classnames";
 import { formatNumber } from "trading-strategy-core/format-number";
@@ -70,37 +68,6 @@ function priceOrUnavailable(value: number | null | undefined) {
     ? "不可用"
     : formatNumber(value, 2);
 }
-const tabs = [
-  { value: "chart", label: "扫描与图表" },
-  { value: "pool", label: "证券池" },
-  { value: "formula", label: "条件选股" },
-  { value: "wencai", label: "问财选股" },
-  { value: "rps", label: "RPS 数据管理" },
-  { value: "sentiment", label: "打板情绪" },
-  { value: "valuation", label: "板块估值" },
-];
-const marketOptions = [
-  { value: "cn-equity", label: "A 股" },
-  { value: "crypto", label: "数字货币" },
-  { value: "futures", label: "期货" },
-] as const;
-const scanMethodology = [
-  {
-    label: "市场范围",
-    detail:
-      "A 股使用本地行情与统一扫描引擎；数字货币与期货为独立数据源，不混用自选、RPS 与台账。",
-  },
-  {
-    label: "扫描候选",
-    detail:
-      "来自最近收盘扫描与影子观察。历史批次候选仅供复盘，不能直接新建计划；缺失不会生成计划。",
-  },
-  {
-    label: "筛选口径",
-    detail:
-      "RPS20 为后复权排名，留空不过滤；无排名不补零。缺失价格显示不可用，不凭复权价推算原价。",
-  },
-] as const;
 export function ScanWorkspace() {
   return (
     <Suspense fallback={<p role="status">正在读取扫描与图表…</p>}>
@@ -110,44 +77,9 @@ export function ScanWorkspace() {
 }
 function ScanWorkspaceBody() {
   const search = useSearchParams();
-  const router = useRouter();
   const tab = search.get("tab") ?? "chart";
-  const market =
-    tab === "crypto" ? "crypto" : tab === "futures" ? "futures" : "cn-equity";
-  const switchMarket = (next: "cn-equity" | "crypto" | "futures") =>
-    router.push(next === "cn-equity" ? "/scan" : `/scan?tab=${next}`, {
-      scroll: false,
-    });
   return (
     <div className="min-w-0 space-y-3">
-      <FilterToolbar label="行情视图">
-        <FilterGroup label="市场">
-          <Segmented
-            label="扫描市场"
-            value={market}
-            onChange={switchMarket}
-            options={marketOptions}
-          />
-        </FilterGroup>
-        {market === "cn-equity" && (
-          <>
-            <FilterDivider />
-            <Segmented
-              label="扫描视图"
-              value={tab}
-              onChange={(v) =>
-                router.push(v === "chart" ? "/scan" : `/scan?tab=${v}`, {
-                  scroll: false,
-                })
-              }
-              options={tabs}
-            />
-          </>
-        )}
-        <div className="ml-auto shrink-0">
-          <MethodologyPopover items={scanMethodology} />
-        </div>
-      </FilterToolbar>
       <PanelCache
         pinned={["chart", "formula"]}
         active={tab}
@@ -288,7 +220,7 @@ function ScanCandidateRail({ market }: { market: "cn-equity" | "crypto" }) {
             .filter((s) => s.market === market)
             .map((s) => (
               <SelectItem key={`${s.id}:${s.version}`} value={s.id}>
-                {s.id}
+                {strategyDisplayName(s.id)}
               </SelectItem>
             ))}
         </SelectContent>
@@ -344,7 +276,11 @@ function ScanCandidateRail({ market }: { market: "cn-equity" | "crypto" }) {
               : row.symbol.toUpperCase();
           const name =
             market === "crypto"
-              ? cryptoDisplayName(row.symbol)
+              ? cryptoDisplayName(
+                  isCryptoSymbol(row.symbol)
+                    ? row.symbol
+                    : cryptoSymbol(row.symbol),
+                )
               : securityDisplayName(row.symbol, names);
           const active =
             row.key === selectedKey ||
@@ -356,7 +292,7 @@ function ScanCandidateRail({ market }: { market: "cn-equity" | "crypto" }) {
               variant="plain"
               type="button"
               aria-current={active ? "true" : undefined}
-              title={`${name} · ${row.strategyId} · 批次 ${row.bar}`}
+              title={`${name} · ${strategyDisplayName(row.strategyId)} · 批次 ${row.bar}`}
               className={cn(
                 "flex w-full min-w-0 items-center gap-1.5 rounded px-1.5 py-1 text-left hover:bg-nc-inset",
                 active && "bg-nc-accent-900",
@@ -429,7 +365,9 @@ function CandidatePlanRail({
           >
             {qualificationLabel[candidate.qualification]}
           </strong>
-          <span className="text-nc-text-3">· {candidate.strategyId}</span>
+          <span className="text-nc-text-3" title={candidate.strategyId}>
+            · {strategyDisplayName(candidate.strategyId)}
+          </span>
         </div>
         <p className="m-0 mt-1 text-nc-text-2 tabular">
           入场 {formatNumber(candidate.price)} · 止损{" "}

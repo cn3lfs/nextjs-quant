@@ -15,6 +15,10 @@ import {
   type MarketPoolRow,
 } from "../../src/lib/market/market-pool";
 import {
+  marketPoolLocationHref,
+  readMarketPoolLocation,
+} from "../../src/lib/market/market-pool-location";
+import {
   marketPoolCatalog,
   readMarketPool,
 } from "../../src/server/market/market-pool-files";
@@ -285,4 +289,30 @@ it("retains full-market RPS, uses deterministic ties and keeps unavailable membe
     selectMarketPoolRows(rows, { ...query, search: "SH600003" })[0]!.value,
   ).toBeNull();
   expect(rows[0]!.symbol).toBe("sh600003");
+});
+
+it("round-trips RPS20 sort order in the pool URL and rejects an unsupported period", () => {
+  const location = readMarketPoolLocation("?sortColumn=rps:20&descending=true");
+  expect(location.query.order).toEqual({ id: "rps:20", desc: true });
+  const url = new URL(marketPoolLocationHref(location), "http://localhost");
+  expect(readMarketPoolLocation(url.search)).toEqual(location);
+  expect(readMarketPoolLocation("?sortColumn=rps:999").query.order).toBeNull();
+});
+
+it("sorts each RPS column independently and falls back to the primary value only for its period", () => {
+  const high = { rank: 1, rps: 90, return: 0.2 };
+  const low = { rank: 10, rps: 0, return: -0.1 };
+  const sample: MarketPoolRow[] = [
+    { ...rows[0]!, value: high },
+    { ...rows[1]!, value: null, rpsValues: { "5": low, "20": low } },
+    { ...rows[2]!, value: low, rpsValues: { "5": high, "20": high } },
+  ];
+  const sort = (id: string, desc: boolean) =>
+    selectMarketPoolRows(
+      sample,
+      marketPoolQuerySchema.parse({ order: { id, desc } }),
+    );
+  expect(sort("rps:20", true)).toEqual([sample[2], sample[1], sample[0]]);
+  expect(sort("rps:5", false)).toEqual([sample[1], sample[2], sample[0]]);
+  expect(sort("rps:50", false)).toEqual([sample[2], sample[0], sample[1]]);
 });

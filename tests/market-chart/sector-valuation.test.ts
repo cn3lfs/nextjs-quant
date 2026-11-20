@@ -133,6 +133,93 @@ describe("板块估值：通达信本地 BK5/BK6", () => {
     expect(coal.pe.y10.samples).toBe(5);
     expect(coal.pe.y10.percentile).toBeNull();
     expect(coal.pe.y10.reason).toContain("未覆盖 10 年窗口");
+    // 全历史分位覆盖 2018-08-16 起全部 5 个正样本：5、10、20、30、25，≤25 的有 4 个。
+    expect(coal.pe.yAll).toMatchObject({
+      years: "all",
+      windowStart: "2018-08-16",
+      sampleStart: "2018-08-16",
+      complete: true,
+      samples: 5,
+      notAbove: 4,
+      reason: null,
+    });
+    expect(coal.pe.yAll!.percentile).toBeCloseTo(80);
+    expect(second.rows[0]!.pe.yAll!.percentile).toBeNull();
+  });
+
+  it("支持按 PE/PB 全历史分位升序和降序排序，非正或缺失值始终排在末尾", async () => {
+    const root = await fixtureRoot({
+      "881001": [
+        record(5, 20180816, 10),
+        record(5, 20220101, 20),
+        record(5, 20261117, 15), // yAll: 2/3 = 66.67%
+        record(6, 20180816, 1),
+        record(6, 20220101, 2),
+        record(6, 20261117, 1.5), // yAll: 2/3 = 66.67%
+      ],
+      "881002": [
+        record(5, 20180816, 15),
+        record(5, 20220101, 20),
+        record(5, 20261117, 10), // yAll: 1/3 = 33.33%
+        record(6, 20180816, 1),
+        record(6, 20220101, 2),
+        record(6, 20261117, 3), // yAll: 3/3 = 100%
+      ],
+      "881003": [
+        record(5, 20180816, 10),
+        record(5, 20261117, -5), // 负值置后
+        record(6, 20180816, 1),
+        record(6, 20261117, 0), // 非正置后
+      ],
+    });
+
+    const peAsc = await sectorValuation(root, {
+      category: "industry",
+      sort: "peAll",
+      descending: false,
+      asOf: "2026-11-17",
+    });
+    expect(peAsc.rows.map((row) => row.code)).toEqual([
+      "881002",
+      "881001",
+      "881003",
+    ]);
+
+    const peDesc = await sectorValuation(root, {
+      category: "industry",
+      sort: "peAll",
+      descending: true,
+      asOf: "2026-11-17",
+    });
+    expect(peDesc.rows.map((row) => row.code)).toEqual([
+      "881001",
+      "881002",
+      "881003",
+    ]);
+
+    const pbAsc = await sectorValuation(root, {
+      category: "industry",
+      sort: "pbAll",
+      descending: false,
+      asOf: "2026-11-17",
+    });
+    expect(pbAsc.rows.map((row) => row.code)).toEqual([
+      "881001",
+      "881002",
+      "881003",
+    ]);
+
+    const pbDesc = await sectorValuation(root, {
+      category: "industry",
+      sort: "pbAll",
+      descending: true,
+      asOf: "2026-11-17",
+    });
+    expect(pbDesc.rows.map((row) => row.code)).toEqual([
+      "881002",
+      "881001",
+      "881003",
+    ]);
   });
 
   it("两值对齐同一天；单值缺失不借用前一日，同日重复按歧义缺失", async () => {

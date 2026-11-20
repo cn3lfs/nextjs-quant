@@ -190,10 +190,10 @@ export const futuresSourceSchema = z.enum([
 ]);
 export type FuturesSource = z.infer<typeof futuresSourceSchema>;
 export const futuresSourceLabels: Record<FuturesSource, string> = {
-  auto: "自动（Yahoo → 东方财富 → 新浪）",
-  yahoo: "Yahoo Finance",
+  auto: "自动",
+  yahoo: "Yahoo",
   eastmoney: "东方财富",
-  sina: "新浪（仅日线）",
+  sina: "新浪日线",
 };
 /** Whether a contract has a code on the source (Sina also needs daily bars). */
 export function futuresSourceSupports(

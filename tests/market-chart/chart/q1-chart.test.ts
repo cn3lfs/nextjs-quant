@@ -168,6 +168,26 @@ it("incremental migration preserves existing tables and durable view edits/delet
   ).toThrow();
   db.close();
 });
+it("reads a saved chart_views row containing the retired RPS period", () => {
+  const db = new Database(":memory:");
+  try {
+    migrate(db);
+    const key = { symbol: "sh600519", period: "day" };
+    const legacy = {
+      ...defaultChartView,
+      rps: { periods: [50, 120, 250], threshold: 90 },
+    };
+    db.prepare(
+      "INSERT INTO chart_views (symbol, period, payload) VALUES (?, ?, ?)",
+    ).run(key.symbol, key.period, JSON.stringify(legacy));
+    expect(new ChartViewStore(db).read(key).rps).toEqual({
+      periods: [50, 120],
+      threshold: 90,
+    });
+  } finally {
+    db.close();
+  }
+});
 it("all adjustable chart reads call the shared indicator functions with unchanged default strategy results", () => {
   const bars = source().bars,
     p = {

@@ -1,10 +1,13 @@
 "use client";
 import Link from "next/link";
-import { DataTable } from "../ui/data-table";
+import { DataTable, type DataTableProps } from "../ui/data-table";
 import { formatNumber } from "trading-strategy-core/format-number";
 import type { RouterOutputs } from "~/trpc/react";
 import { Button } from "../ui/button";
 import { glossary } from "~/lib/common/ui-glossary";
+import { securityDisplayName } from "~/lib/market/security-display";
+import { cryptoDisplayName, cryptoSymbol } from "~/lib/market/crypto";
+import { strategyDisplayName } from "~/lib/strategy-facts/strategy-display";
 
 export type WorkspaceCandidate =
   RouterOutputs["workspaceCandidates"]["items"][number];
@@ -93,9 +96,11 @@ export function candidateHref(row: WorkspaceCandidate) {
 }
 export function CandidateTable({
   data,
+  securityNames = {},
   total,
   page = 0,
   onPage = () => {},
+  infiniteScroll,
   loading,
   error,
   onRetry,
@@ -105,9 +110,11 @@ export function CandidateTable({
   emptyMessage = `尚无收盘扫描或${glossary.shadowForward}候选。先补齐数据并登记策略；缺失不会生成计划。`,
 }: {
   data: WorkspaceCandidate[];
+  securityNames?: Record<string, string>;
   total: number;
   page?: number;
   onPage?: (p: number) => void;
+  infiniteScroll?: DataTableProps<WorkspaceCandidate>["infiniteScroll"];
   loading?: boolean;
   error?: string;
   onRetry?: () => void;
@@ -124,6 +131,7 @@ export function CandidateTable({
       loading={loading}
       error={error}
       onRetry={onRetry}
+      infiniteScroll={infiniteScroll}
       pagination={{ pageIndex: page, pageSize: 20 }}
       onPaginationChange={(u) =>
         onPage(
@@ -177,7 +185,7 @@ export function CandidateTable({
               .map((s) => {
                 const sourceFreshness = candidateFreshness(s);
                 return [
-                  `${s.strategyId}：${s.reason}`,
+                  `${s.strategyId} v${s.version}：${s.reason}`,
                   `扫描 ${s.scanAt === null ? "时点未记录" : new Date(s.scanAt).toLocaleString("zh-CN")}`,
                   `bar ${s.bar}`,
                   sourceFreshness ? freshnessLabels[sourceFreshness] : null,
@@ -186,6 +194,14 @@ export function CandidateTable({
                   .join(" · ");
               })
               .join("\n");
+            const rawName =
+              r.market === "crypto"
+                ? cryptoDisplayName(cryptoSymbol(r.symbol.replace(/^cx/, "")))
+                : securityDisplayName(r.symbol, securityNames);
+            const displayName =
+              rawName && rawName !== "名称待补全" && rawName !== r.symbol
+                ? rawName
+                : null;
             const warnings = [
               r.scan?.hasHistorical ? "含历史来源" : "",
               r.scan?.hasUnverified ? "来源待核验" : "",
@@ -208,7 +224,9 @@ export function CandidateTable({
                     }
                     className="underline"
                   >
-                    {r.symbol} · 打开图表
+                    {displayName
+                      ? `${displayName} ${r.symbol} · 打开图表`
+                      : `${r.symbol} · 打开图表`}
                   </Link>
                   {freshness && (
                     <FreshnessBadge
@@ -224,7 +242,7 @@ export function CandidateTable({
                   {r.sources
                     .map(
                       (s) =>
-                        `${s.strategyId} v${s.version} · ${shortDate(s.scanAt)}`,
+                        `${strategyDisplayName(s.strategyId)} · ${shortDate(s.scanAt)}`,
                     )
                     .join(" / ")}{" "}
                   · {r.bar}

@@ -17,12 +17,6 @@ export function PaperSettingsPanel() {
   const accounts = api.paperAccounts.useQuery();
   const utils = api.useUtils();
   const [message, setMessage] = useState("");
-  const register = api.registerPaperCandidates.useMutation({
-    onSuccess: (r) => {
-      setMessage(`已登记 ${r.created} 个新模拟账户，共 ${r.total} 个。`);
-      void utils.paperAccounts.invalidate();
-    },
-  });
   const advance = api.advancePaperAccounts.useMutation({
     onSuccess: () => {
       setMessage("已检查完成行情与回执；未就绪账户保留原事实。");
@@ -49,10 +43,7 @@ export function PaperSettingsPanel() {
         />
       )}
       {query.error && <p role="alert">{query.error.message}</p>}
-      <div className="flex flex-wrap gap-2">
-        <Button disabled={register.isPending} onClick={() => register.mutate()}>
-          按冻结规则登记候选
-        </Button>
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           variant="outline"
           disabled={advance.isPending}
@@ -60,10 +51,12 @@ export function PaperSettingsPanel() {
         >
           检查并推进纸面账户
         </Button>
+        <span className="text-xs text-nc-text-3">
+          历史写死候选已停止自动登记；本地模拟账户请在「持仓复盘 →
+          本地模拟盘」手动创建与管理。
+        </span>
       </div>
-      {(register.error || advance.error) && (
-        <p role="alert">{register.error?.message ?? advance.error?.message}</p>
-      )}
+      {advance.error && <p role="alert">{advance.error.message}</p>}
       {message && <p role="status">{message}</p>}
       <p className="text-sm text-nc-text-3">
         模拟场所镜像默认关闭；币安凭证在既有模拟账户页面配置，同花顺须先配置并启用模拟盘。每个模拟场所仅一个纸面账户独占；差异与未知结果在账户明细中显示。镜像按当前场所成交，价格可能与本地历史bar不同。

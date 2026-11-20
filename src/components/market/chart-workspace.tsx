@@ -23,6 +23,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CzscSettingsDialog } from "./czsc-settings-dialog";
 import type { Snapshot } from "~/lib/domain";
 import { isMarketIndex } from "~/lib/market/market-indices";
+import { isCryptoSymbol } from "~/lib/market/crypto";
+import type { IntelEvent } from "~/lib/news/intel-events";
 import {
   chartPricePrecision,
   isNonAShareChartSymbol,
@@ -79,6 +81,7 @@ export function ChartWorkspace({
   period,
   adjustment,
   frozenEvidence = false,
+  showIntelAnnotations = !isCryptoSymbol(snapshot.symbol),
   chartMode,
   onChartModeChange,
 }: {
@@ -87,6 +90,11 @@ export function ChartWorkspace({
   adjustment: ChartAdjustment;
   /** The chart must stay on the archived snapshot; no linked live period. */
   frozenEvidence?: boolean;
+  /**
+   * News markers on the chart and the 图表新闻事件 box below it. Off for crypto
+   * by default: Binance pair news is sparse, noisy and floods the candles.
+   */
+  showIntelAnnotations?: boolean;
   /** Controlled by the market session on ordinary A-share charts. */
   chartMode?: ChartMode;
   onChartModeChange?: (mode: ChartMode) => void;
@@ -165,6 +173,7 @@ export function ChartWorkspace({
       period={period}
       adjustment={adjustment}
       frozenEvidence={frozenEvidence}
+      showIntelAnnotations={showIntelAnnotations}
       initial={view.data}
       chartMode={chartMode}
       onChartModeChange={onChartModeChange}
@@ -208,6 +217,7 @@ function EditableChart({
   adjustment,
   frozenEvidence = false,
   frozenCandidate = false,
+  showIntelAnnotations = !isCryptoSymbol(snapshot.symbol),
   chartMode,
   onChartModeChange,
   initial,
@@ -228,6 +238,8 @@ function EditableChart({
   frozenEvidence?: boolean;
   /** The loaded snapshot is a saved formula candidate (选股当时快照). */
   frozenCandidate?: boolean;
+  /** Mount IntelAnnotations (chart markers + 图表新闻事件 box); crypto is off. */
+  showIntelAnnotations?: boolean;
   chartMode?: ChartMode;
   onChartModeChange?: (mode: ChartMode) => void;
   initial: ChartView;
@@ -492,6 +504,32 @@ function EditableChart({
   const rpsLaterThanSnapshot = Boolean(
     lastBar && rpsLatest && rpsLatest > lastBar.date,
   );
+  const renderPane = (
+    events?: IntelEvent[],
+    onSelect?: (id: string) => void,
+  ) =>
+    showIntraday ? (
+      <IntradayChart
+        symbol={snapshot.symbol}
+        snapshotId={snapshot.id}
+        pricePrecision={common.pricePrecision}
+      />
+    ) : (
+      <CzscMarketChart
+        {...common}
+        // Crypto has no news layer here: never pass markers or a select
+        // handler, so no annotation query or event markers are mounted.
+        {...(events ? { newsEvents: events, onNewsEvent: onSelect } : {})}
+        compare={compare}
+        hotkeys={visible}
+        snapshotId={snapshot.id}
+        chartSnapshot
+        annotations
+        rpsAvailable={!isNonAShareChartSymbol(snapshot.symbol)}
+        link={mainLink}
+        sharedDrawings={shared}
+      />
+    );
   return (
     <div
       data-testid="chart-workspace"
@@ -760,33 +798,15 @@ function EditableChart({
           · P1 移动加权成本 · {chartAdjustmentLabels[adjustment]}
         </p>
       )}
-      <IntelAnnotations
-        symbol={snapshot.symbol}
-        bars={bars}
-        render={(events, onSelect) =>
-          showIntraday ? (
-            <IntradayChart
-              symbol={snapshot.symbol}
-              snapshotId={snapshot.id}
-              pricePrecision={common.pricePrecision}
-            />
-          ) : (
-            <CzscMarketChart
-              {...common}
-              newsEvents={events}
-              onNewsEvent={onSelect}
-              compare={compare}
-              hotkeys={visible}
-              snapshotId={snapshot.id}
-              chartSnapshot
-              annotations
-              rpsAvailable={!isNonAShareChartSymbol(snapshot.symbol)}
-              link={mainLink}
-              sharedDrawings={shared}
-            />
-          )
-        }
-      />
+      {showIntelAnnotations ? (
+        <IntelAnnotations
+          symbol={snapshot.symbol}
+          bars={bars}
+          render={renderPane}
+        />
+      ) : (
+        renderPane()
+      )}
       {!showIntraday && !frozenEvidence && (
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2 text-xs">

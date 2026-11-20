@@ -1,7 +1,8 @@
 "use client";
 import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { api } from "~/trpc/react";
 import {
@@ -12,22 +13,51 @@ import {
   alertModeLabels,
   type AlertEvent,
 } from "~/lib/strategy-facts/alerts";
+import { cryptoDisplayName, cryptoSymbol } from "~/lib/market/crypto";
+import { securityDisplayName } from "~/lib/market/security-display";
+import {
+  alertChartHref,
+  formatAlertReason,
+  sleeveDisplayName,
+  strategyDisplayName,
+} from "~/lib/strategy-facts/strategy-display";
+import { useSecurityNames } from "../market/use-security-names";
 import { useTaskVisible } from "../workbench/use-task-visible";
 import { Button } from "../ui/button";
+import { useAccumulatedPages, useTablePage } from "../ui/use-infinite-table";
 import { DataTable } from "../ui/data-table";
 import { LedgerInput, LedgerSelect } from "./ledger-fields";
 import { AlertStatus } from "./alert-status";
 import { SignalLedgerWorkspace } from "./signal-ledger-workspace";
 
+const alertModeShort: Record<AlertEvent["mode"], string> = {
+  off: "关闭",
+  shadow: "观察",
+  live: "正式",
+};
+
 export function AlertWorkspace() {
   const visible = useTaskVisible();
   const search = useSearchParams();
+  const eventKey = search.get("event") ?? undefined;
+  const strategyId = search.get("strategy") ?? "";
+  const locationKey = JSON.stringify([eventKey, strategyId]);
+  const [lastLocation, setLastLocation] = useState(locationKey);
   const [filter, setFilter] = useState(() =>
     alertHistorySchema.parse({
-      key: search.get("event") ?? undefined,
-      strategyId: search.get("strategy") ?? "",
+      key: eventKey,
+      strategyId,
     }),
   );
+  if (lastLocation !== locationKey) {
+    setLastLocation(locationKey);
+    setFilter((current) => ({
+      ...current,
+      key: eventKey,
+      strategyId,
+      page: 0,
+    }));
+  }
   const [message, setMessage] = useState("");
   const [legacy, setLegacy] = useState(false);
   const [selected, setSelected] = useState<AlertEvent | null>(null);
@@ -38,26 +68,75 @@ export function AlertWorkspace() {
   const [step, setStep] = useState("");
   const [minimum, setMinimum] = useState("");
   const [rulesSource, setRulesSource] = useState("");
-  const [planPage, setPlanPage] = useState(0);
-  const history = api.alertHistory.useQuery(filter, {
+  const historyKey = JSON.stringify(filter);
+  const historyCursor = useTablePage(historyKey);
+  const planId = search.get("plan") ?? undefined;
+  const planKey = JSON.stringify(planId ?? null);
+  const planCursor = useTablePage(planKey);
+  const securityNames = useSecurityNames().data ?? {};
+  const catalog = api.strategyCenterCatalog.useQuery(undefined, {
     enabled: visible && !legacy,
-    refetchInterval: visible && !legacy ? 30000 : false,
+    staleTime: 300000,
   });
-  const plans = api.alertPlans.useQuery(
-    { page: planPage, id: search.get("plan") ?? undefined },
-    { enabled: visible && !legacy },
+  const strategyNames = useMemo(
+    () =>
+      new Map<string, string>(
+        (catalog.data ?? []).map((item) => [item.id, item.name] as const),
+      ),
+    [catalog.data],
   );
+  const history = api.alertHistory.useQuery(
+    { ...filter, page: historyCursor.pageIndex },
+    {
+      enabled: visible && !legacy,
+      staleTime: 0,
+      refetchInterval:
+        visible && !legacy && historyCursor.pageIndex === 0 ? 30000 : false,
+    },
+  );
+  const plans = api.alertPlans.useQuery(
+    { page: planCursor.pageIndex, id: planId },
+    { enabled: visible && !legacy, staleTime: 0 },
+  );
+  const historyPage =
+    history.isSuccess && !history.isPlaceholderData ? history.data : undefined;
+  const events = useAccumulatedPages({
+    resetKey: historyKey,
+    pageIndex: historyCursor.pageIndex,
+    items: historyPage?.items,
+    total: historyPage?.total,
+    isSuccess: !history.isFetching,
+    snapshotKey: historyPage?.total,
+    onSnapshotDrift: historyCursor.restart,
+    pageSize: filter.size,
+    getKey: (row) => row.key,
+  });
+  const planPage =
+    plans.isSuccess && !plans.isPlaceholderData ? plans.data : undefined;
+  const planRows = useAccumulatedPages({
+    resetKey: planKey,
+    pageIndex: planCursor.pageIndex,
+    items: planPage?.items,
+    total: planPage?.total,
+    isSuccess: !plans.isFetching,
+    snapshotKey: planPage?.total,
+    onSnapshotDrift: planCursor.restart,
+    pageSize: 20,
+    getKey: (row) => row.id,
+  });
   const utils = api.useUtils();
   const create = api.createAlertPlan.useMutation({
     onSuccess: () => {
       setMessage("交易计划已保存；仅提醒，须人工交易");
       setSelected(null);
+      planCursor.restart();
       void utils.alertPlans.invalidate();
     },
     onError: (e) => setMessage(e.message),
   });
   const cancel = api.cancelAlertPlan.useMutation({
     onSuccess: () => {
+      planCursor.restart();
       void utils.alertPlans.invalidate();
     },
     onError: (e) => setMessage(e.message),
@@ -78,6 +157,16 @@ export function AlertWorkspace() {
   const change = (patch: Partial<typeof filter>) =>
     setFilter({ ...filter, ...patch, page: 0 });
   const number = (v: number | null) => (v === null ? "—" : displayNumber(v, 2));
+  const symbolLabel = (
+    symbol: string,
+    market?: AlertEvent["market"],
+  ): string => {
+    if (market === "crypto" || symbol.startsWith("cx"))
+      return cryptoDisplayName(cryptoSymbol(symbol.replace(/^cx/, "")));
+    const code = symbol.toUpperCase();
+    const name = securityDisplayName(symbol, securityNames);
+    return name === "名称待补全" ? code : `${name} ${code}`;
+  };
   return (
     <div className="space-y-4 p-4">
       <h1>提醒历史与交易计划</h1>
@@ -156,24 +245,17 @@ export function AlertWorkspace() {
           </div>
           <DataTable
             label="提醒历史"
-            data={history.data?.items ?? []}
-            rowCount={history.data?.total ?? 0}
+            data={events.rows}
+            rowCount={events.total}
             loading={history.isFetching}
             error={history.error?.message}
             onRetry={() => {
               void history.refetch();
             }}
-            pagination={{ pageIndex: filter.page, pageSize: filter.size }}
-            onPaginationChange={(updater) => {
-              const next =
-                typeof updater === "function"
-                  ? updater({ pageIndex: filter.page, pageSize: filter.size })
-                  : updater;
-              setFilter({
-                ...filter,
-                page: next.pageIndex,
-                size: next.pageSize,
-              });
+            infiniteScroll={{
+              hasMore: events.hasMore,
+              loadingMore: historyCursor.pageIndex > 0 && history.isFetching,
+              onLoadMore: historyCursor.loadMore,
             }}
             sorting={[]}
             onSortingChange={() => {}}
@@ -181,31 +263,61 @@ export function AlertWorkspace() {
             columns={[
               {
                 id: "bar",
-                header: "完成行情/策略",
+                header: "日期 / 策略",
                 cell: ({ row }) => (
-                  <span>
-                    {row.original.bar}
-                    <br />
-                    {row.original.strategyId} v{row.original.version}
-                  </span>
+                  <div className="space-y-0.5">
+                    <span className="block text-xs text-nc-text-3 tabular-nums">
+                      {row.original.bar}
+                    </span>
+                    <span
+                      className="block text-sm font-medium"
+                      title={`${row.original.strategyId} v${row.original.version}`}
+                    >
+                      {strategyDisplayName(
+                        row.original.strategyId,
+                        strategyNames,
+                      )}
+                    </span>
+                  </div>
                 ),
               },
               {
                 id: "symbol",
-                header: "证券/类型",
-                cell: ({ row }) =>
-                  `${row.original.symbol} / ${alertKindLabels[row.original.type]}`,
+                header: "标的 / 信号",
+                cell: ({ row }) => (
+                  <div className="space-y-1">
+                    <Link
+                      href={alertChartHref(row.original)}
+                      className="font-medium text-nc-accent hover:underline"
+                      title="打开行情图表"
+                    >
+                      {symbolLabel(row.original.symbol, row.original.market)}
+                    </Link>
+                    <span className="block text-xs text-nc-text-3">
+                      {alertKindLabels[row.original.type]}
+                    </span>
+                  </div>
+                ),
               },
               {
                 id: "mode",
-                header: "模式/状态",
+                header: "状态",
                 cell: ({ row }) =>
-                  `${alertModeLabels[row.original.mode]} / ${row.original.status === "missed" ? "错过窗口" : "已记录"}`,
+                  `${alertModeShort[row.original.mode]} · ${
+                    row.original.status === "missed" ? "错过窗口" : "已记录"
+                  }`,
               },
               {
                 id: "reason",
-                header: "触发依据",
-                cell: ({ row }) => row.original.reason,
+                header: "信号说明",
+                cell: ({ row }) => (
+                  <p
+                    className="m-0 max-w-md whitespace-normal break-words text-xs leading-relaxed text-nc-text-2"
+                    title={row.original.reason}
+                  >
+                    {formatAlertReason(row.original)}
+                  </p>
+                ),
               },
               ...([5, 10, 20] as const).map((h) => ({
                 id: `t${h}`,
@@ -274,7 +386,14 @@ export function AlertWorkspace() {
               }}
             >
               <h2>
-                {selected.symbol} · {selected.sleeve} 加入计划
+                <Link
+                  href={alertChartHref(selected)}
+                  className="font-medium text-nc-accent hover:underline"
+                  title="打开行情图表"
+                >
+                  {symbolLabel(selected.symbol, selected.market)}
+                </Link>{" "}
+                · {sleeveDisplayName(selected.sleeve)} 加入计划
               </h2>
               <div className="flex flex-wrap gap-3">
                 <LedgerInput
@@ -328,18 +447,17 @@ export function AlertWorkspace() {
             </form>
           )}
           <h2>交易计划</h2>
-          {plans.error && <p role="alert">{plans.error.message}</p>}
           <DataTable
             label="交易计划"
-            data={plans.data?.items ?? []}
-            rowCount={plans.data?.total ?? 0}
-            pagination={{ pageIndex: planPage, pageSize: 20 }}
-            onPaginationChange={(updater) => {
-              const next =
-                typeof updater === "function"
-                  ? updater({ pageIndex: planPage, pageSize: 20 })
-                  : updater;
-              setPlanPage(next.pageIndex);
+            data={planRows.rows}
+            rowCount={planRows.total}
+            loading={plans.isFetching}
+            error={plans.error?.message}
+            onRetry={() => void plans.refetch()}
+            infiniteScroll={{
+              hasMore: planRows.hasMore,
+              loadingMore: planCursor.pageIndex > 0 && plans.isFetching,
+              onLoadMore: planCursor.loadMore,
             }}
             sorting={[]}
             onSortingChange={() => {}}
@@ -347,9 +465,24 @@ export function AlertWorkspace() {
             columns={[
               {
                 id: "symbol",
-                header: "证券/分仓",
-                cell: ({ row }) =>
-                  `${row.original.symbol} / ${row.original.sleeve}`,
+                header: "标的 / 分仓",
+                cell: ({ row }) => (
+                  <div className="space-y-1">
+                    <Link
+                      href={alertChartHref({
+                        symbol: row.original.symbol,
+                        market: row.original.market,
+                      })}
+                      className="font-medium text-nc-accent hover:underline"
+                      title="打开行情图表"
+                    >
+                      {symbolLabel(row.original.symbol, row.original.market)}
+                    </Link>
+                    <span className="block text-xs text-nc-text-3">
+                      {sleeveDisplayName(row.original.sleeve)}
+                    </span>
+                  </div>
+                ),
               },
               {
                 id: "entry",

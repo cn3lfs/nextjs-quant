@@ -3,10 +3,12 @@ import { formatNumber as displayNumber } from "trading-strategy-core/format-numb
 
 import { useState } from "react";
 import { api } from "~/trpc/react";
+import { useAccumulatedPages, useTablePage } from "../ui/use-infinite-table";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
 import { Segmented } from "../panels";
 import type { CurrentScoreboardRow } from "~/server/db/validation-scoreboard";
 
+const rowKey = (row: CurrentScoreboardRow) => row.id;
 const pct = (value: number | null) =>
   value === null ? "—" : `${displayNumber(value * 100, 2)}%`;
 const columns: DataTableColumn<CurrentScoreboardRow>[] = [
@@ -118,27 +120,38 @@ const columns: DataTableColumn<CurrentScoreboardRow>[] = [
 ];
 export function StrategyScoreboard({ enabled }: { enabled: boolean }) {
   const [market, setMarket] = useState<"cn-equity" | "crypto">("cn-equity");
-  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 20 });
   const [sorting, setSorting] = useState<{ id: string; desc: boolean }[]>([]);
+  const resetKey = JSON.stringify([market, sorting]);
+  const cursor = useTablePage(resetKey);
   const sort = sorting[0];
   const report = api.strategyScoreboard.useQuery(
     {
       market,
-      page: pagination.pageIndex,
+      page: cursor.pageIndex,
       sort: sort?.id === "excess" || sort?.id === "drawdown" ? sort.id : "id",
       descending: sort?.desc ?? false,
     },
-    { enabled, refetchInterval: enabled ? 60000 : false },
+    {
+      enabled,
+      refetchInterval: enabled && cursor.pageIndex === 0 ? 60000 : false,
+    },
   );
+  const result =
+    report.isSuccess && !report.isPlaceholderData ? report.data : undefined;
+  const batches = useAccumulatedPages({
+    resetKey,
+    pageIndex: cursor.pageIndex,
+    items: result?.rows,
+    total: result?.total,
+    getKey: rowKey,
+    metadata: result?.metadata,
+  });
   return (
     <section className="space-y-4" aria-label="策略研究成绩单">
       <Segmented
         label="研究市场"
         value={market}
-        onChange={(value) => {
-          setMarket(value);
-          setPagination({ pageIndex: 0, pageSize: 20 });
-        }}
+        onChange={setMarket}
         options={[
           { value: "cn-equity", label: "A 股" },
           { value: "crypto", label: "数字货币" },
@@ -147,28 +160,27 @@ export function StrategyScoreboard({ enabled }: { enabled: boolean }) {
       <p className="text-sm text-muted-foreground">
         留出诊断已用于研究迭代，不能再视为新的样本外。影子候选从登记后积累前推观察，保持零投递；信号计数不代表组合盈亏；当前建议使用同版本冻结分布的纸面前推一致性，回测门槛和前推一致性均通过才可晋级。开启live和订阅仍须手动设置。价格、证券池与成交证据缺口继续适用。
       </p>
-      {report.data?.metadata && (
+      {batches.metadata && (
         <p className="break-all text-xs text-muted-foreground">
-          输入摘要：{report.data.metadata.inputHash} ·{" "}
-          {report.data.metadata.universe} · 数据缺口{" "}
-          {report.data.metadata.gaps.length} 项 · 未运行候选{" "}
-          {report.data.metadata.missing.length} 项
+          输入摘要：{batches.metadata.inputHash} · {batches.metadata.universe} ·
+          数据缺口 {batches.metadata.gaps.length} 项 · 未运行候选{" "}
+          {batches.metadata.missing.length} 项
         </p>
       )}
       <DataTable
         label="研究成绩单"
         columns={columns}
-        data={report.data?.rows ?? []}
-        rowCount={report.data?.total ?? 0}
-        pagination={pagination}
-        sorting={sorting}
-        onPaginationChange={setPagination}
-        onSortingChange={(next) => {
-          setSorting(next);
-          setPagination({ pageIndex: 0, pageSize: 20 });
+        data={batches.rows}
+        rowCount={batches.total}
+        infiniteScroll={{
+          hasMore: batches.hasMore,
+          loadingMore: cursor.pageIndex > 0 && report.isFetching,
+          onLoadMore: cursor.loadMore,
         }}
-        getRowId={(r) => r.id}
-        loading={report.isLoading}
+        sorting={sorting}
+        onSortingChange={setSorting}
+        getRowId={rowKey}
+        loading={report.isFetching || report.isPending}
         error={report.error?.message}
         onRetry={() => {
           void report.refetch();

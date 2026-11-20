@@ -1,6 +1,15 @@
 "use client";
-import { useRef, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useAccumulatedPages } from "../../ui/use-infinite-table";
 import { api, type RouterOutputs } from "~/trpc/react";
 import {
   accountKindLabels,
@@ -26,15 +35,9 @@ import {
   type TradeSnapshot,
 } from "./shared";
 
-export function TradeSources({
-  trades,
-  suggestions,
-  total,
-  page,
-  setPage,
-  fetching,
-  readError = false,
-}: {
+export const PositionTradeScope = createContext<string | null>(null);
+
+type TradeSourceProps = {
   trades: RouterOutputs["accountTrades"]["trades"];
   suggestions: RouterOutputs["accountTrades"]["suggestions"];
   total: number;
@@ -43,9 +46,75 @@ export function TradeSources({
   fetching: boolean;
   /** Last read failed; rows are stale, so block starting new links. */
   readError?: boolean;
+};
+
+export function TradeSources(props: TradeSourceProps) {
+  const position = useContext(PositionTradeScope);
+  const tradeId = useSearchParams().get("trade") ?? "";
+  return position ? (
+    <PositionTrades key={position} position={position} first={props} />
+  ) : (
+    <TradeSourceTable {...props} resetKey={tradeId} />
+  );
+}
+
+// Keep the detail shell subscribed to its first page so its pending branch
+// cannot unmount the table, open journal editors or the association receipt.
+function PositionTrades({
+  position,
+  first,
+}: {
+  position: string;
+  first: TradeSourceProps;
 }) {
+  const [page, setPage] = useState(0);
+  const next = api.accountPosition.useQuery(
+    { id: position, page },
+    { enabled: page > 0 },
+  );
+  return (
+    <TradeSourceTable
+      {...first}
+      resetKey={position}
+      page={page}
+      setPage={setPage}
+      trades={page ? (next.data?.trades ?? []) : first.trades}
+      suggestions={page ? (next.data?.suggestions ?? []) : first.suggestions}
+      total={page ? (next.data?.tradeCount ?? 0) : first.total}
+      fetching={page ? next.isFetching : first.fetching}
+      readError={first.readError || (page > 0 && next.isError)}
+      pageError={page > 0 ? next.error?.message : undefined}
+      onRetry={() => void next.refetch()}
+    />
+  );
+}
+
+function TradeSourceTable({
+  trades,
+  suggestions,
+  total,
+  page,
+  setPage,
+  fetching,
+  readError = false,
+  resetKey,
+  pageError,
+  onRetry,
+}: TradeSourceProps & {
+  resetKey: string;
+  pageError?: string;
+  onRetry?: () => void;
+}) {
+  const [lastKey, setLastKey] = useState(resetKey);
+  useEffect(() => {
+    if (resetKey !== lastKey) {
+      setPage(0);
+      setLastKey(resetKey);
+    }
+  }, [lastKey, resetKey, setPage]);
   const utils = api.useUtils();
   const refreshViews = () => {
+    setPage(0);
     try {
       // Best-effort read refresh; it must never turn a saved link into a
       // failure, so rejections and synchronous errors are swallowed here.
@@ -113,52 +182,50 @@ export function TradeSources({
       setPending(false);
     }
   };
-  const d = { trades, suggestions, tradeCount: total };
+  const items = useMemo(() => {
+    const byTrade = new Map(suggestions.map((s) => [s.tradeId, s.plans]));
+    return trades.map((trade) => ({
+      ...trade,
+      suggestedPlans: byTrade.get(trade.id),
+    }));
+  }, [trades, suggestions]);
+  // The parent resets page to zero for every symbol/account filter change.
+  // An empty pending first page must hide the previous filter immediately.
+  const batches = useAccumulatedPages({
+    resetKey: JSON.stringify([
+      resetKey,
+      page === 0 && fetching && !items.length,
+    ]),
+    pageIndex: page,
+    items,
+    total,
+    getKey: (trade) => trade.id,
+    isSuccess:
+      !readError && (!fetching || items.length > 0) && lastKey === resetKey,
+  });
   return (
     <section aria-label="成交来源" className="space-y-3">
-      <h3>
-        成交来源（第 {page + 1} 页，共 {d.tradeCount} 笔）
-      </h3>
+      <h3>成交来源</h3>
       <p className="text-sm text-nc-text-3">
         每笔成交可关联到所属策略、计划与提醒，便于复盘时对上账。关联只记录来源和审计，不修改成交数量、价格或原始账本。
       </p>
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          disabled={page === 0 || fetching || pending}
-          onClick={() => {
-            if (pendingRef.current) return;
-            setPage(page - 1);
-          }}
-        >
-          上一页成交
-        </Button>
-        <Button
-          variant="outline"
-          disabled={(page + 1) * 20 >= d.tradeCount || fetching || pending}
-          onClick={() => {
-            if (pendingRef.current) return;
-            setPage(page + 1);
-          }}
-        >
-          下一页成交
-        </Button>
-      </div>
       <DataTable
         label="成交来源明细"
-        data={d.trades}
-        rowCount={total}
-        pagination={{ pageIndex: page, pageSize: 20 }}
+        data={batches.rows}
+        rowCount={batches.total}
+        loading={fetching}
+        error={pageError ?? (readError ? "成交明细读取失败。" : undefined)}
+        onRetry={onRetry ?? (() => void utils.accountTrades.invalidate())}
+        infiniteScroll={{
+          hasMore: batches.hasMore,
+          loadingMore: fetching || pending,
+          onLoadMore: () => {
+            if (!pendingRef.current && !fetching && !readError)
+              setPage(page + 1);
+          },
+        }}
         sorting={[]}
         onSortingChange={() => {}}
-        onPaginationChange={(u) => {
-          if (pendingRef.current) return;
-          setPage(
-            (typeof u === "function" ? u({ pageIndex: page, pageSize: 20 }) : u)
-              .pageIndex,
-          );
-        }}
-        showPagination={false}
         getRowId={(t) => t.id}
         columns={[
           {
@@ -241,32 +308,30 @@ export function TradeSources({
                 "模拟盘成交，归属固定"
               ) : (
                 <div className="flex flex-wrap gap-1">
-                  {d.suggestions
-                    .find((s) => s.tradeId === t.id)
-                    ?.plans.map((plan) => (
-                      <Button
-                        key={plan.id}
-                        size="sm"
-                        variant="outline"
-                        disabled={pending || readError}
-                        onClick={() =>
-                          void save(
-                            {
-                              tradeId: t.id,
-                              planId: plan.id,
-                              alertKey: plan.triggerKey,
-                              strategyId: plan.strategyId,
-                              strategyVersion: plan.strategyVersion,
-                              sleeve: plan.sleeve,
-                            },
-                            snapshot(t),
-                            "suggestion",
-                          )
-                        }
-                      >
-                        确认关联 {plan.strategyId} / {plan.id}
-                      </Button>
-                    ))}
+                  {t.suggestedPlans?.map((plan) => (
+                    <Button
+                      key={plan.id}
+                      size="sm"
+                      variant="outline"
+                      disabled={pending || readError}
+                      onClick={() =>
+                        void save(
+                          {
+                            tradeId: t.id,
+                            planId: plan.id,
+                            alertKey: plan.triggerKey,
+                            strategyId: plan.strategyId,
+                            strategyVersion: plan.strategyVersion,
+                            sleeve: plan.sleeve,
+                          },
+                          snapshot(t),
+                          "suggestion",
+                        )
+                      }
+                    >
+                      确认关联 {plan.strategyId} / {plan.id}
+                    </Button>
+                  ))}
                   <Button
                     size="sm"
                     variant="outline"

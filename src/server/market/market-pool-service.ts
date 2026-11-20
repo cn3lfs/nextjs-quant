@@ -1,8 +1,4 @@
-import {
-  isRpsMarketSymbol,
-  rpsExclusionLabels,
-  type RpsValue,
-} from "quant-rps";
+import { isRpsMarketSymbol, rpsExclusionLabels, type RpsRow } from "quant-rps";
 import { resolve } from "node:path";
 import {
   marketPoolQuerySchema,
@@ -18,7 +14,6 @@ import { securityDirectory } from "./securities";
 import { readMarketPool } from "./market-pool-files";
 import { RpsStore } from "../db/rps-store";
 import { exchangeNames } from "./exchange-security-names";
-import { observationRanking } from "../screening/rps-observation";
 import { latestRpsObservation } from "../db/rps-observations";
 import { fullDaySymbols } from "~/server/market/bar-store/package-import";
 
@@ -62,38 +57,10 @@ export async function marketPoolRows(input: unknown) {
     latest && resolve(latest.source.root) === resolve(config.tdxRoot)
       ? latest
       : null;
-  // Filtering reads one snapshot only: all conditions and the display period
-  // come from the same chosen day/observation, with each period's own rank.
-  const conditionPeriods = [...new Set(query.conditions.map((c) => c.period))];
-  const neededPeriods = [...new Set([query.period, ...conditionPeriods])];
-  const ranks = new Map<string, RpsValue>();
-  const conditionValues = new Map<string, Map<number, RpsValue>>();
+  const vectors = new Map<string, RpsRow["values"]>();
   if (day) {
-    if (query.conditions.length === 0) {
-      if (day.periods.includes(query.period))
-        for (const row of observation
-          ? observationRanking(observation, query.period)
-          : store.ranking(day.date, query.period))
-          ranks.set(row.symbol, row);
-    } else {
-      // One read for every requested period instead of one full scan per period.
-      const sourceRows = observation ? observation.rows : store.rows(day.date);
-      const indexes = new Map(
-        neededPeriods
-          .filter((period) => day.periods.includes(period))
-          .map((period) => [period, day.periods.indexOf(period)]),
-      );
-      for (const row of sourceRows) {
-        const byPeriod = new Map<number, RpsValue>();
-        for (const [period, index] of indexes) {
-          const value = row.values[index];
-          if (value) byPeriod.set(period, value);
-        }
-        if (byPeriod.size) conditionValues.set(row.symbol, byPeriod);
-        const display = byPeriod.get(query.period);
-        if (display) ranks.set(row.symbol, display);
-      }
-    }
+    const sourceRows = observation ? observation.rows : store.rows(day.date);
+    for (const row of sourceRows) vectors.set(row.symbol, row.values);
   }
   const reasons = new Map<string, string>();
   if (day)
@@ -112,34 +79,47 @@ export async function marketPoolRows(input: unknown) {
   const members = source?.members ?? [
     ...new Set([...Object.keys(directory.entries), ...local, ...imported]),
   ];
-  const rows: MarketPoolRow[] = members.map((symbol) => ({
-    symbol,
-    name:
-      directory.entries[symbol]?.name ??
-      exchangeNames.get(symbol)?.name ??
-      "名称未核实",
-    identity: exchangeNames.get(symbol) ?? null,
-    localDay: local.has(symbol),
-    fullDayCache: imported.has(symbol),
-    value: ranks.get(symbol) ?? null,
-    ...(query.conditions.length
-      ? {
-          conditionValues: Object.fromEntries(
-            conditionPeriods.map((period) => [
-              String(period),
-              conditionValues.get(symbol)?.get(period) ?? null,
-            ]),
-          ),
-        }
-      : {}),
-    reason: ranks.has(symbol)
-      ? null
-      : !day
-        ? "尚无当前数据源的RPS，请先计算"
-        : !day.periods.includes(query.period)
-          ? "该历史批次未计算此周期，等待新批次"
-          : (reasons.get(symbol) ?? "该周期数据不足或未覆盖"),
-  }));
+  const rows: MarketPoolRow[] = members.map((symbol) => {
+    const vector = vectors.get(symbol);
+    const rpsValues = Object.fromEntries(
+      (day?.periods ?? []).map((period, index) => [
+        period,
+        vector?.[index] ?? null,
+      ]),
+    );
+    const value = rpsValues[query.period] ?? null;
+    return {
+      symbol,
+      name:
+        directory.entries[symbol]?.name ??
+        exchangeNames.get(symbol)?.name ??
+        "名称未核实",
+      identity: exchangeNames.get(symbol) ?? null,
+      localDay: local.has(symbol),
+      fullDayCache: imported.has(symbol),
+      // Queries without RPS conditions historically include the symbol in value.
+      value:
+        value && query.conditions.length === 0 ? { symbol, ...value } : value,
+      rpsValues,
+      ...(query.conditions.length
+        ? {
+            conditionValues: Object.fromEntries(
+              query.conditions.map(({ period }) => [
+                period,
+                rpsValues[period] ?? null,
+              ]),
+            ),
+          }
+        : {}),
+      reason: value
+        ? null
+        : !day
+          ? "尚无当前数据源的RPS，请先计算"
+          : !day.periods.includes(query.period)
+            ? "该历史批次未计算此周期，等待新批次"
+            : (reasons.get(symbol) ?? "该周期数据不足或未覆盖"),
+    };
+  });
   return {
     query,
     availability: {

@@ -8,6 +8,8 @@ import {
   marketSourceLabels,
   marketSourceSchema,
 } from "~/lib/market/market-source";
+import { cryptoSourceLabels, cryptoSourceSchema } from "~/lib/market/crypto";
+import { futuresSourceLabels, futuresSourceSchema } from "~/lib/market/futures";
 import { settingsSchema, type Snapshot } from "~/lib/domain";
 import { saveSettings, settings } from "~/server/infra/settings";
 import { freeChartHistory } from "~/server/market/free-chart-sources";
@@ -481,4 +483,22 @@ it("only activates one task history view when navigating to the task page", asyn
   );
   renderShell(await TasksPage());
   expect(deps.taskHistory).toHaveBeenCalledTimes(1);
+});
+
+it("keeps all data source switcher labels concise and free of fallback chains", () => {
+  const verify = <K extends string>(
+    options: readonly K[],
+    labels: Readonly<Record<K, string>>,
+  ) => {
+    for (const key of options) {
+      const label = labels[key];
+      expect(label).toBeTruthy();
+      expect(label).not.toContain("→");
+      expect(label).not.toMatch(/[（(]/);
+      expect(label.length).toBeLessThanOrEqual(8);
+    }
+  };
+  verify(marketSourceSchema.options, marketSourceLabels);
+  verify(cryptoSourceSchema.options, cryptoSourceLabels);
+  verify(futuresSourceSchema.options, futuresSourceLabels);
 });

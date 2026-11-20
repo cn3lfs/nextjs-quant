@@ -10,6 +10,7 @@ import {
   type PaginationState,
   type SortingState,
 } from "@tanstack/react-table";
+import { useIntersectionLoadMore } from "./use-infinite-table";
 import { Button } from "~/components/ui/button";
 import {
   Table,
@@ -32,12 +33,10 @@ export type DataTableColumn<T extends object> = ColumnDef<
 >;
 export type DataTableProps<T extends object> = {
   columns: DataTableColumn<T>[];
-  /** Exactly one server page, in server order. Never a full-pool input. */
+  /** One page or the accumulated batches in display order. */
   data: T[];
   rowCount: number;
-  pagination: PaginationState;
   sorting: SortingState;
-  onPaginationChange: OnChangeFn<PaginationState>;
   onSortingChange: OnChangeFn<SortingState>;
   getRowId: (row: T) => string;
   label: string;
@@ -47,7 +46,31 @@ export type DataTableProps<T extends object> = {
   emptyMessage?: ReactNode;
   /** Existing page toolbars keep ownership of pagination during R2 migration. */
   showPagination?: boolean;
+  pagination: PaginationState;
+  onPaginationChange: OnChangeFn<PaginationState>;
+  infiniteScroll?: {
+    hasMore: boolean;
+    loadingMore?: boolean;
+    onLoadMore: () => void;
+    /** Viewport margin for observing the bottom sentinel. */
+    rootMargin?: string;
+    /** Rows before the first batch when restoring a paged deep link. */
+    startOffset?: number;
+  };
 };
+
+type InfiniteDataTableProps<T extends object> = Omit<
+  DataTableProps<T>,
+  "pagination" | "onPaginationChange" | "infiniteScroll" | "rowCount"
+> & {
+  /** Unavailable ranking conditions have no meaningful total. */
+  rowCount: number | undefined;
+  pagination?: PaginationState;
+  onPaginationChange?: OnChangeFn<PaginationState>;
+  infiniteScroll: NonNullable<DataTableProps<T>["infiniteScroll"]>;
+};
+
+const firstPage = { pageIndex: 0, pageSize: 20 };
 
 /** TanStack only sorts columns with an accessor. Display columns that opt in
  *  with `enableSorting: true` are ordered by the server (manualSorting), so a
@@ -68,7 +91,7 @@ export function DataTable<T extends object>({
   columns,
   data,
   rowCount,
-  pagination,
+  pagination = firstPage,
   sorting,
   onPaginationChange,
   onSortingChange,
@@ -79,7 +102,8 @@ export function DataTable<T extends object>({
   onRetry,
   emptyMessage = "暂无数据。",
   showPagination = true,
-}: DataTableProps<T>) {
+  infiniteScroll,
+}: DataTableProps<T> | InfiniteDataTableProps<T>) {
   const sortHelpId = useId();
   const serverColumns = useMemo(() => columns.map(serverSortable), [columns]);
   const table = useTable({
@@ -96,11 +120,22 @@ export function DataTable<T extends object>({
     onSortingChange,
   });
   const busy = loading || !!error;
+  const sentinel = useIntersectionLoadMore({
+    enabled: !!infiniteScroll?.hasMore,
+    loading: busy || !!infiniteScroll?.loadingMore,
+    onLoadMore: () => infiniteScroll?.onLoadMore(),
+    rootMargin: infiniteScroll?.rootMargin,
+  });
+  const showBusyRow = busy && (!infiniteScroll || data.length === 0);
   const sortable = table
     .getAllLeafColumns()
     .some((column) => column.getCanSort());
   return (
-    <section aria-label={label} aria-busy={loading} className="space-y-3">
+    <section
+      aria-label={label}
+      aria-busy={loading || !!infiniteScroll?.loadingMore}
+      className="space-y-3"
+    >
       <div className="rounded-lg border border-border">
         {sortable && (
           <p id={sortHelpId} className="sr-only">
@@ -153,8 +188,9 @@ export function DataTable<T extends object>({
             ))}
           </TableHeader>
           <TableBody>
-            {!busy && !data.length && emptyMessage === null ? null : busy ||
-              !data.length ? (
+            {!busy &&
+            !data.length &&
+            emptyMessage === null ? null : showBusyRow || !data.length ? (
               <TableRow>
                 <TableCell
                   colSpan={table.getAllLeafColumns().length || 1}
@@ -189,7 +225,50 @@ export function DataTable<T extends object>({
           </TableBody>
         </Table>
       </div>
-      {showPagination && (
+      {infiniteScroll && (
+        <>
+          <div ref={sentinel} aria-hidden="true" className="h-px" />
+          {error && data.length > 0 && (
+            <div role="alert">
+              {error}{" "}
+              {onRetry && (
+                <Button size="sm" variant="outline" onClick={onRetry}>
+                  重试
+                </Button>
+              )}
+            </div>
+          )}
+          <div className="flex items-center justify-between gap-3">
+            {rowCount !== undefined && (
+              <span
+                className="text-sm text-muted-foreground"
+                aria-live="polite"
+              >
+                {!infiniteScroll.hasMore &&
+                data.length > 0 &&
+                !infiniteScroll.startOffset
+                  ? `已全部加载 · 共 ${rowCount} 条`
+                  : `已加载 ${data.length} / 共 ${rowCount} 条`}
+                {infiniteScroll.startOffset
+                  ? ` · 从第 ${infiniteScroll.startOffset + 1} 条起`
+                  : ""}
+              </span>
+            )}
+            {infiniteScroll.hasMore && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={busy || infiniteScroll.loadingMore}
+                onClick={infiniteScroll.onLoadMore}
+              >
+                {infiniteScroll.loadingMore ? "加载中…" : "加载更多"}
+              </Button>
+            )}
+          </div>
+        </>
+      )}
+      {!infiniteScroll && showPagination && (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="text-sm text-muted-foreground" aria-live="polite">
             共 {rowCount} 条 · 第 {rowCount ? pagination.pageIndex + 1 : 0} /{" "}

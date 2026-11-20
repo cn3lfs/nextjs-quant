@@ -136,32 +136,40 @@ test("after touring every page, hidden panels stay quiet", async ({
   // The sidebar now exposes six workspaces. Exercise their current controls,
   // including every retained Scan mode, rather than treating old tab URLs as
   // sidebar links. Keep this tour local; other legacy tests own their routes.
-  const switchView = async (group: string, name: string, path: string) => {
-    const scope = path.startsWith("/scan")
-      ? page.getByRole("toolbar", { name: "行情视图", exact: true })
-      : page;
-    await scope
-      .getByRole("radiogroup", { name: group, exact: true })
-      .getByRole("radio", { name, exact: true })
-      .click();
+  const visitViaSidebar = async (
+    groupLabel: string,
+    linkLabel: string,
+    path: string,
+  ) => {
+    const nav = page.getByRole("navigation", {
+      name: "工作台导航",
+      exact: true,
+    });
+    const groupBtn = nav.getByRole("button", {
+      name: groupLabel,
+      exact: true,
+    });
+    if ((await groupBtn.getAttribute("aria-expanded")) === "false")
+      await groupBtn.click();
+    await nav.getByRole("link", { name: linkLabel, exact: true }).click();
     const target = new URL(path, "http://workbench");
     await expect(page).toHaveURL(
       (url) => url.pathname === target.pathname && url.search === target.search,
     );
     await page.waitForLoadState("networkidle");
   };
-  await switchView("今日视图", "盘中预选历史", "/?tab=intraday");
-  await switchView("今日视图", "市场与数据总览", "/?tab=overview");
+  await visitViaSidebar("选股筛选", "盘中记录", "/?tab=intraday");
+  await visitViaSidebar("今日交易", "大盘总览", "/?tab=overview");
   await visit(page, "/scan");
-  for (const [name, tab] of [
-    ["证券池", "pool"],
-    ["条件选股", "formula"],
-    ["RPS 数据管理", "rps"],
-    ["打板情绪", "sentiment"],
+  for (const [group, label, tab] of [
+    ["选股筛选", "股票池", "pool"],
+    ["选股筛选", "公式选股", "formula"],
+    ["选股筛选", "强势排名 (RPS)", "rps"],
+    ["今日交易", "涨停与情绪", "sentiment"],
+    ["行情看盘", "数字货币", "crypto"],
+    ["行情看盘", "期货行情", "futures"],
   ] as const)
-    await switchView("扫描视图", name, `/scan?tab=${tab}`);
-  await switchView("扫描市场", "数字货币", "/scan?tab=crypto");
-  await switchView("扫描市场", "期货", "/scan?tab=futures");
+    await visitViaSidebar(group, label, `/scan?tab=${tab}`);
   for (const path of [
     "/lab",
     "/lab/backtest",

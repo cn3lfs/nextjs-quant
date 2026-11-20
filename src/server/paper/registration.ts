@@ -16,11 +16,30 @@ import {
   type PaperAccount,
 } from "./model";
 
+export type RegisterPaperCandidatesOptions = {
+  /** Test-only escape hatch for the retired frozen r2a-* fixtures. */
+  allowLegacyFixtures?: boolean;
+};
+
+/**
+ * The five hardcoded paper-candidates.json accounts are retired. Production
+ * ticks, settings saves and UI refreshes must never resurrect them; only an
+ * explicit test opt-in (or Vitest) may seed the frozen fixtures.
+ */
+function legacyFixturesAllowed(options: RegisterPaperCandidatesOptions) {
+  return options.allowLegacyFixtures === true || process.env.VITEST === "true";
+}
+
 export function registerPaperCandidates(
   repo = new PaperRepository(),
   now = Date.now(),
   rawSettings: unknown = {},
+  options: RegisterPaperCandidatesOptions = {},
 ) {
+  if (!legacyFixturesAllowed(options))
+    throw new Error(
+      "历史写死的 r2a-* 模拟候选账户已停用；请手动创建模拟账户。测试夹具须显式传入 allowLegacyFixtures。",
+    );
   const config = paperSettingsSchema.parse(rawSettings);
   const chosen = selectShadowCandidates(frozen.ranking as ScoreboardRow[]);
   const candidates = [...frozen.candidates] as unknown as FrozenCandidate[];

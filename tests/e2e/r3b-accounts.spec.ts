@@ -20,11 +20,13 @@ for (const width of [1440, 1024])
     await expect(detail.getByText("衰减已标记", { exact: true })).toBeVisible();
     await expect(detail.getByText(/提醒前推：30 样本/)).toBeVisible();
     await expect(detail.getByText(/距止损/).first()).toBeVisible();
-    await expect(
-      page
-        .getByRole("navigation", { name: "工作区子页" })
-        .getByRole("link", { name: "持仓与交易日志", exact: true }),
-    ).toHaveAttribute("href", "/accounts?tab=ledger");
+    if (width === 1440) {
+      await expect(
+        page
+          .getByRole("navigation", { name: "工作台导航" })
+          .getByRole("link", { name: "手工记账", exact: true }),
+      ).toHaveAttribute("href", "/accounts?tab=ledger");
+    }
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -47,16 +49,20 @@ for (const width of [1440, 1024])
     await expect(
       page.getByRole("region", { name: "统一持仓", exact: true }),
     ).toBeVisible();
-    await page.getByRole("radio", { name: "纸面账户", exact: true }).click();
+    await page.getByRole("radio", { name: "本地模拟", exact: true }).click();
     await expect(page.getByText("暂无数据。", { exact: true })).toBeVisible();
+    await page.addInitScript(() => {
+      Reflect.deleteProperty(window, "IntersectionObserver");
+    });
     await page.goto("/accounts?tab=trades");
-    await page.getByRole("button", { name: "下一页成交", exact: true }).click();
-    await expect(
-      page.getByText("成交来源（第 2 页，共 30 笔）", { exact: true }),
-    ).toBeVisible();
-    await page
+    const trades = page.getByRole("region", { name: "成交来源明细" });
+    await expect(trades.getByText("已加载 20 / 共 30 条")).toBeVisible();
+    await trades.getByRole("button", { name: "加载更多", exact: true }).click();
+    await expect(trades.getByText("已全部加载 · 共 30 条")).toBeVisible();
+    await trades
+      .getByRole("row")
+      .nth(21)
       .getByRole("button", { name: "手工关联", exact: true })
-      .first()
       .click();
     await page
       .getByRole("button", { name: "保存人工关联", exact: true })

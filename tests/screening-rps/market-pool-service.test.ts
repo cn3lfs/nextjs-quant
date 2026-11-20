@@ -115,7 +115,7 @@ it("paged results concatenate to export ordering without reranking the selected 
   });
   expect(subset.total).toBe(3);
   expect(subset.excludedMarket).toBe(1);
-  expect(subset.rows[0]!.value?.rps).toBe(90);
+  expect(subset.rows[0]!.value).toMatchObject({ symbol: "sz000009", rps: 90 });
   expect(subset.rows[0]).toEqual(first.rows[0]);
   expect(subset.rows[2]!.value).toBeNull();
   expect(subset.source).not.toHaveProperty("members", expect.any(Array));
@@ -125,6 +125,62 @@ it("explicit threshold excludes missing values and filtering agrees with export"
   const page = await marketPoolPage(query);
   expect(page.rows.map((r) => r.symbol)).toEqual(["sz000009"]);
   expect(page.rows).toEqual((await marketPoolRows(query)).rows);
+});
+it("reads one stored batch per page and sorts the pool by full-market period values", async () => {
+  const { day, rows } = rpsDay();
+  const index20 = day.periods.indexOf(20);
+  const leader = rows.find((row) => row.symbol === "sz000009")!;
+  // Move only the 20-day leader to a symbol without any other ranked period.
+  const partial = day.periods.map((period) =>
+    period === 20 ? leader.values[index20]! : null,
+  );
+  leader.values[index20] = null;
+  new RpsStore(state.db!).saveDay({ ...day, date: "2099-01-01" }, [
+    ...rows,
+    { symbol: "sz000020", values: partial },
+  ]);
+  const pool = { category: "index", name: "中证A500" };
+  const read = vi.spyOn(RpsStore.prototype, "rows");
+  try {
+    const descending = await marketPoolPage({
+      pool,
+      order: { id: "rps:20", desc: true },
+    });
+    expect(read.mock.calls).toEqual([["2099-01-01"]]);
+    expect(descending.rows.map((row) => row.symbol)).toEqual([
+      "sz000020",
+      "sz000001",
+      "sz000009",
+    ]);
+    expect(descending.rows[0]!.value).toBeNull();
+    expect(descending.rows[0]!.rpsValues).toEqual({
+      "1": null,
+      "3": null,
+      "5": null,
+      "10": null,
+      "20": { rank: 1, rps: 90, return: partial[index20]!.return },
+      "50": null,
+      "120": null,
+    });
+    expect(descending.rows[2]!.rpsValues).toEqual(
+      Object.fromEntries(
+        day.periods.map((period, index) => [period, leader.values[index]]),
+      ),
+    );
+    const ascending = await marketPoolPage({
+      pool,
+      order: { id: "rps:5", desc: false },
+    });
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(ascending.rows.map((row) => row.symbol)).toEqual([
+      "sz000001",
+      "sz000009",
+      "sz000020",
+    ]);
+    expect(ascending.rows[0]!.rpsValues?.["5"]?.rank).toBe(9);
+  } finally {
+    read.mockRestore();
+  }
 });
 it("shows new 1/3-day ranks and keeps their unavailable legacy history explicit", async () => {
   for (const period of [1, 3]) {
@@ -152,6 +208,14 @@ it("shows new 1/3-day ranks and keeps their unavailable legacy history explicit"
     expect(legacy.rps?.count).toBeNull();
     expect(legacy.period).toBe(period);
     expect(legacy.availability.rps).toBe("period-missing");
+    expect(Object.keys(legacy.rows[0]!.rpsValues!)).toEqual([
+      "5",
+      "10",
+      "20",
+      "50",
+      "120",
+      "250",
+    ]);
     expect(
       legacy.rows.every(
         (row) =>
@@ -281,6 +345,8 @@ it("filters before paging so a later-page security enters page 1 and a real zero
   );
   const unfiltered = await marketPoolPage({});
   expect(unfiltered.rows.map((row) => row.symbol)).not.toContain("sz000020");
+  const sorted = await marketPoolPage({ order: { id: "rps:20", desc: true } });
+  expect(sorted.rows[0]!.symbol).toBe("sz000020");
   expect(
     (await marketPoolPage({ page: 1 })).rows.map((row) => row.symbol),
   ).toContain("sz000020");
@@ -369,7 +435,12 @@ it("uses the newer observation alone for every condition and never falls back to
   });
   // The stored day has sz000009, but a newer observation is the only batch.
   expect(page.rows.map((row) => row.symbol)).toEqual(["sz000001"]);
-  // Only the condition period is projected; the display period stays in value.
+  expect(page.rows[0]!.rpsValues).toEqual({
+    "20": { return: 0, rank: 9, rps: 10 },
+    "50": { return: 0, rank: 1, rps: 87.5 },
+  });
+  const missing = await marketPoolPage({ search: "sz000009" });
+  expect(missing.rows[0]!.rpsValues).toEqual({ "20": null, "50": null });
   expect(page.rows[0]!.conditionValues).toEqual({
     "20": { return: 0, rank: 9, rps: 10 },
   });
