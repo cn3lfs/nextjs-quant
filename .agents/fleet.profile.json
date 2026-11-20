@@ -1,0 +1,31 @@
+{
+  "name": "nextjs-quant",
+  "runRoot": ".test-data/fleet",
+  "isolatedDataEnv": "QUANT_DATA_DIR",
+  "protectedPaths": [
+    "src/server/mcp.ts"
+  ],
+  "defaultModels": {
+    "complex": "gpt-6.2-astra",
+    "review": "gpt-6.2-sol",
+    "everydayFast": "claude-deepseek:default",
+    "everydayEfficient": "gemini-4-hydrogen-medium"
+  },
+  "timeouts": {
+    "defaultMs": 900000,
+    "complexMs": 1500000,
+    "reviewMs": 600000,
+    "idleStallMs": 300000
+  },
+  "resilience": {
+    "maxRetries": 1,
+    "allowFallback": true
+  },
+  "claudePolicy": {
+    "forbidModelOverride": true,
+    "stripEnv": [
+      "ANTHROPIC_MODEL"
+    ],
+    "permissionMode": "bypassPermissions"
+  }
+}
