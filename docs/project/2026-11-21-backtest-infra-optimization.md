@@ -78,6 +78,7 @@
 - **规模与取消**：`observationDetail` 省略时默认 counts，需要明细的调用显式传 `full`；验证套件/窗口/合账贯通 `AbortSignal`；理论、财务回放与纸面的行情上限改用 `QUANT_BAR_STORE_MAX_BARS` 可配置预算（纸面 `decisions` 仍保留独立上限）。
 - **数据口径**：公司行动 action 显式携带 `cashAvailableAt` 与 `timingAssumption: "ex-date-research-scenario"`，不再暗示已知派息/上市日；GBBQ 缓存加入 stat+首尾样本校验；研究采集截止日按已登记实验冻结、新采集取实际覆盖；纸面基准标注“中证800价格指数（不含股息）”。
 - **对拍**：新增 `six-output-parity` 测试，覆盖 orders/fills/curve/rejections/corporateActions/terminalValuations，并用 bigint `ExecutionLedger` 重放 fills 与公司行动，逐笔现金/股数一致。
+- **复审 P1 收口**：提醒仓库同时识别旧键并只采纳一次（已投递旧事件不重投、被引用旧键保持原键）；加密只有可证实的拒单码才允许重试，未知 4xx/5xx 一律 UNKNOWN，停止后拒单不改回 paused；首笔资金流水可按“余额−带符号发生额”反推期初现金；GBBQ 每次由完整内容 SHA-256 决定复用（并发调用不再共享旧读取）；公司行动时点在输入准备阶段对所有 action 校验（时间戳按 `Date.parse` 比较）。
 
 ## 保留的边界
 
