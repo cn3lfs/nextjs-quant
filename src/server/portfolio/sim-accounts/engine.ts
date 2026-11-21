@@ -4,7 +4,7 @@ import {
   bpsOf,
   feesFor,
   notional,
-} from "../../../../packages/quant-execution/src";
+} from "quant-execution";
 import { researchExecutionCosts } from "trading-strategy-core/costs";
 import { formatSimAtoms as formatAtoms } from "~/lib/portfolio/sim-accounts";
 import type {

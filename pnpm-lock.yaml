@@ -80,6 +80,9 @@ importers:
       quant-backtest:
         specifier: workspace:*
         version: link:packages/quant-backtest
+      quant-execution:
+        specifier: workspace:*
+        version: link:packages/quant-execution
       quant-performance:
         specifier: workspace:*
         version: link:packages/quant-performance
