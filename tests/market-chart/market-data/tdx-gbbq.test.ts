@@ -85,6 +85,21 @@ describe("复权因子", () => {
     expect(factors.map((f) => f.factor)).toEqual([1, 2]);
     expect(adjusted[1]!.close / adjusted[0]!.close).toBeCloseTo(1, 10);
   });
+  it("扩缩股同时调整信号因子，避免账户调股数而信号保留假跳空", () => {
+    // 1 股拆 2 股：前收 10，除权价 5，因子 2；复权后首日为平盘。
+    const bars = [bar("2026-01-05", 10), bar("2026-01-06", 5)],
+      factors = adjustmentFactors(bars, [
+        {
+          date: "2026-01-06",
+          category: 11,
+          name: "扩缩股",
+          shrinkRatio: 2,
+        },
+      ]),
+      adjusted = applyAdjustment(bars, factors, "backward");
+    expect(factors.map((f) => f.factor)).toEqual([1, 2]);
+    expect(adjusted[1]!.close / adjusted[0]!.close).toBeCloseTo(1, 10);
+  });
   it("现金分红按除权价公式折算", () => {
     // 前收 10，每股派 0.5：除权价 9.5，因子 10/9.5。
     const bars = [bar("2026-01-05", 10), bar("2026-01-06", 9.5)],

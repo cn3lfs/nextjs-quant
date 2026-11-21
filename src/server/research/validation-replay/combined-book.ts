@@ -90,7 +90,12 @@ export function combinedBook(
           ? []
           : [{ date: result.equity[i]!.date, value: (nav *= 1 + value) }],
       );
-      const evaluation = evaluatePerformance(1, active);
+      const evaluation = evaluatePerformance(
+        1,
+        active,
+        active[0]?.date,
+        frozen.input.market === "crypto" ? 365 : 252,
+      );
       return {
         sleeve: s.id,
         daily,

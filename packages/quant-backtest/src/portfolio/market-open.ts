@@ -22,6 +22,7 @@ export function applyCorporateActions(state: PortfolioState, date: string) {
         key,
         action,
         market === "cn-equity",
+        state.costs.dividendTaxBps ?? 0,
       )!;
       corporateActions.push({
         date,

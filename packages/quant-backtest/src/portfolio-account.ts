@@ -104,11 +104,19 @@ export class PortfolioAccount {
   }
   /** Research entitlement scenario: whole shares, no invented fractional cash.
    * Bonus availability is explicit; splits retain each lot's settlement lock. */
-  corporateAction(key: string, action: PortfolioAction, wholeShares: boolean) {
+  corporateAction(
+    key: string,
+    action: PortfolioAction,
+    wholeShares: boolean,
+    dividendTaxBps = 0,
+  ) {
     const p = this.positions.get(key);
     if (!p) return null;
     const before = p.quantity;
-    const cash = moneyMul(before, action.dividend);
+    const cash = moneyMul(
+      moneyMul(before, action.dividend),
+      1 - dividendTaxBps / 10000,
+    );
     const factor = action.shareFactor ?? 1;
     const theoretical = toNumber(
       big(before)

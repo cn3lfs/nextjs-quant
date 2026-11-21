@@ -223,6 +223,7 @@ function runSummary(
     (center?.input.symbol ? [center.input.symbol] : []);
   if (!symbols.length) throw new Error("任务缺少冻结证券池：" + id);
   const strategy = lab?.request.strategies[0] ?? center?.strategyObject;
+  const annualizationDays = lab?.request.market === "crypto" ? 365 : 252;
   const costScenario = lab?.costScenario ?? null;
   const basis = {
     任务类型: kind,
@@ -283,6 +284,8 @@ function runSummary(
     metrics: evaluatePerformance(
       window.initial,
       dailyEquity(archive.result.curve),
+      undefined,
+      annualizationDays,
     ),
     basisWarnings: warnings,
     basis: Object.entries(basis).map(([label, value]) => ({

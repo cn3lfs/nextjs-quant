@@ -37,6 +37,13 @@ describe("corporate action accounting", () => {
         expect(a.positions.get("A")!.mark).toBe(8); // (10+.5*4)/1.5
     },
   );
+  it("withholds dividend tax at the declared rate", () => {
+    const a = new PortfolioAccount(1000);
+    a.fill("A", day[1]!, "buy", 100, 10, 0, 1);
+    // 100 shares × 1 CNY dividend × (1 − 10%) = 90 CNY cash.
+    a.corporateAction("A", action({ dividend: 1 }), true, 1000);
+    expect(a.cash).toBeCloseTo(90, 12);
+  });
   it("preserves T+1 locks across splits and explicit bonus availability", () => {
     const a = new PortfolioAccount(10000);
     a.fill("A", day[2]!, "buy", 100, 10, 0, 1);

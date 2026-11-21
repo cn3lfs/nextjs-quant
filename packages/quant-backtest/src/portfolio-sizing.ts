@@ -17,9 +17,9 @@ export function portfolioExecutionFee(
 ) {
   const amount = moneyMul(quantity, price);
   return toNumber(
-    big(commissionFor(amount, costs)).plus(
-      side === "sell" ? bpsOf(amount, costs.sellTaxBps) : 0,
-    ),
+    big(commissionFor(amount, costs))
+      .plus(bpsOf(amount, costs.transferBps ?? 0))
+      .plus(side === "sell" ? bpsOf(amount, costs.sellTaxBps) : 0),
   );
 }
 

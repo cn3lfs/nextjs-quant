@@ -297,6 +297,33 @@ describe("scheduled completed-day portfolio targets", () => {
     input.scheduledTargets = [base, { ...base }];
     expect(() => runPortfolio(input)).toThrow("Duplicate scheduled target");
   });
+  it("keeps a cash-truncated target buy pending instead of marking it filled", () => {
+    const input = request();
+    input.initial = 2000;
+    input.costs = {
+      ...input.costs!,
+      commissionBps: 3,
+      minimumCommission: 5,
+    };
+    input.scheduledTargets = [
+      {
+        strategyId: "annual",
+        date: dates[0]!,
+        availableAt: dates[0]!,
+        sourceHash: hash,
+        targets: { sh600000: 1 },
+      },
+    ];
+    const result = runPortfolio(input);
+    expect(result.fills.find((f) => f.symbol === "sh600000")?.quantity).toBe(
+      100,
+    );
+    const order = result.orders.find(
+      (o) => o.symbol === "sh600000" && o.side === "buy",
+    );
+    expect(order?.status).not.toBe("filled");
+    expect(order?.attempts).toBeGreaterThan(1);
+  });
   it("rejects competing entry policies and securities outside the strategy universe", () => {
     const input = request();
     input.strategies = [

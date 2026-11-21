@@ -55,6 +55,7 @@ export function auditPortfolio(
   };
   const fee = (q: number, p: number, side: string) =>
     Math.max(costs.minimumCommission, (q * p * costs.commissionBps) / 10000) +
+    (q * p * (costs.transferBps ?? 0)) / 10000 +
     (side === "sell" ? (q * p * costs.sellTaxBps) / 10000 : 0);
   const apply = (fill: (typeof result.fills)[number]) => {
     const source = instruments.get(fill.symbol)!,

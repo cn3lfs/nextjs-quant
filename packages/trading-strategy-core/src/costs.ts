@@ -5,9 +5,18 @@ export const executionCostsSchema = z.object({
   commissionBps: z.number().finite().min(0).max(1000).default(3),
   minimumCommission: z.number().finite().min(0).max(10000).default(5),
   sellTaxBps: z.number().finite().min(0).max(1000).default(5),
+  transferBps: z.number().finite().min(0).max(1000).optional(),
+  dividendTaxBps: z.number().finite().min(0).max(1000).optional(),
   sellTaxSchedule: z
     .object({
       kind: z.literal("cn-equity-historical"),
+      multiplier: z.number().finite().positive().default(1),
+    })
+    .strict()
+    .optional(),
+  transferSchedule: z
+    .object({
+      kind: z.literal("cn-equity-transfer"),
       multiplier: z.number().finite().positive().default(1),
     })
     .strict()
@@ -51,8 +60,13 @@ export function researchExecutionCosts(
     sellTaxBps: market === "crypto" ? 0 : 5 * multiplier,
     ...(market === "cn-equity"
       ? {
+          transferBps: 0.1 * multiplier,
           sellTaxSchedule: {
             kind: "cn-equity-historical",
+            multiplier,
+          },
+          transferSchedule: {
+            kind: "cn-equity-transfer",
             multiplier,
           },
         }
@@ -61,15 +75,25 @@ export function researchExecutionCosts(
   });
 }
 
-export function equityStampDutyBps(date: string) {
+function feeDay(date: string) {
   const day = date.slice(0, 10);
   if (
     !/^\d{4}-\d{2}-\d{2}$/.test(day) ||
     !Number.isFinite(Date.parse(day)) ||
     new Date(day).toISOString().slice(0, 10) !== day
   )
-    throw new Error("Invalid stamp-duty date");
+    throw new Error("Invalid fee date");
+  return day;
+}
+export function equityStampDutyBps(date: string) {
+  const day = feeDay(date);
   return historicalFeeScenarios.find((row) => day >= row.from)!.sellTax * 10000;
+}
+export function equityTransferBps(date: string) {
+  const day = feeDay(date);
+  return (
+    historicalFeeScenarios.find((row) => day >= row.from)!.transfer * 10000
+  );
 }
 /** Only explicitly declared historical scenarios vary by date. Legacy fixed
  * costs retain both their values and object identity. */
@@ -77,10 +101,21 @@ export function executionCostsForDate(
   costs: ExecutionCosts,
   date: string,
 ): ExecutionCosts {
-  if (!costs.sellTaxSchedule) return costs;
+  if (!costs.sellTaxSchedule && !costs.transferSchedule) return costs;
   return {
     ...costs,
-    sellTaxBps: equityStampDutyBps(date) * costs.sellTaxSchedule.multiplier,
+    ...(costs.sellTaxSchedule
+      ? {
+          sellTaxBps:
+            equityStampDutyBps(date) * costs.sellTaxSchedule.multiplier,
+        }
+      : {}),
+    ...(costs.transferSchedule
+      ? {
+          transferBps:
+            equityTransferBps(date) * costs.transferSchedule.multiplier,
+        }
+      : {}),
   };
 }
 

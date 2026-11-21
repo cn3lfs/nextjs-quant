@@ -82,6 +82,7 @@ const equityResearchBoards = [
     step: 100,
     limit: 0.2,
   },
+  { prefixes: ["bj"], from: "", minimum: 100, step: 1, limit: 0.3 },
   { prefixes: [""], from: "", minimum: 100, step: 100, limit: 0.1 },
 ] as const;
 export function equityResearchRules(

@@ -102,7 +102,8 @@ export function rebalanceAndMarkEquity(
         strategyId: identity.strategyId,
         sleeve,
         quantity: position.quantity,
-        weight: (position.quantity * position.mark) / row.equity,
+        weight:
+          row.equity > 0 ? (position.quantity * position.mark) / row.equity : 0,
       });
     }
   daily.set(observationDay(date), { ...row, date: observationDay(date) });

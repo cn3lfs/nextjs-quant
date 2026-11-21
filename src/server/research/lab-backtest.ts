@@ -166,6 +166,10 @@ export async function prepareLabBacktest(
     strategy.market === "cn-equity" && input.source === "local" && !theory
       ? await corporateActions(config.tdxRoot)
       : null;
+  const corporateActionCoverage =
+    strategy.market === "cn-equity" && input.source === "thsdk" && !theory
+      ? ("excluded" as const)
+      : ("included" as const);
   const instruments: PortfolioInstrument[] = theory?.instruments ?? [],
     sources: Record<string, unknown>[] = theory?.sources ?? [];
   let total = 0;
@@ -302,6 +306,7 @@ export async function prepareLabBacktest(
     request,
     sources,
     dataSource: input.source,
+    corporateActionCoverage,
     costScenario: input.costScenario,
     marketPolicy: frozenMarketPolicy(
       strategy.market,
@@ -313,7 +318,7 @@ export async function prepareLabBacktest(
     executionBuildHash: forwardExecutionBuildHash(),
     boundary:
       input.source === "thsdk"
-        ? "规则自检；同花顺延迟行情，信号采用原生前复权 qfq，成交采用同源未复权原价；未计入公司行动分红送转，历史ST/IPO/排队未认证；非可信策略业绩"
+        ? "规则自检；同花顺延迟行情，信号采用原生前复权 qfq，成交采用同源未复权原价；未计入公司行动分红送转，不可与本地源结果直接比较；历史ST/IPO/排队未认证；非可信策略业绩"
         : "规则自检；当前证券池、历史ST/IPO/排队及到账日未认证；公司行动沿R2a-5研究情景，币种数量网格未认证；非可信策略业绩",
   };
   if (signal) await new Promise<void>((resolve) => setImmediate(resolve));
@@ -340,6 +345,8 @@ export function replayLabBacktest(
   const performance = createPerformanceReport(
     request.initial,
     dailyEquity(result.curve),
+    undefined,
+    request.market === "crypto" ? 365 : 252,
   );
   const evidence = labBacktestEvidence(request, result);
   return {

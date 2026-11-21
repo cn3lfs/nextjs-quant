@@ -194,6 +194,7 @@ describe("THSDK lab execution", () => {
         live: false,
       });
       expect(backtest.frozen.dataSource).toBe("thsdk");
+      expect(backtest.frozen.corporateActionCoverage).toBe("excluded");
       expect(backtest.frozen.sources).toEqual([
         {
           symbol,

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   defaultExecutionCosts,
   equityStampDutyBps,
+  equityTransferBps,
   executionCostsForDate,
 } from "../src/costs.js";
 import { equityResearchRules } from "../src/market-rules.js";
@@ -24,6 +25,19 @@ describe("declared historical costs and same-date ST evidence", () => {
     );
     expect(() => equityStampDutyBps("bad-date")).toThrow("date");
   });
+  it("switches the A-share transfer fee with the same historical boundary", () => {
+    expect(equityTransferBps("2022-04-28")).toBe(0.2);
+    expect(equityTransferBps("2022-04-29")).toBe(0.1);
+    expect(
+      executionCostsForDate(
+        {
+          ...defaultExecutionCosts,
+          transferSchedule: { kind: "cn-equity-transfer", multiplier: 2 },
+        },
+        "2022-04-28",
+      ).transferBps,
+    ).toBe(0.4);
+  });
   it("requires same-date ST evidence and preserves separate board rules", () => {
     const date = "2020-09-01",
       status = { st: true, source: "frozen historical fixture", date };
@@ -31,6 +45,11 @@ describe("declared historical costs and same-date ST evidence", () => {
     expect(equityResearchRules("sh600000", date).limit).toBe(0.1);
     expect(equityResearchRules("sh688001", date, status).limit).toBe(0.2);
     expect(equityResearchRules("sz300001", date, status).limit).toBe(0.2);
+    expect(equityResearchRules("bj430047", date)).toMatchObject({
+      minimum: 100,
+      step: 1,
+      limit: 0.3,
+    });
     expect(() =>
       equityResearchRules("sh600000", date, { ...status, date: "2020-08-31" }),
     ).toThrow("same-date");

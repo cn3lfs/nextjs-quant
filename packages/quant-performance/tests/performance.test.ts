@@ -103,11 +103,36 @@ it("does not fill missing benchmark returns and rejects invalid dates/equity or 
   expect(() => evaluatePerformance(100, [...points].reverse())).toThrow("日期");
   for (const point of [
     { date: "2025-02-30", value: 100 },
-    { date: "2025-01-02", value: 0 },
+    { date: "2025-01-02", value: -1 },
     { date: "2025-01-02", value: NaN },
   ])
     expect(() => evaluatePerformance(100, [point])).toThrow();
   expect(() =>
     performancePeriods(100, [points[0]!, points[0]!], "month"),
   ).toThrow();
+});
+
+it("parameterizes annualization for 24/7 crypto instead of assuming 252", () => {
+  const rows: PerformancePoint[] = Array.from({ length: 300 }, (_, i) => ({
+    date: new Date(Date.UTC(2024, 0, 1 + i)).toISOString().slice(0, 10),
+    value: 100 + i * 0.1,
+  }));
+  const cn = evaluatePerformance(100, rows);
+  const crypto = evaluatePerformance(100, rows, rows[0]!.date, 365);
+  expect(cn.shortSample).toBe(false);
+  expect(crypto.shortSample).toBe(true);
+  expect(crypto.annualReturn.value).toBeNull();
+  expect(crypto.annualReturn.reason).toContain("365");
+  expect(
+    crypto.annualVolatility.value! / cn.annualVolatility.value!,
+  ).toBeCloseTo(Math.sqrt(365 / 252), 12);
+});
+
+it("evaluates a total-loss equity curve instead of throwing on zero", () => {
+  const r = evaluatePerformance(100, [
+    { date: "2025-01-02", value: 50 },
+    { date: "2025-01-03", value: 0 },
+  ]);
+  expect(r.totalReturn.value).toBe(-1);
+  expect(r.maxDrawdown.value).toBe(1);
 });

@@ -125,7 +125,11 @@ export function affordableQuantity(
   )
     throw new Error("申报数量规则无效");
   const priceWithCommissionRate = big(price).times(
-    big(1).plus(big(costs.commissionBps).div(10000)),
+    big(1).plus(
+      big(costs.commissionBps)
+        .plus(costs.transferBps ?? 0)
+        .div(10000),
+    ),
   );
   const affordable = bigFloor(
     bigMin(
@@ -139,7 +143,11 @@ export function affordableQuantity(
     rules.minimumBuy +
     Math.floor((affordable - rules.minimumBuy) / rules.buyStep) * rules.buyStep;
   const orderAmount = moneyMul(quantity, price);
-  return toNumber(big(orderAmount).plus(commissionFor(orderAmount, costs))) <=
+  return toNumber(
+    big(orderAmount)
+      .plus(commissionFor(orderAmount, costs))
+      .plus(bpsOf(orderAmount, costs.transferBps ?? 0)),
+  ) <=
     budget + 1e-8
     ? quantity
     : 0;

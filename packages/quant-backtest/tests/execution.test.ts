@@ -6,6 +6,7 @@ import {
   type ExecutionRules,
 } from "../src/execution.js";
 import { defaultExecutionCosts } from "trading-strategy-core/costs";
+import { portfolioExecutionFee } from "../src/portfolio-sizing.js";
 
 const rules: ExecutionRules = {
   evidence: "fixture historical limits",
@@ -46,6 +47,19 @@ it("declared historical price limits reject unverifiable fills and missing evide
     ).reason,
   ).toContain("停牌");
   expect(affordableQuantity(1e7, 10, rules, defaultExecutionCosts)).toBe(2000);
+});
+it("charges the A-share transfer fee on both sides and reserves it for buys", () => {
+  const costs = {
+    ...defaultExecutionCosts,
+    commissionBps: 3,
+    minimumCommission: 5,
+    sellTaxBps: 5,
+    transferBps: 0.1,
+  };
+  expect(portfolioExecutionFee(100, 10, "buy", costs)).toBeCloseTo(5.01, 10);
+  expect(portfolioExecutionFee(100, 10, "sell", costs)).toBeCloseTo(5.51, 10);
+  expect(affordableQuantity(1005, 10, rules, costs)).toBe(0);
+  expect(affordableQuantity(1006, 10, rules, costs)).toBe(100);
 });
 it("event engine consumes a signal series independently of the MA strategy", () => {
   const bars = [bar, { ...bar, date: "2026-10-12T09:40:00+08:00" }];

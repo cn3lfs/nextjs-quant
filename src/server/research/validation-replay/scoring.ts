@@ -37,7 +37,13 @@ export function scoreValidationResult(
     previous = b?.close;
     return { date: p.date, value: p.equity, benchmarkReturn };
   });
-  const evaluation = evaluatePerformance(request.initial, points);
+  const annualizationDays = request.market === "crypto" ? 365 : 252;
+  const evaluation = evaluatePerformance(
+    request.initial,
+    points,
+    points[0]?.date,
+    annualizationDays,
+  );
   let benchmarkNav = request.initial;
   const benchmarkEvaluation = points.every(
     (p) => p.benchmarkReturn !== undefined,
@@ -48,6 +54,8 @@ export function scoreValidationResult(
           date: p.date,
           value: (benchmarkNav *= 1 + p.benchmarkReturn!),
         })),
+        points[0]?.date,
+        annualizationDays,
       )
     : null;
   const difference = (a: number | null, b: number | null) =>
@@ -55,7 +63,7 @@ export function scoreValidationResult(
   const benchmarkSharpe = benchmarkEvaluation?.sharpe.value ?? null;
   const benchmarkCalmar = benchmarkEvaluation?.calmar.value ?? null;
   const daily = equityDailyReturns(points, request.initial);
-  const scale = Math.sqrt(request.market === "crypto" ? 365 : 252);
+  const scale = Math.sqrt(annualizationDays);
   const sameSharpe = (values: readonly (number | null)[]) => {
     const value = sharpeDaily(values).value;
     return value === null ? null : value * scale;

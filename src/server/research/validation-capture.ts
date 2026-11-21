@@ -292,10 +292,19 @@ export async function captureValidationInput(
             .get(symbol)
             ?.filter((a) => a.date >= input.start && a.date <= input.end) ?? [];
         const lifecycle = universe?.members.find((m) => m.symbol === symbol);
-        if (lifecycle?.delistingDate && lifecycle.delistingDate <= input.end)
-          throw new Error(
-            "Delisted member retained in universe; settlement/terminal valuation evidence missing for executable replay",
-          );
+        let terminal: PortfolioInstrument["terminal"];
+        if (lifecycle?.delistingDate && lifecycle.delistingDate <= input.end) {
+          const lastDate = bars.at(-1)!.date.slice(0, 10);
+          if (lastDate < lifecycle.delistingDate)
+            throw new Error(
+              `Delisted member lacks bars through ${lifecycle.delistingDate}; terminal valuation unavailable`,
+            );
+          terminal = {
+            date: lastDate,
+            valuation: "last-close",
+            evidence: `Delisted ${lifecycle.delistingDate}; last observed close used as terminal valuation, not a sale fill`,
+          };
+        }
         const entitlements = actions
           ? researchCorporateActions(
               events,
@@ -346,6 +355,7 @@ export async function captureValidationInput(
           execution,
           external: { lowZone },
           actions: entitlements,
+          ...(terminal ? { terminal } : {}),
         });
         sources.push({
           symbol,

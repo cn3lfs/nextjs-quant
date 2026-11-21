@@ -88,6 +88,8 @@ export function summarizePaper(
   const evaluation = evaluatePerformance(
     account.initial,
     state.result.equity.map((p) => ({ date: p.date, value: p.equity })),
+    undefined,
+    account.market === "crypto" ? 365 : 252,
   );
   const trades = evaluateTrades(paperCycles(state));
   const dates = [
