@@ -215,6 +215,52 @@ describe("strategy chart overlays", () => {
     ]);
   });
 
+  it("locates both swing levels by their first confirmation date and clips them to the visible range", () => {
+    const analyzed = analyzeBreakout(bars);
+    const point = {
+      ...analyzed.latest!,
+      levels: [
+        {
+          source: "swing-high" as const,
+          price: 40,
+          index: 0,
+          confirmedAt: bars[2]!.date,
+        },
+        {
+          source: "swing-low" as const,
+          price: 25,
+          index: 0,
+          confirmedAt: bars[0]!.date,
+        },
+      ],
+    };
+    const overlay = { ...analyzed, points: [point] };
+    const duplicate = [...bars.slice(0, -1), { ...bars[2]! }];
+    expect(
+      breakoutChartData(overlay, duplicate, 1).lines.map((line) => line.data),
+    ).toEqual([
+      [
+        { time: bars[2]!.date, value: 40 },
+        { time: point.date, value: 40 },
+      ],
+      [
+        { time: bars[1]!.date, value: 25 },
+        { time: point.date, value: 25 },
+      ],
+    ]);
+
+    point.levels[0]!.confirmedAt = point.date;
+    point.levels[1]!.confirmedAt = "2020-01-01";
+    expect(
+      breakoutChartData(overlay, bars, 1).lines.map((line) => line.data),
+    ).toEqual([
+      [
+        { time: bars[1]!.date, value: 25 },
+        { time: point.date, value: 25 },
+      ],
+    ]);
+  });
+
   it("clips pattern matches and geometry to the window and appends one direction arrow", () => {
     const point = (index: number, price: number) => ({
       index,

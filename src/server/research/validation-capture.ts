@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { isAStock } from "tstdx/local";
-import { calculateRps, type RpsSecurity } from "quant-rps";
+import { calculateRpsAtIndex, type RpsSecurity } from "quant-rps";
 import {
   historicalLowSeries,
   researchCandidates,
@@ -280,7 +280,7 @@ export async function captureValidationInput(
   const rpsAudit: {
     date: string;
     pool: number;
-    excluded: ReturnType<typeof calculateRps>["excluded"];
+    excluded: ReturnType<typeof calculateRpsAtIndex>["excluded"];
   }[] = [];
   for (const period of periods) {
     const instruments: PortfolioInstrument[] = [],
@@ -614,11 +614,12 @@ export async function captureValidationInput(
         const ranked =
           dayIndex < 120
             ? null
-            : calculateRps(
+            : calculateRpsAtIndex(
                 rpsStocks.filter((s) => members.has(s.symbol)),
                 calendar,
-                date,
+                dayIndex,
                 rpsPeriods,
+                date,
               );
         if (ranked)
           rpsAudit.push({ date, pool: ranked.pool, excluded: ranked.excluded });

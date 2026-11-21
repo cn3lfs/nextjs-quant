@@ -2,6 +2,7 @@ import { expect, it } from "vitest";
 import {
   aggregateGroupRps,
   calculateRps,
+  calculateRpsAtIndex,
   rankRps,
   rpsPeriods,
   rpsPolicy,
@@ -95,6 +96,55 @@ it("calculates all seven trading-session endpoints independently and preserves r
     result.rows.map((row) => [row.values[6], row.values[0], row.values[1]]),
   );
   expect(stocks).toEqual(before);
+});
+
+it("produces the same rankings and diagnostics when addressed by calendar index or date", () => {
+  const stocks = [
+    security("sz000001", 110),
+    security("sh600000", 120),
+    { ...security("sh600001"), name: "ST样本" },
+  ];
+  stocks[0]!.closes.delete(calendar[index - 3]!);
+  stocks[1]!.closes.get(calendar[index + 1]!)!.close = 90;
+  for (const dayIndex of [index - 1, index, index + 1]) {
+    const day = calendar[dayIndex]!;
+    expect(calculateRpsAtIndex(stocks, calendar, dayIndex)).toEqual(
+      calculateRps(stocks, calendar, day),
+    );
+    expect(
+      calculateRpsAtIndex(stocks, calendar, dayIndex, [5, 1, 3], day),
+    ).toEqual(calculateRps(stocks, calendar, day, [5, 1, 3]));
+  }
+});
+
+it("requires the first occurrence of a duplicated trading date", () => {
+  const stocks = [security()];
+  const duplicated = [...calendar];
+  duplicated.splice(120, 0, calendar[119]!);
+  expect(() => calculateRpsAtIndex(stocks, duplicated, 120)).toThrow(
+    "RPS参考日历索引必须是该交易日的首次出现位置",
+  );
+  expect(() =>
+    calculateRpsAtIndex(stocks, duplicated, 121, undefined, calendar[120]!),
+  ).not.toThrow();
+});
+
+it("rejects invalid indices and a trading date that disagrees with the index", () => {
+  const stocks = [security()];
+  for (const invalid of [-1, index + 0.5, NaN, calendar.length, 119]) {
+    expect(() => calculateRpsAtIndex(stocks, calendar, invalid)).toThrow(
+      "RPS参考日历不足，不能缩短收益窗口",
+    );
+  }
+  expect(() =>
+    calculateRpsAtIndex(
+      stocks,
+      calendar,
+      index,
+      undefined,
+      calendar[index - 1]!,
+    ),
+  ).toThrow("RPS参考日历索引与日期不匹配");
 });
 
 it("reduces only the denominator for the period whose price or traded endpoint is missing", () => {

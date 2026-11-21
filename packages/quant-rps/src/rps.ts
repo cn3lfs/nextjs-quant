@@ -106,6 +106,17 @@ export function calculateRps(
   date: string,
   periods: readonly number[] = rpsPeriods,
 ) {
+  return calculateRpsAtIndex(stocks, calendar, calendar.indexOf(date), periods);
+}
+
+/** Use a known calendar position, optionally checking its expected trading date. */
+export function calculateRpsAtIndex(
+  stocks: RpsSecurity[],
+  calendar: string[],
+  index: number,
+  periods: readonly number[] = rpsPeriods,
+  expectedDate?: string,
+) {
   if (
     !periods.length ||
     periods.length > rpsPeriods.length ||
@@ -115,9 +126,19 @@ export function calculateRps(
     throw new Error("RPS周期无效");
   if (new Set(stocks.map((s) => s.symbol)).size !== stocks.length)
     throw new Error("RPS证券重复");
-  const index = calendar.indexOf(date);
-  if (index < Math.max(...periods))
+  const longest = Math.max(...periods);
+  if (!Number.isInteger(index) || index < longest || index >= calendar.length)
     throw new Error("RPS参考日历不足，不能缩短收益窗口");
+  const date = calendar[index];
+  if (
+    date === undefined ||
+    (expectedDate !== undefined && date !== expectedDate)
+  )
+    throw new Error("RPS参考日历索引与日期不匹配");
+  // calculateRps(date) resolves the first occurrence; keep the indexed entry
+  // equivalent instead of silently computing at a later duplicate.
+  if (index > 0 && calendar[index - 1] === date)
+    throw new Error("RPS参考日历索引必须是该交易日的首次出现位置");
   const excluded = Object.fromEntries(
     rpsExclusions.map((key) => [key, [] as string[]]),
   ) as Record<RpsExclusion, string[]>;
@@ -126,12 +147,7 @@ export function calculateRps(
   let pool = 0;
   const symbols: string[] = [];
   for (const stock of stocks) {
-    const reason = rpsPoolExclusion(
-      stock,
-      calendar,
-      index,
-      Math.max(...periods),
-    );
+    const reason = rpsPoolExclusion(stock, calendar, index, longest);
     if (reason) {
       excluded[reason].push(stock.symbol);
       continue;
