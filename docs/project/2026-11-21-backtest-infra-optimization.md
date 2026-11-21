@@ -60,6 +60,15 @@
 - P5：A 股公式绝对价格比较要求逐 bar 因果价格；PIT 名册按回放日可知事实（公告/抓取时间）淘汰；财务 `current-revision` 的 PE/PB 保持未知；退市最后交易日与终止上市日分离。
 - P6：`readWindowSnapshot` 按日期索引读取并与全量逐根一致；BarStore 支持跨读取共享预算，lab/validation 累计原价与 signalBars，超限任务失败；缺终值持仓的评分返回 blocked/null。
 
+## P3/P4/P6 收口（2026-11-22）
+
+多 Agent wave（Astra / Sol-high / Claude DeepSeek + Sol Review）补齐首轮交付遗留：
+
+- **sim 账本并入共享状态机**：`src/server/portfolio/sim-accounts/engine.ts` 的 `replayPositions` 改用 `quant-execution` 的 `AccountBook`（bigint 适配），`quote` 改用 `notional`/`feesFor`/`bpsOf`；保留 A 股 T+1 视图、crypto T+0、可卖批次扣减与比例成本结转。`sim_fills` 增 `transfer_atoms`（schema v23，旧库默认 0，仍拒绝负值）。
+- **THS 模拟盘/镜像对账**：下单采集 `entrust_no` 回执并绑定发送凭证哈希与交易日；`orderStatus` 只按委托号归属，成交号用于去重且冲突行保持未知；`mirrorOrderFromTrades` 不再把多条无成交号记录累加成已成交；跨日或凭证变化保持 unknown、不重发；委托号/成交号输出前过滤凭证回显与非法格式。
+- **RPS/chan 热路径**：新增 `calculateRpsAtIndex` 并强制首次出现位置；回测 `state.ts` 预建 RPS 日期与 PIT 成员 Map；`chanC4Sequence` 与 association 查询改为 Map；图表波段标记改用日期索引。
+- 定向验证：sim 21、quant-execution 7、quant-rps 16、quant-backtest 108、trading-strategies 487、mock/paper 37+54、图表 11 项通过；迁移/版本套件更新到 v23。
+
 ## 保留的边界
 
 - `docs/trading-skills-method-map.json` 是活数据目录（策略中心/理论研究使用），保留；只删除源锁与漂移审计。

@@ -52,7 +52,7 @@
 
 以下只说明决定的来源，不恢复退役入口或覆盖文首状态。
 
-- 2026-11-21：回测/交易基础设施去治理化、统一 `AccountBook` 账本、交割单软删除、PIT/因果复权与窗口读取，见[交付记录](project/2026-11-21-backtest-infra-optimization.md)。
+- 2026-11-21：回测/交易基础设施去治理化、统一 `AccountBook` 账本、交割单软删除、PIT/因果复权与窗口读取；11-22 收口 sim 账本、THS 委托号对账与 RPS/chan 索引化，见[交付记录](project/2026-11-21-backtest-infra-optimization.md)。
 - 2026-11-19：七工作区布局与信息降噪、Phase 2 风险/热力图可视化，见[对标报告](project/2026-11-19-trading-software-benchmark.md)。
 - 2026-11-17：策略闭环、B2 多周期/结构/财务、理论策略工程化与按钮验收，见[策略闭环](research-backtest/2026-11-17-strategy-closure.md)与[B2 交付](research-backtest/2026-11-17-b2-development.md)。
 - 2026-11-16：L0–L5 交易生命周期优化，见[交付记录](project/2026-11-16-lifecycle.md)。
