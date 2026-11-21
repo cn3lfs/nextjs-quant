@@ -61,6 +61,16 @@ it("R7 清仓恢复不改变残差，openingUnknown 与离线分段证据保留"
     value: null,
     reason: "期初现金未知",
   });
+  const anchored = replayTradeReview({
+    ...unknown.replayInput,
+    trades: {
+      ...unknown.replayInput.trades,
+      cashFlows: [{ ...parsed.cashFlows[0]!, balanceCash: 1000 }],
+    },
+  });
+  expect(anchored.nav.openingCash).toBe(2000);
+  expect(anchored.basis.openingCash).toContain("首笔资金事件");
+  expect(anchored.projectedCashDays).toEqual(snapshot.projectedCashDays);
   expect(snapshot.unexplainedCashResidual.value).toBeCloseTo(295.9);
   expect(snapshot.projectedCashDays.map((day) => day.cash.value)).toEqual([
     1000, 2200, 2200,

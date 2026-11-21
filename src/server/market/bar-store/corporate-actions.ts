@@ -1,88 +1,53 @@
-import { open, readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { parseGbbqFile, resolveTdxRoot } from "tstdx/local";
 import { sourceFingerprint } from "./local-source";
 
-type Entry = {
-  statIdentity: string;
-  sample: Buffer;
-  ready: Promise<{
-    events: ReturnType<typeof parseGbbqFile>["events"];
-    modified: number;
-    path: string;
-    fingerprint: string;
-  }>;
+type Events = ReturnType<typeof parseGbbqFile>["events"];
+type CorporateActionsSource = {
+  events: Events;
+  modified: number;
+  path: string;
+  fingerprint: string;
 };
 
-let current: Entry | undefined;
-const sampleBytes = 4096;
+let parsed: { hash: string; events: Events } | undefined;
 
-async function sampleGbbq(path: string) {
-  const file = await open(path, "r");
-  try {
-    const info = await file.stat();
-    const { size, mtimeMs } = info;
-    if (!info.isFile() || size > 64 * 1024 * 1024)
-      throw new Error("本地公司行动源不是常规文件或容量超限");
-    const sample = Buffer.alloc(Math.min(size, 2 * sampleBytes));
-    if (size <= sample.length) {
-      const { bytesRead } = await file.read(sample, 0, size, 0);
-      if (bytesRead !== size) throw new Error("读取期间公司行动来源变化");
-    } else {
-      const head = await file.read(sample, 0, sampleBytes, 0);
-      const tail = await file.read(
-        sample,
-        sampleBytes,
-        sampleBytes,
-        size - sampleBytes,
-      );
-      if (head.bytesRead !== sampleBytes || tail.bytesRead !== sampleBytes)
-        throw new Error("读取期间公司行动来源变化");
-    }
-    return { sample, size, modified: mtimeMs };
-  } finally {
-    await file.close();
-  }
-}
+const sha256 = (body: Buffer) =>
+  createHash("sha256").update(body).digest("hex");
 
-/** Concurrent readers share the full parse and SHA-256. Stat plus head/tail
- * bytes detect common rewrites without reading all records on every hit. */
-export async function corporateActions(root: string) {
+/** Every call verifies the complete file content. Joining an in-flight read
+ * would let a caller that started after a rewrite receive the pre-rewrite hash. */
+export async function corporateActions(
+  root: string,
+): Promise<CorporateActionsSource> {
   const path = join(resolveTdxRoot(root), "T0002/hq_cache/gbbq");
-  const statIdentity = await sourceFingerprint(path);
-  const { sample, size, modified } = await sampleGbbq(path);
-  if ((await sourceFingerprint(path)) !== statIdentity)
-    throw new Error("读取期间公司行动来源变化");
+  const identity = await sourceFingerprint(path);
+  const info = await stat(path);
+  if (!info.isFile() || info.size > 64 * 1024 * 1024)
+    throw new Error("本地公司行动源不是常规文件或容量超限");
+
+  const body = await readFile(path);
+  if (body.length !== info.size) throw new Error("读取期间公司行动来源变化");
+  const hash = sha256(body);
+
+  // A rewrite can preserve file metadata. Verify the complete content again
+  // before returning a cached parse or publishing a new one.
+  const verification = await readFile(path);
   if (
-    current?.statIdentity !== statIdentity ||
-    !current.sample.equals(sample)
-  ) {
-    const ready = (async () => {
-      const body = await readFile(path);
-      const headLength = Math.min(size, sampleBytes);
-      const tailLength = sample.length - headLength;
-      if (
-        body.length !== size ||
-        !body.subarray(0, headLength).equals(sample.subarray(0, headLength)) ||
-        !body.subarray(size - tailLength).equals(sample.subarray(headLength)) ||
-        (await sourceFingerprint(path)) !== statIdentity
-      )
-        throw new Error("读取期间公司行动来源变化");
-      const { events, sourceSha256 } = parseGbbqFile(body);
-      return {
-        events,
-        modified,
-        path,
-        fingerprint: `${statIdentity}:${sourceSha256}`,
-      };
-    })();
-    current = { statIdentity, sample, ready };
-  }
-  const entry = current;
-  try {
-    return { ...(await entry.ready) };
-  } catch (error) {
-    if (current === entry) current = undefined;
-    throw error;
-  }
+    verification.length !== info.size ||
+    sha256(verification) !== hash ||
+    (await sourceFingerprint(path)) !== identity
+  )
+    throw new Error("读取期间公司行动来源变化");
+
+  if (parsed?.hash !== hash)
+    parsed = { hash, events: parseGbbqFile(body).events };
+  return {
+    events: parsed.events,
+    modified: info.mtimeMs,
+    path,
+    fingerprint: `${path}:${hash}`,
+  };
 }

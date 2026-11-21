@@ -304,14 +304,15 @@ export function reviewTradeNav(input: TradeReviewNavInput) {
     );
   // Infer only from the first chronological event: later balances cannot establish
   // opening cash without reconstructing the intervening ledger.
-  const first = events[0]?.fill;
+  const first = events[0];
+  const balance = (first?.fill ?? first?.flow)?.balanceCash;
+  const movement = first?.fill ? first.fill.netAmount : first?.flow?.amount;
   const inferredOpeningCash =
-    first &&
-    first.balanceCash !== null &&
-    first.netAmount !== null &&
-    Number.isFinite(first.balanceCash) &&
-    Number.isFinite(first.netAmount)
-      ? first.balanceCash - first.netAmount
+    balance != null &&
+    movement != null &&
+    Number.isFinite(balance) &&
+    Number.isFinite(movement)
+      ? balance - movement
       : null;
   if (inferredOpeningCash !== null) {
     if (input.openingCash === undefined) cash = inferredOpeningCash;
@@ -322,7 +323,7 @@ export function reviewTradeNav(input: TradeReviewNavInput) {
   }
   const openingCash = cash;
   const missingOpeningReason =
-    "期初现金未知：缺少调用方期初余额和首笔成交余额证据";
+    "期初现金未知：缺少调用方期初余额和首笔资金事件的余额及发生额证据";
   if (openingCash === null) warnings.push(missingOpeningReason);
   const originalEvents = events;
   events = orderTradeReviewIntraday(events);

@@ -193,8 +193,8 @@ export function replayTradeReview(input: TradeReviewReplayInput) {
       openingCash:
         input.nav.openingCash === undefined
           ? nav.openingCash === null
-            ? "期初现金未知，缺少首笔成交余额证据"
-            : "按首笔成交的柜台余额与实际发生额反推期初现金"
+            ? "期初现金未知，缺少首笔资金事件的余额及发生额证据"
+            : "按首笔资金事件的柜台余额与实际发生额反推期初现金"
           : "调用方提供期初现金",
       costMethods: "移动加权与FIFO并列；openingUnknown收益留空",
     },

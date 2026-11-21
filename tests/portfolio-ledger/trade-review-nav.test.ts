@@ -790,6 +790,26 @@ describe("R4b 柜台余额重放", () => {
       run({ fills, openingCash: undefined }).inferredOpeningCash,
     ).toBeNull();
   });
+  it.each([
+    [1000, 6000],
+    [-1000, 4000],
+  ])(
+    "首笔流水带符号发生额 %s、余额 %s 可反推期初现金",
+    (amount, balanceCash) => {
+      const input = { cashFlows: [flow(d(1), amount, { balanceCash })] };
+      const inferred = run({ ...input, openingCash: undefined });
+      expect(inferred.openingCash).toBe(5000);
+      expect(inferred.inferredOpeningCash).toBe(5000);
+      expect(inferred.days[0]!.cash.value).toBe(balanceCash);
+      expect(inferred.days[0]!.dailyReturn.value).toBe(0);
+
+      const explicit = run({ ...input, openingCash: 0 });
+      expect(explicit.openingCash).toBe(0);
+      expect(explicit.inferredOpeningCash).toBe(5000);
+      expect(explicit.warnings.join()).toContain("期初现金冲突");
+      expect(explicit.days[0]!.cash.value).toBe(amount);
+    },
+  );
   it("倒序日期同日正序按原始行重放；整表反转产生三处余额跳变", () => {
     const fills = [
       fill(d(2), "buy", 20, 1, {
@@ -863,7 +883,7 @@ describe("R4b 柜台余额重放", () => {
     expect(r.twr.value).toBeNull();
     expect(r.twr.reasons[0]?.reason).toContain("期初现金未知");
     expect(r.warnings).toContain(
-      "期初现金未知：缺少调用方期初余额和首笔成交余额证据",
+      "期初现金未知：缺少调用方期初余额和首笔资金事件的余额及发生额证据",
     );
     expect(r.days[0]!.cash.value).toBeNull();
     expect(r.minimumCash.value).toBeNull();

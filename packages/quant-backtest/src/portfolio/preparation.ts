@@ -6,7 +6,18 @@ import {
 } from "trading-strategies";
 import { marketRules } from "trading-strategy-core/market-rules";
 import { executionCostsSchema } from "trading-strategy-core/costs";
+import { z } from "zod";
 import { type PortfolioInstrument, type PortfolioRequest } from "./types.js";
+
+const actionDate = z.union([
+  z.string().date(),
+  z.string().datetime({ offset: true }),
+]);
+
+function isActionDate(value: unknown): value is string {
+  const parsed = actionDate.safeParse(value);
+  return parsed.success && Number.isFinite(Date.parse(parsed.data));
+}
 
 export const keyFor = (strategy: string, symbol: string) =>
   JSON.stringify([strategy, symbol]);
@@ -165,7 +176,7 @@ export function preparePortfolioRequest(
         actions.some(
           (a) =>
             !a.evidence ||
-            a.availableAt > a.date ||
+            Date.parse(a.availableAt) > Date.parse(a.date) ||
             !Number.isFinite(a.dividend) ||
             a.dividend < 0 ||
             !Number.isFinite(a.bonus) ||
@@ -180,9 +191,16 @@ export function preparePortfolioRequest(
               (a.rightsPrice === undefined ||
                 !Number.isFinite(a.rightsPrice) ||
                 a.rightsPrice < 0)) ||
+            ((a.cashAvailableAt !== undefined ||
+              a.timingAssumption !== undefined) &&
+              (a.timingAssumption !== "ex-date-research-scenario" ||
+                !isActionDate(a.cashAvailableAt) ||
+                // Intraday replays attach a bar timestamp to the ex-date.
+                (a.cashAvailableAt !== a.date &&
+                  a.cashAvailableAt !== a.date.slice(0, 10)))) ||
             (a.sharesSellableAt !== undefined &&
-              (!Number.isFinite(Date.parse(a.sharesSellableAt)) ||
-                a.sharesSellableAt < a.date)) ||
+              (!isActionDate(a.sharesSellableAt) ||
+                Date.parse(a.sharesSellableAt) < Date.parse(a.date))) ||
             (a.bonus > 0 && !a.sharesSellableAt),
         )
       )

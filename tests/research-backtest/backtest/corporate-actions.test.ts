@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, stat, utimes, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 import {
@@ -322,6 +322,76 @@ describe("corporate action accounting", () => {
       expect(() => runPortfolio(q)).toThrow("corporate action");
     }
   });
+  it.each([
+    { timingAssumption: "settlement-date" },
+    { timingAssumption: undefined },
+    { cashAvailableAt: undefined },
+    { cashAvailableAt: "invalid" },
+    { cashAvailableAt: day[3] },
+    { sharesSellableAt: day[1] },
+    { sharesSellableAt: "2027-02-29" },
+  ])(
+    "rejects invalid action timing during preparation with no holdings: %j",
+    (patch) => {
+      const q = request(day[2]!, {});
+      q.strategies[0]!.entry = { kind: "constant", value: false };
+      // Validate supplied actions even outside the replay window.
+      q.instruments[0]!.actions = [
+        { ...action({ date: "2026-10-15" }), ...patch } as PortfolioAction,
+      ];
+      expect(() => runPortfolio(q)).toThrow("corporate action");
+    },
+  );
+  it("accepts frozen actions without explicit cash timing in an empty strategy", () => {
+    const q = request(day[2]!, { dividend: 1 });
+    q.strategies[0]!.entry = { kind: "constant", value: false };
+    q.instruments[0]!.actions = [
+      {
+        date: day[2]!,
+        availableAt: day[2]!,
+        dividend: 1,
+        bonus: 0,
+        evidence: "Frozen fixture before cash timing disclosure",
+      },
+    ];
+    const result = runPortfolio(q);
+    expect(result.fills).toEqual([]);
+    expect(result.corporateActions).toEqual([]);
+  });
+  it("accepts the ex-date and an intraday sellable instant in a minute replay", () => {
+    const q = request(day[2]!, { bonus: 0.1, sharesSellableAt: day[2] });
+    const atOpen = (date: string) => `${date}T09:35:00+08:00`;
+    q.calendar = day.map(atOpen);
+    q.start = q.calendar[0]!;
+    q.end = q.calendar[3]!;
+    q.strategies[0]!.period = "5m";
+    const instrument = q.instruments[0]!;
+    instrument.bars = instrument.bars.map((b) => ({
+      ...b,
+      date: atOpen(b.date),
+    }));
+    instrument.signalBars = instrument.signalBars.map((b) => ({
+      ...b,
+      date: atOpen(b.date),
+    }));
+    const entitlement = instrument.actions![0]!;
+    entitlement.date = atOpen(entitlement.date);
+    entitlement.availableAt = atOpen(entitlement.availableAt);
+    entitlement.sharesSellableAt = atOpen(entitlement.sharesSellableAt!);
+    const result = runPortfolio(q);
+    expect(result.corporateActions).toMatchObject([
+      {
+        date: atOpen(day[2]!),
+        cashAvailableAt: day[2],
+        timingAssumption: "ex-date-research-scenario",
+      },
+    ]);
+    expect(result.positions[0]?.lots).toContainEqual({
+      quantity: 100,
+      bought: atOpen(day[2]!),
+      availableOn: atOpen(day[2]!),
+    });
+  });
   it("applies an action during a calendar gap on the next event before a pending sale", () => {
     const sunday = "2026-10-11",
       thursday = "2026-10-08";
@@ -359,11 +429,20 @@ describe("corporate action accounting", () => {
   });
 });
 
-it("invalidates cached GBBQ actions and SHA-256 when sampled bytes change under the same stat identity", async () => {
-  const root = await mkdtemp(join(tmpdir(), "gbbq-cache-"));
+it("invalidates cached GBBQ actions when only the middle bytes change under the same stat identity", async () => {
+  const root = await mkdtemp(join(process.env.QUANT_DATA_DIR!, "gbbq-cache-"));
   const directory = join(root, "T0002", "hq_cache");
   const path = join(directory, "gbbq");
-  const body = Buffer.from(gbbqFixture.gbbqBase64, "base64");
+  const record = Buffer.from(gbbqFixture.gbbqBase64, "base64").subarray(4, 33);
+  const count = 400;
+  const body = Buffer.alloc(4 + count * record.length);
+  body.writeUInt32LE(count);
+  body.fill(record, 4);
+  const changed = Buffer.from(body);
+  const offset = 4 + 200 * record.length;
+  changed.fill(0, offset, offset + record.length);
+  expect(changed.subarray(0, 4096)).toEqual(body.subarray(0, 4096));
+  expect(changed.subarray(-4096)).toEqual(body.subarray(-4096));
   const fixedTime = new Date("2026-11-13T00:00:00Z");
   await mkdir(directory, { recursive: true });
   await writeFile(path, body);
@@ -375,19 +454,21 @@ it("invalidates cached GBBQ actions and SHA-256 when sampled bytes change under 
     .mockResolvedValue(`${path}:fixed-stat-identity`);
   try {
     const first = await corporateActions(root);
-    expect(first.events.size).toBeGreaterThan(0);
+    expect([...first.events.values()][0]).toHaveLength(count);
     expect((await corporateActions(root)).events).toBe(first.events);
 
-    body.writeUInt32LE(0);
-    await writeFile(path, body);
+    await writeFile(path, changed);
     await utimes(path, fixedTime, fixedTime);
     const rewrittenStat = await stat(path);
     expect(rewrittenStat.size).toBe(initialStat.size);
     expect(rewrittenStat.mtimeMs).toBe(initialStat.mtimeMs);
 
     const rewritten = await corporateActions(root);
-    expect(rewritten.events.size).toBe(0);
+    expect([...rewritten.events.values()][0]).toHaveLength(count - 1);
     expect(rewritten.fingerprint).not.toBe(first.fingerprint);
+    expect(rewritten.fingerprint).toContain(
+      createHash("sha256").update(changed).digest("hex"),
+    );
     expect((await corporateActions(root)).events).toBe(rewritten.events);
   } finally {
     fingerprint.mockRestore();
