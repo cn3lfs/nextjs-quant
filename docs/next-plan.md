@@ -1,5 +1,9 @@
 # 当前实施计划
 
+## 2026-11-21：回测与交易基础设施优化已交付
+
+回测引擎与交易基础设施完成一轮结构性优化：去治理化（源锁/深度指纹/构建硬门禁/固定窗口/死板测试）、`AccountBook` 统一账本与 `quant-execution` 包、交割单软删除 v22、PIT/因果复权、窗口读取与按任务预算。全量根测试 7,769 项零失败。详见[交付记录](project/2026-11-21-backtest-infra-optimization.md)。生产回测仍使用 number 适配器，bigint 适配器用于行情原子/外部成交；完整历史指数成分与首次披露财务版本仍依赖外部数据。
+
 ## 当前阶段：THSDK 全量数据源已实现（分支待合入）
 
 同花顺 `thsdk-hq` 全量接入已在 `feat/thsdk-data-source` 完成 Wave 0–5：全局数据源与 `/system` 诊断、`/scan` 盘口/分价/竞价/分时、情绪与板块、问财与资讯，以及图表、公式选股与实验室回测的**可选**输入。交付记录见 [THSDK 交付记录](data-sources/2026-11-19-thsdk-delivery.md)，[实施规格](data-sources/2026-11-19-thsdk-data-source-plan.md)与 [ABI 实证](data-sources/2026-11-19-thsdk-sample-verification.md)保留为背景与证据。
