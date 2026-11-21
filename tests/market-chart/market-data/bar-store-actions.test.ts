@@ -12,7 +12,7 @@ it("shares a whole-market parse across concurrent reads, invalidates on source c
   const file = join(parent, "gbbq");
   const bytes = Buffer.from(fixture.gbbqBase64, "base64");
   await writeFile(file, bytes);
-  const read = vi.spyOn(tdx, "readGbbq");
+  const read = vi.spyOn(tdx, "parseGbbqFile");
   try {
     const batch = await Promise.all(
       Array.from({ length: 8 }, () => corporateActions(root)),
