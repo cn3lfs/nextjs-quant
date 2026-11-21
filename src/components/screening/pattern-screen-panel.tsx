@@ -690,7 +690,7 @@ export function PatternScreenPanel() {
                 className="h-7 w-16"
                 type="number"
                 min={1}
-                max={20}
+                max={250}
                 value={lookbackBars}
                 onChange={(e) => setLookbackBars(e.target.value)}
               />

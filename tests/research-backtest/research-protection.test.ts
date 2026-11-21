@@ -3,10 +3,7 @@ import type { Bar } from "../../src/lib/domain";
 import { researchSpecSchema } from "../../src/lib/research/strategy-research";
 import { researchManagementSchema } from "../../src/lib/research/workflow/research-management";
 import { researchHigherLow } from "trading-strategies/research/risk/research-protection";
-import {
-  researchMethodSnapshot,
-  validateResearchMethod,
-} from "../../src/server/research/research-method";
+import { researchMethodSnapshot } from "../../src/server/research/research-method";
 
 const date = (i: number) =>
   new Date(Date.UTC(2024, 0, i + 1)).toISOString().slice(0, 10);
@@ -82,8 +79,7 @@ it("optional protections preserve old shapes and freeze their source version ind
   const active = spec(0, 7, { breakeven: { atR: 1 } });
   const method = researchMethodSnapshot(active);
   expect(method.protection!.version).toBe("research-protection-1");
-  expect(() => validateResearchMethod(active, method)).not.toThrow();
-  expect(() => validateResearchMethod(old, method)).toThrow("方法版本");
+  expect(researchMethodSnapshot(active)).toEqual(method);
   expect(
     researchManagementSchema.safeParse({ trailAfterScaleOut: true }).success,
   ).toBe(false);

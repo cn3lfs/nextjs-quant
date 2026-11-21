@@ -1170,14 +1170,28 @@ describe("W4 出入金估值模式", () => {
       }),
       run({ cashFlows: [flow(d(2), 100)] }),
     ];
-    // Frozen before W4 implementation; exclude only the two new metadata fields.
+    for (const value of cases) {
+      expect(value.flowValuation).toBe("explicit");
+      expect(value.flowValuationNote).toBeNull();
+    }
     expect(
-      cases.map(({ flowValuation, flowValuationNote, ...legacy }) => {
-        expect(flowValuation).toBe("explicit");
-        expect(flowValuationNote).toBeNull();
-        return legacy;
-      }),
-    ).toMatchSnapshot();
+      cases.map((value) => value.days.map((day) => day.nav.value)),
+    ).toEqual([
+      [100, 90, 108],
+      [100, 1110, 1110],
+      [100, 1110, 1110],
+      [100, 200, 200],
+    ]);
+    expect(cases[0]!.twr.value).toBeCloseTo(0.08, 12);
+    expect(cases[1]!.twr.value).toBeNull();
+    expect(cases[2]!.twr.value).toBeCloseTo(0.1, 12);
+    expect(cases[3]!.twr.value).toBe(0);
+    expect(cases.map((value) => value.twr.reason === null)).toEqual([
+      true,
+      false,
+      true,
+      true,
+    ]);
     expect(
       curve([100, 110, 110], {
         cashFlows: [flow(d(2), 1000)],

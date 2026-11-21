@@ -504,20 +504,7 @@ export async function captureValidationInput(
     candidateMenu: researchCandidates(
       datasets[0]?.instruments.map((i) => i.symbol) ?? requested,
       input.market,
-    ).map((candidate) => ({
-      ...candidate,
-      strategy: {
-        ...candidate.strategy,
-        version:
-          Number.parseInt(
-            validationHash([candidate.strategy, strategyBuildHash]).slice(
-              0,
-              12,
-            ),
-            16,
-          ) + 1,
-      },
-    })),
+    ),
   };
 }
 export type FrozenValidationInput = Awaited<

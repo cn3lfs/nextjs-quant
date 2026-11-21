@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { readFileSync } from "node:fs";
 import { parseDeliveryTable } from "../../src/lib/research/evidence/delivery-table";
 import { afterEach, expect, it } from "vitest";
-import { migrate } from "../../src/server/db/migrations";
+import { migrate, migrations } from "../../src/server/db/migrations";
 import {
   DeliveryStore,
   deliveryRowId,
@@ -370,18 +370,9 @@ it("all three payloads redact primary/duplicate accounts including unresolved ev
 
 it("migrations are repeatable and preserve a genuine version 9 database", () => {
   const db = database(false);
-  const source = readFileSync("src/server/db/migrations.ts", "utf8");
-  const statements = [
-    ...source
-      .slice(
-        source.indexOf("const migrations = ["),
-        source.indexOf("export function migrate"),
-      )
-      .matchAll(/`([^`]+)`/g),
-  ].map((match) => match[1]!);
-  // Four migrations use named SQL constants; the first nine literal statements stay fixed.
-  expect(statements).toHaveLength(17);
-  for (const sql of statements.slice(0, 9)) db.exec(sql);
+  // Build the genuine version 9 schema from the first nine migrations, then
+  // verify later migrations extend it without losing the rows below.
+  for (const sql of migrations.slice(0, 9)) db.exec(sql);
   db.pragma("user_version = 9");
   db.prepare("INSERT INTO records VALUES ('old','snapshot','{}',1)").run();
   db.prepare("INSERT INTO concept_rps_days VALUES ('2026-01-01','{}')").run();

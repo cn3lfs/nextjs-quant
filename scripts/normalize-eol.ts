@@ -6,9 +6,7 @@ import { resolve } from "node:path";
 // `.gitattributes` stores every text file with LF, but tooling that writes
 // through PowerShell leaves CRLF in the working copy, which then makes
 // `git diff --check` fail for reasons unrelated to the change under review.
-// Normalize only files git already reports as modified or untracked, and never
-// the byte-exact source snapshots: their line endings are the author's content.
-const excluded = /^docs\/trading-skills-source-snapshots\//;
+// Normalize only files git already reports as modified or untracked.
 const text = /\.(ts|tsx|mjs|cjs|js|json|md|yml|yaml|css|html)$/;
 
 const status = execFileSync("git", ["status", "--porcelain"], {
@@ -17,8 +15,7 @@ const status = execFileSync("git", ["status", "--porcelain"], {
 const candidates = status
   .split("\n")
   .filter(Boolean)
-  .map((line) => line.slice(3).trim().replace(/^"|"$/g, ""))
-  .filter((path) => !excluded.test(path));
+  .map((line) => line.slice(3).trim().replace(/^"|"$/g, ""));
 
 const files: string[] = [];
 const walk = (path: string) => {
@@ -32,7 +29,7 @@ const walk = (path: string) => {
     for (const child of readdirSync(path)) walk(`${path}/${child}`);
     return;
   }
-  if (text.test(path) && !excluded.test(path)) files.push(path);
+  if (text.test(path)) files.push(path);
 };
 for (const path of candidates) walk(path);
 

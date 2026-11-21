@@ -49,7 +49,7 @@ export const chartViewPeriods = `
   CREATE TABLE chart_shared_drawings (symbol TEXT NOT NULL,
     origin TEXT NOT NULL CHECK(origin IN ('day','week','month','5m','15m','30m','60m')),
     payload TEXT NOT NULL, PRIMARY KEY(symbol,origin));`;
-const migrations = [
+export const migrations = [
   `CREATE TABLE IF NOT EXISTS records(id TEXT PRIMARY KEY,kind TEXT NOT NULL,payload TEXT NOT NULL,updated_at INTEGER NOT NULL);CREATE INDEX IF NOT EXISTS records_kind ON records(kind,updated_at);`,
   `CREATE INDEX IF NOT EXISTS delivery_status ON records(kind,json_extract(payload,'$.status'),updated_at);`,
   `CREATE TABLE record_kind_revisions(kind TEXT PRIMARY KEY, revision INTEGER NOT NULL);

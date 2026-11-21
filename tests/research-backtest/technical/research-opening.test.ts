@@ -10,7 +10,7 @@ import {
   type OpeningId,
 } from "trading-strategies/research/technical/research-opening";
 
-it("minute capture includes five benchmark warmup sessions without crossing the hard coverage start", () => {
+it("minute capture includes five benchmark warmup sessions from the provided calendar", () => {
   const calendar = [
     "1999-12-31",
     "2000-01-04",
@@ -21,7 +21,7 @@ it("minute capture includes five benchmark warmup sessions without crossing the 
     "2000-01-11",
   ];
   expect(openingMinuteStart(calendar, "2000-01-11")).toBe("2000-01-04");
-  expect(openingMinuteStart(calendar, "2000-01-04")).toBe("2000-01-04");
+  expect(openingMinuteStart(calendar, "2000-01-04")).toBe("1999-12-31");
 });
 
 function context(id: OpeningId = "OP01"): OpeningContext {

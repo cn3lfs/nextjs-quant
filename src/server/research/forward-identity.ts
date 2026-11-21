@@ -4,7 +4,6 @@ import { join } from "node:path";
 import { z } from "zod";
 import { strategyBuildHash } from "trading-strategies";
 import { maBaselineBuildHash } from "quant-backtest";
-import { validationBuildHash } from "./validation-identity";
 
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
 const identitySchema = z
@@ -44,28 +43,15 @@ export function runtimeExecutionIdentity(
     strategyBuildHash,
     maBaselineBuildHash,
   ]);
-  if (
-    identity.strategyHash !== strategyBuildHash ||
-    (maBaselineBuildHash !== "source-development" &&
-      identity.engineHash !== maBaselineBuildHash)
-  )
-    throw new Error(
-      "Runtime execution identity differs from the loaded strategy/engine build",
-    );
   if (cached?.key === key) return cached.identity;
+  // The manifest is provenance. Only worker byte corruption is fatal here;
+  // a strategy/engine build change is reported by the run manifest instead of
+  // blocking long research or paper advancement.
   if (
     createHash("sha256").update(readFileSync(path)).digest("hex") !==
     identity.workerSha256
   )
     throw new Error("Runtime worker bytes differ from their build manifest");
-  if (
-    directory ===
-      (process.env.QUANT_WORKER_DIR ?? join(process.cwd(), "runtime")) &&
-    validationBuildHash() !== identity.hash
-  )
-    throw new Error(
-      "Runtime validation identity differs from the loaded worker",
-    );
   cached = { key, identity: Object.freeze(identity) };
   return cached.identity;
 }

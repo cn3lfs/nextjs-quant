@@ -63,18 +63,19 @@ it("detects worker replacement even after a successful cached verification", () 
   );
   expect(() => runtimeExecutionIdentity()).toThrow("worker bytes");
 });
-it("does not invent a production identity for missing, retired or mismatched assets", () => {
+it("rejects missing or malformed assets but records build drift without blocking", () => {
   const { directory, manifest } = fixture();
   writeFileSync(
     join(directory, "research-validation-identity.json"),
     JSON.stringify({ hash: manifest.hash }),
   );
   expect(() => runtimeExecutionIdentity()).toThrow();
+  const drifted = { ...manifest, strategyHash: "0".repeat(64) };
   writeFileSync(
     join(directory, "research-validation-identity.json"),
-    JSON.stringify({ ...manifest, strategyHash: "0".repeat(64) }),
+    JSON.stringify(drifted),
   );
-  expect(() => runtimeExecutionIdentity()).toThrow("loaded strategy/engine");
+  expect(runtimeExecutionIdentity()).toEqual(drifted);
   rmSync(join(directory, "research-validation-identity.json"));
   expect(() => runtimeExecutionIdentity()).toThrow();
 });

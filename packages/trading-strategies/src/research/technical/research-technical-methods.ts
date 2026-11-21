@@ -1,4 +1,5 @@
 import type { Bar } from "trading-strategy-core/bars";
+import { isResearchDate } from "../contracts/window.js";
 import {
   ma,
   macd,
@@ -186,8 +187,7 @@ export function technicalIntradayRatio(
   date: string,
 ) {
   if (
-    date < "2000-01-04" ||
-    date > "2022-11-30" ||
+    !isResearchDate(date) ||
     !input ||
     input.date !== date ||
     input.availableDate > date ||

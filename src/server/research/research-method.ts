@@ -46,7 +46,6 @@ import {
   researchRManagementVersion,
 } from "trading-strategies/research/risk/research-r-management";
 import { researchLiquidityVersion } from "trading-strategies/research/factors/research-liquidity";
-import sourceLock from "../../../docs/trading-skills-source-lock.json";
 import { researchLossPauseVersion } from "trading-strategies/research/risk/research-loss-pause";
 import { researchRetracementVersion } from "trading-strategies/research/technical/research-retracement";
 import { researchMarketChopVersion } from "trading-strategies/research/risk/research-market-chop";
@@ -287,20 +286,7 @@ export function researchMethodSnapshot(
     ]),
   ]
     .sort()
-    .map((path) => {
-      const slash = path.indexOf("/");
-      const skill = sourceLock.skills.find(
-        (row) => row.id === path.slice(0, slash),
-      );
-      const source = skill?.sources.find(
-        (row) => row.path === path.slice(slash + 1),
-      );
-      if (!source) throw new Error(`策略来源未冻结：${path}`);
-      return {
-        path,
-        sha256: source.hash,
-      };
-    });
+    .map((path) => ({ path }));
   const content = {
     ...(typeof input !== "string" && input.riskRepair
       ? {
@@ -523,7 +509,6 @@ export function researchMethodSnapshot(
           },
         }
       : {}),
-    sourceVersion: sourceLock.version,
     ...(progressExit
       ? {
           progressExit: {
@@ -760,33 +745,3 @@ export function researchMethodSnapshot(
 }
 
 export type ResearchMethodSnapshot = ReturnType<typeof researchMethodSnapshot>;
-
-export function validateResearchMethod(
-  strategy:
-    | ResearchStrategyId
-    | Pick<
-        ResearchSpec,
-        | "strategy"
-        | "management"
-        | "riskExtension"
-        | "riskRepair"
-        | "riskRoute"
-        | "wyckoffStructureInputs"
-        | "wyckoffHourlyInputs"
-        | "wyckoffInputs"
-        | "stopDiagnosis"
-      >,
-  saved: ResearchMethodSnapshot | undefined,
-  management = false,
-  scaleOut = false,
-) {
-  // Absence remains visible in legacy results. Never invent their provenance.
-  if (!saved) return;
-  if (
-    JSON.stringify(saved) !==
-    JSON.stringify(researchMethodSnapshot(strategy, management, scaleOut))
-  )
-    throw new Error(
-      "保存的方法版本与当前实现不一致，请新建研究任务；原快照保持不变",
-    );
-}

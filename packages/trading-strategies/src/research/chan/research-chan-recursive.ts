@@ -5,10 +5,10 @@ import type { StructureEvent } from "../technical/research-structure-events.js";
 export const chanAnchorVersions = {
   3: { name: "monthly-anchor-v1", start: null, end: null },
   1: { name: "daily-anchor-v1", start: null, end: null },
-  2: { name: "five-minute-anchor-v1", start: "2000-01-04", end: "2022-11-30" },
+  2: { name: "five-minute-anchor-v1", start: null, end: null },
 } as const;
 export const chanRecursiveBoundary =
-  "第17/18/33/89课：czsc-tdx api v5 递归节点（level 0 = 配置级别走势），层级相对调用方锚序列，不自动等同周/月，单中枢节点不冒充趋势。中阴开始 = 与后继的连接极值点之后的下一端点可知之时，结束 = 后继首中枢成立（口径见 czsc-tdx chan-ambiguity-decisions.md「中阴阶段」）。身份用锚、config、级别、固定中枢起点及价格，不跨前缀连ID。日线与五分钟分别具名分表，五分钟2000-01-04..2022-11-30。";
+  "第17/18/33/89课：czsc-tdx api v5 递归节点（level 0 = 配置级别走势），层级相对调用方锚序列，不自动等同周/月，单中枢节点不冒充趋势。中阴开始 = 与后继的连接极值点之后的下一端点可知之时，结束 = 后继首中枢成立（口径见 czsc-tdx chan-ambiguity-decisions.md「中阴阶段」）。身份用锚、config、级别、固定中枢起点及价格，不跨前缀连ID。日线与五分钟分别具名分表，五分钟窗口由数据覆盖决定。";
 
 type Fact = {
   anchor: 1 | 2 | 3;

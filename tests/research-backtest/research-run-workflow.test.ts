@@ -46,7 +46,10 @@ vi.mock("node:fs/promises", async (importOriginal) => {
     },
     readFile: async (path: string | URL, options?: unknown) => {
       const normalized = normalize(path);
-      if (normalized === "src/fixture.ts") {
+      const isRunner =
+        normalized === "src/fixture.ts" ||
+        normalized.endsWith("/scripts/theory-study.ts");
+      if (isRunner) {
         state.srcReads++;
         if (state.driftSrcAfterFirstRead && state.srcReads > 1)
           return Buffer.from("v2");

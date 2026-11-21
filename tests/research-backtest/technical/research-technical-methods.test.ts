@@ -397,7 +397,7 @@ it("日涨跌2%等号不归涨跌信号", () => {
   ).toBe(false);
 });
 
-it("盘中量比不能延伸本地分钟历史窗口", () => {
+it("盘中量比使用调用方提供的本地分钟历史，不依赖固定年份窗口", () => {
   expect(
     technicalIntradayRatio(
       {
@@ -412,5 +412,5 @@ it("盘中量比不能延伸本地分钟历史窗口", () => {
       },
       "2023-01-03",
     ),
-  ).toBeNull();
+  ).toEqual({ band: "expanded", projectedVolume: 200, ratio: 2 });
 });

@@ -16,6 +16,7 @@ export type FiveMinuteWindowSuggestion = {
 export function suggestFiveMinuteWindow(
   bars: readonly Pick<Bar, "date">[],
   warmupBars: number,
+  maxDays: number | null = null,
 ): FiveMinuteWindowSuggestion {
   if (!Number.isInteger(warmupBars) || warmupBars < 0)
     throw new Error("预热根数须为非负整数");
@@ -55,9 +56,12 @@ export function suggestFiveMinuteWindow(
       suggestedEnd: null,
       unavailableReason: `当前覆盖没有具备此前交易日末尾 ${warmupBars} 根完整预热的五分钟回测窗口，请补齐更早行情或更换证券。`,
     };
-  const from = new Date(`${latest.end}T00:00:00Z`);
-  from.setUTCDate(from.getUTCDate() - 30);
-  const threshold = from.toISOString().slice(0, 10);
+  const threshold =
+    maxDays === null
+      ? latest.start
+      : new Date(Date.parse(`${latest.end}T00:00:00Z`) - maxDays * 86400000)
+          .toISOString()
+          .slice(0, 10);
   const suggestedStart = sessions.find(
     (session) =>
       session.day >= latest.start &&

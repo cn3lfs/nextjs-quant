@@ -253,9 +253,38 @@ describe("W5b real-shaped adversarial summaries", () => {
     "20250107\t120000\t其他\t费用扣收待核实\t\t0\t0\t-20\t0\t13",
   ];
   it("keeps default and explicit all at their pre-fix outputs", () => {
-    expect(importDeliveryTable(table(adversarial))).toMatchSnapshot();
+    const imported = importDeliveryTable(table(adversarial));
+    expect(imported.counts).toEqual({
+      discardedFills: 0,
+      excludedInterest: 2,
+      failedFlows: 0,
+      rejectedSigns: 0,
+      unresolved: 1,
+    });
+    expect(imported.cashFlows.map((row) => row.kind)).toEqual([
+      "transferIn",
+      "transferIn",
+      "transferOut",
+      "interest",
+      "dividend",
+      "fee",
+      "subscription",
+      "interest",
+      "fee",
+      "fee",
+    ]);
+    expect(imported.fills).toHaveLength(1);
+    expect(imported.fills[0]).toMatchObject({
+      symbol: "sh600000",
+      kind: "buy",
+      quantity: 100,
+      price: 10,
+      netAmount: -1000,
+    });
+    expect(imported.statementOpeningCash).toBe(0);
+    expect(imported.unresolved[0]?.reason).toBe("成交价格或数量缺失/非法");
     expect(importDeliveryTable(table(adversarial), { scope: "all" })).toEqual(
-      importDeliveryTable(table(adversarial)),
+      imported,
     );
   });
   it("separates real-shaped interest and repo, refusing other interest and debit wording", () => {

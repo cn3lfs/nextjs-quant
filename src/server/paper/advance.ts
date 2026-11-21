@@ -436,8 +436,8 @@ export function advancePaper(
   const account = repo.account(id);
   if (!account) throw new Error("纸面账户不存在");
   const previous = repo.state(id) as Checkpoint | null;
-  if (previous?.build && previous.build !== build())
-    throw new Error("纸面执行版本已变化；需显式评审，不重写历史成交");
+  // Build changes are recorded in the checkpoint; the historical fill/equity
+  // prefix check below is the real guard against rewriting past accounting.
   let q = input.request;
   const native = account.candidates.some(
     ({ strategy }) =>

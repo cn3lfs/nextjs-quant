@@ -1,4 +1,5 @@
 import type { CzscRecursiveNode } from "./czsc.js";
+import { isResearchDate } from "../contracts/window.js";
 
 export type ChanAnchor = 1 | 2 | 3;
 export type ChanMovement = {
@@ -71,8 +72,7 @@ export function chanAnchorDateCodes(
         !((minute >= 575 && minute <= 690) || (minute >= 785 && minute <= 900))
       )
         throw new Error("五分钟锚必须使用交易时段已结束五分钟K线的上海时戳");
-      if (day < "2000-01-04" || day > "2022-11-30")
-        throw new Error("五分钟窗口须为2000-01-04..2022-11-30");
+      if (!isResearchDate(day)) throw new Error("五分钟窗口日期非法");
     }
     const code = Number(day.replaceAll("-", "")) - 20000000;
     if (code < -1000000 || code > 1991231)

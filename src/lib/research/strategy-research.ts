@@ -1,3 +1,4 @@
+import { assertResearchWindow } from "trading-strategies/research/contracts/window";
 import {
   wyckoffStructureInputsSchema,
   isWyckoffStructure,
@@ -248,12 +249,15 @@ export const researchSpecSchema = z
         });
     }
     if (value.management?.growthIntraday) {
-      if (value.start < "2000-01-04" || value.end > "2022-11-30")
+      try {
+        assertResearchWindow(value.start, value.end);
+      } catch (error) {
         context.addIssue({
           code: "custom",
           path: ["end"],
-          message: "五分钟研究窗口仅2000-01-04至2022-11-30",
+          message: error instanceof Error ? error.message : String(error),
         });
+      }
       if (
         value.strategy !== growthIntradayBase(value.management.growthIntraday)
       )
