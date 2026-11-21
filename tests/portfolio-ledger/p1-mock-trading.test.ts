@@ -323,6 +323,8 @@ it("Q0 observed query contract retains frozen shares and blocks a same-day sell 
       cjsl: 100,
       cjsj: "10:23:03",
       fee: 0.26,
+      tradeNo: null,
+      entrustNo: null,
     },
   ]);
   expect(requests[1]!.searchParams.get("usrid")).toBe(ready.account);
@@ -357,4 +359,271 @@ it("Q0 observed malformed queries are not treated as empty portfolios, balances 
   await expect(adapter.todayTrades()).rejects.toThrow("契约");
   expect(adapter.diagnostics().every((e) => e.failures.length > 0)).toBe(true);
   expect(requests).toHaveLength(3);
+});
+
+it("order receipt collects entrust numbers from result/list without duplicates or credential leakage", async () => {
+  enabled = true;
+  account = ready;
+  response = (url) =>
+    url.pathname === "/pt_stk_weituo_dklc"
+      ? {
+          errorcode: 0,
+          usrid: ready.account,
+          result: [
+            { entrust_no: "1001", usrid: ready.account },
+            { entrust_no: 1002 },
+            { entrust_no: "1001" },
+          ],
+          list: [{ entrustNo: "1003" }, { note: "no entrust number" }],
+        }
+      : { errorcode: 0 };
+  const receipt = await adapter.order(order(), true);
+  expect(receipt).toMatchObject({
+    message: "委托请求已受理，不等于成交；请人工核对成交后另行记入本地账本",
+    entrustNos: ["1001", "1002", "1003"],
+    tradeDate: "2026-09-10",
+  });
+  expect(receipt.credentialRevision).toMatch(/^[a-f0-9]{64}$/);
+  expect(JSON.stringify(receipt)).not.toContain(ready.account!);
+});
+
+it("order without an entrust number still succeeds but cannot be attributed", async () => {
+  enabled = true;
+  account = ready;
+  response = (url) =>
+    url.pathname === "/pt_stk_weituo_dklc"
+      ? { errorcode: 0, result: [{ accepted: true }] }
+      : { errorcode: 0 };
+  expect(await adapter.order(order(), true)).toMatchObject({ entrustNos: [] });
+});
+
+it("both observed trade shapes carry optional entrust numbers without loosening required fields", async () => {
+  enabled = true;
+  account = ready;
+  response = () => ({
+    ret: {
+      code: "0",
+      item: [
+        {
+          zqdm: "600519",
+          mmlb: "B",
+          cjg: "10",
+          cje: "1000",
+          cjsj: "10:01:00",
+          fee: "5",
+          entrustNo: 55,
+        },
+      ],
+    },
+  });
+  expect((await adapter.todayTrades())[0]!.entrustNo).toBe("55");
+  response = (url) =>
+    url.pathname === "/pt_qry_busin_nocache"
+      ? {
+          errorcode: 0,
+          result: [
+            {
+              zqdm: "600519",
+              mmlb: "买入",
+              cjjg: "10",
+              cjje: "1000",
+              cjsl: "100",
+              cjsj: "10:01:00",
+              fee: "5",
+              entrust_no: "A1",
+            },
+          ],
+        }
+      : { errorcode: 0 };
+  expect((await adapter.todayTrades())[0]!.entrustNo).toBe("A1");
+});
+
+it("order status attributes only exact entrust numbers and never guesses from symbol or size", async () => {
+  enabled = true;
+  account = ready;
+  const tradeRow = (entrust_no?: string) => ({
+    zqdm: "600519",
+    mmlb: "买入",
+    cjjg: "10",
+    cjje: "1000",
+    cjsl: "100",
+    cjsj: "10:01:00",
+    fee: "5",
+    ...(entrust_no ? { entrust_no } : {}),
+  });
+  // An unattributable row could be the target order: the result is unknown,
+  // even though the exact entrust-number match is still reported.
+  response = () => ({
+    errorcode: 0,
+    result: [tradeRow("A1"), tradeRow("A2"), tradeRow()],
+  });
+  expect(await adapter.orderStatus(["A1", "missing"])).toMatchObject({
+    attributable: false,
+    fillStatus: "unknown",
+    rows: [{ entrustNo: "A1" }],
+  });
+  expect((await adapter.orderStatus([])).rows).toEqual([]);
+  expect(await adapter.orderStatus([])).toMatchObject({
+    fillStatus: "unknown",
+    attributable: false,
+  });
+  // No matched row and no ambiguous rows: the refs are queryable and unfilled.
+  response = () => ({ errorcode: 0, result: [tradeRow("A2")] });
+  expect(await adapter.orderStatus(["A1"])).toEqual({
+    attributable: false,
+    fillStatus: "unfilled",
+    rows: [],
+  });
+  // A fully attributable match.
+  response = () => ({
+    errorcode: 0,
+    result: [tradeRow("A1"), tradeRow("A2")],
+  });
+  expect(await adapter.orderStatus(["A1"])).toEqual({
+    attributable: true,
+    fillStatus: "matched",
+    rows: [expect.objectContaining({ entrustNo: "A1" })],
+  });
+  response = () => ({ errorcode: 0, result: [tradeRow(), tradeRow()] });
+  expect(await adapter.orderStatus(["A1"])).toEqual({
+    attributable: false,
+    fillStatus: "unknown",
+    rows: [],
+  });
+});
+
+it("entrust numbers are rejected when they echo credentials or are not short identifiers", async () => {
+  enabled = true;
+  account = ready;
+  const tradeRow = (entrust_no: string) => ({
+    zqdm: "600519",
+    mmlb: "买入",
+    cjjg: "10",
+    cjje: "1000",
+    cjsl: "100",
+    cjsj: "10:01:00",
+    fee: "5",
+    entrust_no,
+  });
+  const rowsOf = (values: string[]) => () => ({
+    errorcode: 0,
+    result: values.map(tradeRow),
+  });
+  // Equal to the fund account and username, internal prefix, spaces, Chinese
+  // text and overlong values are all discarded rather than treated as refs.
+  for (const value of [
+    ready.account!,
+    ready.username,
+    "skill_999",
+    "SKILL_999",
+    "-1",
+    "A 1",
+    "委托1",
+    "A".repeat(25),
+  ]) {
+    response = rowsOf([value, "A1"]);
+    const trades = await adapter.todayTrades();
+    expect(trades.map((t) => t.entrustNo)).toEqual([null, "A1"]);
+  }
+  // A legitimate identifier that merely contains the account digits is kept;
+  // only an exact credential echo is rejected.
+  const containingAccount = `E${ready.account}-01`;
+  response = rowsOf([containingAccount]);
+  expect((await adapter.todayTrades())[0]!.entrustNo).toBe(containingAccount);
+  // The order receipt applies the same snapshot filter.
+  response = (url) =>
+    url.pathname === "/pt_stk_weituo_dklc"
+      ? {
+          errorcode: 0,
+          result: [
+            { entrust_no: ready.account },
+            { entrust_no: ready.username },
+            { entrust_no: "A1" },
+          ],
+        }
+      : { errorcode: 0 };
+  expect(await adapter.order({ ...order(), side: "buy" }, true)).toMatchObject({
+    entrustNos: ["A1"],
+  });
+});
+
+it("ret.item trade rows expose entrust numbers so the observed shape stays attributable", async () => {
+  enabled = true;
+  account = ready;
+  response = () => ({
+    ret: {
+      code: "0",
+      item: [
+        {
+          zqdm: "600519",
+          mmlb: "B",
+          cjg: "10",
+          cje: "1000",
+          cjsj: "10:01:00",
+          fee: "5",
+          entrust_no: "A7",
+          trade_no: "T1",
+        },
+      ],
+    },
+  });
+  expect(await adapter.todayTrades()).toEqual([
+    {
+      zqdm: "600519",
+      mmlb: "B",
+      cjg: 10,
+      cje: 1000,
+      cjsj: "10:01:00",
+      fee: 5,
+      tradeNo: "T1",
+      entrustNo: "A7",
+    },
+  ]);
+  expect(await adapter.orderStatus(["A7"])).toEqual({
+    attributable: true,
+    fillStatus: "matched",
+    rows: [expect.objectContaining({ entrustNo: "A7", tradeNo: "T1" })],
+  });
+});
+
+it("trade numbers come only from explicit response fields", async () => {
+  enabled = true;
+  account = ready;
+  response = () => ({
+    errorcode: 0,
+    result: [
+      {
+        zqdm: "600519",
+        mmlb: "买入",
+        cjjg: "10",
+        cjje: "1000",
+        cjsl: "50",
+        cjsj: "10:01:00",
+        fee: "5",
+        entrust_no: "A1",
+        cjbh: "C9",
+      },
+    ],
+  });
+  expect((await adapter.todayTrades())[0]).toMatchObject({
+    tradeNo: "C9",
+    entrustNo: "A1",
+  });
+  // No explicit trade number: remain null instead of inventing one.
+  response = () => ({
+    errorcode: 0,
+    result: [
+      {
+        zqdm: "600519",
+        mmlb: "买入",
+        cjjg: "10",
+        cjje: "1000",
+        cjsl: "50",
+        cjsj: "10:01:00",
+        fee: "5",
+        entrust_no: "A1",
+      },
+    ],
+  });
+  expect((await adapter.todayTrades())[0]!.tradeNo).toBeNull();
 });

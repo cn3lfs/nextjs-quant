@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { evidenceEnvelope } from "../../infra/evidence";
 import type { EvidenceEnvelope } from "~/lib/research/evidence/evidence-envelope";
 import { fetch } from "undici";
@@ -20,6 +21,40 @@ export type RemotePosition = {
   quantity: number;
   sellable: number;
   cost: number;
+};
+export type MockTrade = {
+  zqdm: string;
+  mmlb: string;
+  cjg: number;
+  cje: number;
+  cjsl?: number;
+  cjsj: string;
+  fee: number;
+  /** Venue execution number; only read from an explicit response field. */
+  tradeNo: string | null;
+  entrustNo: string | null;
+};
+export type MockOrderReceipt = {
+  message: string;
+  entrustNos: string[];
+  /** Credential snapshot that sent this order; queries must match it. */
+  credentialRevision: string;
+  /** Venue trading date; the trade endpoint only exposes the current day. */
+  tradeDate: string;
+};
+/**
+ * `fillStatus` separates "the venue accepted an order" from "we can attribute
+ * executions to it". A response containing rows without an entrust number is
+ * ambiguous: one of those rows could be ours, so neither a fill nor an empty
+ * result can be asserted.
+ */
+export type MockFillStatus = "matched" | "unfilled" | "unknown";
+export type MockOrderStatus = {
+  attributable: boolean;
+  fillStatus: MockFillStatus;
+  rows: MockTrade[];
+  /** Why attribution is unavailable, for the operator-facing query result. */
+  reason?: string;
 };
 const numeric = z
   .union([z.number(), z.string().min(1)])
@@ -67,6 +102,102 @@ export function redactMockBody(raw: string, secrets: string[]): string {
     '$1"[REDACTED]"',
   );
   return value.replace(/\b[A-Za-z]?\d{7,}\b/g, "[REDACTED]");
+}
+// Entrust numbers are execution identifiers, not credentials. Accept both the
+// documented spelling and the shorter one, normalize numeric values, and reject
+// anything that is not a short identifier.
+const entrustNoField = z.unknown().transform((value) => {
+  const text =
+    typeof value === "string"
+      ? value.trim()
+      : typeof value === "number" && Number.isFinite(value)
+        ? String(value)
+        : "";
+  return /^[A-Za-z0-9][A-Za-z0-9_-]{0,23}$/.test(text) ? text : null;
+});
+// A trade number is only used as a deduplication key; never synthesize one.
+const tradeNoField = z.unknown().transform((value) => {
+  const text =
+    typeof value === "string"
+      ? value.trim()
+      : typeof value === "number" && Number.isFinite(value)
+        ? String(value)
+        : "";
+  return /^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$/.test(text) ? text : null;
+});
+/** Drop identifiers that echo the credential exactly or are recognizably internal.
+ * Substring rejection would discard legitimate IDs that merely contain an account. */
+function identifierForAccount(
+  value: string | null,
+  account: MockAccount,
+  maxLength: number,
+): string | null {
+  if (!value) return null;
+  const text = value.trim();
+  if (
+    text.length === 0 ||
+    text.length > maxLength ||
+    !/^[A-Za-z0-9][A-Za-z0-9_-]*$/.test(text) ||
+    /^skill_/i.test(text)
+  )
+    return null;
+  const secrets = [
+    account.username,
+    account.account,
+    ...(account.shareholders?.map((s) => s.gddm) ?? []),
+  ].filter((secret): secret is string => !!secret);
+  if (secrets.some((secret) => secret.toLowerCase() === text.toLowerCase()))
+    return null;
+  return text;
+}
+export function entrustNoForAccount(
+  value: string | null,
+  account: MockAccount,
+): string | null {
+  return identifierForAccount(value, account, 24);
+}
+export function tradeNoForAccount(
+  value: string | null,
+  account: MockAccount,
+): string | null {
+  return identifierForAccount(value, account, 32);
+}
+/** Hash the credential snapshot so a query can prove it targets the sending account. */
+export function mockCredentialRevision(account: MockAccount): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify([
+        account.username,
+        account.account,
+        account.shareholders ?? [],
+      ]),
+    )
+    .digest("hex");
+}
+function entrustNosFromResponse(
+  value: Record<string, unknown>,
+  account: MockAccount,
+): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const key of ["result", "list"]) {
+    const rows = value[key];
+    if (!Array.isArray(rows)) continue;
+    for (const row of rows) {
+      if (!row || typeof row !== "object") continue;
+      const parsed = entrustNoForAccount(
+        entrustNoField.parse(
+          (row as Record<string, unknown>).entrust_no ??
+            (row as Record<string, unknown>).entrustNo,
+        ),
+        account,
+      );
+      if (!parsed || seen.has(parsed)) continue;
+      seen.add(parsed);
+      result.push(parsed);
+    }
+  }
+  return result;
 }
 export class MockTradingAdapter {
   private history: MockResponseEvidence[] = [];
@@ -330,7 +461,7 @@ export class MockTradingAdapter {
     );
     return schema.parse(result);
   }
-  async todayTrades() {
+  async todayTrades(): Promise<MockTrade[]> {
     const a = await this.account();
     const row = z.object({
       zqdm: z.string().regex(/^\d{6}$/),
@@ -339,11 +470,25 @@ export class MockTradingAdapter {
       cje: numeric,
       cjsj: z.string().min(1),
       fee: numeric,
+      entrust_no: entrustNoField,
+      entrustNo: entrustNoField,
+      trade_no: tradeNoField,
+      tradeNo: tradeNoField,
+      cjbh: tradeNoField,
     });
     const schema = z.union([
-      z
-        .object({ ret: z.object({ item: z.array(row) }) })
-        .transform((v) => v.ret.item),
+      z.object({ ret: z.object({ item: z.array(row) }) }).transform((v) =>
+        v.ret.item.map((p) => ({
+          zqdm: p.zqdm,
+          mmlb: p.mmlb,
+          cjg: p.cjg,
+          cje: p.cje,
+          cjsj: p.cjsj,
+          fee: p.fee,
+          tradeNo: tradeNoForAccount(p.trade_no ?? p.tradeNo ?? p.cjbh, a),
+          entrustNo: entrustNoForAccount(p.entrust_no ?? p.entrustNo, a),
+        })),
+      ),
       z
         .object({
           result: z.array(
@@ -355,6 +500,11 @@ export class MockTradingAdapter {
               cjsl: numeric.pipe(z.number().int().positive()),
               cjsj: z.string().min(1),
               fee: numeric,
+              entrust_no: entrustNoField,
+              entrustNo: entrustNoField,
+              trade_no: tradeNoField,
+              tradeNo: tradeNoField,
+              cjbh: tradeNoField,
             }),
           ),
         })
@@ -367,6 +517,8 @@ export class MockTradingAdapter {
             cjsl: p.cjsl,
             cjsj: p.cjsj,
             fee: p.fee,
+            tradeNo: tradeNoForAccount(p.trade_no ?? p.tradeNo ?? p.cjbh, a),
+            entrustNo: entrustNoForAccount(p.entrust_no ?? p.entrustNo, a),
           })),
         ),
     ]);
@@ -380,7 +532,35 @@ export class MockTradingAdapter {
     return schema.parse(result);
   }
 
-  async order(input: TradeInput, confirmed: boolean) {
+  /** Read-only attribution: rows are matched exclusively by entrust number. */
+  async orderStatus(entrustNos: readonly string[]): Promise<MockOrderStatus> {
+    const rows = await this.todayTrades();
+    const wanted = new Set(
+      entrustNos.map((value) => value.trim()).filter((value) => value !== ""),
+    );
+    if (!wanted.size)
+      return { attributable: false, fillStatus: "unknown", rows: [] };
+    const matched = rows.filter(
+      (row) => row.entrustNo !== null && wanted.has(row.entrustNo),
+    );
+    // A trade row without an entrust number could be the target order, so
+    // neither "filled" nor "no fill" is safe while such rows exist.
+    const ambiguous = rows.some((row) => row.entrustNo === null);
+    return {
+      attributable: !ambiguous && matched.length > 0,
+      fillStatus: ambiguous
+        ? "unknown"
+        : matched.length
+          ? "matched"
+          : "unfilled",
+      rows: matched,
+    };
+  }
+
+  async order(
+    input: TradeInput,
+    confirmed: boolean,
+  ): Promise<MockOrderReceipt> {
     this.guard();
     if (!confirmed) throw new Error("下单必须在界面确认");
     const t = tradeInputSchema.parse(input),
@@ -399,7 +579,7 @@ export class MockTradingAdapter {
       if (!p || p.sellable < t.quantity)
         throw new Error("远程 T+1 可卖数量不足");
     }
-    await this.request("/pt_stk_weituo_dklc", {
+    const response = await this.request("/pt_stk_weituo_dklc", {
       usrid: a.account!,
       zqdm: t.symbol.slice(2),
       gddh: share.gddm,
@@ -409,7 +589,12 @@ export class MockTradingAdapter {
       wtsl: String(t.quantity),
       mmlb: t.side === "buy" ? "B" : "S",
     });
-    return "委托请求已受理，不等于成交；请人工核对成交后另行记入本地账本";
+    return {
+      message: "委托请求已受理，不等于成交；请人工核对成交后另行记入本地账本",
+      entrustNos: entrustNosFromResponse(response, a),
+      credentialRevision: mockCredentialRevision(a),
+      tradeDate: t.date,
+    };
   }
 }
 export function reconcilePositions(

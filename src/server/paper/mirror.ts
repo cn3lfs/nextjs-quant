@@ -20,10 +20,12 @@ import {
 import {
   MockTradingAdapter,
   type MockAccount,
+  type MockTrade,
 } from "../portfolio/mock/mock-trading";
 import { mockEnabled } from "../portfolio/mock/mock-trading-service";
 import { mirrorSettingsSchema, type PaperAccount } from "./model";
 import { paperCompletedAt } from "./advance-clock";
+import { chinaDate } from "../../lib/market/security-trading-status";
 
 type MirrorRecord = {
   phase: "attempted" | "unknown" | "settled" | "skipped";
@@ -33,6 +35,8 @@ type MirrorRecord = {
   credentialRevision: string;
   baseline: Snapshot | null;
   remote: Order | null;
+  /** Venue order identifiers; the only accepted attribution key. */
+  remoteRef?: string[];
   remoteEvidence?: unknown;
   difference: {
     quantity: number;
@@ -46,10 +50,94 @@ export type MirrorVenue = {
   revision: string;
   snapshot(): Promise<Snapshot>;
   place(order: Order): Promise<unknown>;
-  reconcile(order: Order): Promise<Order | null>;
+  reconcile(
+    order: Order,
+    remoteRef?: string[],
+    tradeDate?: string,
+  ): Promise<Order | null>;
   prepare(order: Order): Promise<Order>;
-  evidence?: () => Promise<unknown>;
+  evidence?: (remoteRef?: string[]) => Promise<unknown>;
 };
+function receiptEntrustNos(receipt: unknown): string[] {
+  if (!receipt || typeof receipt !== "object") return [];
+  const value = (receipt as { entrustNos?: unknown }).entrustNos;
+  return Array.isArray(value)
+    ? value
+        .filter(
+          (nos): nos is string => typeof nos === "string" && nos.trim() !== "",
+        )
+        .map((nos) => nos.trim())
+    : [];
+}
+/** Rows are already selected by entrust number; never re-match by symbol/size. */
+export function mirrorOrderFromTrades(
+  order: Order,
+  rows: MockTrade[],
+): Order | null {
+  if (!rows.length) return null;
+  // Several rows without trade numbers cannot be told apart from repeated
+  // snapshots of the same execution: 2x50 shares must never become 100 filled.
+  if (rows.length > 1 && rows.some((row) => row.tradeNo === null)) return null;
+  const unique: { row: MockTrade; index: number }[] = [];
+  const byTradeNo = new Map<string, MockTrade>();
+  for (const [index, row] of rows.entries()) {
+    if (row.tradeNo !== null) {
+      const prior = byTradeNo.get(row.tradeNo);
+      if (prior) {
+        // The same trade number must describe the same execution; conflicting
+        // rows are ambiguous, not extra fills and not a duplicate to drop.
+        if (
+          prior.entrustNo !== row.entrustNo ||
+          prior.cjsl !== row.cjsl ||
+          prior.cje !== row.cje ||
+          prior.cjg !== row.cjg ||
+          prior.fee !== row.fee
+        )
+          return null;
+        continue;
+      }
+      byTradeNo.set(row.tradeNo, row);
+    }
+    unique.push({ row, index });
+  }
+  const fills: Order["fills"] = [];
+  for (const { row, index } of unique) {
+    const quantity =
+      row.cjsl !== undefined
+        ? new Big(row.cjsl)
+        : row.cjg > 0
+          ? new Big(row.cje).div(row.cjg)
+          : null;
+    if (
+      quantity === null ||
+      quantity.lte(0) ||
+      !quantity.eq(quantity.round(0, 1)) ||
+      !(row.cjg > 0) ||
+      !Number.isFinite(row.fee)
+    )
+      return null;
+    fills.push({
+      id:
+        row.tradeNo !== null
+          ? `trade:${row.tradeNo}`
+          : `${row.entrustNo ?? "row"}:${index}`,
+      quantity: quantity.toFixed(),
+      price: new Big(row.cjg).toFixed(),
+      fee: new Big(row.fee).toFixed(),
+      feeAsset: "CNY",
+    });
+  }
+  const executed = fills.reduce(
+    (sum, fill) => sum.plus(fill.quantity),
+    new Big(0),
+  );
+  return {
+    ...order,
+    state: executed.eq(order.quantity) ? "FILLED" : "PARTIALLY_FILLED",
+    executedQuantity: executed.toFixed(),
+    fills,
+  };
+}
 export type MirrorRunner = (
   account: PaperAccount,
   work: (venue: MirrorVenue) => Promise<void>,
@@ -158,16 +246,34 @@ const runVenue: MirrorRunner = async (account, work) => {
       },
     );
   if (!mockEnabled()) throw new Error("同花顺模拟盘已关闭");
+  // Bind the whole run to one credential snapshot: the revision and the
+  // adapter reads must describe the same account, and a replacement is
+  // detected as a different revision instead of silently querying new keys.
+  const credential = await readSecret<MockAccount>("mock-trading-account");
+  if (!credential) throw new Error("请先配置同花顺模拟账户");
+  const revision = `ths:${createHash("sha256")
+    .update(
+      JSON.stringify([
+        credential.username,
+        credential.account ?? null,
+        credential.shareholders ?? null,
+      ]),
+    )
+    .digest("hex")
+    .slice(0, 16)}`;
   const adapter = new MockTradingAdapter({
     enabled: mockEnabled,
-    read: () => readSecret<MockAccount>("mock-trading-account"),
+    read: async () => credential,
     save: () => {
       throw new Error("纸面镜像不开户");
     },
   });
   const state = new PaperRepository().state(account.id)!;
+  // Only same-day trade queries exist; a historical order cannot be looked up
+  // later, so a cross-day reconciliation must stay unknown.
+  let crossDay: string | null = null;
   await work({
-    revision: "ths-simulation",
+    revision,
     snapshot: async () => ({ balances: [], openOrders: [] }),
     prepare: async (o) => o,
     place: async (o) => {
@@ -205,15 +311,53 @@ const runVenue: MirrorRunner = async (account, work) => {
         true,
       );
     },
-    reconcile: async () => null,
-    evidence: async () => {
+    reconcile: async (o, remoteRef, tradeDate) => {
+      crossDay = null;
+      // The venue only exposes today's trades. Never infer a historical fill
+      // from the current day's rows, and recheck the clock after the request:
+      // a response crossing Beijing midnight must not settle yesterday's order.
+      const before = chinaDate(Date.now());
+      if (tradeDate && tradeDate !== before) {
+        crossDay = tradeDate;
+        return null;
+      }
+      if (!remoteRef?.length) return null;
+      const status = await adapter.orderStatus(remoteRef);
+      const after = chinaDate(Date.now());
+      if (after !== before || (tradeDate && after !== tradeDate)) {
+        crossDay = tradeDate ?? before;
+        return null;
+      }
+      return status.attributable ? mirrorOrderFromTrades(o, status.rows) : null;
+    },
+    evidence: async (remoteRef = []) => {
+      if (crossDay)
+        return {
+          crossDay,
+          remoteRef,
+          unverified: true,
+          reason: "跨日无历史委托查询能力，保持未知；无本地委托号即人工核对",
+        };
       const rows = await adapter.todayTrades();
+      const wanted = new Set(remoteRef);
+      const matched = rows.filter(
+        (row) => row.entrustNo !== null && wanted.has(row.entrustNo),
+      );
       return {
         total: rows.length,
-        rows: rows.slice(0, 20),
+        attributable: remoteRef.length > 0 && matched.length > 0,
+        matchedRefs: [...new Set(matched.map((row) => row.entrustNo!))],
+        unmatchedRefs: remoteRef.filter(
+          (ref) => !matched.some((row) => row.entrustNo === ref),
+        ),
+        remoteRef,
+        rows: rows.slice(0, 20).map((row) => ({
+          ...row,
+          matched: row.entrustNo !== null && wanted.has(row.entrustNo),
+        })),
         unverified: true,
         reason:
-          "场所契约缺少唯一委托/成交编号；仅显示当日候选，不能认证逐笔归属",
+          "仅委托号可归属；显示当日候选、目标委托号命中情况与 attributable，不按symbol/数量猜测；无本地委托号即人工核对",
       };
     },
   });
@@ -250,12 +394,16 @@ export async function synchronizePaperMirror(
       if (record) {
         if (record.credentialRevision !== venue.revision)
           throw new Error("镜像凭证已变化，保留未知意图等待人工核对");
-        const remote = await venue.reconcile(record.order);
+        const remote = await venue.reconcile(
+          record.order,
+          record.remoteRef,
+          record.local.date.slice(0, 10),
+        );
         if (!remote) {
           save({
             ...record,
             phase: "unknown",
-            remoteEvidence: await venue.evidence?.(),
+            remoteEvidence: await venue.evidence?.(record.remoteRef),
             reason: "场所未能按唯一编号证实成交；不重发",
           });
           return;
@@ -436,11 +584,15 @@ export async function synchronizePaperMirror(
       )
         throw new Error("模拟凭证版本已变化");
       try {
-        await venue.place(prepared);
+        const receipt = await venue.place(prepared);
+        const remoteRef = receiptEntrustNos(receipt);
         save({
           ...record!,
           phase: "unknown",
-          reason: "模拟委托已发送；等待成交对账",
+          remoteRef: remoteRef.length ? remoteRef : record!.remoteRef,
+          reason: remoteRef.length
+            ? "模拟委托已发送；按委托号等待成交对账"
+            : "模拟委托已发送但响应无委托号；无法按委托号归属，等待人工核对",
         });
       } catch {
         save({
