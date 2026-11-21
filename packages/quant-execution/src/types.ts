@@ -72,6 +72,8 @@ export type CorporateActionEffect = {
   cashPerShare: Atoms;
   shareFactor: number;
   shareDelta: Atoms;
+  /** Required for newly credited shares. */
+  sharesSellableAt?: string;
   evidence: string;
 };
 

@@ -9,7 +9,10 @@ import {
 import { join } from "node:path";
 import { z } from "zod";
 import { dataDirectory } from "../db";
-import { validationInputSchema } from "./validation-model";
+import {
+  validationInputSchema,
+  validationTerminalCoverageSchema,
+} from "./validation-model";
 import {
   validationHash,
   type FrozenValidationInput,
@@ -19,6 +22,7 @@ const digest = z.string().regex(/^[a-f0-9]{64}$/);
 const top = z
   .object({
     version: z.literal("research-validation-input-1"),
+    timingContract: z.literal("p5").optional(),
     input: validationInputSchema,
     strategyBuildHash: digest,
     validationBuildHash: digest,
@@ -28,6 +32,17 @@ const top = z
           .object({
             instruments: z.array(z.unknown()).max(40),
             dates: z.array(z.string()).max(20000),
+            sources: z
+              .array(
+                z
+                  .object({
+                    terminalCoverage:
+                      validationTerminalCoverageSchema.optional(),
+                  })
+                  .passthrough(),
+              )
+              .max(40)
+              .optional(),
           })
           .passthrough(),
       )

@@ -13,7 +13,7 @@ it("upgrades v19 once, preserves ledger bytes and keeps independent partial pref
       "CREATE TABLE trade_plans(id TEXT,payload TEXT);INSERT INTO trade_plans VALUES('a','{}');PRAGMA user_version=19",
     );
     migrate(db);
-    expect(db.pragma("user_version", { simple: true })).toBe(21);
+    expect(db.pragma("user_version", { simple: true })).toBe(22);
     expect(workspacePreferences(db)).toEqual({
       density: "comfort",
       sidebarCollapsed: false,

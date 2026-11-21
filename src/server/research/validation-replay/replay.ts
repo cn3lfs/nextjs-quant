@@ -3,9 +3,14 @@ import {
   runValidationSuite,
   type ValidationScore,
 } from "quant-backtest";
-import { lowZoneCycles } from "trading-strategies";
+import {
+  historicalLowSeries,
+  lowZoneCycles,
+  strategyBuildHash,
+} from "trading-strategies";
 import { multipleTesting, sharpeDaily } from "~/lib/backtest/multiple-testing";
 import { combinatoriallySymmetricCv } from "~/lib/backtest/backtest-overfit";
+import { researchStrategyVersion } from "~/lib/research/strategy-version";
 import { indexFacts } from "../index-context";
 import {
   assessValidationCandidates,
@@ -19,6 +24,20 @@ import { numericNeighbors } from "./parameter-neighbors";
 import { validationBiasTags, biasLabels } from "./bias";
 import { combinedBook } from "./combined-book";
 import { projectToExecutionClock } from "./execution-clock";
+import { CausalPriceBasisError } from "../causal-price-basis";
+import { firstVintageValuations } from "../validation-financials";
+import { validateFrozenValidationUniverse } from "../validation-universe";
+import { validationBuildHash } from "../validation-identity";
+
+function replayTimingStatus(frozen: FrozenValidationInput) {
+  if (frozen.strategyBuildHash !== strategyBuildHash) return "drift";
+  try {
+    if (frozen.validationBuildHash !== validationBuildHash()) return "drift";
+  } catch {
+    return "unknown";
+  }
+  return frozen.timingContract === "p5" ? "p5" : "unknown";
+}
 
 export function replayValidationInput(
   frozen: FrozenValidationInput,
@@ -26,6 +45,41 @@ export function replayValidationInput(
   signal?: AbortSignal,
 ) {
   signal?.throwIfAborted();
+  if (
+    frozen.timingContract === "p5" &&
+    frozen.input.market === "cn-equity" &&
+    !frozen.universe?.lifecycleEvidenceThrough
+  )
+    throw new Error("Missing frozen roster date evidence for P5 replay");
+  if (frozen.universe)
+    validateFrozenValidationUniverse(frozen.universe, frozen.input.end);
+  const timingStatus = replayTimingStatus(frozen);
+  const daily = frozen.datasets.find((dataset) => dataset.period === "day");
+  frozen = {
+    ...frozen,
+    lowZones: frozen.lowZones.flatMap((row) => {
+      if (
+        !row.observations.some(
+          (observation) =>
+            observation.pe.value !== null || observation.pb.value !== null,
+        )
+      )
+        return [row];
+      if (row.symbol === "sh000300" && daily)
+        return [{ ...row, observations: historicalLowSeries(daily.benchmark) }];
+      const instrument = daily?.instruments.find(
+        (item) => item.symbol === row.symbol,
+      );
+      if (!instrument) return [];
+      const facts = firstVintageValuations(instrument.external?.lowZone ?? []);
+      return [
+        {
+          ...row,
+          observations: historicalLowSeries(instrument.signalBars, {}, facts),
+        },
+      ];
+    }),
+  };
   const boards: ScoreboardRow[] = [];
   const suites: {
     period: string;
@@ -54,7 +108,14 @@ export function replayValidationInput(
       (c) => c.strategy.period === dataset.period,
     );
     const requests = declared.flatMap((candidate) => {
-      const projected = projectCandidate(candidate, dataset, frozen, cache);
+      let projected: ReturnType<typeof projectCandidate>;
+      try {
+        projected = projectCandidate(candidate, dataset, frozen, cache);
+      } catch (error) {
+        if (!(error instanceof CausalPriceBasisError)) throw error;
+        missing.push({ id: candidate.strategy.id, reason: error.message });
+        return [];
+      }
       if (projected) {
         const center = candidate.strategy.id.replace(
           /-neighbor-(?:entry-)?\d+$/,
@@ -242,6 +303,7 @@ export function replayValidationInput(
       boards.push({
         riskAdjusted: row.holdout.base.riskAdjusted,
         biasTags: validationBiasTags(frozen),
+        strategySemanticVersion: researchStrategyVersion(candidate.strategy),
         id: row.id,
         level: "strategy",
         market: candidate.strategy.market,
@@ -359,11 +421,13 @@ export function replayValidationInput(
           .map(validationMethodEvidence),
       };
   }
+  for (const board of boards) board.timingStatus = timingStatus;
   return {
     ...(frozen.input.policy.method === "lifecycle-2"
       ? { method: "lifecycle-2" as const, purpose: frozen.input.policy.purpose }
       : {}),
     version: "research-validation-scoreboard-1" as const,
+    timingStatus,
     rows: boards,
     suites,
     combinedBooks,

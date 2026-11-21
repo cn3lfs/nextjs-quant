@@ -29,3 +29,11 @@ export type {
   Rejection,
   TimeInForce,
 } from "./types.js";
+export { lotAvailable } from "./settlement.js";
+export {
+  ResearchExecutionLedger,
+  actionPrice,
+  type PortfolioAction,
+  type PortfolioLot,
+  type PortfolioPosition,
+} from "./research-ledger.js";

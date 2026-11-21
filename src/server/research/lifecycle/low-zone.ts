@@ -53,8 +53,14 @@ export function lifecycleFinancialValuations(
   symbols: readonly string[],
   calendar: readonly string[],
   sourceHash: string,
-): MarketLowZoneInput["valuations"] {
-  const values: MarketLowZoneInput["valuations"][number][] = [];
+  purpose:
+    | "first-vintage"
+    | "current-revision-diagnostic" = "current-revision-diagnostic",
+) {
+  const values: (MarketLowZoneInput["valuations"][number] & {
+    vintage?: "current-revision";
+    knownAt?: null;
+  })[] = [];
   for (const symbol of symbols) {
     const caps = financial.caps[symbol] ?? {},
       history = financial.reports[symbol] ?? [],
@@ -65,19 +71,20 @@ export function lifecycleFinancialValuations(
       // Absent source dates stay absent facts; explicit null/duplicate caps
       // are retained. Neither case becomes a synthetic zero denominator.
       if (!Object.hasOwn(caps, date)) continue;
-      let visible = 0,
-        latest = "";
-      for (const report of history)
-        if (financialVisibleAt(report, date)) {
-          visible++;
-          if (report.reportDate > latest) latest = report.reportDate;
+      if (purpose === "current-revision-diagnostic") {
+        let visible = 0,
+          latest = "";
+        for (const report of history)
+          if (financialVisibleAt(report, date)) {
+            visible++;
+            if (report.reportDate > latest) latest = report.reportDate;
+          }
+        // Equal visible counts identify the same report set; report freshness can expire independently.
+        const key = `${visible}:${(Date.parse(date) - Date.parse(latest)) / dayMs > 550}`;
+        if (featureKey !== key) {
+          features = classicFinancialFeatures(history, date);
+          featureKey = key;
         }
-      // Visibility is monotone in asOf. Equal visible counts identify the same
-      // report set; the existing550-day freshness boundary is a separate key.
-      const key = `${visible}:${(Date.parse(date) - Date.parse(latest)) / dayMs > 550}`;
-      if (featureKey !== key) {
-        features = classicFinancialFeatures(history, date);
-        featureKey = key;
       }
       const cap = financial.caps[symbol]?.[date] ?? null;
       const positive = (value: number | null | undefined) =>
@@ -88,6 +95,9 @@ export function lifecycleFinancialValuations(
         symbol,
         date,
         availableAt: date,
+        ...(purpose === "first-vintage"
+          ? { knownAt: null, vintage: "current-revision" as const }
+          : {}),
         marketCap: positive(cap) ? cap : null,
         pe: positive(cap) && positive(net) ? cap! / net! : null,
         pb: positive(cap) && positive(equity) ? cap! / equity! : null,
@@ -399,6 +409,7 @@ async function readFinancialValuations(
         [symbol],
         calendar,
         financial.hash,
+        "first-vintage",
       ),
     );
     delete facts.caps[symbol];
@@ -486,6 +497,9 @@ export async function captureLowZoneSources(
       stage,
     );
     decoded = true;
+    missing.push(
+      "financial: first disclosure vintage and revision knownAt unavailable; PE/PB remain unknown",
+    );
   } else
     missing.push(
       "financial: original csi800-financial-1 has PIT reports, date-matched caps and GP16 source hashes; full frozen financial decode deferred to the explicit source resource gate",

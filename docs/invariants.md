@@ -411,3 +411,11 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 - 今日情报仅按已有新闻库的名称/代码匹配当前持仓和未结束计划；图表事件保留发布时间、标题及原文定位，不作为策略输入，匹配不证明影响。
 - 备份使用SQLite在线备份保证已提交WAL一致性；完成后再轮换自身命名的成功备份，默认保留3份，失败不挤掉成功备份。拒绝目录链接，不删除用户自备份文件。真实库版本取pragma，不硬编码。
 - 提醒去重键仅作内部定位；普通页面显示策略、品种、bar与类型。原始JSON只留显式导出或策略/公式编辑器；用户维护的MCP诊断文案按保护约束保留。验证见[r3c-workspaces.test.ts](../tests/workbench/r3c-workspaces.test.ts)、[两宽度浏览器路径](../tests/e2e/r3c-workspaces.spec.ts)。
+
+## 回测执行核心与交割单软删除（2026-11-21）
+
+- `AccountBook` 是现金、持仓、FIFO 批次与公司行动的唯一状态机；`ResearchExecutionLedger`（number）供 `runPortfolio`，`ExecutionLedger`（bigint）供行情原子/外部成交。两者共享状态机但数值适配不同，不能把 bigint 适配器的行为直接冒充生产回测。测试：`packages/quant-execution/tests/execution-core.test.ts`、`packages/quant-backtest/tests/portfolio-account-migration.test.ts`、`execution-ledger-parity.test.ts`。
+- 成交回放必须同时校验净结算额、可卖批次与现金；公司行动新增份额必须有明确可卖日，缩股余股按最大余数分配。测试：`execution-core.test.ts`。
+- 交割单撤销是软删除：`delivery_batches.revoked_at` 只隐藏活动视图，逐批 claim 保留原始证据，canonical payload 保持首个接受版本；撤销不得删除其他活动批次仍拥有的经济行。测试：`tests/research-backtest/delivery-store.test.ts`。
+- 研究行情预算按任务累计原价与 signalBars，超限使任务失败并给出证券/周期/阶段/用量，不得把预算异常当作单标的不可用后缩小池。测试：`tests/research-backtest/lab-replay.test.ts`、`validation-work.test.ts`。
+- PIT 名册只使用回放日已知的上市/退市事实；缺公告或抓取时点时不提前淘汰。财务 `current-revision` 不得冒充首次披露。测试：`tests/research-backtest/pit-roster.test.ts`、`validation-financials.test.ts`。

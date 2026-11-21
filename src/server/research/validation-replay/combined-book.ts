@@ -45,6 +45,10 @@ export function combinedBook(
     const request: PortfolioRequest = {
       ...primary,
       strategies,
+      memberships: [
+        ...(primary.memberships ?? []),
+        ...(secondary?.memberships ?? []),
+      ],
       instruments,
       sleeves,
       rebalance: { everyBars: 20, drift: 0.05 },
@@ -54,8 +58,15 @@ export function combinedBook(
     };
     const result = runPortfolio(request);
     const score = scoreValidationResult(result, request, dataset);
+    const valuation = score.valuation;
+    // A stale mark can change cash transfers and every sleeve's funded path.
+    const transfers = valuation
+      ? result.transfers.filter(({ date }) =>
+          valuation.positions.every((gap) => date < gap.unavailableFrom),
+        )
+      : result.transfers;
     const transfersBySleeve = new Map<string, Map<string, number>>();
-    for (const transfer of result.transfers) {
+    for (const transfer of transfers) {
       const dates =
         transfersBySleeve.get(transfer.sleeve) ?? new Map<string, number>();
       dates.set(
@@ -65,6 +76,15 @@ export function combinedBook(
       transfersBySleeve.set(transfer.sleeve, dates);
     }
     const sleeveScores = sleeves.map((s) => {
+      if (valuation)
+        return {
+          sleeve: s.id,
+          daily: score.daily,
+          observed: 0,
+          return: null,
+          drawdown: null,
+          valuation,
+        };
       // Remove cash transfers before computing sleeve time-weighted returns.
       let previous = frozen.input.initial * s.share;
       const byDay = new Map<string, number[]>();
@@ -127,11 +147,13 @@ export function combinedBook(
       correlation:
         pairs.length >= 20 && denominator > 0 ? covariance / denominator : null,
       overlapDays: pairs.length,
-      transfers: result.transfers,
-      sleeveCurves: result.equity.map((p) => ({
-        date: p.date,
-        sleeves: p.sleeves,
-      })),
+      transfers,
+      sleeveCurves: valuation
+        ? null
+        : result.equity.map((p) => ({
+            date: p.date,
+            sleeves: p.sleeves,
+          })),
     };
   });
   const rows: ScoreboardRow[] = variants.map((v) => ({
@@ -150,7 +172,13 @@ export function combinedBook(
     oosWindows: 0,
     positiveWindows: 0,
     bias: biasLabels(frozen, "combined"),
-    reasons: ["descriptive-full-period-book-not-independent-oos"],
+    reasons: [
+      "descriptive-full-period-book-not-independent-oos",
+      ...(v.score.valuation?.positions.map(
+        ({ symbol, sleeve, unavailableFrom, reason }) =>
+          `terminal-valuation-blocked: ${symbol}/${sleeve} from ${unavailableFrom}: ${reason}`,
+      ) ?? []),
+    ],
   }));
   for (const sleeve of variants[0]!.sleeveScores) {
     rows.push({
@@ -162,10 +190,12 @@ export function combinedBook(
       return: sleeve.return,
       excess: null,
       drawdown: sleeve.drawdown,
-      reasons: [
-        "transfer-adjusted-conditional-sleeve-returns",
-        "inactive-days-excluded-not-zero-filled",
-      ],
+      reasons: sleeve.valuation
+        ? rows[0]!.reasons
+        : [
+            "transfer-adjusted-conditional-sleeve-returns",
+            "inactive-days-excluded-not-zero-filled",
+          ],
     });
   }
   return {

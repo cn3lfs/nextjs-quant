@@ -3,6 +3,25 @@ import { researchDateSchema } from "trading-strategies/research/contracts/date";
 import { validationDefaults } from "quant-backtest";
 import type { ValidationScore } from "quant-backtest";
 
+export const validationTerminalCoverageSchema = z
+  .object({
+    listingEndsOn: researchDateSchema.nullable(),
+    lastTradingDate: researchDateSchema.nullable(),
+    lastObservedDate: researchDateSchema,
+    unavailableFrom: researchDateSchema.nullable(),
+    gap: z.string().min(1).nullable(),
+  })
+  .strict()
+  .refine((coverage) =>
+    coverage.gap === null
+      ? coverage.unavailableFrom === null &&
+        coverage.lastTradingDate === coverage.lastObservedDate
+      : coverage.unavailableFrom !== null,
+  );
+export type ValidationTerminalCoverage = z.infer<
+  typeof validationTerminalCoverageSchema
+>;
+
 export const validationInputSchema = z
   .object({
     market: z.enum(["cn-equity", "crypto"]),
@@ -74,6 +93,8 @@ export type ScoreboardRow = {
   evidence?: { inputHash: string; resultHash: string; buildHash: string };
   evidenceScope?: "candidate";
   strategyVersion?: number;
+  strategySemanticVersion?: `${number}.0.0`;
+  timingStatus?: "p5" | "drift" | "unknown";
   method?: "lifecycle-2";
   purpose?: "preregistered" | "post-hoc";
   methodLabel?: string;

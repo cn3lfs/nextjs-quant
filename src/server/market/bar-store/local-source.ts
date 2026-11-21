@@ -2,6 +2,7 @@ import { statSync, readFileSync } from "node:fs";
 import { join, relative, isAbsolute } from "node:path";
 import {
   readSnapshot,
+  readWindowSnapshot,
   resolveTdxRoot,
   isAStock,
   isLocalFund,
@@ -38,13 +39,54 @@ export async function sourceFingerprint(path: string, content = false) {
     throw new Error("读取期间行情源文件变化");
   return `${identity}:${contentDigest(identity, body)}`;
 }
-/** Source codec remains owned by tstdx. A stable fingerprint avoids reparsing
- * every raw record for each scan; corrections rebuild, strict prefixes append. */
+async function fullLocalBars(
+  directory: string,
+  symbol: string,
+  period: "day" | "5m",
+  chartFunds: boolean,
+): Promise<Snapshot> {
+  const path = join(
+    directory,
+    "vipdoc",
+    symbol.slice(0, 2),
+    period === "day" ? "lday" : "fzline",
+    `${symbol}.${period === "day" ? "day" : "lc5"}`,
+  );
+  const fingerprint = `tdx-parser-1:${await sourceFingerprint(path, true)}`;
+  const key = `tdx:${directory}:${symbol}:${period}`;
+  let cached;
+  try {
+    cached = readColumnCache(key);
+  } catch {
+    /* Recreate a corrupt derived cache, never alter the source. */
+  }
+  // The full fingerprint above identifies the committed source generation.
+  if (cached?.bars.length && cached.metadata.fingerprint === fingerprint)
+    return { ...cached.metadata.source, bars: cached.bars } as Snapshot;
+
+  const snapshot = await readSnapshot(directory, symbol, period, {
+    chartFunds,
+  });
+  if (`tdx-parser-1:${await sourceFingerprint(path, true)}` !== fingerprint)
+    throw new Error("读取期间行情源文件变化");
+  const { bars, ...metadata } = snapshot;
+  try {
+    writeColumnCache(key, bars, fingerprint, metadata);
+  } catch (error) {
+    if (!(error instanceof CacheBusyError)) throw error;
+  }
+  if (`tdx-parser-1:${await sourceFingerprint(path, true)}` !== fingerprint)
+    throw new Error("读取期间行情源文件变化");
+  return snapshot;
+}
+
+/** Choose between the local source generation and any imported daily package. */
 export async function localBars(
   root: string,
   symbol: string,
   period: "day" | "5m",
   chartFunds = false,
+  window?: { from: string; to?: string },
 ): Promise<Snapshot> {
   if (
     !isAStock(symbol) &&
@@ -63,43 +105,32 @@ export async function localBars(
     )
       throw new Error("BarStore 缓存目录不能位于通达信只读目录内");
   }
-  let local: Snapshot | undefined, failure: unknown;
+  let local: { snapshot: Snapshot; lastDate: string } | undefined;
+  let failure: unknown;
   try {
     const directory = resolveTdxRoot(root);
-    const path = join(
-      directory,
-      "vipdoc",
-      symbol.slice(0, 2),
-      period === "day" ? "lday" : "fzline",
-      `${symbol}.${period === "day" ? "day" : "lc5"}`,
-    );
-    const fingerprint = `tdx-parser-1:${await sourceFingerprint(path, true)}`;
-    const key = `tdx:${directory}:${symbol}:${period}`;
-    let cached;
-    try {
-      cached = readColumnCache(key);
-    } catch {
-      /* Recreate a corrupt derived cache, never alter the source. */
+    if (window) {
+      const {
+        sourceLastDate: lastDate,
+        regularMinuteSession,
+        ...snapshot
+      } = await readWindowSnapshot(directory, symbol, period, {
+        ...window,
+        chartFunds,
+      });
+      if (regularMinuteSession) local = { snapshot, lastDate };
     }
-    if (cached?.metadata.fingerprint === fingerprint)
-      local = { ...cached.metadata.source, bars: cached.bars } as Snapshot;
-    else {
-      local = await readSnapshot(directory, symbol, period, { chartFunds });
-      if (`tdx-parser-1:${await sourceFingerprint(path, true)}` !== fingerprint)
-        throw new Error("读取期间行情源文件变化");
-      const { bars, ...metadata } = local;
-      try {
-        writeColumnCache(key, bars, fingerprint, metadata);
-      } catch (error) {
-        if (!(error instanceof CacheBusyError)) throw error;
-      }
-      if (`tdx-parser-1:${await sourceFingerprint(path, true)}` !== fingerprint)
-        throw new Error("读取期间行情源文件变化");
+    if (!local) {
+      const snapshot = await fullLocalBars(
+        directory,
+        symbol,
+        period,
+        chartFunds,
+      );
+      local = { snapshot, lastDate: snapshot.bars.at(-1)!.date };
     }
-    // A hit is the already verified generation observed by the stable, complete
-    // source read above. It performs no asynchronous source parsing/publication;
-    // a later writer belongs to the next read rather than another full probe.
-    local.name ??= exchangeNames.get(symbol)?.name ?? commonIndexName(symbol);
+    local.snapshot.name ??=
+      exchangeNames.get(symbol)?.name ?? commonIndexName(symbol);
   } catch (error) {
     local = undefined;
     failure = error;
@@ -109,16 +140,16 @@ export async function localBars(
     const repair =
       imported &&
       local &&
-      imported.bars.at(-1)!.date === local.bars.at(-1)!.date &&
+      imported.bars.at(-1)!.date === local.lastDate &&
       fullDayRepairsSameDate(symbol);
     if (
       imported &&
-      (!local || imported.bars.at(-1)!.date > local.bars.at(-1)!.date || repair)
+      (!local || imported.bars.at(-1)!.date > local.lastDate || repair)
     )
       return {
         ...imported,
         dataRoot: root.trim() ? resolveTdxRoot(root) : "",
-        name: local?.name ?? imported.name,
+        name: local?.snapshot.name ?? imported.name,
         sourceNote: repair
           ? "已明确选择完整包修复同日期日线"
           : local
@@ -126,6 +157,6 @@ export async function localBars(
             : "本地日线不可用，使用已导入完整包缓存",
       };
   }
-  if (local) return local;
+  if (local) return local.snapshot;
   throw failure ?? new Error("本地行情不可用");
 }

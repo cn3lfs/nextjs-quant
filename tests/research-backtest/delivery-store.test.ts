@@ -11,6 +11,7 @@ import {
   commitDeliveryImport,
   previewDeliveryImport,
 } from "../../src/server/portfolio/delivery-import-service";
+import { buildLegacyCleanupManifest } from "../../scripts/legacy-paper-cleanup";
 
 const connections: Database.Database[] = [];
 function database(migrated = true) {
@@ -37,7 +38,7 @@ const counts = (db: Database.Database) =>
       (db.prepare(`SELECT count(*) n FROM ${table}`).get() as { n: number }).n,
   );
 
-it("R5b: overlapping settlement/history rows deduplicate in either import order", () => {
+it("R5b: overlapping settlement/history rows with different fee evidence conflict in either import order", () => {
   const samples = ["ths-settlement.txt", "ths-history.txt"].map((name) => {
     const table = parseDeliveryTable(fixture(name));
     const row = table.rows.find((row) => row[0] === "20240301")!;
@@ -56,20 +57,11 @@ it("R5b: overlapping settlement/history rows deduplicate in either import order"
     commitDeliveryImport(bytes[0]!, options, db);
     const saved = store.fills();
     expect(previewDeliveryImport(bytes[1]!, options, db).summary).toMatchObject(
-      { new: 0, duplicate: 1, conflict: 0 },
+      { new: 0, duplicate: 0, conflict: 1 },
     );
-    expect(commitDeliveryImport(bytes[1]!, options, db)).toMatchObject({
-      fills: 0,
-      duplicate: 1,
-      diagnostics: expect.arrayContaining([
-        expect.stringContaining("1 笔因已存在而跳过，保留先导入的版本"),
-      ]),
-    });
-    expect(counts(db)).toEqual([2, 1, 0]);
+    expect(() => commitDeliveryImport(bytes[1]!, options, db)).toThrow(/fees/);
+    expect(counts(db)).toEqual([1, 1, 0]);
     expect(store.fills()).toEqual(saved);
-    expect(store.batches().at(-1)!.payload.diagnostics.join()).toContain(
-      "1 笔因已存在而跳过，保留先导入的版本",
-    );
   }
 });
 
@@ -84,8 +76,6 @@ it("R5b: source-specific fields differ without conflict, core net amount still c
   store.commitImport({ ...input, importedAt: 1 });
   const saved = store.fills();
   const changed = structuredClone(input);
-  changed.parsed.fills[0]!.fees.transferFee = null;
-  changed.parsed.fills[0]!.fees.total = 999;
   changed.parsed.fills[0]!.rowIndex = 100;
   changed.parsed.fills[0]!.dealId = "other";
   changed.parsed.fills[0]!.orderId = null;
@@ -131,12 +121,18 @@ it("R5b: fixture net settlement differences remain conflicts and roll back every
     options,
     db,
   );
-  expect(preview.summary.duplicate).toBe(4);
+  expect(preview.summary).toMatchObject({ duplicate: 0, conflict: 6 });
+  expect(
+    preview.rows.filter((row) => row.differences.includes("fees")),
+  ).toHaveLength(6);
   expect(
     preview.rows
-      .filter((row) => row.status === "conflict")
+      .filter((row) => row.differences.includes("netAmount"))
       .map((row) => row.differences),
-  ).toEqual([["netAmount"], ["netAmount"]]);
+  ).toEqual([
+    ["fees", "netAmount"],
+    ["fees", "netAmount"],
+  ]);
   const before = counts(db);
   expect(() =>
     commitDeliveryImport(fixture("ths-history.txt"), options, db),
@@ -172,11 +168,10 @@ for (const [name, fills, cashFlows] of samples) {
     });
     const repeat = commitDeliveryImport(bytes, options, db);
     expect(repeat).toEqual({
-      batchId: first.batchId,
+      ...first,
       alreadyImported: true,
       fills: 0,
       cashFlows: 0,
-      duplicate: fills + cashFlows,
     });
     expect(counts(db)).toEqual([1, fills, cashFlows]);
     expect(store.fills(options.account)).toHaveLength(fills);
@@ -240,7 +235,7 @@ it("same fingerprint with changed core amount rejects the whole batch and report
 it("a late SQL failure rolls back already inserted batch, fills and cash flows", () => {
   const db = database();
   db.exec(
-    "CREATE TRIGGER fail_cash BEFORE INSERT ON cash_flows BEGIN SELECT RAISE(ABORT, 'injected failure'); END",
+    "CREATE TRIGGER fail_cash BEFORE INSERT ON cash_flows_claims BEGIN SELECT RAISE(ABORT, 'injected failure'); END",
   );
   expect(() =>
     commitDeliveryImport(fixture("ths-statement.html"), options, db),
@@ -274,7 +269,11 @@ it("revoke removes only owned rows; repeated revoke is zero; reimport works", ()
   expect(counts(db)).toEqual([1, 3, 5]);
   expect(store.fills()).toEqual(retained.fills);
   expect(store.cashFlows()).toEqual(retained.cash);
-  expect(store.batches()).toEqual([retained.batch]);
+  expect(store.batches(false)).toEqual([retained.batch]);
+  expect(store.batches().find((b) => b.id === first.batchId)).toMatchObject({
+    status: "revoked",
+    revokedAt: expect.any(Number),
+  });
   expect(store.revokeBatch(first.batchId)).toEqual({
     fills: 0,
     cashFlows: 0,
@@ -378,7 +377,7 @@ it("migrations are repeatable and preserve a genuine version 9 database", () => 
   db.prepare("INSERT INTO concept_rps_days VALUES ('2026-01-01','{}')").run();
   migrate(db);
   migrate(db);
-  expect(db.pragma("user_version", { simple: true })).toBe(21);
+  expect(db.pragma("user_version", { simple: true })).toBe(22);
   expect(
     db
       .prepare(
@@ -481,4 +480,274 @@ it("reads use stable ascending date order and retain batch metadata", () => {
   ]);
   expect(store.fills()).toEqual(store.fills());
   expect(store.cashFlows()).toEqual(store.cashFlows());
+});
+
+it("撤销首批保留重叠成交和现金流，撤销最后一批才移出账本", () => {
+  const db = database();
+  const store = new DeliveryStore(db);
+  const input = previewDeliveryImport(
+    fixture("ths-statement.html"),
+    options,
+    db,
+  );
+  const first = store.commitImport({ ...input, importedAt: 1 });
+  input.parsed.fills = input.parsed.fills.slice(0, 1);
+  const second = store.commitImport({
+    ...input,
+    fileHash: "partial",
+    importedAt: 2,
+  });
+  expect(second).toMatchObject({ duplicate: 2 });
+  expect(store.revokeBatch(first.batchId)).toEqual({
+    fills: 2,
+    cashFlows: 0,
+    batches: 1,
+  });
+  expect(store.fills().map((r) => r.batchId)).toEqual([second.batchId]);
+  expect(store.cashFlows().map((r) => r.batchId)).toEqual([second.batchId]);
+  const tombstone = store.batches().find((b) => b.id === first.batchId);
+  expect(store.revokeBatch(first.batchId).batches).toBe(0);
+  expect(store.batches().find((b) => b.id === first.batchId)).toEqual(
+    tombstone,
+  );
+  expect(store.revokeBatch(second.batchId)).toEqual({
+    fills: 1,
+    cashFlows: 1,
+    batches: 1,
+  });
+  expect(store.accountSnapshot(options.account)).toEqual({
+    fills: [],
+    cashFlows: [],
+  });
+  expect(db.prepare("SELECT count(*) n FROM trade_fills_claims").get()).toEqual(
+    { n: 4 },
+  );
+});
+
+it("v21 缺少重复行归属时拒绝撤销，另一个账户不受影响", () => {
+  const db = database(false);
+  for (const sql of migrations.slice(0, 21)) db.exec(sql);
+  db.pragma("user_version = 21");
+  const batch = db.prepare(
+    "INSERT INTO import_batches VALUES(?,?,'generic',?,'old.csv',1,?)",
+  );
+  for (const [id, account] of [
+    ["first", "A"],
+    ["duplicate", "A"],
+    ["independent", "B"],
+  ]) {
+    batch.run(
+      id,
+      account,
+      id,
+      JSON.stringify({ statistics: { fills: 1, cashFlows: 0 } }),
+    );
+    if (id !== "duplicate")
+      db.prepare(
+        "INSERT INTO trade_fills VALUES(?,?,NULL,'600000','2026-01-01',?,'{}')",
+      ).run(id, account, id);
+  }
+  migrate(db);
+  const store = new DeliveryStore(db);
+  expect(() => store.revokeBatch("first")).toThrow(/归属冲突.*duplicate/);
+  expect(store.fills("A")).toHaveLength(1);
+  expect(store.batches().every((b) => b.status === "active")).toBe(true);
+  expect(store.revokeBatch("independent").fills).toBe(1);
+  expect(store.revokeBatch("duplicate").fills).toBe(0);
+  expect(store.revokeBatch("first").fills).toBe(1);
+});
+
+it("费用冲突拒绝整批，撤销首批后历史重叠成交仍沿用首批费用和对账字段", () => {
+  const db = database();
+  const store = new DeliveryStore(db);
+  const input = previewDeliveryImport(
+    fixture("ths-statement.html"),
+    options,
+    db,
+  );
+  const first = store.commitImport({ ...input, importedAt: 1 });
+  const saved = store.accountSnapshot(options.account);
+  const second = store.commitImport({
+    ...input,
+    fileHash: "overlap",
+    importedAt: 2,
+  });
+  const fill = input.parsed.fills[0]!;
+  fill.fees.total = (fill.fees.total ?? 0) + 1;
+  fill.balanceCash = 123;
+  const conflict = () =>
+    store.commitImport({ ...input, fileHash: "different-fees", importedAt: 3 });
+  expect(conflict).toThrow(/fees/);
+  // A claim written by the earlier importer can already contain divergent fees.
+  db.prepare(
+    "UPDATE trade_fills_claims SET payload=? WHERE batch_id=? AND id=?",
+  ).run(
+    JSON.stringify(fill),
+    second.batchId,
+    deliveryRowId(options.account, fill.fingerprintSource),
+  );
+  expect(store.accountSnapshot(options.account)).toEqual(saved);
+  store.revokeBatch(first.batchId);
+  expect(store.accountSnapshot(options.account)).toEqual({
+    fills: saved.fills.map((row) => ({ ...row, batchId: second.batchId })),
+    cashFlows: saved.cashFlows.map((row) => ({
+      ...row,
+      batchId: second.batchId,
+    })),
+  });
+  expect(conflict).toThrow(/fees/);
+  const beforeRetry = store.batches();
+  expect(
+    store.commitImport({ ...input, fileHash: "overlap", importedAt: 3 }),
+  ).toEqual({ ...second, alreadyImported: true });
+  expect(store.batches()).toEqual(beforeRetry);
+  store.revokeBatch(second.batchId);
+  const fresh = store.commitImport({ ...input, importedAt: 4 });
+  expect(fresh).toMatchObject({ fills: 3, cashFlows: 1, duplicate: 0 });
+  expect(
+    store
+      .fills()
+      .find((row) => row.fingerprintSource === fill.fingerprintSource),
+  ).toMatchObject({
+    fees: fill.fees,
+    balanceCash: 123,
+    batchId: fresh.batchId,
+  });
+});
+
+it("v21 迁移后同文件同范围返回原回执，费用差异仍阻断新文件", () => {
+  const db = database(false);
+  for (const sql of migrations.slice(0, 21)) db.exec(sql);
+  db.pragma("user_version = 21");
+  const table = parseDeliveryTable(fixture("ths-settlement.txt"));
+  const row = table.rows.find((row) => row[0] === "20240301")!;
+  const bytes = Buffer.from(
+    [table.header.join("\t"), row.join("\t")].join("\n"),
+  );
+  const input = previewDeliveryImport(bytes, options, db);
+  const storedFill = structuredClone(input.parsed.fills[0]!);
+  storedFill.fees.total = (storedFill.fees.total ?? 0) + 1;
+  const receipt = { fills: 0, cashFlows: 0, duplicate: 1 };
+  const statistics = { fills: 1, cashFlows: 0 };
+  const insertBatch = db.prepare(
+    "INSERT INTO import_batches VALUES (?,?,?,?,?,?,?)",
+  );
+  insertBatch.run(
+    "earlier",
+    input.account,
+    input.source,
+    "earlier-file-hash",
+    input.fileName,
+    1,
+    JSON.stringify({ statistics }),
+  );
+  insertBatch.run(
+    "original",
+    input.account,
+    input.source,
+    input.fileHash,
+    input.fileName,
+    2,
+    JSON.stringify({
+      receipt,
+      statistics,
+      diagnostics: ["原始批次诊断"],
+      statementOpeningCash: 123,
+    }),
+  );
+  db.prepare("INSERT INTO trade_fills VALUES (?,?,?,?,?,?,?)").run(
+    deliveryRowId(input.account, storedFill.fingerprintSource),
+    input.account,
+    storedFill.symbol,
+    storedFill.code,
+    storedFill.tradeDate,
+    "earlier",
+    JSON.stringify(storedFill),
+  );
+  expect(
+    buildLegacyCleanupManifest(db, ":memory:").protected,
+  ).not.toHaveProperty("delivery_batches");
+  migrate(db);
+
+  const store = new DeliveryStore(db);
+  const before = store.accountSnapshot(input.account);
+  expect(commitDeliveryImport(bytes, { ...options, scope: "all" }, db)).toEqual(
+    {
+      ...receipt,
+      batchId: "original",
+      alreadyImported: true,
+      diagnostics: ["原始批次诊断"],
+      statementOpeningCash: 123,
+    },
+  );
+  expect(() =>
+    commitDeliveryImport(bytes, { ...options, scope: "cashFlowsOnly" }, db),
+  ).toThrow(/不同 scope/);
+  expect(() =>
+    commitDeliveryImport(
+      Buffer.concat([bytes, Buffer.from("\n")]),
+      options,
+      db,
+    ),
+  ).toThrow(/fees/);
+  expect(counts(db)).toEqual([2, 1, 0]);
+  expect(store.accountSnapshot(input.account)).toEqual(before);
+  expect(
+    store.commitImport({
+      ...input,
+      fileHash: "earlier-file-hash",
+      importedAt: 3,
+    }),
+  ).toEqual({
+    batchId: "earlier",
+    alreadyImported: true,
+    fills: 0,
+    cashFlows: 0,
+    duplicate: 1,
+  });
+});
+
+it("清理清单校验撤销批次和视图不可见的原始成交与现金流 claim", () => {
+  const db = database();
+  const store = new DeliveryStore(db);
+  const { batchId } = commitDeliveryImport(
+    fixture("ths-statement.html"),
+    options,
+    db,
+  );
+  store.revokeBatch(batchId);
+  const checksums = () => buildLegacyCleanupManifest(db, ":memory:").protected;
+  const before = checksums();
+  expect(before).toMatchObject({
+    import_batches: { rows: 0 },
+    trade_fills: { rows: 0 },
+    cash_flows: { rows: 0 },
+    delivery_batches: { rows: 1 },
+    trade_fills_claims: { rows: 3 },
+    cash_flows_claims: { rows: 1 },
+  });
+
+  db.prepare(
+    "UPDATE delivery_batches SET revoked_at = revoked_at + 1 WHERE id = ?",
+  ).run(batchId);
+  db.prepare(
+    "UPDATE trade_fills_claims SET payload = '{}' WHERE batch_id = ?",
+  ).run(batchId);
+  db.prepare(
+    "UPDATE cash_flows_claims SET payload = '{}' WHERE batch_id = ?",
+  ).run(batchId);
+  const after = checksums();
+  for (const relation of [
+    "delivery_batches",
+    "trade_fills_claims",
+    "cash_flows_claims",
+  ] as const) {
+    expect(after[relation]?.rows).toBe(before[relation]?.rows);
+    expect(after[relation]?.sha256).not.toBe(before[relation]?.sha256);
+  }
+  expect(after).toMatchObject({
+    import_batches: before.import_batches,
+    trade_fills: before.trade_fills,
+    cash_flows: before.cash_flows,
+  });
 });

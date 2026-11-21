@@ -7,7 +7,7 @@ import {
   truncate,
 } from "node:fs/promises";
 import { join } from "node:path";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import samples from "../../fixtures/vipdoc-source-samples.json";
 import {
   readSnapshot,
@@ -19,6 +19,7 @@ import {
 } from "tstdx/local";
 import actionsFixture from "../../fixtures/tdx-gbbq.json";
 import { readBars } from "~/server/market/bar-store/read-bars";
+import { BarResourceBudget } from "~/server/market/bar-store/resource-budget";
 import {
   cachePath,
   readColumnCache,
@@ -57,6 +58,23 @@ it("matches the old TDX codec bar-for-bar, cold/warm, stock/index/fund and day/5
       adjustment: "none" as const,
       chartFunds: true,
     };
+    const from = original.bars.at(-2)!.date.slice(0, 10);
+    const to = original.bars.at(-1)!.date.slice(0, 10);
+    const window = await readBars({ ...input, from, to });
+    expect(window.bars).toEqual(
+      original.bars.filter((bar) => bar.date.slice(0, 10) >= from),
+    );
+    expect(window.barStore.sourceFingerprint).toBe(original.hash);
+    expect(
+      readColumnCache(`tdx:${root}:${sample.symbol}:${period}`),
+    ).toBeNull();
+    const offset = period === "day" ? "Z" : "+08:00";
+    const fallback = await readBars({
+      ...input,
+      from: `${from}T00:00:00${offset}`,
+      to: `${to}T23:59:59${offset}`,
+    });
+    expect(fallback).toEqual({ ...window, createdAt: fallback.createdAt });
     expect((await readBars(input)).bars).toEqual(original.bars);
     const warm = await readBars(input);
     expect(warm.bars).toEqual(original.bars);
@@ -84,6 +102,101 @@ const rows: Bar[] = [10, 9, 10].map((close, i) => ({
   volume: i * 100,
   amount: i * 1000,
 }));
+it("fails with a diagnosed count or byte budget and preserves intentional limits", async () => {
+  const input = {
+    instrument: { market: "cn-equity" as const, symbol: "sh600000" },
+    root: directory,
+    period: "day" as const,
+    adjustment: "none" as const,
+    now: Date.parse("2026-01-09"),
+  };
+  const frozen = {
+    id: "budget",
+    symbol: "sh600000",
+    period: "day" as const,
+    source: "tdx-local",
+    hash: "budget-fixture",
+    adjustment: "none" as const,
+    createdAt: 10,
+    bars: rows,
+  };
+  const budget = new BarResourceBudget({ maxBars: 4, maxEstimatedBytes: 1024 });
+  expect(
+    (await readBars({ ...input, limit: 2 }, frozen, undefined, budget)).bars,
+  ).toEqual(rows.slice(-2));
+  await expect(
+    readBars(input, frozen, undefined, budget),
+  ).rejects.toMatchObject({
+    code: "BAR_STORE_BUDGET_EXCEEDED",
+    diagnostic: {
+      stage: "source",
+      symbol: "sh600000",
+      period: "day",
+      retainedBars: 2,
+      requestedBars: 3,
+      maxBars: 4,
+    },
+  });
+  expect(
+    (
+      await readBars(
+        input,
+        { ...frozen, bars: rows.slice(0, 2) },
+        undefined,
+        budget,
+      )
+    ).bars,
+  ).toHaveLength(2);
+  await expect(
+    readBars(
+      input,
+      frozen,
+      undefined,
+      new BarResourceBudget({ maxBars: 10, maxEstimatedBytes: 767 }),
+    ),
+  ).rejects.toMatchObject({
+    code: "BAR_STORE_BUDGET_EXCEEDED",
+    diagnostic: {
+      stage: "source",
+      requestedBars: 3,
+      estimatedBytes: 768,
+      maxEstimatedBytes: 767,
+    },
+  });
+  vi.stubEnv("QUANT_BAR_STORE_MAX_BARS", undefined);
+  vi.stubEnv("QUANT_BAR_STORE_MAX_ESTIMATED_BYTES", undefined);
+  try {
+    await expect(
+      readBars({ ...input, limit: 2_000_001 }, frozen),
+    ).rejects.toMatchObject({
+      code: "BAR_STORE_BUDGET_EXCEEDED",
+      diagnostic: { stage: "limit", maxBars: 2_000_000 },
+    });
+    vi.stubEnv("QUANT_BAR_STORE_MAX_BARS", "2");
+    await expect(readBars(input, frozen)).rejects.toMatchObject({
+      code: "BAR_STORE_BUDGET_EXCEEDED",
+      diagnostic: { stage: "source", maxBars: 2, maxEstimatedBytes: 512 },
+    });
+  } finally {
+    vi.unstubAllEnvs();
+  }
+  const raised = new BarResourceBudget({ maxBars: 2_000_001 });
+  expect(
+    (await readBars({ ...input, limit: 2_000_001 }, frozen, undefined, raised))
+      .bars,
+  ).toEqual(rows);
+  await expect(
+    readBars(
+      { ...input, freezeRaw: true },
+      frozen,
+      undefined,
+      new BarResourceBudget({ maxBars: 5 }),
+    ),
+  ).rejects.toMatchObject({
+    code: "BAR_STORE_BUDGET_EXCEEDED",
+    diagnostic: { stage: "output", retainedBars: 0, requestedBars: 6 },
+  });
+});
 it("rejects both smaller and larger checksum-valid counts before returning a decoded generation", async () => {
   const key = "cache-decoded-count";
   writeColumnCache(key, rows, "count-input", { source: "fixture" });

@@ -1,3 +1,9 @@
+import { AccountBook } from "./account-book.js";
+import {
+  lotAvailable,
+  replaySellableDate,
+  settlementDate,
+} from "./settlement.js";
 import {
   atomScales,
   bpsOf,
@@ -37,9 +43,10 @@ type Position = {
 };
 
 const dayAfter = (date: string, market: Market) => {
-  const parsed = new Date(`${date.slice(0, 10)}T00:00:00Z`);
+  const day = settlementDate(date, market === "cn-equity" ? 1 : 0);
+  const parsed = new Date(`${day}T00:00:00Z`);
   if (!Number.isFinite(parsed.getTime())) throw new Error("成交日期非法");
-  if (market === "crypto") return date.slice(0, 10);
+  if (market === "crypto") return day;
   do parsed.setUTCDate(parsed.getUTCDate() + 1);
   while ([0, 6].includes(parsed.getUTCDay()));
   return parsed.toISOString().slice(0, 10);
@@ -48,20 +55,25 @@ const dayAfter = (date: string, market: Market) => {
 export class ExecutionLedger {
   readonly market: Market;
   readonly rates: CostRates;
-  private cashAtoms: Atoms;
-  private readonly positions = new Map<string, Position>();
+  private readonly book: AccountBook<Atoms, Lot, Position>;
   private readonly pending = new Map<string, OrderIntent>();
   private readonly log: ExecutionEvent[] = [];
 
   constructor(market: Market, initialCash: Atoms, rates: CostRates) {
     if (initialCash <= 0n) throw new Error("初始资金必须为正");
     this.market = market;
-    this.cashAtoms = initialCash;
+    this.book = new AccountBook<Atoms, Lot, Position>(initialCash, {
+      zero: 0n,
+      add: (a, b) => a + b,
+      subtract: (a, b) => a - b,
+      keepLot: (q) => q > 0n,
+      keepPosition: (q) => q > 0n,
+    });
     this.rates = rates;
   }
 
   get cash() {
-    return this.cashAtoms;
+    return this.book.cash;
   }
 
   submit(order: OrderIntent) {
@@ -72,11 +84,10 @@ export class ExecutionLedger {
   }
 
   sellable(symbol: string, date: string) {
-    const position = this.positions.get(symbol);
+    const position = this.book.positions.get(symbol);
     if (!position) return 0n;
-    const day = date.slice(0, 10);
     return position.lots
-      .filter((lot) => lot.sellableAt <= day)
+      .filter((lot) => this.isAvailable(lot, date))
       .reduce((total, lot) => total + lot.quantity, 0n);
   }
 
@@ -115,7 +126,7 @@ export class ExecutionLedger {
       const fees = feesFor(side, gross, this.rates);
       const cashDelta =
         side === "buy" ? -(gross + fees.total) : gross - fees.total;
-      if (this.cashAtoms + cashDelta < 0n) {
+      if (this.book.cash + cashDelta < 0n) {
         this.reject(order, date, "资金不足", false);
         continue;
       }
@@ -159,8 +170,40 @@ export class ExecutionLedger {
     this.log.push({ type: "external-fill", fill: complete });
   }
 
+  /** Post a replay receipt whose fee and net settlement are already known. */
+  applyReplayFill(fill: Fill, settlementDays: 0 | 1) {
+    const available = (lot: Lot) =>
+      this.isAvailable(lot, fill.date, settlementDays);
+    const gross = notional(fill.quantity, fill.price, this.market);
+    const fee = fill.commission + fill.transfer + fill.tax;
+    if (
+      fill.quantity <= 0n ||
+      fill.price <= 0n ||
+      [fill.commission, fill.transfer, fill.tax].some((value) => value < 0n) ||
+      gross !== fill.gross ||
+      (fill.side === "buy" ? -gross : gross) - fee !== fill.cashDelta
+    )
+      throw new Error("Settlement does not reconcile to fill");
+    if (fill.side === "sell") {
+      const lots = this.book.positions.get(fill.symbol)?.lots ?? [];
+      const sellable = lots.reduce(
+        (sum, lot) => (available(lot) ? sum + lot.quantity : sum),
+        0n,
+      );
+      if (sellable < fill.quantity)
+        throw new Error("T+1 / insufficient inventory");
+    }
+    if (this.book.cash + fill.cashDelta < 0n)
+      throw new Error("Insufficient cash");
+    this.applyFill(
+      fill,
+      available,
+      replaySellableDate(fill.date, settlementDays),
+    );
+    this.log.push({ type: "external-fill", fill: { ...fill } });
+  }
   applyCorporateAction(effect: CorporateActionEffect) {
-    const position = this.positions.get(effect.symbol);
+    const position = this.book.positions.get(effect.symbol);
     if (!position) return;
     const grossCash = mulQuantity(
       position.quantity,
@@ -168,32 +211,78 @@ export class ExecutionLedger {
       this.market,
     );
     const cash = grossCash - bpsOf(grossCash, this.rates.dividendTaxBps ?? 0);
-    this.cashAtoms += cash;
     const factor = effect.shareFactor;
-    const scaled = Math.floor(Number(position.quantity) * factor);
-    const next = BigInt(scaled) + effect.shareDelta;
+    const scaledQuantity = (quantity: Atoms) =>
+      factor === 1 ? quantity : BigInt(Math.floor(Number(quantity) * factor));
+    const scaledTotal = scaledQuantity(position.quantity);
+    if (scaledTotal + effect.shareDelta < 0n)
+      throw new Error("Corporate action exceeds inventory");
+    const next = scaledTotal + effect.shareDelta;
     const cost =
       next > 0n ? (position.cost > cash ? position.cost - cash : 0n) : 0n;
-    position.quantity = next;
-    position.cost = cost;
-    position.mark = scaleAtoms(position.mark, 1 / factor, "half-up");
-    if (factor === 1 && effect.shareDelta === 0n) {
-      // Dividend-only actions keep lots unchanged.
-    } else {
-      position.lots = position.lots.map((lot) => ({
-        ...lot,
-        quantity: BigInt(Math.floor(Number(lot.quantity) * factor)),
-      }));
+    // Largest-remainder allocation, matching the decimal research ledger.
+    const scaledLots =
+      factor === 1
+        ? position.lots.map((lot) => ({
+            lot,
+            quantity: lot.quantity,
+            remainder: 0,
+          }))
+        : position.lots.map((lot) => {
+            const exact = Number(lot.quantity) * factor;
+            const quantity = BigInt(Math.floor(exact));
+            return { lot, quantity, remainder: exact - Math.floor(exact) };
+          });
+    let residual =
+      scaledTotal - scaledLots.reduce((sum, row) => sum + row.quantity, 0n);
+    for (const row of [...scaledLots].sort(
+      (a, b) =>
+        b.remainder - a.remainder ||
+        position.lots.indexOf(a.lot) - position.lots.indexOf(b.lot),
+    )) {
+      if (residual <= 0n) break;
+      row.quantity += 1n;
+      residual -= 1n;
     }
-    if (position.quantity <= 0n) this.positions.delete(effect.symbol);
-    else this.positions.set(effect.symbol, position);
+    const lots = scaledLots
+      .map((row) => ({ ...row.lot, quantity: row.quantity }))
+      .filter((lot) => lot.quantity > 0n);
+    if (effect.shareDelta > 0n) {
+      if (
+        !effect.sharesSellableAt ||
+        !Number.isFinite(Date.parse(effect.sharesSellableAt))
+      )
+        throw new Error("Positive shareDelta requires sharesSellableAt");
+      lots.push({
+        quantity: effect.shareDelta,
+        price: 0n,
+        acquiredAt: effect.date,
+        sellableAt: effect.sharesSellableAt,
+      });
+    } else if (effect.shareDelta < 0n) {
+      let remove = -effect.shareDelta;
+      for (let i = lots.length - 1; i >= 0 && remove > 0n; i--) {
+        const take = lots[i]!.quantity < remove ? lots[i]!.quantity : remove;
+        lots[i]!.quantity -= take;
+        remove -= take;
+      }
+    }
+    const lotsTotal = lots.reduce((sum, lot) => sum + lot.quantity, 0n);
+    if (lotsTotal !== next)
+      throw new Error("Corporate action lot total does not reconcile");
+    this.book.postAction(effect.symbol, position, this.book.cash + cash, {
+      quantity: next,
+      cost,
+      lots: lots.filter((lot) => lot.quantity > 0n),
+      mark: scaleAtoms(position.mark, 1 / factor, "half-up"),
+    });
     this.log.push({ type: "corporate-action", effect, cash });
   }
 
   snapshot(): AccountState {
     return {
-      cash: this.cashAtoms,
-      positions: [...this.positions].map(([symbol, position]) => ({
+      cash: this.book.cash,
+      positions: [...this.book.positions].map(([symbol, position]) => ({
         symbol,
         quantity: position.quantity,
         cost: position.cost,
@@ -207,41 +296,50 @@ export class ExecutionLedger {
     return this.log.map((event) => structuredClone(event));
   }
 
-  private applyFill(fill: Fill) {
-    this.cashAtoms += fill.cashDelta;
-    const position = this.positions.get(fill.symbol) ?? {
-      quantity: 0n,
-      cost: 0n,
-      mark: fill.price,
-      lots: [],
-    };
-    if (fill.side === "buy") {
-      position.quantity += fill.quantity;
-      position.cost += fill.gross + fill.commission + fill.transfer + fill.tax;
-      position.lots.push({
+  private isAvailable(
+    lot: Lot,
+    date: string,
+    settlementDays: 0 | 1 = this.market === "cn-equity" ? 1 : 0,
+  ) {
+    return lotAvailable(
+      { bought: lot.acquiredAt, availableOn: lot.sellableAt },
+      date,
+      settlementDays,
+    );
+  }
+
+  private applyFill(
+    fill: Fill,
+    available = (lot: Lot) => this.isAvailable(lot, fill.date),
+    replayAvailability?: string,
+  ) {
+    this.book.postFill(
+      fill.symbol,
+      fill.side,
+      fill.quantity,
+      fill.price,
+      this.book.cash + fill.cashDelta,
+      available,
+      () => ({
         quantity: fill.quantity,
         price: fill.price,
         acquiredAt: fill.date,
-        sellableAt: dayAfter(fill.date, this.market),
-      });
-    } else {
-      let remaining = fill.quantity;
-      for (const lot of position.lots) {
-        if (lot.sellableAt > fill.date.slice(0, 10)) continue;
-        const sold = lot.quantity < remaining ? lot.quantity : remaining;
-        lot.quantity -= sold;
-        remaining -= sold;
-        if (remaining === 0n) break;
-      }
-      position.lots = position.lots.filter((lot) => lot.quantity > 0n);
-      const before = position.quantity;
-      position.quantity -= fill.quantity;
-      position.cost =
-        before > 0n ? (position.cost * (before - fill.quantity)) / before : 0n;
-    }
-    position.mark = fill.price;
-    if (position.quantity <= 0n) this.positions.delete(fill.symbol);
-    else this.positions.set(fill.symbol, position);
+        sellableAt: replayAvailability ?? dayAfter(fill.date, this.market),
+      }),
+      (prior, quantity, lots) => ({
+        quantity,
+        lots,
+        mark: fill.price,
+        cost:
+          (prior?.cost ?? 0n) +
+          fill.gross +
+          fill.commission +
+          fill.transfer +
+          fill.tax,
+      }),
+      (prior, remaining) =>
+        prior.quantity > 0n ? (prior.cost * remaining) / prior.quantity : 0n,
+    );
   }
 
   private reject(

@@ -34,17 +34,19 @@ export function biasLabels(
   sleeve: string,
 ): ScoreboardRow["bias"] {
   return {
-    universe:
-      frozen.universe?.grade ??
-      "Current liquid spot selection, delisted history unknown",
+    universe: frozen.universe
+      ? `${frozen.universe.grade}; historical PIT roster unknown`
+      : "Current liquid spot selection, delisted history unknown",
     adjustment:
       frozen.input.market === "cn-equity"
-        ? "Signals: frozen forward basis; RPS: backward; fills: raw; ex-date cash scenario"
+        ? frozen.timingContract === "p5"
+          ? "Signals: per-bar causal GBBQ when proved; forward restricted to scale-independent rules; RPS: backward; fills: raw"
+          : "Legacy signal price evidence unknown; RPS: backward; fills: raw"
         : "Raw public spot OHLC",
     financial:
       sleeve === "low-zone" ||
       (sleeve === "combined" && frozen.input.market === "cn-equity")
-        ? "PIT announcement filter; current revision approximate; missing temperature/valuation explicit"
+        ? "PIT announcement metadata retained; PE/PB unknown without first-vintage and knownAt evidence"
         : "Not used",
     execution:
       frozen.input.market === "cn-equity"

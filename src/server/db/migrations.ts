@@ -1,4 +1,48 @@
 import type Database from "better-sqlite3";
+// Preserve the existing active-ledger SQL interface. A claim is one batch's
+// version of an economic row. SQLite insertion order breaks ties independently
+// of the broker's timestamps and of the order in which batches are revoked.
+function deliveryClaimsMigration(table: string, fields: string) {
+  const columns = fields.split(",");
+  const claims = table + "_claims";
+  return `
+    ALTER TABLE ${table} RENAME TO ${table}_v21;
+    CREATE TABLE ${claims} (claim_order INTEGER PRIMARY KEY,
+      ${columns.map((c) => c + (c === "symbol" ? " TEXT" : " TEXT NOT NULL")).join(",")},
+      UNIQUE(id,batch_id), FOREIGN KEY(batch_id) REFERENCES delivery_batches(id));
+    INSERT INTO ${claims} (${fields}) SELECT ${fields} FROM ${table}_v21;
+    DROP TABLE ${table}_v21;
+    CREATE INDEX ${claims}_batch ON ${claims}(batch_id);
+    CREATE INDEX ${claims}_account ON ${claims}(account);
+    CREATE TABLE ${table}_canonical (id TEXT PRIMARY KEY, payload TEXT NOT NULL);
+    INSERT INTO ${table}_canonical (id,payload)
+      SELECT c.id,c.payload FROM ${claims} c WHERE c.claim_order=(
+        SELECT min(earlier.claim_order) FROM ${claims} earlier WHERE earlier.id=c.id);
+    CREATE VIEW ${table} AS SELECT ${columns
+      .filter((c) => c !== "payload")
+      .map((c) => "c." + c)
+      .join(",")},
+      COALESCE(k.payload,c.payload) AS payload
+      FROM ${claims} c
+      JOIN delivery_batches b ON b.id=c.batch_id AND b.revoked_at IS NULL
+      LEFT JOIN ${table}_canonical k ON k.id=c.id
+      WHERE NOT EXISTS (SELECT 1 FROM ${claims} earlier
+        JOIN delivery_batches active ON active.id=earlier.batch_id AND active.revoked_at IS NULL
+        WHERE earlier.id=c.id AND earlier.claim_order<c.claim_order);
+    CREATE TRIGGER ${table}_insert INSTEAD OF INSERT ON ${table} BEGIN
+      INSERT INTO ${claims} (${fields}) VALUES (${columns.map((c) => "NEW." + c).join(",")});
+      INSERT INTO ${table}_canonical (id,payload) VALUES (NEW.id,NEW.payload)
+        ON CONFLICT(id) DO NOTHING; END;
+    CREATE TRIGGER ${table}_update INSTEAD OF UPDATE ON ${table} BEGIN
+      UPDATE ${claims} SET ${columns.map((c) => c + "=NEW." + c).join(",")}
+        WHERE id=OLD.id AND batch_id=OLD.batch_id;
+      UPDATE ${table}_canonical SET payload=NEW.payload WHERE id=OLD.id; END;
+    CREATE TRIGGER ${table}_delete INSTEAD OF DELETE ON ${table} BEGIN
+      DELETE FROM ${claims} WHERE id=OLD.id AND batch_id=OLD.batch_id;
+      DELETE FROM ${table}_canonical WHERE id=OLD.id
+        AND NOT EXISTS (SELECT 1 FROM ${claims} WHERE id=OLD.id); END;`;
+}
+
 /** Cover list metadata without reading immutable, potentially large bar evidence. */
 export const intradaySummaryIndexes = `
   CREATE INDEX intraday_preview_summary ON records(kind,id,updated_at,
@@ -236,6 +280,36 @@ export const migrations = [
     applied_at INTEGER NOT NULL, manifest_json TEXT NOT NULL, result_json TEXT NOT NULL, backup_hash TEXT,
     PRIMARY KEY(manifest_hash,action)
   ) STRICT;`,
+  `CREATE TABLE IF NOT EXISTS import_batches (id TEXT PRIMARY KEY,account TEXT NOT NULL,source TEXT NOT NULL,
+     file_hash TEXT NOT NULL,file_name TEXT NOT NULL,imported_at INTEGER NOT NULL,payload TEXT NOT NULL);
+   CREATE UNIQUE INDEX IF NOT EXISTS import_batches_file ON import_batches(account,file_hash);
+   CREATE TABLE IF NOT EXISTS trade_fills (id TEXT PRIMARY KEY,account TEXT NOT NULL,symbol TEXT,
+     code TEXT NOT NULL,trade_date TEXT NOT NULL,batch_id TEXT NOT NULL,payload TEXT NOT NULL);
+   CREATE TABLE IF NOT EXISTS cash_flows (id TEXT PRIMARY KEY,account TEXT NOT NULL,flow_date TEXT NOT NULL,
+     batch_id TEXT NOT NULL,payload TEXT NOT NULL);
+   ALTER TABLE import_batches RENAME TO delivery_batches;
+   ALTER TABLE delivery_batches ADD COLUMN revoked_at INTEGER;
+   DROP INDEX import_batches_file;
+   CREATE UNIQUE INDEX import_batches_file ON delivery_batches(account,file_hash) WHERE revoked_at IS NULL;
+   CREATE VIEW import_batches AS SELECT id,account,source,file_hash,file_name,imported_at,payload
+     FROM delivery_batches WHERE revoked_at IS NULL;
+   CREATE TRIGGER import_batches_insert INSTEAD OF INSERT ON import_batches BEGIN
+     INSERT INTO delivery_batches VALUES(NEW.id,NEW.account,NEW.source,NEW.file_hash,NEW.file_name,NEW.imported_at,NEW.payload,NULL); END;
+   CREATE TRIGGER import_batches_update INSTEAD OF UPDATE ON import_batches BEGIN
+     UPDATE delivery_batches SET id=NEW.id, account=NEW.account, source=NEW.source,file_hash=NEW.file_hash,
+       file_name=NEW.file_name,imported_at=NEW.imported_at,payload=NEW.payload WHERE id=OLD.id; END;
+   CREATE TRIGGER import_batches_delete INSTEAD OF DELETE ON import_batches BEGIN
+     UPDATE delivery_batches SET revoked_at=unixepoch()*1000 WHERE id=OLD.id; END;
+   ${deliveryClaimsMigration("trade_fills", "id,account,symbol,code,trade_date,batch_id,payload")}
+   ${deliveryClaimsMigration("cash_flows", "id,account,flow_date,batch_id,payload")}
+   CREATE TABLE delivery_uncertain_claims(batch_id TEXT NOT NULL REFERENCES delivery_batches(id),
+     fact_table TEXT NOT NULL, PRIMARY KEY(batch_id,fact_table));
+   INSERT INTO delivery_uncertain_claims
+     SELECT id,'trade_fills' FROM delivery_batches b WHERE
+       json_extract(payload,'$.statistics.fills') IS NOT (SELECT count(*) FROM trade_fills_claims WHERE batch_id=b.id);
+   INSERT INTO delivery_uncertain_claims
+     SELECT id,'cash_flows' FROM delivery_batches b WHERE
+       json_extract(payload,'$.statistics.cashFlows') IS NOT (SELECT count(*) FROM cash_flows_claims WHERE batch_id=b.id);`,
 ];
 export function migrate(connection: Database.Database) {
   const version = connection.pragma("user_version", { simple: true }) as number;

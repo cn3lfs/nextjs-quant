@@ -44,6 +44,16 @@ export async function executeValidationWork(
   progress(40, `输入已冻结 ${inputHash}`);
   assertActive();
   const result = replayValidationInput(frozen, progress);
+  for (const dataset of frozen.datasets) {
+    for (const source of dataset.sources ?? []) {
+      const gap = source.terminalCoverage?.gap;
+      if (gap)
+        result.missing.push({
+          id: `terminal-valuation:${source.symbol}:${dataset.period}`,
+          reason: gap,
+        });
+    }
+  }
   assertActive();
   const resultHash = await writeValidationArtifact("report", {
     inputHash,
@@ -76,6 +86,7 @@ export async function executeValidationWork(
   return {
     ...scoreboard,
     artifactVersion: result.version,
+    timingStatus: result.timingStatus,
     schemaMigration: "unchanged" as const,
     captureMs,
     boundary: "Rule-check-only; no notifications or account/order API calls",

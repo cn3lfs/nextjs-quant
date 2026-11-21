@@ -251,7 +251,7 @@ export async function buildTradeReviewSnapshot(
   const ledger = db.transaction(() => ({
     fills: store.fills(o.account),
     cashFlows: store.cashFlows(o.account),
-    batches: store.batches().filter((b) => b.account === o.account),
+    batches: store.batches(false).filter((b) => b.account === o.account),
   }))();
   const bars: Record<string, Bar[]> = {};
   const sources: Evidence[] = [];

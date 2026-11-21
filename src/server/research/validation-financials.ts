@@ -60,7 +60,22 @@ export function lowZoneFinancialFacts(
   history: readonly FinancialReportSnapshot[],
   series: LocalFactorSource,
   dates: readonly string[],
-): LowZoneFact[] {
+  purpose: "first-vintage" | "current-revision-diagnostic" = "first-vintage",
+): (LowZoneFact & { knownAt: null })[] {
+  const source = `Current TDX revision; series SHA256 ${series.sourceSha256}; first disclosure vintage and revision knownAt are unknown`;
+  const missing = (date: string) => ({
+    date,
+    availableAt: date,
+    knownAt: null,
+    pe: null,
+    pb: null,
+    temperature: null,
+    confidence: "approximate" as const,
+    vintage: "current-revision" as const,
+    source,
+  });
+  if (purpose === "first-vintage") return dates.map(missing);
+
   // Factors require exactly the same day's records. Preserve duplicates and
   // missing dates while avoiding a full GP-file scan for every valuation day.
   const byDate = new Map<number, typeof series.records>();
@@ -84,14 +99,23 @@ export function lowZoneFinancialFacts(
       reports,
     });
     return {
-      date,
-      availableAt: date,
+      ...missing(date),
       pe: values.find((r) => r.id === "pe-ttm")?.value ?? null,
       pb: values.find((r) => r.id === "pb")?.value ?? null,
-      temperature: null,
-      confidence: "approximate",
-      vintage: "current-revision" as const,
-      source: `Current TDX revision, PIT announcements enforced; series SHA256 ${series.sourceSha256}; no first-vintage certification`,
     };
+  });
+}
+
+/** Preserve nonfinancial observations and leave unproved valuation versions unknown. */
+export function firstVintageValuations(facts: readonly LowZoneFact[]) {
+  return facts.map((fact) => {
+    const knownAt = "knownAt" in fact ? fact.knownAt : null;
+    return fact.vintage === "first-observed" &&
+      typeof knownAt === "string" &&
+      Number.isFinite(Date.parse(knownAt)) &&
+      knownAt <= fact.availableAt &&
+      fact.availableAt <= fact.date
+      ? fact
+      : { ...fact, pe: null, pb: null };
   });
 }

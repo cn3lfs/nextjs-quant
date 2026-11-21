@@ -30,6 +30,7 @@ function forbiddenImports(
         : [];
     }
     return id === "zod" ||
+      id === "quant-execution" ||
       id === "trading-strategies" ||
       /^trading-strategy-core(?:\/.*)?$/.test(id)
       ? []

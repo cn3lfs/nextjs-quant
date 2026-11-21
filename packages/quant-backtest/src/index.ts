@@ -54,3 +54,4 @@ export type {
   OrderIntent,
   PositionLot,
 } from "quant-execution";
+export { postPortfolioFill } from "./portfolio/execution-ledger.js";

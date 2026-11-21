@@ -28,6 +28,7 @@ vi.mock("../../../src/server/market/data-health", async (original) => ({
   }),
 }));
 vi.mock("../../../src/server/db/delivery-store", () => ({
+  exclusiveDeliveryRow: () => "1=1",
   DeliveryStore: class {
     fills() {
       return state.dates.map((tradeDate) => ({ tradeDate }));

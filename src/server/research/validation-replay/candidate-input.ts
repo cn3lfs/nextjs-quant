@@ -17,7 +17,17 @@ import {
   type FrozenValidationInput,
   type ValidationDataset,
 } from "../validation-capture";
-import { validationMembersAt } from "../validation-universe";
+import {
+  validationMemberActive,
+  validationMembersAt,
+} from "../validation-universe";
+import { firstVintageValuations } from "../validation-financials";
+import {
+  CausalPriceBasisError,
+  hasCausalPriceProof,
+  missingCausalPriceBasis,
+  requiresCausalPriceBasis,
+} from "../causal-price-basis";
 
 export type DecisionCache = Map<string, StrategyDecision[]>;
 /** Freeze causal decisions on their native timeframe once, then replay them
@@ -39,8 +49,35 @@ export function projectCandidate(
       frozen.native.some((n) => n.symbol === i.symbol),
     );
   if (!instruments.length) return null;
+  if (requiresCausalPriceBasis(s)) {
+    const sources = new Map(
+      dataset.sources.map((source) => [source.symbol, source]),
+    );
+    for (const instrument of instruments) {
+      const source = sources.get(instrument.symbol);
+      if (
+        !hasCausalPriceProof(
+          source?.causalPrice,
+          instrument.bars,
+          instrument.signalBars,
+        )
+      )
+        throw new CausalPriceBasisError(
+          `${instrument.symbol}：${missingCausalPriceBasis}${source?.causalPriceGap ? `（${source.causalPriceGap}）` : ""}`,
+        );
+    }
+  }
   const universe = frozen.universe;
-  const members = new Map(universe?.members.map((m) => [m.symbol, m]));
+  const timedMembership = frozen.timingContract === "p5" && universe !== null;
+  const instrumentSymbols = new Set(
+    instruments.map((instrument) => instrument.symbol),
+  );
+  const projectedRoster = universe?.members.filter((member) =>
+    instrumentSymbols.has(member.symbol),
+  );
+  const members = new Map(
+    projectedRoster?.map((member) => [member.symbol, member]),
+  );
   const strategies: StrategyObjectInput[] = [];
   const projected = instruments.map((source, instrumentIndex) => {
     if (instrumentIndex % 32 === 0)
@@ -58,6 +95,9 @@ export function projectCandidate(
       signalBars: source.signalBars.slice(origin),
       external: {
         ...source.external,
+        ...(source.external?.lowZone
+          ? { lowZone: firstVintageValuations(source.external.lowZone) }
+          : {}),
         ...(native ? { chan: capture!.observations } : {}),
       },
     };
@@ -65,7 +105,7 @@ export function projectCandidate(
       ...s,
       universe: {
         kind: "symbols" as const,
-        symbols: instruments.map((i) => i.symbol),
+        symbols: [...instrumentSymbols],
       },
       exit: { rule: s.exit.rule },
     };
@@ -103,8 +143,7 @@ export function projectCandidate(
       availableAt: b.date,
       entry:
         decisions![i]!.entry === true &&
-        (!member?.listingDate || member.listingDate <= b.date) &&
-        (!member?.delistingDate || member.delistingDate > b.date),
+        (!member || validationMemberActive(member, b.date)),
       exit: decisions![i]!.exit === true,
     }));
     const levels =
@@ -120,7 +159,9 @@ export function projectCandidate(
     if (!strategies.length)
       strategies.push({
         ...s,
-        universe: rule.universe,
+        universe: timedMembership
+          ? { kind: "pool", id: "validation-local-roster" }
+          : rule.universe,
         entry: { kind: "external", id: s.id, side: "entry" },
         exit: {
           ...s.exit,
@@ -157,13 +198,13 @@ export function projectCandidate(
     start: dataset.dates[0]!,
     end: dataset.dates.at(-1)!,
     calendar: dataset.benchmark.map((b) => b.date),
-    ...(universe
+    ...(projectedRoster
       ? {
           memberships: dataset.benchmark.map((b) => ({
             strategyId: s.id,
             date: b.date,
             availableAt: b.date,
-            symbols: validationMembersAt(universe, b.date),
+            symbols: validationMembersAt({ members: projectedRoster }, b.date),
           })),
         }
       : {}),

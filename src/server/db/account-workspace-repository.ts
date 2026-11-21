@@ -76,7 +76,7 @@ export class AccountWorkspaceRepository {
         version: this.version(),
         fills: deliveries.fills(),
         cashFlows: deliveries.cashFlows(),
-        batches: deliveries.batches(),
+        batches: deliveries.batches(false),
         local: new TradeLedgerStore(this.db).trades(),
         paper: paper.ids().map((id) => ({
           account: paper.account(id)!,

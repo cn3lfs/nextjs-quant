@@ -5,7 +5,11 @@ import {
   type FinancialReportSnapshot,
 } from "tstdx/financial-model";
 import type { LocalFactorSource } from "trading-strategy-core/factors";
-import { lowZoneFinancialFacts } from "~/server/research/validation-financials";
+import {
+  firstVintageValuations,
+  lowZoneFinancialFacts,
+} from "~/server/research/validation-financials";
+import { lifecycleFinancialValuations } from "~/server/research/lifecycle/low-zone";
 
 it("batch projections preserve PIT, units, missing days and duplicate same-day records", () => {
   const reports: FinancialReportSnapshot[] = [
@@ -46,7 +50,12 @@ it("batch projections preserve PIT, units, missing days and duplicate same-day r
   };
   const dates = ["2026-11-01", "2026-11-02", "2026-11-03", "2026-11-04"];
   const before = structuredClone({ reports, series });
-  const full = lowZoneFinancialFacts(reports, series, dates);
+  const full = lowZoneFinancialFacts(
+    reports,
+    series,
+    dates,
+    "current-revision-diagnostic",
+  );
   const slim = lowZoneFinancialFacts(
     reports.map((r) => ({
       ...r,
@@ -54,6 +63,7 @@ it("batch projections preserve PIT, units, missing days and duplicate same-day r
     })),
     series,
     dates,
+    "current-revision-diagnostic",
   );
   expect(slim).toEqual(full);
   // GP16's 100 is 1,000,000 yuan. Financial raw fields here are already yuan:
@@ -68,4 +78,48 @@ it("batch projections preserve PIT, units, missing days and duplicate same-day r
     full.every((f) => f.temperature === null && f.confidence === "approximate"),
   ).toBe(true);
   expect({ reports, series }).toEqual(before);
+  const strict = lowZoneFinancialFacts(reports, series, dates);
+  expect(strict).toEqual(full.map((row) => ({ ...row, pe: null, pb: null })));
+  expect(strict[1]).toMatchObject({
+    vintage: "current-revision",
+    knownAt: null,
+  });
+  expect(firstVintageValuations(full)).toEqual(strict);
+
+  const current = { ...full[1]!, knownAt: dates[1]!, temperature: 20 };
+  const first = { ...current, vintage: "first-observed" as const };
+  const late = { ...first, knownAt: dates[2]! };
+  const [unsupported, supported, unpublished] = firstVintageValuations([
+    current,
+    first,
+    late,
+  ]);
+  expect(unsupported).toMatchObject({ pe: null, pb: null, temperature: 20 });
+  expect(supported).toEqual(first);
+  expect(unpublished).toMatchObject({ pe: null, pb: null });
+
+  const symbol = "sh600519";
+  const lifecycle = lifecycleFinancialValuations(
+    {
+      version: "csi800-financial-1",
+      priceHash: "QA",
+      reports: { [symbol]: reports },
+      caps: { [symbol]: { [dates[1]!]: 1_000_000 } },
+      seriesSources: { [symbol]: { hash: "QA" } },
+    },
+    [symbol],
+    dates,
+    "QA",
+    "first-vintage",
+  );
+  expect(lifecycle).toMatchObject([
+    {
+      date: dates[1],
+      marketCap: 1_000_000,
+      pe: null,
+      pb: null,
+      vintage: "current-revision",
+      knownAt: null,
+    },
+  ]);
 });

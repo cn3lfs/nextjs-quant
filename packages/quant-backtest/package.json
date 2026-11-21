@@ -27,7 +27,7 @@
   "scripts": {
     "build": "node ../../scripts/build-package.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --config vitest.config.ts"
+    "test": "vitest run --configLoader runner --config vitest.config.ts"
   },
   "dependencies": {
     "quant-execution": "workspace:*",

@@ -2,6 +2,8 @@
 
 按用户“快速迭代、去掉老古董治理措施”的要求，分三批落地。分支 `feat/backtest-infra-p0-degovernance`，未推送。
 
+后续 P3–P7 使用 `multi-agent-commander` 多 Agent 编排：Astra 负责账本迁移与交割软删除，Sol-high 负责 PIT/复权与窗口读取，Sol Review 对每个 wave 做只读缺陷审查；共 6 个 wave，P1/P2 修复回灌后再次审查。
+
 ## 已完成
 
 ### 批次 1：去治理化（`6e002666`）
@@ -39,12 +41,28 @@
 ## 验证
 
 - `pnpm typecheck`、`pnpm lint`、改动文件 Prettier、`git diff --check` 通过。
-- `quant-execution` 4、`quant-backtest` 100、`trading-strategies` 484、`quant-performance` 26、`trading-strategy-core` 26、`tstdx` 120 项通过。
-- 受影响根测试累计 500+ 项通过（研究回测、纸面、模拟、加密、提醒、GBBQ、验证）。
-- 最终根全量 Vitest：7,753 项，0 失败（隔离 `QUANT_DATA_DIR`）；包测试 4 + 100 + 484 + 26 + 26 + 120 项通过。
+- 最终根全量 Vitest：**7,769 项，0 失败**（隔离 `QUANT_DATA_DIR`）。
+- 包测试：`quant-execution` 7、`quant-backtest` 105、`trading-strategies` 484、`trading-strategy-core` 26、`quant-performance` 26、`tstdx` 125 项通过（`tstdx` 另 1 项跳过）。
+
+## P3 迁移的实际结构
+
+- 新增 `AccountBook` 作为共享状态机，统一现金、持仓、FIFO 批次扣减、公司行动与终值后的删除条件。
+- 两个数值适配：
+  - `ResearchExecutionLedger`（number）：`PortfolioAccount` 的正式实现，`runPortfolio` 已通过它执行；保留研究回放的 binary64/平均成本语义。
+  - `ExecutionLedger`（bigint）：面向行情原子、纸面/模拟/外部成交对账的适配器。
+- `postPortfolioFill` 把已定价、已知费用明细的成交转为 bigint 原子并入账；12 步两买两卖、同日锁定、资金不足、`settledCashChange`、分红送转、配股、category 11、terminal 对拍零差异。
+- **边界**：生产 `runPortfolio` 使用 number 适配器而不是 bigint 适配器；两者共享 `AccountBook`，但不是同一数值实例。若未来要把生产回测切到 bigint，需要单独验证 binary64 结算尾差与全部历史结果，不在本批次声称完成。
+
+## P4/P5/P6 结果
+
+- P4：`import_batches` 迁移为 `delivery_batches` + active 视图 + 逐批 claim + canonical payload；撤销只写 `revoked_at`，不删经济行；同文件重试返回零新增计数；旧清理工具识别视图与 claim。
+- P5：A 股公式绝对价格比较要求逐 bar 因果价格；PIT 名册按回放日可知事实（公告/抓取时间）淘汰；财务 `current-revision` 的 PE/PB 保持未知；退市最后交易日与终止上市日分离。
+- P6：`readWindowSnapshot` 按日期索引读取并与全量逐根一致；BarStore 支持跨读取共享预算，lab/validation 累计原价与 signalBars，超限任务失败；缺终值持仓的评分返回 blocked/null。
 
 ## 保留的边界
 
 - `docs/trading-skills-method-map.json` 是活数据目录（策略中心/理论研究使用），保留；只删除源锁与漂移审计。
 - runner/显式 definitions 的运行期一致性与 worker 字节校验保留，防止长任务混用两个版本；改无关源码不再中断。
-- `quant-execution` 尚未接管 `runPortfolio` 的全部账本；`portfolio-account` 与 sim 的完整迁移、对拍白名单、真实导入 tombstone、forward 复权绝对价格规则、窗口读取与 AbortSignal 留待后续批次。
+- 生产 `runPortfolio` 使用 `ResearchExecutionLedger`（number）而不是 bigint `ExecutionLedger`；两者共享 `AccountBook`。切到 bigint 需单独验证 binary64 尾差与全部历史，不在本批次声称完成。
+- 完整历史指数成分、首次披露财务版本、外部券商/THS mock 的委托查询仍需外部数据或联调；缺证据时保留未知/阻断，不补造。
+- 少量数据 manifest 精确计数（WDZ、public factor）是数据契约，不是实现形状，保留。
