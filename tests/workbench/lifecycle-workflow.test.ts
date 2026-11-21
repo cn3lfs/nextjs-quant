@@ -45,6 +45,8 @@ function candidate() {
     sleeve: "swing",
   };
   const identity = {
+    type: "entry" as const,
+    price: 10,
     strategyId: strategy.id,
     version: 1,
     market: strategy.market,
@@ -54,8 +56,6 @@ function candidate() {
   const e: AlertEvent = {
     ...identity,
     key: alertKey(identity),
-    type: "entry",
-    price: 10,
     stop: 9,
     target: 13,
     sleeve: "swing",

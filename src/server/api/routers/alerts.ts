@@ -75,6 +75,8 @@ export const alertsRouter = createTRPCRouter({
         )
           throw new Error("缺少冻结原价或策略身份，不能加入计划");
         const identity = {
+          type: "entry" as const,
+          price: bar.close,
           strategyId: strategy.id,
           version: strategy.version,
           market: strategy.market,
@@ -95,8 +97,6 @@ export const alertsRouter = createTRPCRouter({
         } = {
           ...identity,
           key: alertKey(identity),
-          type: "entry",
-          price: bar.close,
           executionRawPrice: bar.close,
           signalPrice: signalBar.close,
           signalPriceBasis: snapshot.adjustment,

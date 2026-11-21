@@ -74,6 +74,8 @@ export function seedDailyProtection(db: Database.Database, now: number) {
   const accountId = "paper:QA-lifecycle-protection",
     planId = "QA-lifecycle-stop-plan";
   const eventIdentity = {
+    type: "entry" as const,
+    price: fill.price,
     strategyId: strategy.id,
     version: 1,
     market: "cn-equity" as const,
@@ -85,8 +87,6 @@ export function seedDailyProtection(db: Database.Database, now: number) {
     ...eventIdentity,
     key: alertKey(eventIdentity),
     planId,
-    type: "entry",
-    price: fill.price,
     stop: 9,
     target: 13,
     sleeve: "swing",

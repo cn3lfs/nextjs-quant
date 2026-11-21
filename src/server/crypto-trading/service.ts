@@ -135,7 +135,13 @@ export async function saveCryptoBot(input: Config) {
       if (current?.status === "running" || orders(id).some(unresolved))
         throw new Error("请先暂停并等待未完成订单对账");
       const value: BotState = current
-        ? { ...current, config, lastCandles: {}, error: null }
+        ? {
+            ...current,
+            config,
+            pendingRetry: undefined,
+            lastCandles: {},
+            error: null,
+          }
         : {
             id,
             config,
@@ -330,6 +336,7 @@ export async function controlCryptoBot(input: {
       const current = bot(id);
       persist({
         ...current,
+        pendingRetry: action === "stop" ? undefined : current.pendingRetry,
         status: action === "stop" ? "stopped" : "paused",
         lastCandles: {},
       });
@@ -438,10 +445,53 @@ async function evaluate(
   };
   const intent = paperStrategy(strategy, series, series.bars.at(-1)!.date)[0];
   const prior = value.lastCandles[symbol];
+  const pending =
+    value.pendingRetry?.symbol === symbol ? value.pendingRetry : undefined;
+  const retry =
+    pending?.candleTime === latest && pending.side === intent?.side
+      ? pending
+      : undefined;
+  const stale = now - latest - duration > 90000;
+  const skipped = stale
+    ? "stale"
+    : reset
+      ? "reset"
+      : prior === undefined
+        ? "baseline"
+        : latest - prior !== duration
+          ? "gap"
+          : undefined;
   atomic(() => {
     const current = bot(value.id);
+    const history = current.missedSignals ?? [];
+    const missed =
+      intent &&
+      skipped &&
+      prior !== latest &&
+      (!retry || stale) &&
+      !history.some(
+        (item) =>
+          item.symbol === symbol &&
+          item.candleTime === latest &&
+          item.side === intent.side,
+      );
     persist({
       ...current,
+      ...(pending && (!retry || stale) ? { pendingRetry: undefined } : {}),
+      ...(missed
+        ? {
+            missedSignals: [
+              ...history,
+              {
+                symbol,
+                candleTime: latest,
+                side: intent.side,
+                reason: skipped,
+                at: now,
+              },
+            ].slice(-100),
+          }
+        : {}),
       lastCandles: { ...current.lastCandles, [symbol]: latest },
       indicators: {
         ...current.indicators,
@@ -449,15 +499,7 @@ async function evaluate(
       },
     });
   });
-  if (
-    now - latest - duration > 90000 ||
-    reset ||
-    prior === undefined ||
-    prior === latest ||
-    latest - prior !== duration ||
-    !intent
-  )
-    return;
+  if (!intent || stale || (!retry && (skipped || prior === latest))) return;
   const holding = new Big(value.positions[symbol]);
   const price = await exchange.price(symbol),
     rules = await exchange.rules(symbol);
@@ -508,11 +550,15 @@ async function evaluate(
   const clientId =
     "qm" +
     createHash("sha256")
-      .update(`${value.id}:${symbol}:${latest}:${intent.side}`)
+      .update(
+        `${value.id}:${symbol}:${latest}:${intent.side}${retry ? ":retry1" : ""}`,
+      )
       .digest("hex")
       .slice(0, 30);
   const order: Execution = {
     clientId,
+    attempt: retry ? 2 : 1,
+    ...(retry ? { retryOf: retry.clientId } : {}),
     symbol,
     side: intent.side,
     quantity,
@@ -538,6 +584,7 @@ async function evaluate(
       return false;
     const { side: _side, ...event } = intent;
     new StrategyRepository().record(strategy, event);
+    if (retry) persist({ ...bot(value.id), pendingRetry: undefined });
     saveOrder(value.id, order);
     return true;
   });
@@ -568,7 +615,15 @@ async function evaluate(
         error: message,
       });
       const current = bot(value.id);
-      persist({ ...current, status: "paused", error: message });
+      persist({
+        ...current,
+        status: "paused",
+        error: message,
+        pendingRetry:
+          !outcomeUnknown && !retry && current.status !== "stopped"
+            ? { clientId, symbol, candleTime: latest, side: intent.side }
+            : undefined,
+      });
     });
   }
 }

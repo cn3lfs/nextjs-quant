@@ -33,6 +33,8 @@ export function seedR3bFixture(db: Database.Database) {
   );
   repo.strategies.saveStrategy(strategy);
   const identity = {
+    type: "entry" as const,
+    price: 100,
     strategyId: strategy.id,
     version: 1,
     market: "cn-equity" as const,
@@ -42,8 +44,6 @@ export function seedR3bFixture(db: Database.Database) {
   const event: AlertEvent = {
     ...identity,
     key: alertKey(identity),
-    type: "entry",
-    price: 100,
     stop: 90,
     target: 200,
     sleeve: "swing",

@@ -65,6 +65,8 @@ function repository() {
 }
 function event(bar: string): AlertEvent {
   const identity = {
+    type: "entry" as const,
+    price: 10,
     strategyId: strategy.id,
     version: 1,
     market: "cn-equity" as const,
@@ -74,9 +76,7 @@ function event(bar: string): AlertEvent {
   return {
     ...identity,
     key: alertKey(identity),
-    type: "entry",
     sleeve: "swing",
-    price: 10,
     stop: 9,
     target: null,
     observedAt: Date.parse(`${bar}T07:01:00Z`),

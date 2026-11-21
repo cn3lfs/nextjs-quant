@@ -1,3 +1,4 @@
+import { alertKey } from "../../lib/strategy-facts/alerts";
 import type Database from "better-sqlite3";
 import { z } from "zod";
 import {
@@ -168,14 +169,7 @@ export class StrategyRepository {
           event.version !== strategy.version ||
           event.market !== strategy.market ||
           event.sleeve !== strategy.sleeve ||
-          event.key !==
-            JSON.stringify([
-              strategy.id,
-              strategy.version,
-              strategy.market,
-              event.symbol,
-              event.bar,
-            ])
+          event.key !== alertKey(event)
         )
           throw new Error("Event strategy identity mismatch");
         if (

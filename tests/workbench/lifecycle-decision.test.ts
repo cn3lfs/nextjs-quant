@@ -36,6 +36,8 @@ function record(
   rankScore?: number,
 ) {
   const identity = {
+    type: "entry" as const,
+    price: 10,
     strategyId: strategy.id,
     version: strategy.version,
     market: strategy.market,
@@ -45,8 +47,6 @@ function record(
   const event: AlertEvent = {
     ...identity,
     key: alertKey(identity),
-    type: "entry",
-    price: 10,
     stop: 9,
     target: null,
     sleeve: strategy.sleeve,

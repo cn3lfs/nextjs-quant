@@ -183,7 +183,14 @@ export type AlertHistoryInput = z.infer<typeof alertHistorySchema>;
 export const alertKey = (
   event: Pick<
     AlertEvent,
-    "strategyId" | "version" | "market" | "symbol" | "bar" | "paperFillId"
+    | "strategyId"
+    | "version"
+    | "market"
+    | "symbol"
+    | "bar"
+    | "type"
+    | "price"
+    | "paperFillId"
   >,
 ) =>
   JSON.stringify([
@@ -192,5 +199,7 @@ export const alertKey = (
     event.market,
     event.symbol,
     event.bar,
+    event.type,
+    event.price,
     ...(event.paperFillId ? ["paper-fill", event.paperFillId] : []),
   ]);
