@@ -339,10 +339,15 @@ export function replayLabBacktest(
   const inputHash = createHash("sha256")
     .update(JSON.stringify(frozen))
     .digest("hex");
-  const result = runPortfolio(request, (done, count) => {
-    signal?.throwIfAborted();
-    progress(70 + Math.floor((done / Math.max(1, count)) * 30), "组合回放");
-  });
+  const result = runPortfolio(
+    request,
+    (done, count) => {
+      signal?.throwIfAborted();
+      progress(70 + Math.floor((done / Math.max(1, count)) * 30), "组合回放");
+    },
+    undefined,
+    signal,
+  );
   const performance = createPerformanceReport(
     request.initial,
     dailyEquity(result.curve),

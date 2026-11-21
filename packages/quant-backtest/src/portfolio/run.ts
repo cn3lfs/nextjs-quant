@@ -17,6 +17,7 @@ export function runPortfolio(
   request: PortfolioRequest,
   progress: (done: number, total: number) => void = () => {},
   preparation?: ReturnType<typeof createPortfolioPreparation>,
+  signal?: AbortSignal,
 ) {
   const state = createPortfolioState(request, preparation);
   const execute = createOrderExecutor(state);
@@ -26,6 +27,7 @@ export function runPortfolio(
     beforeOpen: (_index, date) => applyCorporateActions(state, date),
     open: (_index, date) => matchOpeningOrders(state, date, execute),
     close: (index, date) => {
+      signal?.throwIfAborted();
       const candidates = observeClosingSignals(state, index, date, execute);
       scheduleClosingTargets(state, index, date, candidates);
       rebalanceAndMarkEquity(state, index, date);

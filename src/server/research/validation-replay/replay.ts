@@ -23,7 +23,9 @@ import { projectToExecutionClock } from "./execution-clock";
 export function replayValidationInput(
   frozen: FrozenValidationInput,
   progress: (n: number, phase: string) => void = () => {},
+  signal?: AbortSignal,
 ) {
+  signal?.throwIfAborted();
   const boards: ScoreboardRow[] = [];
   const suites: {
     period: string;
@@ -102,7 +104,11 @@ export function replayValidationInput(
     );
     const fullPeriod = requests.map((r) => ({
       id: r.id,
-      score: scoreValidationResult(runPortfolio(r.request), r.request, dataset),
+      score: scoreValidationResult(
+        runPortfolio(r.request, undefined, undefined, signal),
+        r.request,
+        dataset,
+      ),
     }));
     const trials = fullPeriod.map((r) => sharpeDaily(r.score.daily));
     const diagnostics = {
@@ -204,7 +210,7 @@ export function replayValidationInput(
               end: cycleRequest.end,
               complete: c.complete && c.end <= request.end,
               evaluation: scoreValidationResult(
-                runPortfolio(cycleRequest),
+                runPortfolio(cycleRequest, undefined, undefined, signal),
                 cycleRequest,
                 dataset,
               ),

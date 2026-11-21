@@ -33,6 +33,7 @@
 - GBBQ 来源指纹改为内容寻址：stat 身份命中时复用，变化时内容哈希；并发首次读取共享同一 in-flight promise。
 - 财务低估值事实增加 `vintage: "current-revision"`，明确不是首次披露版本。
 - validation 请求传入 PIT `memberships`；lab/validation 默认 `observationDetail: "counts"`。
+- `runPortfolio` 增加可选 `AbortSignal`，lab 与 validation replay 在 bar 边界可中止。
 
 ## 验证
 
