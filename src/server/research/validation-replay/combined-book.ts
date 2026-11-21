@@ -13,14 +13,18 @@ export function combinedBook(
   dataset: ValidationDataset,
   primary: PortfolioRequest,
   secondary?: PortfolioRequest,
+  signal?: AbortSignal,
 ) {
+  signal?.throwIfAborted();
   const shares = frozen.input.market === "cn-equity" ? [1, 0.65] : [0.75, 0.8];
   const variants = shares.map((share, index) => {
+    signal?.throwIfAborted();
     const strategies = [
       ...primary.strategies,
       ...(secondary?.strategies ?? []),
     ];
     const instruments = primary.instruments.map((p) => {
+      signal?.throwIfAborted();
       const other = secondary?.instruments.find((s) => s.symbol === p.symbol);
       return {
         ...p,
@@ -37,7 +41,7 @@ export function combinedBook(
         },
       };
     });
-    const low = combinedLowZoneTargets(frozen, primary);
+    const low = combinedLowZoneTargets(frozen, primary, signal);
     const sleeves = [
       { ...primary.sleeves[0]!, share: secondary ? share : 1 },
       ...(secondary ? [{ ...secondary.sleeves[0]!, share: 1 - share }] : []),
@@ -56,7 +60,7 @@ export function combinedBook(
         ? { sleeveTargets: low }
         : {}),
     };
-    const result = runPortfolio(request);
+    const result = runPortfolio(request, undefined, undefined, signal);
     const score = scoreValidationResult(result, request, dataset);
     const valuation = score.valuation;
     // A stale mark can change cash transfers and every sleeve's funded path.
@@ -67,6 +71,7 @@ export function combinedBook(
       : result.transfers;
     const transfersBySleeve = new Map<string, Map<string, number>>();
     for (const transfer of transfers) {
+      signal?.throwIfAborted();
       const dates =
         transfersBySleeve.get(transfer.sleeve) ?? new Map<string, number>();
       dates.set(
@@ -89,6 +94,7 @@ export function combinedBook(
       let previous = frozen.input.initial * s.share;
       const byDay = new Map<string, number[]>();
       for (const point of result.curve) {
+        signal?.throwIfAborted();
         const current = point.sleeves.find((r) => r.id === s.id)!.equity;
         const transfer = transfersBySleeve.get(s.id)?.get(point.date) ?? 0;
         const value = previous > 0 ? (current - transfer) / previous - 1 : null;
@@ -213,7 +219,9 @@ export function combinedBook(
 export function combinedLowZoneTargets(
   frozen: FrozenValidationInput,
   primary: PortfolioRequest,
+  signal?: AbortSignal,
 ) {
+  signal?.throwIfAborted();
   const symbols = new Set([
     "sh000300",
     ...primary.instruments.map((i) => i.symbol),
@@ -229,6 +237,7 @@ export function combinedLowZoneTargets(
   const targets: NonNullable<PortfolioRequest["sleeveTargets"]>[number][] = [];
   let cursor = 0;
   for (const date of primary.calendar) {
+    signal?.throwIfAborted();
     while (events[cursor] && events[cursor]!.date <= date) {
       const e = events[cursor++]!;
       state.set(e.symbol, e.targetShare);

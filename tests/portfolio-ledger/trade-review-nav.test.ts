@@ -859,7 +859,16 @@ describe("R4b 柜台余额重放", () => {
       cashFlows: [flow(d(1), 100)],
       fills: [fill(d(2), "buy", 10, 1, { balanceCash: 90 })],
     });
-    expect(r.openingCash).toBe(0);
+    expect(r.openingCash).toBeNull();
+    expect(r.twr.value).toBeNull();
+    expect(r.twr.reasons[0]?.reason).toContain("期初现金未知");
+    expect(r.warnings).toContain(
+      "期初现金未知：缺少调用方期初余额和首笔成交余额证据",
+    );
+    expect(r.days[0]!.cash.value).toBeNull();
+    expect(r.minimumCash.value).toBeNull();
+    expect(r.minimumDate).toBeNull();
+    expect(r.lowestKnownCash).toEqual({ value: 90, date: d(2) });
     expect(r.inferredOpeningCash).toBeNull();
     expect(r.days[1]!.cash.value).toBe(90);
   });

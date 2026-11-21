@@ -141,6 +141,21 @@ function fixture(market: "cn-equity" | "crypto" = "cn-equity") {
   };
   return { repo, account, request, input, dates };
 }
+it("preserves paper facts on a calendar budget failure and advances at the configured limit", () => {
+  const { repo, account, input, dates } = fixture();
+  try {
+    vi.stubEnv("QUANT_BAR_STORE_MAX_BARS", String(dates.length - 1));
+    expect(() => advancePaper(repo, account.id, input, Date.now())).toThrow(
+      /上限 4 根.*QUANT_BAR_STORE_MAX_BARS/,
+    );
+    expect(repo.account(account.id)!.lastBar).toBeNull();
+    vi.stubEnv("QUANT_BAR_STORE_MAX_BARS", String(dates.length));
+    advancePaper(repo, account.id, input, Date.now());
+    expect(repo.account(account.id)!.lastBar).toBe(dates.at(-1));
+  } finally {
+    vi.unstubAllEnvs();
+  }
+});
 it.each(["cn-equity", "crypto"] as const)(
   "%s paper and runPortfolio have identical fills, orders, daily equity and positions",
   (market) => {

@@ -16,6 +16,7 @@ import {
   type ResearchRunBudget,
 } from "../research/research-run";
 import { corporateActions } from "../market/bar-store/corporate-actions";
+import { BarResourceBudget } from "../market/bar-store/resource-budget";
 import { readBars } from "../market/bar-store/read-bars";
 import {
   researchCorporateActions,
@@ -222,10 +223,15 @@ export async function prepareFinancialReplay(
   const expectedCalendar = plan.calendar.days.filter(
     (day) => day >= start && day <= plan.config.input.endDate,
   );
-  if (expectedCalendar.length * plan.config.input.symbols.length > 2000000)
-    throw new Error("完整日历槽与证券池组合超过200万，缩小年度区间或证券池");
+  const barBudget = new BarResourceBudget();
+  barBudget.checkLimit(
+    expectedCalendar.length * plan.config.input.symbols.length,
+    {
+      symbol: "财务回放证券池",
+      period: "day",
+    },
+  );
   const executionDates = new Set(plan.years.map((year) => year.executeAt));
-  let totalBars = 0;
   for (let index = 0; index < plan.config.input.symbols.length; index++) {
     assertResearchRunActive(budget);
     const symbol = plan.config.input.symbols[index]!;
@@ -252,8 +258,7 @@ export async function prepareFinancialReplay(
       raw.some((bar, i) => bar.date !== snapshot.bars[i]!.date)
     )
       throw new Error(`${symbol}原价与信号周期未对齐`);
-    totalBars += raw.length;
-    if (totalBars > 2000000) throw new Error("冻结行情超过200万根资源边界");
+    barBudget.retain(raw.length, { symbol, period: "day" });
     if (
       !raw.some(
         (bar) =>

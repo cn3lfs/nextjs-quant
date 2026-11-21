@@ -329,6 +329,7 @@ export async function executeStrategyCenterPortfolio(
         market: "cn-equity",
         initial: input.initial,
         costs: { ...defaultExecutionCosts, slippageBps: options.slippageBps },
+        observationDetail: "full",
         start: input.start,
         end: input.end,
         calendar: dates,

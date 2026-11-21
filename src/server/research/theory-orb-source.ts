@@ -18,6 +18,7 @@ import {
   evaluateResearchReadiness,
   type ResearchReadinessInput,
 } from "~/lib/research/research-readiness";
+import { BarResourceBudget } from "../market/bar-store/resource-budget";
 import { readBars } from "../market/bar-store/read-bars";
 import { binanceArchiveSource } from "../market/bar-store/binance-archive-source";
 
@@ -168,7 +169,7 @@ export async function loadTheoryOrbSource(options: TheoryOrbLoadOptions) {
   const read = options.read ?? readBars;
   const instruments: PortfolioInstrument[] = [],
     sources: Record<string, unknown>[] = [];
-  let total = 0;
+  const barBudget = new BarResourceBudget();
   for (const symbol of symbols) {
     const archive = await binanceArchiveSource({
       symbol,
@@ -238,8 +239,7 @@ export async function loadTheoryOrbSource(options: TheoryOrbLoadOptions) {
         return date === bar.date ? bar : { ...bar, date };
       });
     if (!bars.length) throw new Error(`${symbol} UTC ORB区间行情为空`);
-    total += bars.length;
-    if (total > 2_000_000) throw new Error("冻结行情超过200万根资源边界");
+    barBudget.retain(bars.length, { symbol, period: "5m" });
     const sessions = buildUtcOrbSessions(bars);
     const slotsByDay = new Map<string, Set<number>>();
     for (const bar of bars) {

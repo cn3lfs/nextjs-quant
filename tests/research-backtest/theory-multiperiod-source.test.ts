@@ -93,6 +93,28 @@ beforeEach(() => {
   );
   vi.clearAllMocks();
 });
+it("shares the configured bar budget across daily and intraday snapshots", async () => {
+  const total = state.daily.length + state.five.length;
+  try {
+    vi.stubEnv("QUANT_BAR_STORE_MAX_BARS", String(total - 1));
+    await expect(loadTheoryMultiperiodSource(options())).rejects.toMatchObject({
+      code: "BAR_STORE_BUDGET_EXCEEDED",
+      diagnostic: {
+        period: "5m",
+        stage: "output",
+        retainedBars: state.daily.length,
+        requestedBars: state.five.length,
+        maxBars: total - 1,
+      },
+    });
+    vi.stubEnv("QUANT_BAR_STORE_MAX_BARS", String(total));
+    expect(
+      (await loadTheoryMultiperiodSource(options())).instruments,
+    ).toHaveLength(1);
+  } finally {
+    vi.unstubAllEnvs();
+  }
+});
 it("slices only the registered warmup interval before strict validation, retaining original identity", async () => {
   state.five.unshift(bar("2000-01-03T00:00:00+08:00"));
   const result = await loadTheoryMultiperiodSource(options());

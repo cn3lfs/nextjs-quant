@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { researchCandidates, strategyBuildHash } from "trading-strategies";
 import { validationInputSchema } from "~/server/research/validation-model";
 import {
@@ -169,7 +169,7 @@ function fixture(): FrozenValidationInput {
 }
 describe("research validation application boundary", () => {
   it("fails validation before publishing when the shared raw and signal budget is exhausted", async () => {
-    const root = join(dataDirectory(), "budget-fixture");
+    const root = resolve(dataDirectory(), "budget-fixture");
     const actionsDirectory = join(root, "T0002", "hq_cache");
     await mkdir(actionsDirectory, { recursive: true });
     await mkdir(join(root, "vipdoc", "cw"), { recursive: true });
@@ -214,7 +214,7 @@ describe("research validation application boundary", () => {
 
   it("freezes delisted stock history while requiring independent final trading-date and close evidence for terminal valuation", async () => {
     vi.stubGlobal("fetch", network);
-    const root = join(dataDirectory(), "terminal-history-fixture");
+    const root = resolve(dataDirectory(), "terminal-history-fixture");
     const actionsDirectory = join(root, "T0002", "hq_cache");
     await mkdir(actionsDirectory, { recursive: true });
     await mkdir(join(root, "vipdoc", "cw"), { recursive: true });
@@ -562,6 +562,26 @@ describe("research validation application boundary", () => {
     ).rejects.toThrow("同花顺仅提供区间前复权");
     expect(read).not.toHaveBeenCalled();
   });
+  it("propagates the caller's abort reason during frozen validation", async () => {
+    const frozen = fixture();
+    frozen.candidateMenu = frozen.candidateMenu.filter(
+      (candidate) =>
+        candidate.family === "dual-ma-day" && candidate.variant === "atr",
+    );
+    frozen.validationBuildHash = validationBuildHash();
+    const hash = await writeValidationArtifact("input", frozen);
+    const controller = new AbortController();
+    const reason = new DOMException("Window replay cancelled", "AbortError");
+    await expect(
+      executeValidationWork(
+        { type: "strategy-validation", root: "", input: {}, frozenHash: hash },
+        (_n, phase) => {
+          if (phase.startsWith("验证 ")) controller.abort(reason);
+        },
+        controller.signal,
+      ),
+    ).rejects.toBe(reason);
+  });
   it("does not publish a scoreboard or qualify strategies when cancelled after freezing", async () => {
     vi.stubGlobal("fetch", network);
     const frozen = fixture();
@@ -591,7 +611,10 @@ describe("research validation application boundary", () => {
             saveJob({ ...readJob(job.id)!, status: "cancelled", updatedAt: 2 });
         },
       ),
-    ).rejects.toThrow("cancelled");
+    ).rejects.toMatchObject({
+      name: "AbortError",
+      message: expect.stringContaining("cancelled"),
+    });
     expect(validationScoreboardPage({ market: "crypto" }).metadata).toBeNull();
   });
   it("stops pagination at candle opening without requesting an inverted interval", () => {

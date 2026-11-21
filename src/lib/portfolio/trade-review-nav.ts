@@ -255,8 +255,8 @@ export function reviewTradeNav(input: TradeReviewNavInput) {
     )
   )
     throw new Error("交易日历日期无效");
-  let cash: number | null = input.openingCash ?? 0;
-  if (!Number.isFinite(cash)) throw new Error("期初现金无效");
+  let cash: number | null = input.openingCash ?? null;
+  if (cash !== null && !Number.isFinite(cash)) throw new Error("期初现金无效");
   const warnings: string[] = [];
   const skippedFlows = new Map<string, number>();
   const statementOrder = input.fills.some(
@@ -321,6 +321,9 @@ export function reviewTradeNav(input: TradeReviewNavInput) {
       );
   }
   const openingCash = cash;
+  const missingOpeningReason =
+    "期初现金未知：缺少调用方期初余额和首笔成交余额证据";
+  if (openingCash === null) warnings.push(missingOpeningReason);
   const originalEvents = events;
   events = orderTradeReviewIntraday(events);
   const reorderedDates = new Set(
@@ -340,8 +343,8 @@ export function reviewTradeNav(input: TradeReviewNavInput) {
       ? null
       : [...repoPrincipals.values()].reduce((sum, value) => sum + value, 0);
   let minimumCash = cash;
-  let minimumDate: string | null = calendar[0] ?? null;
-  let cashUnknown = false;
+  let minimumDate: string | null = cash === null ? null : (calendar[0] ?? null);
+  let cashUnknown = cash === null;
   const positionReasons = new Map<string, string>();
   // Cash-flow codes and fill symbols can name the same security. Match only
   // exact codes; subscription codes must never be mapped to listed securities.
@@ -536,7 +539,7 @@ export function reviewTradeNav(input: TradeReviewNavInput) {
         cash = originalDayClose;
       if (cash !== null && !Number.isFinite(cash)) cash = null;
       if (cash === null) cashUnknown = true;
-      if (cash !== null && cash < minimumCash) {
+      if (cash !== null && (minimumCash === null || cash < minimumCash)) {
         minimumCash = cash;
         minimumDate = date;
         minimumFromStatement = e.fill?.balanceCash === cash;
@@ -602,7 +605,9 @@ export function reviewTradeNav(input: TradeReviewNavInput) {
       nav: navMetric,
       dailyReturn: metric(
         daily,
-        returnReason ?? navMetric.reason ?? "净值或TWR分母非正",
+        openingCash === null && !days.length
+          ? missingOpeningReason
+          : (returnReason ?? navMetric.reason ?? "净值或TWR分母非正"),
       ),
     });
     previousNav = navMetric.value;
@@ -611,7 +616,7 @@ export function reviewTradeNav(input: TradeReviewNavInput) {
     warnings.push(
       `跳过 ${[...skippedFlows.values()].reduce((a, b) => a + b, 0)} 笔零金额且无股份变动证据的流水（${[...skippedFlows].map(([kind, count]) => `${kind}：${count} 笔`).join("、")}）；现金与持仓不变`,
     );
-  if (minimumCash < 0)
+  if (minimumCash !== null && minimumCash < 0)
     warnings.push(
       `最低已知现金 ${minimumCash}（${minimumDate}）为负：${minimumFromStatement ? "该负值来自柜台余额序列，通常意味着当日有交割单之外的资金流入未被记录，不是账户透支" : "期初资金假设或流水不完整"}；未自动调整期初现金`,
     );

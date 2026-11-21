@@ -124,6 +124,7 @@ for (const market of ["cn-equity", "crypto"] as const) {
             start: asOf,
             end: asOf,
             costs: zero,
+            observationDetail: "full",
             calendar: inputBars.map((b) => b.date),
             instruments: [
               {

@@ -104,10 +104,12 @@ export function replayValidationInput(
   ]);
   const missing: { id: string; reason: string }[] = [];
   for (const [datasetIndex, dataset] of frozen.datasets.entries()) {
+    signal?.throwIfAborted();
     const declared = candidates.filter(
       (c) => c.strategy.period === dataset.period,
     );
     const requests = declared.flatMap((candidate) => {
+      signal?.throwIfAborted();
       let projected: ReturnType<typeof projectCandidate>;
       try {
         projected = projectCandidate(candidate, dataset, frozen, cache);
@@ -162,6 +164,7 @@ export function replayValidationInput(
           ),
           `验证 ${dataset.period} ${done}/${total}`,
         ),
+      signal,
     );
     const fullPeriod = requests.map((r) => ({
       id: r.id,
@@ -334,6 +337,7 @@ export function replayValidationInput(
         dataset,
         first.request,
         second?.request,
+        signal,
       );
       combinedBooks.push(book);
       boards.push(...book.rows);
@@ -359,6 +363,7 @@ export function replayValidationInput(
           base,
           projectToExecutionClock(primary.request, base, 16),
           projectToExecutionClock(secondary.request, base, 4),
+          signal,
         );
         combinedBooks.push(book);
         boards.push(...book.rows);

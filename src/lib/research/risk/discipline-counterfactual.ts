@@ -75,11 +75,14 @@ function prepare(input: DisciplineInput) {
     netProfit: rounds.reduce((s, r) => s + r.netProfit.value!, 0),
   });
   const actualNav = reviewTradeNav(input);
+  const openingCash = actualNav.openingCash;
+  if (openingCash === null) throw new Error("期初现金未知，资金约束重放不可用");
   return {
     review,
     valid,
     eligible,
     actualNav,
+    openingCash,
     baselineA: summary(valid),
     baselineB: summary(eligible),
     excludedCrossed: valid.filter((r) => r.crossesExRights === true).length,
@@ -120,7 +123,7 @@ function replay(input: DisciplineInput, rules: DisciplineRules, p: Prepared) {
   );
   const execution: Execution[] = [];
   const cashFlows = input.cashFlows.map((f) => ({ ...f }));
-  let cash = p.actualNav.openingCash;
+  let cash = p.openingCash;
   let eventOrder = 0;
   const diagnostics: string[] = [];
   const bars = new Map(
@@ -322,7 +325,7 @@ function replay(input: DisciplineInput, rules: DisciplineRules, p: Prepared) {
   // Original statement anchors must not erase changed cash/holdings. Preserve
   // their residuals separately: unknown reconciliation cannot become new money.
   if (!unchanged && input.fills.some((f) => f.balanceCash !== null)) {
-    let projected = p.actualNav.openingCash;
+    let projected = p.openingCash;
     for (const e of p.actualNav.replay) {
       const f = input.fills[e.originalOrder];
       projected += f
@@ -344,7 +347,7 @@ function replay(input: DisciplineInput, rules: DisciplineRules, p: Prepared) {
         ...input,
         fills: replayFills,
         cashFlows,
-        openingCash: p.actualNav.openingCash,
+        openingCash: p.openingCash,
         flowValuations: undefined,
       });
   const comparison = states
@@ -467,7 +470,7 @@ export function runDisciplineGrid(input: DisciplineInput) {
     checks,
     excludedCrossed: p.excludedCrossed,
     excludedUnknown: p.excludedUnknown,
-    openingCash: p.actualNav.openingCash,
+    openingCash: p.openingCash,
     stopCosts: input.stopCosts,
     basis:
       "移动加权；原历史回合边界；跨除权仅退出规则与统计，现金原样保留；原成交量与费用同比缩放（部分卖出可含理论碎股）；新增止损按固定实验佣金与股票卖出税计算，不代表历史费率，无滑点，未建模涨跌停成交限制；缺日线顺延，不能区分停牌与数据缺口；整体 TWR 中断则最大回撤留空。",

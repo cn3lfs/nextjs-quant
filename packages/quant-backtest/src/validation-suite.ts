@@ -312,7 +312,9 @@ export function runValidationSuite(
     request: PortfolioRequest,
   ) => ValidationScore,
   progress: (done: number, total: number) => void = () => {},
+  signal?: AbortSignal,
 ) {
+  signal?.throwIfAborted();
   if (
     !candidates.length ||
     (policy.returnCriterion !== undefined &&
@@ -382,6 +384,7 @@ export function runValidationSuite(
     costMultiplier = 1,
     delay: 0 | 1 = 0,
   ) => {
+    signal?.throwIfAborted();
     const original = candidate.request;
     const costs = original.costs ?? marketRules[original.market].costs;
     if (!costs) throw new Error("Missing market cost assumptions");
@@ -453,7 +456,10 @@ export function runValidationSuite(
         ]),
       ) as typeof costs,
     };
-    return score(runPortfolio(request, undefined, prefix.preparation), request);
+    return score(
+      runPortfolio(request, undefined, prefix.preparation, signal),
+      request,
+    );
   };
   const stress = (
     c: ValidationCandidate,

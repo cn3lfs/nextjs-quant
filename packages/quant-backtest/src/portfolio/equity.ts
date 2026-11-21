@@ -148,7 +148,7 @@ export function portfolioResult(state: PortfolioState) {
     curve,
     positionSnapshots,
     observations,
-    ...(request.observationDetail === "counts" ? { observationCounts } : {}),
+    ...(request.observationDetail !== "full" ? { observationCounts } : {}),
     transfers,
     corporateActions,
     terminalValuations,

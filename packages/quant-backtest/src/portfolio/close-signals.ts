@@ -149,7 +149,7 @@ export function observeClosingSignals(
       if (reentry && decision.entry === false) reentry.sawFalse = true;
       if (decision.entry === true) observationCounts[strategy.id]!.entries++;
       if (decision.exit === true) observationCounts[strategy.id]!.exits++;
-      if (request.observationDetail !== "counts")
+      if (request.observationDetail === "full")
         observations.push({
           date,
           strategyId: strategy.id,

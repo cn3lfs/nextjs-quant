@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { PortfolioInstrument } from "quant-backtest";
 import type { StrategyObjectInput } from "trading-strategies";
 import { adjustmentFactors, applyAdjustmentAtAnchor } from "tstdx/local";
+import { BarResourceBudget } from "../market/bar-store/resource-budget";
 import { readBars } from "../market/bar-store/read-bars";
 import { binanceArchiveSource } from "../market/bar-store/binance-archive-source";
 import { corporateActions } from "../market/bar-store/corporate-actions";
@@ -75,7 +76,7 @@ export async function loadTheoryMultiperiodSource(
   const instruments: PortfolioInstrument[] = [],
     sources: Record<string, unknown>[] = [];
   const expectedCalendar = new Set<string>();
-  let total = 0;
+  const barBudget = new BarResourceBudget();
   for (const symbol of strategy.universe.symbols) {
     if (!cn && !["cxBTCUSDT", "cxETHUSDT"].includes(symbol))
       throw new Error("Only BTC/ETH spot supported");
@@ -149,9 +150,7 @@ export async function loadTheoryMultiperiodSource(
         throw new Error(
           `${symbol} ${period} contains repaired or forming bars`,
         );
-      total += snapshot.bars.length;
-      if (total > 2000000)
-        throw new Error("Frozen sources exceed 2 million bars");
+      barBudget.retain(snapshot.bars.length, { symbol, period });
       if (!snapshot.bars.length)
         throw new Error(`${symbol} ${period} source empty`);
       return snapshot;

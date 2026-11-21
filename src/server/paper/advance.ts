@@ -10,6 +10,7 @@ import {
   type StrategyExternalInputs,
 } from "trading-strategies";
 import type { Bar } from "trading-strategy-core/bars";
+import { checkBarBudget } from "../market/bar-store/resource-budget";
 import { PaperRepository } from "../db/paper-repository";
 import { runPaperPortfolio } from "../strategies/drivers/paper";
 import { capturePaperDecisions } from "./decisions";
@@ -31,6 +32,7 @@ export type PaperInput = {
   readyDates: string[];
   decisions?: PaperState["decisions"];
 };
+const maxFrozenDecisions = 2_000_000;
 const build = () => `${strategyBuildHash}:${maBaselineBuildHash}`;
 type Checkpoint = PaperState & { build?: string };
 
@@ -670,11 +672,18 @@ export function advancePaper(
     ...(previous?.request.calendar ?? []),
     ...dates,
   ];
-  if (
-    calendar.length * instruments.length > 2000000 ||
-    decisions.length > 2000000
-  )
-    throw new Error("纸面冻结输入超过200万bar预算；原事实保留");
+  checkBarBudget(
+    calendar.length * instruments.length,
+    {
+      symbol: "纸面冻结证券池",
+      period: account.candidates[0]!.strategy.period,
+    },
+    "limit",
+  );
+  if (decisions.length > maxFrozenDecisions)
+    throw new Error(
+      `纸面冻结决策记录 ${decisions.length} 条，超过上限 ${maxFrozenDecisions} 条；原事实保留`,
+    );
   const request: PortfolioRequest = {
     ...q,
     ...(context
