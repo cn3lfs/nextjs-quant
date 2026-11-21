@@ -106,8 +106,13 @@ it("box formation freezes the edge before the release session", () => {
   expect(signal("theory-box20", bars, 80)).toBe(false);
   expect(signal("theory-box20", bars, 81)).toBe(true);
   set(bars, 81, { close: 100, high: 102 });
-  set(bars, 86, { open: 101, close: 103, high: 104, low: 100 });
-  expect(signal("theory-box20", bars, 86)).toBe(false);
+  set(bars, 85, { open: 101, close: 103, high: 104, low: 100 });
+  expect(signal("theory-box20", bars, 85)).toBe(true);
+  const shifted = [{ ...bars[0]!, date: "2019-12-31" }, ...bars];
+  expect(signal("theory-box20", shifted, 86)).toBe(true);
+  expect(signal("theory-box20", bars.slice(65), 20)).toBe(true);
+  set(bars, 84, { high: 106 });
+  expect(signal("theory-box20", bars, 85)).toBe(false);
 });
 
 it("squeeze freezes its preparation high rather than including the release bar", () => {

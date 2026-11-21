@@ -36,7 +36,7 @@ export const theoryDailyDefinitions = [
     theoryId: "F04.03",
     name: "20根紧箱突破代理",
     family: "突破",
-    rule: "索引为20倍数的收盘，以最近20根冻结高低；宽度≤10%、上下1%内各至少两次触碰；随后5根内首次收盘突破入场。",
+    rule: "此前20根宽度≤10%、上下1%内各至少两次触碰，本根收盘突破箱顶入场。",
   },
   {
     id: "theory-inside-close",
@@ -162,11 +162,11 @@ export function createTheoryDailyRule(strategy: string, bars: readonly Bar[]) {
   });
   let squeeze: { high: number; low: number; released: number | null } | null =
     null;
-  let box: { high: number; low: number; created: number } | null = null;
-  for (let i = 70; i < bars.length; i++) {
-    if (!valid(i - 69, i) || ranges[i] === null) {
+  const boxStrategy = definition.id === "theory-box20";
+  const warmup = boxStrategy ? 20 : 70;
+  for (let i = warmup; i < bars.length; i++) {
+    if (!valid(i - (boxStrategy ? 20 : 69), i) || ranges[i] === null) {
       squeeze = null;
-      box = null;
       continue;
     }
     const b = bars[i]!,
@@ -200,22 +200,14 @@ export function createTheoryDailyRule(strategy: string, bars: readonly Bar[]) {
         break;
       }
       case "theory-box20": {
-        if (box && (b.close < box.low || i - box.created > 5)) box = null;
-        if (box && b.close > box.high) {
-          enter = true;
-          stop = box.low;
-          box = null;
-        }
-        if (!box && !enter && i % 20 === 0) {
-          const edges = bounds(i - 19, i),
-            window = bars.slice(i - 19, i + 1);
-          if (
-            (edges.high - edges.low) / edges.low <= 0.1 &&
-            window.filter((x) => x.high >= edges.high * 0.99).length >= 2 &&
-            window.filter((x) => x.low <= edges.low * 1.01).length >= 2
-          )
-            box = { ...edges, created: i };
-        }
+        const edges = bounds(i - 20, i - 1);
+        const window = bars.slice(i - 20, i);
+        enter =
+          b.close > edges.high &&
+          (edges.high - edges.low) / edges.low <= 0.1 &&
+          window.filter((x) => x.high >= edges.high * 0.99).length >= 2 &&
+          window.filter((x) => x.low <= edges.low * 1.01).length >= 2;
+        stop = edges.low;
         break;
       }
       case "theory-nr4-close":
@@ -353,7 +345,7 @@ export function createTheoryDailyRule(strategy: string, bars: readonly Bar[]) {
   }
   return (index: number, position: Position) => {
     const b = bars[index];
-    if (!b || index < 70) return { enter: false, exit: false };
+    if (!b || index < warmup) return { enter: false, exit: false };
     // entryIndex denotes the actual next-session fill; freeze its preceding signal.
     const anchor = setups[position.signalIndex ?? position.entryIndex - 1];
     const hasPosition = position.entry > 0 && position.entryIndex <= index;

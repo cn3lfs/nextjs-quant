@@ -5,8 +5,10 @@ import { formatNumber } from "trading-strategy-core/format-number";
 import {
   chanSignalCodes,
   patternBreakoutKinds,
+  theoryScreenerFamilyIds,
   type ChanSignalCode,
   type PatternBreakoutKind,
+  type TheoryScreenerFamilyId,
 } from "trading-strategies";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { Button } from "~/components/ui/button";
@@ -52,6 +54,24 @@ const patternKindLabels: Record<PatternBreakoutKind, string> = {
   triangle: "三角形",
   wedge: "楔形",
 };
+const theoryFamilyLabels: Record<TheoryScreenerFamilyId, string> = {
+  "trend-breakout": "F02–04 趋势与波动突破",
+  "growth-oneil": "F09 欧奈尔/SEPA/VCP",
+  "wyckoff-volume": "F08 威科夫/VSA/筹码/AVWAP",
+  "astock-dragon": "F11 A股龙头/首板/弱转强/二波",
+  "wave-harmonic-smc": "F05–06 波浪/黄金分割/谐波/SMC",
+  "momentum-reversion": "F10/12 动量拐点与极值回归",
+  "value-multifactor": "F13 魔法公式/F-Score/多因子",
+};
+const theoryPresets: { label: string; families: TheoryScreenerFamilyId[] }[] = [
+  { label: "全部流派", families: [...theoryScreenerFamilyIds] },
+  { label: "欧奈尔成长+趋势", families: ["growth-oneil", "trend-breakout"] },
+  {
+    label: "威科夫量价+A股龙头",
+    families: ["wyckoff-volume", "astock-dragon"],
+  },
+  { label: "波浪谐波+SMC", families: ["wave-harmonic-smc"] },
+];
 const symbolPattern = /^(sh|sz|bj)\d{6}$/;
 
 function numberOrUndefined(text: string) {
@@ -61,9 +81,7 @@ function numberOrUndefined(text: string) {
 }
 
 function priceText(value: number | null | undefined) {
-  return value === null || value === undefined
-    ? "—"
-    : formatNumber(value, 2);
+  return value === null || value === undefined ? "—" : formatNumber(value, 2);
 }
 
 function ratioText(value: number | null | undefined) {
@@ -161,12 +179,17 @@ function matchLabel(match: Candidate["matches"][number]) {
       match.config === 0 ? "·笔" : match.config === 1100 ? "·段" : ""
     }`;
   if (match.family === "doubleBreakout") return "双突破";
+  if (match.family === "theory")
+    return `${match.theoryId ? `${match.theoryId} ` : ""}${
+      match.label ?? match.methodId ?? "理论战法"
+    }`;
   return `形态 ${match.subKind ?? match.kind ?? ""}`;
 }
 
 function matchColor(match: Candidate["matches"][number]) {
   if (match.family === "chan") return "text-nc-accent-light";
   if (match.family === "doubleBreakout") return "text-nc-warn";
+  if (match.family === "theory") return "text-primary";
   return "text-nc-ok";
 }
 
@@ -200,6 +223,14 @@ export function PatternScreenPanel() {
   const [patternScore, setPatternScore] = useState("");
   const [patternVolume, setPatternVolume] = useState("");
 
+  const [theoryEnabled, setTheoryEnabled] = useState(true);
+  const [theoryDirection, setTheoryDirection] = useState<Direction>("long");
+  const [theoryFamilies, setTheoryFamilies] = useState<
+    TheoryScreenerFamilyId[]
+  >([...theoryScreenerFamilyIds]);
+  const [theoryScore, setTheoryScore] = useState("");
+  const [theoryVolume, setTheoryVolume] = useState("");
+
   const [combineMode, setCombineMode] = useState<"any" | "all">("any");
   const [lookbackBars, setLookbackBars] = useState("3");
   const [minRps20, setMinRps20] = useState("");
@@ -216,8 +247,12 @@ export function PatternScreenPanel() {
 
   function submit() {
     setMessage("");
-    if (!chanEnabled && !doubleEnabled && !patternsEnabled) {
+    if (!chanEnabled && !doubleEnabled && !patternsEnabled && !theoryEnabled) {
       setMessage("请至少启用一种信号来源。");
+      return;
+    }
+    if (theoryEnabled && theoryFamilies.length === 0) {
+      setMessage("理论战法选股已启用，请至少选择一个理论流派。");
       return;
     }
     if (chanEnabled && chanCodes.length === 0) {
@@ -250,9 +285,21 @@ export function PatternScreenPanel() {
       setMessage("形态最低分须在 0–5 之间。");
       return;
     }
+    const theoryScoreValue = numberOrUndefined(theoryScore);
+    if (
+      theoryEnabled &&
+      theoryScoreValue !== undefined &&
+      (!Number.isInteger(theoryScoreValue) ||
+        theoryScoreValue < 1 ||
+        theoryScoreValue > 5)
+    ) {
+      setMessage("理论战法最低分须为 1–5 的整数。");
+      return;
+    }
     const volumes = [
-      numberOrUndefined(doubleVolume),
-      numberOrUndefined(patternVolume),
+      doubleEnabled ? numberOrUndefined(doubleVolume) : undefined,
+      patternsEnabled ? numberOrUndefined(patternVolume) : undefined,
+      theoryEnabled ? numberOrUndefined(theoryVolume) : undefined,
     ];
     if (volumes.some((value) => value !== undefined && value < 0)) {
       setMessage("最小量比不能为负数。");
@@ -286,7 +333,9 @@ export function PatternScreenPanel() {
       (symbol) => !symbolPattern.test(symbol),
     );
     if (invalidSymbols.length > 0) {
-      setMessage(`证券代码格式无效：${invalidSymbols.join("、")}；应为 sh/sz/bj 加 6 位数字。`);
+      setMessage(
+        `证券代码格式无效：${invalidSymbols.join("、")}；应为 sh/sz/bj 加 6 位数字。`,
+      );
       return;
     }
     run.mutate({
@@ -328,6 +377,23 @@ export function PatternScreenPanel() {
               ...(numberOrUndefined(patternVolume) === undefined
                 ? {}
                 : { minVolumeRatio: numberOrUndefined(patternVolume)! }),
+            },
+          }
+        : {}),
+      ...(theoryEnabled
+        ? {
+            theory: {
+              enabled: true,
+              direction: theoryDirection,
+              ...(theoryFamilies.length === theoryScreenerFamilyIds.length
+                ? {}
+                : { families: theoryFamilies }),
+              ...(theoryScoreValue === undefined
+                ? {}
+                : { minScore: theoryScoreValue }),
+              ...(numberOrUndefined(theoryVolume) === undefined
+                ? {}
+                : { minVolumeRatio: numberOrUndefined(theoryVolume)! }),
             },
           }
         : {}),
@@ -414,14 +480,14 @@ export function PatternScreenPanel() {
                 key={code}
                 active={chanCodes.includes(code)}
                 label={`${code} ${chanCodeLabels[code]}`}
-                onClick={() =>
-                  setChanCodes((current) => toggle(current, code))
-                }
+                onClick={() => setChanCodes((current) => toggle(current, code))}
               />
             ))}
           </div>
           <p className="text-[11px] text-muted-foreground">
-            全谱系 18 个代码；同时选中全部代码与两个级别时不额外传过滤条件。全市场扫描的缠论原生评估上限为 120 只，超出部分只保留廉价信号命中。
+            全谱系 18
+            个代码；同时选中全部代码与两个级别时不额外传过滤条件。全市场扫描的缠论原生评估上限为
+            120 只，超出部分只保留廉价信号命中。
           </p>
         </Section>
 
@@ -476,7 +542,9 @@ export function PatternScreenPanel() {
           <label className="flex items-center gap-1 text-xs">
             <Checkbox
               checked={patternsEnabled}
-              onCheckedChange={(checked) => setPatternsEnabled(checked === true)}
+              onCheckedChange={(checked) =>
+                setPatternsEnabled(checked === true)
+              }
             />
             启用形态突破
           </label>
@@ -521,6 +589,75 @@ export function PatternScreenPanel() {
                 label={patternKindLabels[kind]}
                 onClick={() =>
                   setPatternKinds((current) => toggle(current, kind))
+                }
+              />
+            ))}
+          </div>
+        </Section>
+
+        <Section title="七大流派理论战法选股 (F02–F18 · 57 种量化战法)">
+          <label className="flex items-center gap-1 text-xs">
+            <Checkbox
+              checked={theoryEnabled}
+              onCheckedChange={(checked) => setTheoryEnabled(checked === true)}
+            />
+            启用理论战法选股
+          </label>
+          <div className="flex flex-wrap items-center gap-3">
+            <DirectionSelect
+              label="理论战法方向"
+              value={theoryDirection}
+              onChange={setTheoryDirection}
+            />
+            <label className="flex items-center gap-1 text-xs">
+              最低分
+              <Input
+                aria-label="理论战法最低分"
+                className="h-7 w-16"
+                type="number"
+                min={1}
+                max={5}
+                placeholder="不限"
+                value={theoryScore}
+                onChange={(e) => setTheoryScore(e.target.value)}
+              />
+            </label>
+            <label className="flex items-center gap-1 text-xs">
+              最小量比
+              <Input
+                aria-label="理论战法最小量比"
+                className="h-7 w-16"
+                type="number"
+                min={0}
+                step={0.1}
+                placeholder="不限"
+                value={theoryVolume}
+                onChange={(e) => setTheoryVolume(e.target.value)}
+              />
+            </label>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {theoryPresets.map((preset) => (
+              <Button
+                key={preset.label}
+                variant="outline"
+                type="button"
+                size="sm"
+                className="h-6 px-1.5 text-[11px]"
+                onClick={() => setTheoryFamilies([...preset.families])}
+              >
+                {preset.label}
+              </Button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {theoryScreenerFamilyIds.map((family) => (
+              <ToggleBadge
+                key={family}
+                active={theoryFamilies.includes(family)}
+                label={theoryFamilyLabels[family]}
+                onClick={() =>
+                  setTheoryFamilies((current) => toggle(current, family))
                 }
               />
             ))}
@@ -645,6 +782,7 @@ export function PatternScreenPanel() {
                     <th className="px-1.5 py-1 text-right">盈亏比</th>
                     <th className="px-1.5 py-1 text-right">量比</th>
                     <th className="px-1.5 py-1 text-right">RPS20/50/120</th>
+                    <th className="px-1.5 py-1 text-right">风控仓位/共振</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -725,6 +863,18 @@ export function PatternScreenPanel() {
                         <td className="px-1.5 py-1 text-right tabular">
                           {rpsText(row.rps20)} / {rpsText(row.rps50)} /{" "}
                           {rpsText(row.rps120)}
+                        </td>
+                        <td
+                          className="px-1.5 py-1 text-right tabular"
+                          title={
+                            row.positionPlan?.riskPct == null
+                              ? undefined
+                              : `止损距离 ${(row.positionPlan.riskPct * 100).toFixed(2)}%`
+                          }
+                        >
+                          {row.positionPlan
+                            ? `${row.positionPlan.confluenceGrade}级 · ${row.positionPlan.recommendedShares}股 (${(row.positionPlan.recommendedWeightPct * 100).toFixed(1)}%)`
+                            : "—"}
                         </td>
                       </tr>
                     );

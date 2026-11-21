@@ -6,6 +6,29 @@
  * amount, closure and as-of availability remain the caller's responsibility.
  */
 
+export type ConfirmationTime = string;
+
+const ISO_TS =
+  /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?(Z|[+-]\d{2}:\d{2})$/;
+
+export function confirmationEpoch(value: unknown): number | null {
+  if (typeof value !== "string") return null;
+  const m = ISO_TS.exec(value);
+  if (!m || dailyBarEpoch(m[1]) === null) return null;
+  if (Number(m[2]) > 23 || Number(m[3]) > 59 || Number(m[4] ?? 0) > 59)
+    return null;
+  const zone = m[6]!;
+  if (
+    zone !== "Z" &&
+    (Number(zone.slice(1, 3)) > 23 ||
+      Number(zone.slice(4, 6)) > 59 ||
+      zone === "-00:00")
+  )
+    return null;
+  const epoch = Date.parse(value);
+  return Number.isFinite(epoch) ? epoch : null;
+}
+
 const DAY_LABEL = /^\d{4}-\d{2}-\d{2}$/;
 
 /**

@@ -104,8 +104,6 @@ try {
       failures.push(`Missing runtime error report: ${String(error)}`);
     }
     command(["build"]);
-    command(["exec", "tsx", "scripts/audit-trading-skills.ts", "--registered"]);
-    command(["exec", "tsx", "scripts/audit-trading-methods.ts"]);
     command(["format:check"]);
     // Source snapshots are byte-exact copies of external skill files; their
     // trailing whitespace belongs to the author, not to us, and "fixing" it

@@ -13,7 +13,7 @@
 - data-gap：所需历史时点或执行输入未齐，不补造数据。
 - interpretation：仍含原法解释/人工证据，机械代理需另命名。
 
-映射事实源为 [coverage.json](coverage.json)。运行 `pnpm exec tsx scripts/theory-coverage.ts --check` 验证228张卡、原研究锚点、文件证据和所有策略绑定；`--write` 更新此表。原研究来源与人工留项仍全部有效。
+映射事实源为 [coverage.json](coverage.json)。理论方法在 [策略筛选模块](../../../packages/trading-strategies/src/screener/)中逐步注册，并通过对应的单元测试验证。原研究来源与人工留项仍全部有效。
 
 ## 生成统计
 

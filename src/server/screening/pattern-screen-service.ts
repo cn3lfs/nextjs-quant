@@ -7,8 +7,13 @@ import {
   evaluateChanSignal,
   patternBreakoutKinds,
   preparePatternBreakout,
+  prepareTheoryScreeners,
+  theoryScreenerFamilyIds,
+  computeTheoryPositionPlan,
   type ChanSignalCode,
   type PatternBreakoutKind,
+  type TheoryPositionPlan,
+  type TheoryScreenerFamilyId,
 } from "trading-strategies";
 import { prepareBreakout } from "trading-strategies/research/breakout/breakout";
 import { symbolSchema } from "trading-strategies/research/contracts/security";
@@ -65,6 +70,18 @@ export const patternScreenRequestSchema = z
       })
       .strict()
       .optional(),
+    theory: z
+      .object({
+        enabled,
+        direction,
+        families: z.array(z.enum(theoryScreenerFamilyIds)).optional(),
+        methodIds: z.array(z.string().min(1)).optional(),
+        minScore: z.number().int().min(1).max(5).optional(),
+        minVolumeRatio: minimum,
+        minRewardMultiple: minimum,
+      })
+      .strict()
+      .optional(),
     combineMode: z.enum(["any", "all"]).default("any"),
     lookbackBars: z.number().int().min(1).max(20).default(3),
     minRps20: rps,
@@ -75,12 +92,16 @@ export const patternScreenRequestSchema = z
   })
   .strict()
   .refine(
-    (q) => q.chan?.enabled || q.doubleBreakout?.enabled || q.patterns?.enabled,
+    (q) =>
+      q.chan?.enabled ||
+      q.doubleBreakout?.enabled ||
+      q.patterns?.enabled ||
+      q.theory?.enabled,
     "请选择至少一种形态",
   );
 export type PatternScreenRequest = z.input<typeof patternScreenRequestSchema>;
 type Match = {
-  family: "chan" | "doubleBreakout" | "patterns";
+  family: "chan" | "doubleBreakout" | "patterns" | "theory";
   direction: "long" | "short";
   summary: string;
   stopPrice: number | null;
@@ -89,6 +110,10 @@ type Match = {
   config?: 0 | 1100;
   kind?: PatternBreakoutKind;
   subKind?: string;
+  theoryFamily?: TheoryScreenerFamilyId;
+  methodId?: string;
+  theoryId?: string;
+  label?: string;
   score?: number | null;
   rewardMultiple?: number | null;
   volumeRatio?: number | null;
@@ -107,6 +132,7 @@ export type PatternScreenCandidate = {
   rawStopPrice: number | null;
   rawTargetPrice: number | null;
   matches: Match[];
+  positionPlan: TheoryPositionPlan;
 };
 export type PatternScreenResponse = {
   candidates: PatternScreenCandidate[];
@@ -175,7 +201,9 @@ export async function runPatternScreen(
       !q.symbols &&
       response.czscEvaluatedCount >= fullMarketCzscLimit &&
       (q.combineMode === "all" ||
-        (!q.patterns?.enabled && !q.doubleBreakout?.enabled))
+        (!q.patterns?.enabled &&
+          !q.doubleBreakout?.enabled &&
+          !q.theory?.enabled))
     )
       break;
     try {
@@ -187,11 +215,16 @@ export async function runPatternScreen(
         .slice(-q.lookbackBars)
         .map((b) => b.date)
         .reverse();
-      const curve = thresholds.some(([, v]) => v !== undefined)
-        ? store.curve(symbol, dates)
-        : undefined;
+      const curve =
+        thresholds.some(([, v]) => v !== undefined) || q.theory?.enabled
+          ? store.curve(
+              symbol,
+              series.bars.slice(-(q.lookbackBars + 1)).map((b) => b.date),
+            )
+          : undefined;
       let breakout: ReturnType<typeof prepareBreakout> | undefined;
       let patterns: ReturnType<typeof preparePatternBreakout> | undefined;
+      let theory: ReturnType<typeof prepareTheoryScreeners> | undefined;
       for (const date of dates) {
         const point = curve?.find((p) => p.date === date);
         if (
@@ -217,6 +250,7 @@ export async function runPatternScreen(
           );
           breakout = undefined;
           patterns = undefined;
+          theory = undefined;
           i = series.bars.findIndex((b) => b.date === date);
           if (i < 0) continue;
         }
@@ -266,6 +300,50 @@ export async function runPatternScreen(
               targetPrice: h.targetPrice,
               kind: h.kind,
               subKind: h.subKind,
+              score: h.score,
+              volumeRatio: h.volumeRatio,
+              rewardMultiple: h.rewardMultiple,
+            });
+        }
+        if (q.theory?.enabled) {
+          const filter = q.theory;
+          theory ??= prepareTheoryScreeners(
+            {
+              bars,
+              symbol,
+              rpsAt:
+                curve && curve.length > 0
+                  ? (idx) => {
+                      const d = bars[idx]?.date;
+                      if (!d) return null;
+                      const pt = curve?.find((p) => p.date === d);
+                      if (!pt) return null;
+                      const at = (period: number) =>
+                        pt.values[pt.periods.indexOf(period)]?.rps ?? null;
+                      return {
+                        rps10: at(10),
+                        rps20: at(20),
+                        rps50: at(50),
+                        rps120: at(120),
+                      };
+                    }
+                  : undefined,
+            },
+            filter,
+          );
+          const hits = theory.at(i);
+          if (!hits.length && q.combineMode === "all") continue;
+          for (const h of hits)
+            matches.push({
+              family: "theory",
+              theoryFamily: h.family,
+              methodId: h.methodId,
+              theoryId: h.theoryId,
+              label: h.label,
+              direction: h.direction,
+              summary: h.summary,
+              stopPrice: h.stopPrice,
+              targetPrice: h.targetPrice,
               score: h.score,
               volumeRatio: h.volumeRatio,
               rewardMultiple: h.rewardMultiple,
@@ -333,6 +411,10 @@ export async function runPatternScreen(
         const rank = point ?? store.curve(symbol, [date])?.[0];
         const rpsAt = (period: 20 | 50 | 120) =>
           rank?.values[rank.periods.indexOf(period)]?.rps ?? null;
+        const rawStopPrice =
+          first.stopPrice === null ? null : first.stopPrice * ratio;
+        const rawTargetPrice =
+          first.targetPrice === null ? null : first.targetPrice * ratio;
         response.candidates.push({
           symbol,
           name: snapshot.name ?? symbol,
@@ -344,11 +426,15 @@ export async function runPatternScreen(
           rps120: rpsAt(120),
           signalClose: bar.close,
           rawClose: raw.close,
-          rawStopPrice:
-            first.stopPrice === null ? null : first.stopPrice * ratio,
-          rawTargetPrice:
-            first.targetPrice === null ? null : first.targetPrice * ratio,
+          rawStopPrice,
+          rawTargetPrice,
           matches,
+          positionPlan: computeTheoryPositionPlan({
+            rawClose: raw.close,
+            rawStopPrice,
+            rawTargetPrice,
+            matches,
+          }),
         });
         snapshots.push(frozen);
         break;
