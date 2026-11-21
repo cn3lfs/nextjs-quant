@@ -41,7 +41,8 @@
 ## 验证
 
 - `pnpm typecheck`、`pnpm lint`、改动文件 Prettier、`git diff --check` 通过。
-- 最终根全量 Vitest：**7,769 项，0 失败**（隔离 `QUANT_DATA_DIR`）。
+- 最终根全量 Vitest：**7,769 项（7,741 通过 / 28 跳过），0 失败**（隔离 `QUANT_DATA_DIR`）。
+- `pnpm check` 全量门禁通过（format、依赖方向、runtime 构建、typecheck、lint、根与各包测试）。
 - 包测试：`quant-execution` 7、`quant-backtest` 105、`trading-strategies` 484、`trading-strategy-core` 26、`quant-performance` 26、`tstdx` 125 项通过（`tstdx` 另 1 项跳过）。
 
 ## P3 迁移的实际结构
