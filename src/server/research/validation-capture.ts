@@ -671,7 +671,7 @@ export async function captureValidationInput(
       sources,
       benchmarkName:
         input.market === "cn-equity"
-          ? "沪深300原价价格指数（无股息）；首日开盘持有"
+          ? "沪深300价格指数（不含股息）；首日开盘持有"
           : `BTCUSDT ${input.cryptoSource} 持有（无费用，首日开盘）`,
     });
   }

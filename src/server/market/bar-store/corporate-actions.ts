@@ -1,39 +1,86 @@
+import { open, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { readGbbq, resolveTdxRoot } from "tstdx/local";
+import { parseGbbqFile, resolveTdxRoot } from "tstdx/local";
 import { sourceFingerprint } from "./local-source";
 
 type Entry = {
   statIdentity: string;
+  sample: Buffer;
   ready: Promise<{
-    value: Awaited<ReturnType<typeof readGbbq>>;
+    events: ReturnType<typeof parseGbbqFile>["events"];
+    modified: number;
+    path: string;
     fingerprint: string;
   }>;
 };
 
 let current: Entry | undefined;
+const sampleBytes = 4096;
 
-/** One market-wide parse, shared by concurrent readers; failures are never
- * cached. Stat identity avoids re-hashing an unchanged large file; the
- * recorded fingerprint is content-addressed, so a same-size/same-timestamp
- * rewrite is not silently reused. The in-flight promise is shared so
- * concurrent first readers still parse only once. */
+async function sampleGbbq(path: string) {
+  const file = await open(path, "r");
+  try {
+    const info = await file.stat();
+    const { size, mtimeMs } = info;
+    if (!info.isFile() || size > 64 * 1024 * 1024)
+      throw new Error("本地公司行动源不是常规文件或容量超限");
+    const sample = Buffer.alloc(Math.min(size, 2 * sampleBytes));
+    if (size <= sample.length) {
+      const { bytesRead } = await file.read(sample, 0, size, 0);
+      if (bytesRead !== size) throw new Error("读取期间公司行动来源变化");
+    } else {
+      const head = await file.read(sample, 0, sampleBytes, 0);
+      const tail = await file.read(
+        sample,
+        sampleBytes,
+        sampleBytes,
+        size - sampleBytes,
+      );
+      if (head.bytesRead !== sampleBytes || tail.bytesRead !== sampleBytes)
+        throw new Error("读取期间公司行动来源变化");
+    }
+    return { sample, size, modified: mtimeMs };
+  } finally {
+    await file.close();
+  }
+}
+
+/** Concurrent readers share the full parse and SHA-256. Stat plus head/tail
+ * bytes detect common rewrites without reading all records on every hit. */
 export async function corporateActions(root: string) {
   const path = join(resolveTdxRoot(root), "T0002/hq_cache/gbbq");
   const statIdentity = await sourceFingerprint(path);
-  if (current?.statIdentity !== statIdentity) {
+  const { sample, size, modified } = await sampleGbbq(path);
+  if ((await sourceFingerprint(path)) !== statIdentity)
+    throw new Error("读取期间公司行动来源变化");
+  if (
+    current?.statIdentity !== statIdentity ||
+    !current.sample.equals(sample)
+  ) {
     const ready = (async () => {
-      const fingerprint = await sourceFingerprint(path, true);
-      const value = await readGbbq(root);
-      if ((await sourceFingerprint(path)) !== statIdentity)
-        throw new Error("复权期间公司行动来源变化");
-      return { value, fingerprint };
+      const body = await readFile(path);
+      const headLength = Math.min(size, sampleBytes);
+      const tailLength = sample.length - headLength;
+      if (
+        body.length !== size ||
+        !body.subarray(0, headLength).equals(sample.subarray(0, headLength)) ||
+        !body.subarray(size - tailLength).equals(sample.subarray(headLength)) ||
+        (await sourceFingerprint(path)) !== statIdentity
+      )
+        throw new Error("读取期间公司行动来源变化");
+      const { events, sourceSha256 } = parseGbbqFile(body);
+      return {
+        events,
+        modified,
+        path,
+        fingerprint: `${statIdentity}:${sourceSha256}`,
+      };
     })();
-    current = { statIdentity, ready };
+    current = { statIdentity, sample, ready };
   }
   const entry = current;
   try {
-    const { value, fingerprint } = await entry.ready;
-    return { ...value, fingerprint };
+    return { ...(await entry.ready) };
   } catch (error) {
     if (current === entry) current = undefined;
     throw error;

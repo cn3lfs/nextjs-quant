@@ -286,7 +286,9 @@ export function PaperAccountsPanel() {
               )}
             </span>
             <span>
-              同期基准{" "}
+              {a.market === "cn-equity"
+                ? "中证800价格指数（不含股息）"
+                : "同期基准"}{" "}
               {formatPercent(
                 a.summary?.benchmarkReturn == null
                   ? null

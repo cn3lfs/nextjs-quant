@@ -25,7 +25,14 @@ export type PortfolioAction = {
   evidence: string;
   availableAt: string;
   sharesSellableAt?: string;
-};
+} & (
+  | {
+      cashAvailableAt: string;
+      timingAssumption: "ex-date-research-scenario";
+    }
+  // Historical frozen inputs predate explicit timing disclosure.
+  | { cashAvailableAt?: never; timingAssumption?: never }
+);
 export function actionPrice(price: number, action: PortfolioAction) {
   return (
     (price -
@@ -87,6 +94,15 @@ export class ResearchExecutionLedger extends AccountBook<
     wholeShares: boolean,
     dividendTaxBps = 0,
   ) {
+    if (
+      (action.cashAvailableAt !== undefined ||
+        action.timingAssumption !== undefined) &&
+      (action.timingAssumption !== "ex-date-research-scenario" ||
+        !Number.isFinite(Date.parse(action.cashAvailableAt)) ||
+        (action.cashAvailableAt !== action.date &&
+          action.cashAvailableAt !== action.date.slice(0, 10)))
+    )
+      throw new Error("Invalid corporate action cash timing scenario");
     const p = this.positions.get(key);
     if (!p) return null;
     const before = p.quantity;
@@ -138,6 +154,12 @@ export class ResearchExecutionLedger extends AccountBook<
       markAfter: p.mark,
       fractionalShares: theoretical - quantity,
       rightsParticipation: "none" as const,
+      ...(action.timingAssumption === undefined
+        ? {}
+        : {
+            cashAvailableAt: action.cashAvailableAt,
+            timingAssumption: action.timingAssumption,
+          }),
     };
   }
   /** Sensitivity valuation at terminal source coverage, not a market fill.

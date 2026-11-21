@@ -84,7 +84,7 @@ export function summarizePaper(
     buildHash: null,
     calendar: [],
   },
-): PaperSummary {
+): PaperSummary & { benchmarkName: string } {
   const evaluation = evaluatePerformance(
     account.initial,
     state.result.equity.map((p) => ({ date: p.date, value: p.equity })),
@@ -106,6 +106,10 @@ export function summarizePaper(
     drawdown: evaluation.maxDrawdown.value,
     trades: trades.closedTrades,
     winRate: trades.winRate.value,
+    benchmarkName:
+      account.market === "cn-equity"
+        ? "中证800价格指数（不含股息）"
+        : "BTCUSDT 持有",
     benchmarkReturn:
       benchmarkComplete && first && last ? last.close / first.open - 1 : null,
     signals: state.decisions.filter((d) => d.entry === true && d.exit !== true)

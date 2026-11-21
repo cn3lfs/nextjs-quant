@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { mkdir, mkdtemp, stat, utimes, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import Database from "better-sqlite3";
 import {
   PortfolioAccount,
   actionPrice,
@@ -6,6 +10,16 @@ import {
 } from "../../../packages/quant-backtest/src/portfolio-account";
 import { runPortfolio, type PortfolioRequest } from "quant-backtest";
 import { defaultExecutionCosts } from "trading-strategy-core/costs";
+import { researchCorporateActions } from "~/server/research/corporate-actions";
+import { corporateActions } from "~/server/market/bar-store/corporate-actions";
+import * as localSource from "~/server/market/bar-store/local-source";
+import { migrate } from "~/server/db/migrations";
+import { PaperRepository } from "~/server/db/paper-repository";
+import { summarizePaper } from "~/server/paper/assessment";
+import { paperAccountsRead } from "~/server/paper/read-projection";
+import type { FrozenCandidate, PaperAccount } from "~/server/paper/model";
+import paperCandidates from "~/server/data/paper-candidates.json";
+import gbbqFixture from "../../fixtures/tdx-gbbq.json";
 
 const day = ["2026-10-09", "2026-10-12", "2026-10-13", "2026-10-14"];
 const action = (patch: Partial<PortfolioAction>): PortfolioAction => ({
@@ -14,7 +28,9 @@ const action = (patch: Partial<PortfolioAction>): PortfolioAction => ({
   dividend: 0,
   bonus: 0,
   evidence: "Fixed GBBQ entitlement scenario",
+  cashAvailableAt: patch.date ?? day[2]!,
   ...patch,
+  timingAssumption: "ex-date-research-scenario",
 });
 describe("corporate action accounting", () => {
   it.each([
@@ -37,6 +53,81 @@ describe("corporate action accounting", () => {
         expect(a.positions.get("A")!.mark).toBe(8); // (10+.5*4)/1.5
     },
   );
+  it("discloses GBBQ timing and credits the dividend on the ex-date in the research ledger", () => {
+    const date = day[2]!;
+    const [observed] = researchCorporateActions(
+      [{ date, name: "除权除息", category: 1, dividend: 1, bonusRatio: 0.1 }],
+      "fixture",
+      date,
+      date,
+    );
+    expect(observed).toMatchObject({
+      date,
+      availableAt: date,
+      cashAvailableAt: date,
+      sharesSellableAt: date,
+      timingAssumption: "ex-date-research-scenario",
+      evidence: expect.stringContaining("派息日/送转上市日未知"),
+    });
+    const replay = runPortfolio(request(date, observed!));
+    expect(replay.curve.find((point) => point.date === day[1])?.cash).toBe(0);
+    expect(replay.curve.find((point) => point.date === date)?.cash).toBe(1000);
+    expect(
+      JSON.parse(JSON.stringify(replay)).corporateActions[0],
+    ).toMatchObject({
+      date,
+      cash: 1000,
+      cashAvailableAt: date,
+      timingAssumption: "ex-date-research-scenario",
+    });
+  });
+  it("publishes the price-index basis with the same paper benchmark return", () => {
+    const replay = request(day[2]!, { dividend: 1 });
+    const account: PaperAccount = {
+      id: "benchmark-fixture",
+      market: "cn-equity",
+      currency: "CNY",
+      sleeve: "swing",
+      startedAt: Date.parse(day[0]!),
+      initial: replay.initial,
+      candidates: [
+        {
+          ...(paperCandidates.candidates[0] as unknown as FrozenCandidate),
+          strategy: replay.strategies[0]!,
+        },
+      ],
+      mirror: { venue: "off" },
+      mirrorRevision: "fixture",
+      revision: 0,
+      lastBar: null,
+      lastRun: null,
+      error: null,
+      summary: null,
+    };
+    const benchmark = replay.instruments[0]!.bars.map((b) => ({ ...b }));
+    account.summary = summarizePaper(
+      account,
+      {
+        request: replay,
+        result: runPortfolio(replay),
+        benchmark,
+        decisions: [],
+      },
+      Date.parse("2026-10-15"),
+    );
+    const db = new Database(":memory:");
+    try {
+      migrate(db);
+      const repo = new PaperRepository(db);
+      repo.create(account);
+      expect(paperAccountsRead(repo)[0]?.summary).toMatchObject({
+        benchmarkName: "中证800价格指数（不含股息）",
+        benchmarkReturn: 9 / 10 - 1,
+      });
+    } finally {
+      db.close();
+    }
+  });
   it("withholds dividend tax at the declared rate", () => {
     const a = new PortfolioAccount(1000);
     a.fill("A", day[1]!, "buy", 100, 10, 0, 1);
@@ -224,6 +315,7 @@ describe("corporate action accounting", () => {
       { rightsRatio: 1 },
       { bonus: 1 },
       { shareFactor: NaN },
+      { cashAvailableAt: day[3] },
     ]) {
       const q = request(day[2]!, {});
       q.instruments[0]!.actions = [action(patch)];
@@ -265,4 +357,39 @@ describe("corporate action accounting", () => {
     ]);
     expect(result.equity.at(-1)!.equity).toBe(10000);
   });
+});
+
+it("invalidates cached GBBQ actions and SHA-256 when sampled bytes change under the same stat identity", async () => {
+  const root = await mkdtemp(join(tmpdir(), "gbbq-cache-"));
+  const directory = join(root, "T0002", "hq_cache");
+  const path = join(directory, "gbbq");
+  const body = Buffer.from(gbbqFixture.gbbqBase64, "base64");
+  const fixedTime = new Date("2026-11-13T00:00:00Z");
+  await mkdir(directory, { recursive: true });
+  await writeFile(path, body);
+  await utimes(path, fixedTime, fixedTime);
+  const initialStat = await stat(path);
+  // Simulate a filesystem that also preserves the finer stat identity.
+  const fingerprint = vi
+    .spyOn(localSource, "sourceFingerprint")
+    .mockResolvedValue(`${path}:fixed-stat-identity`);
+  try {
+    const first = await corporateActions(root);
+    expect(first.events.size).toBeGreaterThan(0);
+    expect((await corporateActions(root)).events).toBe(first.events);
+
+    body.writeUInt32LE(0);
+    await writeFile(path, body);
+    await utimes(path, fixedTime, fixedTime);
+    const rewrittenStat = await stat(path);
+    expect(rewrittenStat.size).toBe(initialStat.size);
+    expect(rewrittenStat.mtimeMs).toBe(initialStat.mtimeMs);
+
+    const rewritten = await corporateActions(root);
+    expect(rewritten.events.size).toBe(0);
+    expect(rewritten.fingerprint).not.toBe(first.fingerprint);
+    expect((await corporateActions(root)).events).toBe(rewritten.events);
+  } finally {
+    fingerprint.mockRestore();
+  }
 });
