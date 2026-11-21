@@ -69,6 +69,16 @@
 - **RPS/chan 热路径**：新增 `calculateRpsAtIndex` 并强制首次出现位置；回测 `state.ts` 预建 RPS 日期与 PIT 成员 Map；`chanC4Sequence` 与 association 查询改为 Map；图表波段标记改用日期索引。
 - 定向验证：sim 21、quant-execution 7、quant-rps 16、quant-backtest 108、trading-strategies 487、mock/paper 37+54、图表 11 项通过；迁移/版本套件更新到 v23。
 
+## 审计收口（2026-11-22 第二轮）
+
+对原 plan 做只读差距审计后，再修一轮可本地验证的缺口：
+
+- **提醒与加密**：`alertKey` 纳入 `type` 与 `price`，同 bar 不同事件不再互相覆盖；crypto bot 记录最近 `missedSignals`（断档/重置/基准建立），明确拒单可在恢复后对同一 candle 重试一次，`UNKNOWN` 仍只对账不重发。
+- **真实 NAV**：`reviewTradeNav` 不再把缺失期初现金当 0；缺少调用方余额与首笔成交余额证据时 TWR 留空并给出原因，纪律重放拒绝在未知期初现金上继续。
+- **规模与取消**：`observationDetail` 省略时默认 counts，需要明细的调用显式传 `full`；验证套件/窗口/合账贯通 `AbortSignal`；理论、财务回放与纸面的行情上限改用 `QUANT_BAR_STORE_MAX_BARS` 可配置预算（纸面 `decisions` 仍保留独立上限）。
+- **数据口径**：公司行动 action 显式携带 `cashAvailableAt` 与 `timingAssumption: "ex-date-research-scenario"`，不再暗示已知派息/上市日；GBBQ 缓存加入 stat+首尾样本校验；研究采集截止日按已登记实验冻结、新采集取实际覆盖；纸面基准标注“中证800价格指数（不含股息）”。
+- **对拍**：新增 `six-output-parity` 测试，覆盖 orders/fills/curve/rejections/corporateActions/terminalValuations，并用 bigint `ExecutionLedger` 重放 fills 与公司行动，逐笔现金/股数一致。
+
 ## 保留的边界
 
 - `docs/trading-skills-method-map.json` 是活数据目录（策略中心/理论研究使用），保留；只删除源锁与漂移审计。
@@ -76,3 +86,5 @@
 - 生产 `runPortfolio` 使用 `ResearchExecutionLedger`（number）而不是 bigint `ExecutionLedger`；两者共享 `AccountBook`。切到 bigint 需单独验证 binary64 尾差与全部历史，不在本批次声称完成。
 - 完整历史指数成分、首次披露财务版本、外部券商/THS mock 的委托查询仍需外部数据或联调；缺证据时保留未知/阻断，不补造。
 - 少量数据 manifest 精确计数（WDZ、public factor）是数据契约，不是实现形状，保留。
+- 纸面仍以冻结请求全量重放 + 深比较核对历史，未改为 `(runId, sequence)` 事件日志；生产策略纸面创建入口仍只允许显式测试夹具，订单事实仍按同一 ID 更新，未拆成不可变状态事件。这些不阻断现有个人纸面账户运行，但属于后续独立项。
+- GBBQ 没有派息日与送转上市日证据；研究情景按除权日到账并显式标注，不能据此推断真实可成交时点。基准仍为价格指数，不含股息；相对收益解读需保留该口径。

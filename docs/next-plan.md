@@ -2,7 +2,7 @@
 
 ## 2026-11-21：回测与交易基础设施优化已交付
 
-回测引擎与交易基础设施完成一轮结构性优化：去治理化（源锁/深度指纹/构建硬门禁/固定窗口/死板测试）、`AccountBook` 统一账本与 `quant-execution` 包、交割单软删除 v22、PIT/因果复权、窗口读取与按任务预算；后续收口把 sim 账本并入 `AccountBook`、补 `sim_fills.transfer_atoms`（v23）、THS 委托号对账与 RPS/chan 热路径索引化。全量根测试 7,769 项零失败（收口前基线）。详见[交付记录](project/2026-11-21-backtest-infra-optimization.md)。生产回测仍使用 number 适配器，bigint 适配器用于行情原子、sim 与外部成交；完整历史指数成分、首次披露财务版本、真实场所历史委托查询仍依赖外部数据或联调。
+回测引擎与交易基础设施完成一轮结构性优化：去治理化（源锁/深度指纹/构建硬门禁/固定窗口/死板测试）、`AccountBook` 统一账本与 `quant-execution` 包、交割单软删除 v22、PIT/因果复权、窗口读取与按任务预算；后续收口把 sim 账本并入 `AccountBook`、补 `sim_fills.transfer_atoms`（v23）、THS 委托号对账、RPS/chan 热路径索引化，并修复提醒键、加密漏单/拒单重试、真实 NAV 期初现金、观察明细默认值、取消信号、可配置预算与公司行动时点披露。全量根测试 7,769 项零失败（收口前基线）。详见[交付记录](project/2026-11-21-backtest-infra-optimization.md)。生产回测仍使用 number 适配器，bigint 适配器用于行情原子、sim 与外部成交；完整历史指数成分、首次披露财务版本、真实场所历史委托查询仍依赖外部数据或联调。
 
 ## 当前阶段：THSDK 全量数据源已实现（分支待合入）
 
