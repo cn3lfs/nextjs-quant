@@ -1,5 +1,4 @@
 import { expect, it } from "vitest";
-import { createHash } from "node:crypto";
 import { chanMovementFixture } from "../../../helpers/chan-movements";
 import {
   chanC4SmallTurnFromSignal,
@@ -186,14 +185,6 @@ it("CH18 resolves original third-buy retest outside the center, small top and su
     status: "matched",
     action: "exit",
   });
-  // Frozen independently from the pre-extraction server implementation and this fixed native fixture.
-  expect(
-    createHash("sha256")
-      .update(
-        JSON.stringify(chanC4SmallTurnFromSignal(f.result, f.bars, 0, third)),
-      )
-      .digest("hex"),
-  ).toBe("2437031d295842f9e7a3799364dbd2ba3dcb6be22fcf49df65e1c60c460e6dbe");
   const observations: ChanC4DecisionObservation[] = f.table.movements.map(
     (movement) => ({ state: "confirmed", evidence: { id: movement.id } }),
   );

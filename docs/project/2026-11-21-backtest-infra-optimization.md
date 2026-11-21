@@ -34,6 +34,7 @@
 - 财务低估值事实增加 `vintage: "current-revision"`，明确不是首次披露版本。
 - validation 请求传入 PIT `memberships`；lab/validation 默认 `observationDetail: "counts"`。
 - `runPortfolio` 增加可选 `AbortSignal`，lab 与 validation replay 在 bar 边界可中止。
+- 继续测试松绑：`runtime-validation-identity` 改为机制 fixture，不再锁 15 个仓库路径；`e2e-workbench-fixture` 改为结构不变量；`w8-repo-direction`、chan/wyckoff 删除全对象 hash，保留显式字段与行为断言。
 
 ## 验证
 
