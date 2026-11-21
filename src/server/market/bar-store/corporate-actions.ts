@@ -2,29 +2,38 @@ import { join } from "node:path";
 import { readGbbq, resolveTdxRoot } from "tstdx/local";
 import { sourceFingerprint } from "./local-source";
 
-let current:
-  | {
-      fingerprint: string;
-      pending: Promise<Awaited<ReturnType<typeof readGbbq>>>;
-    }
-  | undefined;
+type Entry = {
+  statIdentity: string;
+  ready: Promise<{
+    value: Awaited<ReturnType<typeof readGbbq>>;
+    fingerprint: string;
+  }>;
+};
+
+let current: Entry | undefined;
 
 /** One market-wide parse, shared by concurrent readers; failures are never
- * cached. The source identity is checked on every request and after loading. */
+ * cached. Stat identity avoids re-hashing an unchanged large file; the
+ * recorded fingerprint is content-addressed, so a same-size/same-timestamp
+ * rewrite is not silently reused. The in-flight promise is shared so
+ * concurrent first readers still parse only once. */
 export async function corporateActions(root: string) {
   const path = join(resolveTdxRoot(root), "T0002/hq_cache/gbbq");
-  const fingerprint = await sourceFingerprint(path);
-  if (current?.fingerprint !== fingerprint) {
-    const pending = readGbbq(root).then(async (value) => {
-      if ((await sourceFingerprint(path)) !== fingerprint)
+  const statIdentity = await sourceFingerprint(path);
+  if (current?.statIdentity !== statIdentity) {
+    const ready = (async () => {
+      const fingerprint = await sourceFingerprint(path, true);
+      const value = await readGbbq(root);
+      if ((await sourceFingerprint(path)) !== statIdentity)
         throw new Error("复权期间公司行动来源变化");
-      return value;
-    });
-    current = { fingerprint, pending };
+      return { value, fingerprint };
+    })();
+    current = { statIdentity, ready };
   }
   const entry = current;
   try {
-    return { ...(await entry.pending), fingerprint };
+    const { value, fingerprint } = await entry.ready;
+    return { ...value, fingerprint };
   } catch (error) {
     if (current === entry) current = undefined;
     throw error;

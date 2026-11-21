@@ -580,12 +580,12 @@ export async function tickCryptoBots() {
         let value = bot(saved.id);
         if (value.status !== "running" && !orders(value.id).some(unresolved))
           return;
-        const now = Date.now(),
-          previous = lastTicks.get(value.id);
-        const reset = previous === undefined || now - previous > 90000;
-        lastTicks.set(value.id, now);
         try {
           const exchange = await adapter(value);
+          const now = exchange.serverNow(),
+            previous = lastTicks.get(value.id);
+          const reset = previous === undefined || now - previous > 90000;
+          lastTicks.set(value.id, now);
           let snapshot = await reconcile(value, exchange);
           value = bot(value.id);
           if (!snapshot || value.status !== "running") return;

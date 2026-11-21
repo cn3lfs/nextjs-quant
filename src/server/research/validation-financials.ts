@@ -90,6 +90,7 @@ export function lowZoneFinancialFacts(
       pb: values.find((r) => r.id === "pb")?.value ?? null,
       temperature: null,
       confidence: "approximate",
+      vintage: "current-revision" as const,
       source: `Current TDX revision, PIT announcements enforced; series SHA256 ${series.sourceSha256}; no first-vintage certification`,
     };
   });

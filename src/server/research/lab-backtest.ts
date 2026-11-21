@@ -286,6 +286,7 @@ export async function prepareLabBacktest(
     [...new Set(instruments.flatMap((i) => i.bars.map((b) => b.date)))].sort();
   const request: PortfolioRequest = {
     market: strategy.market,
+    observationDetail: "counts",
     initial: input.initial,
     start: theory?.start ?? input.start,
     end: theory?.end ?? input.end,

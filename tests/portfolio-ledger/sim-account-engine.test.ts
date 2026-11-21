@@ -119,21 +119,22 @@ it("手算买入耗尽 1005.50 元，T+1 解锁，卖出净收 1093.90 元", () 
 
 it("周五买入的 A 股周末不解锁，周末买卖均拒绝，周一可以卖出", () => {
   const id = equity();
+  const now = Date.parse("2026-11-23T12:00:00+08:00");
   const order = { ...buy(id), tradeDate: "2026-11-20" };
-  confirmSimOrder({ ...order, clientRequestId: "friday" }, db);
+  confirmSimOrder({ ...order, clientRequestId: "friday" }, db, now);
   for (const tradeDate of ["2026-11-21", "2026-11-22"]) {
     expect(detail(id, tradeDate).positions[0]?.sellableQuantity).toBe("0");
     for (const side of ["buy", "sell"] as const) {
       const closed = { ...order, tradeDate, side };
-      expect(() => previewSimOrder(closed, db)).toThrow("周末休市");
+      expect(() => previewSimOrder(closed, db, now)).toThrow("周末休市");
       expect(() =>
-        confirmSimOrder({ ...closed, clientRequestId: "weekend" }, db),
+        confirmSimOrder({ ...closed, clientRequestId: "weekend" }, db, now),
       ).toThrow("周末休市");
     }
   }
   const monday = { ...order, tradeDate: "2026-11-23", side: "sell" as const };
-  expect(previewSimOrder(monday, db).sellableQuantityBefore).toBe("100");
-  confirmSimOrder({ ...monday, clientRequestId: "monday" }, db);
+  expect(previewSimOrder(monday, db, now).sellableQuantityBefore).toBe("100");
+  confirmSimOrder({ ...monday, clientRequestId: "monday" }, db, now);
   expect(detail(id, monday.tradeDate).positions).toEqual([]);
 });
 
@@ -399,7 +400,9 @@ it("计划绑定校验市场与账户状态，覆盖保存后只随当前绑定�
 });
 
 it("同毫秒按修订序重放移动成本，查询可独立翻页，拒绝倒签成交", () => {
-  vi.spyOn(Date, "now").mockReturnValue(1700000000000);
+  vi.spyOn(Date, "now").mockReturnValue(
+    Date.parse("2026-11-23T12:00:00+08:00"),
+  );
   const id = equity(),
     order = buy(id);
   confirmSimOrder({ ...order, clientRequestId: "1" }, db);

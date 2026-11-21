@@ -48,6 +48,9 @@ export class SimulatedSpotAdapter implements AccountHistoryAdapter {
     this.venue = venues[this.transport.venue](this.transport);
   }
 
+  serverNow() {
+    return this.transport.serverNow();
+  }
   snapshot(): Promise<Snapshot> {
     return this.venue.snapshot();
   }

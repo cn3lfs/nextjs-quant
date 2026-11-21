@@ -97,6 +97,8 @@ export type Execution = Order & {
 };
 export type Snapshot = { balances: Balance[]; openOrders: unknown[] };
 export interface SpotAdapter {
+  /** Venue-adjusted clock (host time + server offset). */
+  serverNow(): number;
   snapshot(): Promise<Snapshot>;
   rules(symbol: Symbol): Promise<Rules>;
   candles(symbol: Symbol, minutes: 15 | 60, limit: number): Promise<Candle[]>;

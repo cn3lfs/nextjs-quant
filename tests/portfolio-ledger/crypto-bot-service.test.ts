@@ -28,6 +28,7 @@ vi.mock("../../src/server/vault", () => ({
 }));
 vi.mock("../../src/server/crypto-trading/adapter", () => ({
   createSpotAdapter: (): SpotAdapter => ({
+    serverNow: () => Date.now(),
     snapshot: async (): Promise<Snapshot> => {
       await fixture.snapshotWait;
       return {

@@ -16,6 +16,7 @@ import {
   type FrozenValidationInput,
   type ValidationDataset,
 } from "../validation-capture";
+import { validationMembersAt } from "../validation-universe";
 
 export type DecisionCache = Map<string, StrategyDecision[]>;
 /** Freeze causal decisions on their native timeframe once, then replay them
@@ -139,6 +140,7 @@ export function projectCandidate(
   progress?.(instruments.length, instruments.length);
   const request: PortfolioRequest = {
     market: s.market,
+    observationDetail: "counts",
     ...(frozen.input.policy.method === "lifecycle-2" && s.market === "cn-equity"
       ? {
           costs: {
@@ -154,6 +156,16 @@ export function projectCandidate(
     start: dataset.dates[0]!,
     end: dataset.dates.at(-1)!,
     calendar: dataset.benchmark.map((b) => b.date),
+    ...(universe
+      ? {
+          memberships: dataset.benchmark.map((b) => ({
+            strategyId: s.id,
+            date: b.date,
+            availableAt: b.date,
+            symbols: validationMembersAt(universe, b.date),
+          })),
+        }
+      : {}),
     instruments: projected,
     strategies,
     sleeves: [
