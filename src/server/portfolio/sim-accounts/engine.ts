@@ -1,3 +1,10 @@
+import {
+  AccountBook,
+  atomScales,
+  bpsOf,
+  feesFor,
+  notional,
+} from "../../../../packages/quant-execution/src";
 import { researchExecutionCosts } from "trading-strategy-core/costs";
 import { formatSimAtoms as formatAtoms } from "~/lib/portfolio/sim-accounts";
 import type {
@@ -37,10 +44,18 @@ export interface ReplayFill {
   quantity_atoms: bigint;
   gross_atoms: bigint;
   commission_atoms: bigint;
+  transfer_atoms?: bigint;
   tax_atoms: bigint;
   slippage_atoms: bigint;
   trade_date: string;
 }
+type SimLot = { quantity: bigint; date: string };
+type BookPosition = {
+  quantity: bigint;
+  mark: bigint;
+  cost: bigint;
+  lots: SimLot[];
+};
 interface Holding {
   quantity: bigint;
   sellable: bigint;
@@ -62,34 +77,62 @@ export function replayPositions(
   market: Market,
   currentTradeDate: string,
 ) {
-  const positions = new Map<string, Holding>();
-  const settledThrough = settlementDate(market, currentTradeDate);
+  const book = new AccountBook<bigint, SimLot, BookPosition>(0n, {
+    zero: 0n,
+    add: (a, b) => a + b,
+    subtract: (a, b) => a - b,
+    keepLot: (q) => q > 0n,
+    keepPosition: (q) => q > 0n,
+  });
+  const available = (lot: SimLot, day: string) =>
+    market === "crypto" || lot.date < day;
+  const sellable = (lots: SimLot[], day: string) =>
+    lots.reduce(
+      (total, lot) => (available(lot, day) ? total + lot.quantity : total),
+      0n,
+    );
   for (const fill of fills) {
     if (fill.trade_date > currentTradeDate)
       throw new Error("交易日期早于账户已成交日期");
-    const holding = positions.get(fill.symbol) ?? {
-      quantity: 0n,
-      sellable: 0n,
-      basis: 0n,
-    };
+    const day = settlementDate(market, fill.trade_date);
     const qty = fill.quantity_atoms;
-    if (fill.side === "buy") {
-      holding.basis +=
-        fill.gross_atoms +
-        fill.commission_atoms +
-        fill.tax_atoms +
-        fill.slippage_atoms;
-      holding.quantity += qty;
-      if (market === "crypto" || fill.trade_date < settledThrough)
-        holding.sellable += qty;
-    } else {
-      holding.basis -= rounded(holding.basis * qty, holding.quantity);
-      holding.quantity -= qty;
-      holding.sellable -= qty;
-    }
-    if (holding.quantity === 0n) positions.delete(fill.symbol);
-    else positions.set(fill.symbol, holding);
+    if (
+      fill.side === "sell" &&
+      qty > sellable(book.positions.get(fill.symbol)?.lots ?? [], day)
+    )
+      throw new Error("账户可卖数量不足");
+    // This projection replays positions only. Cash comes from sim_cash_flows.
+    book.postFill(
+      fill.symbol,
+      fill.side,
+      qty,
+      0n,
+      book.cash,
+      (lot) => available(lot, day),
+      () => ({ quantity: qty, date: fill.trade_date }),
+      (prior, quantity, lots) => ({
+        quantity,
+        lots,
+        mark: 0n,
+        cost:
+          (prior?.cost ?? 0n) +
+          fill.gross_atoms +
+          fill.commission_atoms +
+          (fill.transfer_atoms ?? 0n) +
+          fill.tax_atoms +
+          fill.slippage_atoms,
+      }),
+      (prior) => prior.cost - rounded(prior.cost * qty, prior.quantity),
+    );
   }
+  const day = settlementDate(market, currentTradeDate);
+  const positions = new Map<string, Holding>();
+  for (const [symbol, position] of book.positions)
+    positions.set(symbol, {
+      quantity: position.quantity,
+      basis: position.cost,
+      sellable: sellable(position.lots, day),
+    });
   return positions;
 }
 export function positionView(
@@ -160,18 +203,33 @@ export function quote(
   const grossNumerator = quantity * price;
   const unit = scale(quantityDigits(market));
   if (grossNumerator < unit) throw new Error("成交额不足一个最小货币单位");
-  const gross = checkedAtoms(rounded(grossNumerator, unit));
+  const priceAtoms =
+    price * scale(atomScales[market].price - moneyDigits(market));
+  const gross = checkedAtoms(notional(quantity, priceAtoms, market));
   const costs = researchExecutionCosts(market, "fixed");
-  const bps = (rate: number) => rounded(gross * BigInt(rate), 10000n);
-  const minimum = BigInt(costs.minimumCommission) * scale(moneyDigits(market));
-  const variable = bps(costs.commissionBps);
-  const commission = variable < minimum ? minimum : variable;
-  const tax = side === "sell" ? bps(costs.sellTaxBps) : 0n;
-  const slippage = bps(costs.slippageBps);
+  const fees = feesFor(side, gross, {
+    ...costs,
+    transferBps: costs.transferBps ?? 0,
+    minimumCommission: parseAtoms(
+      String(costs.minimumCommission),
+      moneyDigits(market),
+    ),
+  });
+  const { commission, transfer, tax } = fees;
+  const slippage = bpsOf(gross, costs.slippageBps);
   const delta = checkedAtoms(
-    (side === "sell" ? gross : -gross) - commission - tax - slippage,
+    (side === "sell" ? gross : -gross) - fees.total - slippage,
   );
   const cashAfter = checkedAtoms(cash + delta);
   if (cashAfter < 0n) throw new Error("账户可用资金不足");
-  return { gross, commission, tax, slippage, delta, cashAfter, costs };
+  return {
+    gross,
+    commission,
+    transfer,
+    tax,
+    slippage,
+    delta,
+    cashAfter,
+    costs,
+  };
 }

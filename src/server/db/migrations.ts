@@ -310,6 +310,7 @@ export const migrations = [
    INSERT INTO delivery_uncertain_claims
      SELECT id,'cash_flows' FROM delivery_batches b WHERE
        json_extract(payload,'$.statistics.cashFlows') IS NOT (SELECT count(*) FROM cash_flows_claims WHERE batch_id=b.id);`,
+  `ALTER TABLE sim_fills ADD COLUMN transfer_atoms INTEGER NOT NULL DEFAULT 0 CHECK(transfer_atoms >= 0);`,
 ];
 export function migrate(connection: Database.Database) {
   const version = connection.pragma("user_version", { simple: true }) as number;

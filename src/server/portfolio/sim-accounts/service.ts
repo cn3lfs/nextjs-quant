@@ -294,6 +294,7 @@ export function previewSimOrder(
       price: money(terms.price),
       gross: money(result.gross),
       commission: money(result.commission),
+      transfer: money(result.transfer),
       tax: money(result.tax),
       slippage: money(result.slippage),
       netCashDelta: money(result.delta),

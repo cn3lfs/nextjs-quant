@@ -2,6 +2,14 @@ type Scalar = number | bigint;
 type Lot<N> = { quantity: N };
 type Holding<N, L> = { quantity: N; mark: N; cost: N; lots: L[] };
 
+export type AccountUnits<N> = {
+  zero: N;
+  add(a: N, b: N): N;
+  subtract(a: N, b: N): N;
+  keepLot(quantity: N): boolean;
+  keepPosition(quantity: N): boolean;
+};
+
 /** Mutable ledger state shared by market-atom execution and decimal research
  * settlement. Cost is total basis in atoms, average unit basis in replay. */
 export class AccountBook<
@@ -12,13 +20,7 @@ export class AccountBook<
   readonly positions = new Map<string, P>();
   constructor(
     public cash: N,
-    private readonly units: {
-      zero: N;
-      add(a: N, b: N): N;
-      subtract(a: N, b: N): N;
-      keepLot(quantity: N): boolean;
-      keepPosition(quantity: N): boolean;
-    },
+    private readonly units: AccountUnits<N>,
   ) {}
 
   postFill(

@@ -55,7 +55,7 @@ it("v20 升级仅新增模拟域，复合外键拒绝跨户成交和结算", () 
     const before = db.prepare("SELECT * FROM records").all();
     migrate(db);
     migrate(db);
-    expect(db.pragma("user_version", { simple: true })).toBe(22);
+    expect(db.pragma("user_version", { simple: true })).toBe(23);
     expect(db.prepare("SELECT * FROM records").all()).toEqual(before);
     expect(
       db
@@ -68,7 +68,7 @@ it("v20 升级仅新增模拟域，复合外键拒绝跨户成交和结算", () 
       VALUES('a','账户甲','cn-equity','CNY',10000,1,1),('b','账户乙','cn-equity','CNY',10000,1,1);
       INSERT INTO sim_orders VALUES('a','o','req','hash','sh600519','buy','manual',NULL,100,100,'2026-11-20',1,'{}')`);
     const fill = db.prepare(
-      "INSERT INTO sim_fills VALUES(?,'f','o','sh600519','buy',100,100,10000,500,0,5,'2026-11-20',1)",
+      "INSERT INTO sim_fills(account_id,id,order_id,symbol,side,quantity_atoms,price_atoms,gross_atoms,commission_atoms,tax_atoms,slippage_atoms,trade_date,executed_at) VALUES(?,'f','o','sh600519','buy',100,100,10000,500,0,5,'2026-11-20',1)",
     );
     expect(() => fill.run("b")).toThrow(/foreign key/i);
     fill.run("a");
