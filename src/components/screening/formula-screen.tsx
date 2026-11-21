@@ -235,10 +235,7 @@ export function FormulaScreen({
               setParams(JSON.stringify(preset.parameters));
             }}
           >
-            <SelectTrigger
-              aria-label="形态与突破标准模板"
-              className="w-full"
-            >
+            <SelectTrigger aria-label="形态与突破标准模板" className="w-full">
               <SelectValue placeholder="选择模板（可选）" />
             </SelectTrigger>
             <SelectContent>
