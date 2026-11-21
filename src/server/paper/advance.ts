@@ -32,7 +32,6 @@ export type PaperInput = {
   readyDates: string[];
   decisions?: PaperState["decisions"];
 };
-const maxFrozenDecisions = 2_000_000;
 const build = () => `${strategyBuildHash}:${maBaselineBuildHash}`;
 type Checkpoint = PaperState & { build?: string };
 
@@ -680,10 +679,11 @@ export function advancePaper(
     },
     "limit",
   );
-  if (decisions.length > maxFrozenDecisions)
-    throw new Error(
-      `纸面冻结决策记录 ${decisions.length} 条，超过上限 ${maxFrozenDecisions} 条；原事实保留`,
-    );
+  checkBarBudget(
+    decisions.length,
+    { symbol: "paper-decisions", period: "task" },
+    "limit",
+  );
   const request: PortfolioRequest = {
     ...q,
     ...(context

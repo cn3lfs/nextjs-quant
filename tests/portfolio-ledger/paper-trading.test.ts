@@ -52,7 +52,10 @@ const days = [
   "2026-10-14",
   "2026-10-15",
 ];
-function fixture(market: "cn-equity" | "crypto" = "cn-equity") {
+function fixture(
+  market: "cn-equity" | "crypto" = "cn-equity",
+  strategyCount = 1,
+) {
   const db = new Database(":memory:");
   connections.push(db);
   db.pragma("foreign_keys=ON");
@@ -87,7 +90,11 @@ function fixture(market: "cn-equity" | "crypto" = "cn-equity") {
     sleeve: "swing",
     startedAt: Date.parse("2026-10-09T00:00:00Z"),
     initial: 10000,
-    candidates: [candidate],
+    candidates: Array.from({ length: strategyCount }, (_, i) =>
+      i === 0
+        ? candidate
+        : { ...candidate, strategy: { ...strategy, id: strategy.id + i } },
+    ),
     mirror: { venue: "off" },
     mirrorRevision: "first",
     revision: 0,
@@ -123,7 +130,7 @@ function fixture(market: "cn-equity" | "crypto" = "cn-equity") {
         },
       },
     ],
-    strategies: [strategy],
+    strategies: account.candidates.map((c) => c.strategy),
     sleeves: [{ id: "swing", share: 1, riskPerTrade: 1, maxPositions: 1 }],
     costs: {
       ...defaultExecutionCosts,
@@ -141,6 +148,28 @@ function fixture(market: "cn-equity" | "crypto" = "cn-equity") {
   };
   return { repo, account, request, input, dates };
 }
+it("budgets frozen decisions across strategies before advancing", () => {
+  const { repo, account, input, dates } = fixture("cn-equity", 2);
+  try {
+    vi.stubEnv("QUANT_BAR_STORE_MAX_BARS", String(dates.length));
+    expect(() =>
+      advancePaper(repo, account.id, input, Date.now()),
+    ).toThrowError(
+      expect.objectContaining({
+        code: "BAR_STORE_BUDGET_EXCEEDED",
+        diagnostic: expect.objectContaining({
+          symbol: "paper-decisions",
+          requestedBars: dates.length * 2,
+        }),
+      }),
+    );
+    expect(repo.account(account.id)!.lastBar).toBeNull();
+  } finally {
+    vi.unstubAllEnvs();
+  }
+  advancePaper(repo, account.id, input, Date.now());
+  expect(repo.state(account.id)!.decisions).toHaveLength(dates.length * 2);
+});
 it("preserves paper facts on a calendar budget failure and advances at the configured limit", () => {
   const { repo, account, input, dates } = fixture();
   try {

@@ -15,7 +15,7 @@ import type {
   AlertHistoryInput,
   AlertSubscription,
 } from "~/lib/strategy-facts/alerts";
-import { alertKey } from "~/lib/strategy-facts/alerts";
+import { alertKey, legacyAlertKeys } from "~/lib/strategy-facts/alerts";
 import type { Outcome } from "~/lib/strategy-facts/signal-ledger";
 
 /** First observations and settled outcomes are immutable. Evidence is retained until explicit owner deletion. */
@@ -100,18 +100,54 @@ export class AlertRepository {
     return this.db
       .transaction(() => {
         this.strategies.saveStrategy(strategy);
-        const prior = this.db
-          .prepare(
-            "SELECT payload,plan_id FROM watch_events WHERE dedupe_key=?",
-          )
-          .get(event.key) as
-          { payload: string; plan_id: string | null } | undefined;
+        const lookup = this.db.prepare(
+          "SELECT payload,plan_id FROM watch_events WHERE dedupe_key=?",
+        );
+        type Prior = { payload: string; plan_id: string | null };
+        let key = event.key;
+        let prior = lookup.get(key) as Prior | undefined;
+        if (!prior) {
+          for (const legacy of legacyAlertKeys(event)) {
+            const candidate = lookup.get(legacy) as Prior | undefined;
+            if (!candidate) continue;
+            const old = JSON.parse(candidate.payload) as AlertEvent;
+            if (
+              old.type !== event.type ||
+              old.paperFillId !== event.paperFillId ||
+              (old.price === null || event.price === null
+                ? old.price !== event.price
+                : Number(old.price) !== event.price)
+            )
+              continue;
+            key = legacy;
+            prior = candidate;
+            break;
+          }
+        }
         if (prior) {
           const payload = JSON.parse(prior.payload) as { observedAt?: number };
           if (payload.observedAt !== undefined) return false;
-          const first = watchEventSchema.parse(payload);
+          // Plans and ledger records can refer to the original key outside SQL FKs.
+          // A referenced legacy row must keep its key, but it can still be adopted
+          // once; otherwise every replay would return false and never deliver.
+          const referenced =
+            key !== event.key &&
+            (prior.plan_id ||
+              this.db
+                .prepare(
+                  "SELECT 1 FROM trade_plans WHERE trigger_key=? LIMIT 1",
+                )
+                .get(key) ||
+              this.db
+                .prepare(
+                  "SELECT 1 FROM records WHERE id=? OR EXISTS (SELECT 1 FROM json_tree(records.payload) WHERE atom=?) LIMIT 1",
+                )
+                .get("alerts:outcomes:" + key, key));
+          const first = watchEventSchema.parse(
+            key === event.key ? payload : { ...payload, price: event.price },
+          );
           if (
-            first.key !== event.key ||
+            first.key !== key ||
             first.type !== event.type ||
             first.strategyId !== event.strategyId ||
             first.version !== event.version ||
@@ -126,17 +162,25 @@ export class AlertRepository {
           const adopted: AlertEvent = {
             ...event,
             ...first,
+            key: referenced ? key : event.key,
             planId: event.planId ?? prior.plan_id ?? undefined,
             firstWatchPayload: prior.payload,
             confirmation: { price: event.price, source: event.source },
             source: `本次核对：${event.source}；同bar首条观察未记录来源，原payload保留`,
             reason: `${event.reason}；同bar首条观察价及保护位保留`,
           };
-          this.db
-            .prepare(
-              "UPDATE watch_events SET status=?,payload=? WHERE dedupe_key=?",
-            )
-            .run(adopted.status, JSON.stringify(adopted), event.key);
+          if (referenced)
+            this.db
+              .prepare(
+                "UPDATE watch_events SET status=?,payload=? WHERE dedupe_key=?",
+              )
+              .run(adopted.status, JSON.stringify(adopted), key);
+          else
+            this.db
+              .prepare(
+                "UPDATE watch_events SET dedupe_key=?,status=?,payload=? WHERE dedupe_key=?",
+              )
+              .run(event.key, adopted.status, JSON.stringify(adopted), key);
           effects(adopted);
           return true;
         }

@@ -13,6 +13,7 @@ const fixture = vi.hoisted(() => ({
   partial: false,
   baseFee: "0.0001",
   snapshotWait: null as Promise<void> | null,
+  waitPlace: null as Promise<void> | null,
   reject: false,
   failSend: false,
   sends: 0,
@@ -65,6 +66,7 @@ vi.mock("../../src/server/crypto-trading/adapter", () => ({
     },
     place: async (order) => {
       fixture.sends++;
+      await fixture.waitPlace;
       if (fixture.reject)
         throw Object.assign(new Error("venue rejected"), {
           outcomeUnknown: false,
@@ -136,6 +138,7 @@ beforeEach(() => {
   fixture.partial = false;
   fixture.baseFee = "0.0001";
   fixture.snapshotWait = null;
+  fixture.waitPlace = null;
   fixture.reject = false;
   fixture.failSend = false;
   fixture.sends = 0;
@@ -203,6 +206,7 @@ it("does not resend a persisted uncertain intent and pauses until exchange evide
   await expect(
     service.controlCryptoBot({ id: "binance-demo", action: "start" }),
   ).rejects.toThrow("订单结果尚未确认");
+  expect(status.bot?.pendingRetry).toBeUndefined();
   const unknown = status.orders[0]!;
   fixture.remote.set(unknown.clientId, {
     ...unknown,
@@ -215,6 +219,29 @@ it("does not resend a persisted uncertain intent and pauses until exchange evide
   expect((await service.cryptoBotStatus("binance-demo")).orders).toHaveLength(
     1,
   );
+});
+it("keeps a stopped bot stopped when an in-flight order is rejected", async () => {
+  await start();
+  fixture.now += 3590000;
+  await service.tickCryptoBots();
+  fixture.now += 10000;
+  fixture.cross = fixture.reject = true;
+  let release!: () => void;
+  fixture.waitPlace = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const ticking = service.tickCryptoBots();
+  try {
+    await vi.waitFor(() => expect(fixture.sends).toBe(1));
+    await service.controlCryptoBot({ id: "binance-demo", action: "stop" });
+  } finally {
+    release();
+    await ticking;
+  }
+  const status = await service.cryptoBotStatus("binance-demo");
+  expect(status.orders[0]?.state).toBe("REJECTED");
+  expect(status.bot?.status).toBe("stopped");
+  expect(status.bot?.pendingRetry).toBeUndefined();
 });
 it("retries a definite rejection once on the same fresh candle after resume", async () => {
   await start();

@@ -617,7 +617,7 @@ async function evaluate(
       const current = bot(value.id);
       persist({
         ...current,
-        status: "paused",
+        status: current.status === "stopped" ? "stopped" : "paused",
         error: message,
         pendingRetry:
           !outcomeUnknown && !retry && current.status !== "stopped"

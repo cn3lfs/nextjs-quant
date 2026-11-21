@@ -142,6 +142,24 @@ describe("simulated exchange adapters", () => {
     });
     expect(writes).toBe(1);
   });
+  it.each([
+    new Response("bad response", { status: 400 }),
+    Response.json({ code: -9999 }, { status: 400 }),
+    ...[418, 429, 503].map((status) =>
+      Response.json(
+        {
+          code: -2010,
+          msg: "Account has insufficient balance for requested action.",
+        },
+        { status },
+      ),
+    ),
+  ])("keeps ambiguous writes unresolved (%#)", async (response) => {
+    const { adapter } = fixture("binance", () => response);
+    await expect(adapter.place(order)).rejects.toMatchObject({
+      outcomeUnknown: true,
+    });
+  });
   it("treats Binance HTTP400 timeout as an uncertain submission", async () => {
     const { adapter } = fixture("binance", () =>
       Response.json({ code: -1007 }, { status: 400 }),
@@ -223,6 +241,25 @@ describe("simulated exchange adapters", () => {
       credential.apiSecret,
     );
   });
+  it.each([
+    { code: "0", data: [{ sCode: "99999", ordId: "" }] },
+    { code: "1", data: [{ sCode: "51011", ordId: "" }] },
+    {
+      code: "0",
+      data: [
+        { sCode: "51008", ordId: "" },
+        { sCode: "0", ordId: "123" },
+      ],
+    },
+  ])(
+    "keeps ambiguous OKX order responses unresolved (%#)",
+    async (envelope) => {
+      const { adapter } = fixture("okx", () => Response.json(envelope));
+      await expect(adapter.place(order)).rejects.toMatchObject({
+        outcomeUnknown: true,
+      });
+    },
+  );
   it("checks OKX per-order business result even on HTTP success", async () => {
     const { adapter } = fixture("okx", () => [{ ordId: "", sCode: "51008" }]);
     await expect(adapter.place(order)).rejects.toMatchObject({

@@ -203,3 +203,19 @@ export const alertKey = (
     event.price,
     ...(event.paperFillId ? ["paper-fill", event.paperFillId] : []),
   ]);
+
+export function legacyAlertKeys(event: Parameters<typeof alertKey>[0]) {
+  const base = [
+    event.strategyId,
+    event.version,
+    event.market,
+    event.symbol,
+    event.bar,
+  ];
+  return event.paperFillId
+    ? [
+        JSON.stringify([...base, "paper-fill", event.paperFillId]),
+        JSON.stringify(base),
+      ]
+    : [JSON.stringify(base)];
+}
