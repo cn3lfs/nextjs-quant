@@ -5,6 +5,7 @@ import {
 } from "quant-backtest";
 import {
   prepareStrategy,
+  usesStrategyBook,
   type ResearchCandidate,
   type StrategyObjectInput,
   type StrategyDecision,
@@ -140,7 +141,7 @@ export function projectCandidate(
   progress?.(instruments.length, instruments.length);
   const request: PortfolioRequest = {
     market: s.market,
-    observationDetail: "counts",
+    observationDetail: usesStrategyBook(s) ? "full" : "counts",
     ...(frozen.input.policy.method === "lifecycle-2" && s.market === "cn-equity"
       ? {
           costs: {

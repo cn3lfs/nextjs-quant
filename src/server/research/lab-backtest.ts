@@ -13,7 +13,7 @@ import {
 } from "quant-backtest";
 import { researchExecutionCosts } from "trading-strategy-core/costs";
 import { createPerformanceReport } from "quant-performance";
-import { strategyBuildHash } from "trading-strategies";
+import { strategyBuildHash, usesStrategyBook } from "trading-strategies";
 import { labBacktestSchema } from "~/lib/research/lab-backtest";
 import { readBars } from "../market/bar-store/read-bars";
 import { binanceArchiveSource } from "../market/bar-store/binance-archive-source";
@@ -286,7 +286,7 @@ export async function prepareLabBacktest(
     [...new Set(instruments.flatMap((i) => i.bars.map((b) => b.date)))].sort();
   const request: PortfolioRequest = {
     market: strategy.market,
-    observationDetail: "counts",
+    observationDetail: usesStrategyBook(strategy) ? "full" : "counts",
     initial: input.initial,
     start: theory?.start ?? input.start,
     end: theory?.end ?? input.end,

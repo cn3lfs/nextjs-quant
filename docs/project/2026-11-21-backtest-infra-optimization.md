@@ -41,6 +41,7 @@
 - `pnpm typecheck`、`pnpm lint`、改动文件 Prettier、`git diff --check` 通过。
 - `quant-execution` 4、`quant-backtest` 100、`trading-strategies` 484、`quant-performance` 26、`trading-strategy-core` 26、`tstdx` 120 项通过。
 - 受影响根测试累计 500+ 项通过（研究回测、纸面、模拟、加密、提醒、GBBQ、验证）。
+- 最终根全量 Vitest：7,753 项，0 失败（隔离 `QUANT_DATA_DIR`）；包测试 4 + 100 + 484 + 26 + 26 + 120 项通过。
 
 ## 保留的边界
 

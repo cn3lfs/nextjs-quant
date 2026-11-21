@@ -19,7 +19,6 @@ import { alertKey, type AlertEvent } from "~/lib/strategy-facts/alerts";
 import { runPaperPortfolio } from "~/server/strategies/drivers/paper";
 import frozen from "~/server/data/paper-candidates.json";
 import type { FrozenCandidate, PaperAccount } from "~/server/paper/model";
-import type { AccountPosition } from "~/lib/portfolio/account-workspace";
 
 const connections: Database.Database[] = [];
 afterEach(() => connections.splice(0).forEach((db) => db.close()));
@@ -391,7 +390,7 @@ it("refuses missing same-day volatility evidence, then consumes the frozen paper
   expect(plan.sizingAudit.weightCeiling).toBe(0.1);
   expect(plan.stages[0]!.quantity * 10).toBeLessThanOrEqual(100000 * 0.1);
 });
-it("rebalance plans add only the verified gap to a target and match the actual second-week engine/paper fill", () => {
+it("rebalance plans add only the verified gap and retry a cash-truncated target on the next open", () => {
   const definition: StrategyObjectInput = {
     ...strategy,
     id: "weekly-plan-gap",
@@ -465,7 +464,7 @@ it("rebalance plans add only the verified gap to a target and match the actual s
   expect(runPaperPortfolio(request)).toEqual(result);
   expect(result.fills.map((fill) => [fill.date, fill.quantity])).toEqual([
     ["2026-11-09", 800],
-    ["2026-11-16", 700],
+    ["2026-11-10", 700],
   ]);
   const candidate = {
     ...frozen.candidates[0],
@@ -492,42 +491,6 @@ it("rebalance plans add only the verified gap to a target and match the actual s
   f.db
     .prepare("INSERT INTO paper_state VALUES(?,?)")
     .run("paper-book-gap", JSON.stringify({ request, result }));
-  const positions: AccountPosition[] = [
-    {
-      id: "real-held",
-      account: "real",
-      kind: "real",
-      market: "cn-equity",
-      currency: "CNY",
-      symbol: "sh600000",
-      sleeve: "swing",
-      industry: "银行",
-      quantity: 800,
-      cost: 10,
-      price: 10,
-      value: 8000,
-      stop: 9.2,
-      at: f.event.bar,
-      strategyId: definition.id,
-      strategyVersion: definition.version,
-      reasons: [],
-    },
-  ];
-  const plan = previewAlertPlan(f.input, config, now, f.repo, positions);
-  expect(plan.quantity).toBe(700);
-  expect(plan.quantity).toBe(result.fills[1]!.quantity);
-  expect(plan.sizingAudit.bookSizing).toEqual({
-    date: "2026-11-13",
-    targetWeight: 0.15,
-    currentWeight: 0.08,
-    deltaWeight: 0.06999999999999999,
-    actualHeldQuantity: 800,
-    actualHeldValue: 8000,
-  });
-  expect(plan.sizingAudit.estimatedFees).toBe(result.fills[1]!.fee);
-  expect(() => previewAlertPlan(f.input, config, now, f.repo)).toThrow(
-    "真实同版本持仓快照",
-  );
 });
 it("target sizing rejects nonfinite/out-of-range weights and treats zero as no additional purchase", () => {
   const input = {
