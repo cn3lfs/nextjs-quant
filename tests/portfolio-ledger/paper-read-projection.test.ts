@@ -1,9 +1,16 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import Database from "better-sqlite3";
 import { runPortfolio, type PortfolioRequest } from "quant-backtest";
 import { strategyObjectSchema } from "trading-strategies";
 import { migrate } from "~/server/db/migrations";
 import { PaperRepository } from "~/server/db/paper-repository";
+import { paperRouter } from "~/server/api/routers/paper";
+import { executePaperTick } from "~/server/paper/service";
+import { registerPaperCandidates } from "~/server/paper/registration";
+import { saveSettings } from "~/server/infra/settings";
+import { settingsSchema } from "~/lib/domain";
 import { StrategyRepository } from "~/server/db/strategy-repository";
 import {
   ForwardReferenceRepository,
@@ -38,8 +45,145 @@ beforeEach(() => {
 });
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
   databases.splice(0).forEach((db) => db.close());
   vi.useRealTimers();
+});
+
+it("registers only an explicit production account, advances it on local bars, and reads the latest order through the API", async () => {
+  vi.stubEnv("VITEST", undefined);
+  const api = paperRouter.createCaller({ headers: new Headers() });
+  const repo = new PaperRepository();
+  expect(
+    await executePaperTick({ type: "paper-tick", now: Date.now() }),
+  ).toEqual([]);
+  expect(() => registerPaperCandidates(repo, Date.now())).toThrow("已停用");
+  expect("registerPaperCandidates" in paperRouter._def.procedures).toBe(false);
+  const candidate = {
+    id: "explicit-cn",
+    version: 1,
+    market: "cn-equity",
+    period: "day",
+    universe: { kind: "symbols", symbols: ["sh600000"] },
+    entry: { kind: "constant", value: true },
+    exit: {},
+    sizing: { kind: "weight", weight: 1 },
+    sleeve: "swing",
+  } as const;
+  const input = {
+    name: "生产纸面 QA",
+    market: "cn-equity",
+    currency: "CNY",
+    sleeve: "swing",
+    initial: 20000,
+    candidates: [strategyObjectSchema.parse(candidate)],
+  } as const;
+  const raw = { ...input, candidates: [...input.candidates] };
+  await expect(
+    api.registerPaperAccount({ ...raw, candidates: [] }),
+  ).rejects.toThrow();
+  await expect(
+    api.registerPaperAccount({
+      ...raw,
+      candidates: [{ ...raw.candidates[0]!, version: 0 }],
+    }),
+  ).rejects.toThrow();
+  await expect(
+    api.registerPaperAccount({
+      ...raw,
+      candidates: [raw.candidates[0]!, raw.candidates[0]!],
+    }),
+  ).rejects.toThrow("id 重复");
+  await expect(
+    api.registerPaperAccount({ ...raw, market: "crypto", currency: "USDT" }),
+  ).rejects.toThrow("市场或 sleeve");
+  await expect(
+    api.registerPaperAccount({ ...raw, sleeve: "other" }),
+  ).rejects.toThrow("市场或 sleeve");
+  await expect(
+    api.registerPaperAccount({ ...raw, currency: "USDT" }),
+  ).rejects.toThrow("币种与市场不符");
+  expect(await api.paperAccounts()).toEqual([]);
+  const account = await api.registerPaperAccount(raw);
+  expect(account).toMatchObject({
+    ...raw,
+    candidates: [{ strategy: raw.candidates[0] }],
+    startedAt: Date.now(),
+    lastBar: null,
+    mirror: { venue: "off" },
+  });
+  expect(
+    new StrategyRepository(repo.db).strategy(candidate.id, candidate.version),
+  ).toEqual(raw.candidates[0]);
+  expect(
+    repo.db
+      .prepare(
+        "SELECT kind FROM records WHERE kind IN ('paper-forward-reference','account-expectation-status') ORDER BY kind",
+      )
+      .all(),
+  ).toEqual([
+    { kind: "account-expectation-status" },
+    { kind: "paper-forward-reference" },
+  ]);
+  await expect(api.registerPaperAccount(raw)).rejects.toThrow("账户名称已存在");
+  await expect(
+    api.registerPaperAccount({ ...raw, name: "另一账户" }),
+  ).rejects.toThrow("候选策略已登记");
+  await api.savePaperSettings({
+    grouping: "sleeve",
+    equityInitial: 12345,
+    cryptoInitial: 100000,
+  });
+  expect((await api.paperAccount(account.id)).initial).toBe(20000);
+
+  const dates = ["2026-01-05", "2026-01-06"];
+  const root = join(process.env.QUANT_DATA_DIR!, "paper-tdx");
+  mkdirSync(join(root, "vipdoc/sh/lday"), { recursive: true });
+  mkdirSync(join(root, "T0002/hq_cache"), { recursive: true });
+  const daily = Buffer.concat(
+    dates.map((date) => {
+      const row = Buffer.alloc(32);
+      row.writeUInt32LE(Number(date.replaceAll("-", "")), 0);
+      row.writeUInt32LE(1000, 4);
+      row.writeUInt32LE(1010, 8);
+      row.writeUInt32LE(990, 12);
+      row.writeUInt32LE(1000, 16);
+      row.writeFloatLE(1000000, 20);
+      row.writeUInt32LE(100000, 24);
+      return row;
+    }),
+  );
+  for (const symbol of ["sh000906", "sh600000"])
+    writeFileSync(join(root, "vipdoc/sh/lday", `${symbol}.day`), daily);
+  writeFileSync(join(root, "T0002/hq_cache/gbbq"), Buffer.alloc(4));
+  saveSettings(settingsSchema.parse({ tdxRoot: root, calendar: dates }));
+  for (const [time, status] of [
+    ["2026-01-06T00:00:00Z", "pending"],
+    ["2026-01-07T00:00:00Z", "filled"],
+  ] as const) {
+    vi.setSystemTime(time);
+    expect(
+      await executePaperTick({ type: "paper-tick", now: Date.now() }),
+    ).toMatchObject([{ id: account.id, error: null }]);
+    expect(
+      await api.paperFacts({ id: account.id, kind: "order" }),
+    ).toMatchObject({
+      total: 1,
+      items: [{ id: "1", date: dates[0], value: { status } }],
+    });
+  }
+  expect(await api.paperAccount(account.id)).toMatchObject({
+    name: raw.name,
+    lastBar: dates[1],
+  });
+  expect(
+    await api.paperFacts({ id: account.id, kind: "order-event" }),
+  ).toMatchObject({
+    total: 1,
+    items: [
+      { value: { orderId: 1, sequence: 2, order: { status: "filled" } } },
+    ],
+  });
 });
 function fixture(backtestPassed = true) {
   const db = new Database(":memory:");

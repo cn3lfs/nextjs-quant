@@ -644,6 +644,12 @@ export async function applyLegacyPaperPurge(
 
         const accountIds = current.accounts.map((account) => account.id);
         const placeholders = accountIds.map(() => "?").join(",");
+        const orderEventChanges = live
+          .prepare(
+            `DELETE FROM records WHERE kind='order-event'
+               AND json_extract(payload,'$.accountId') IN (${placeholders})`,
+          )
+          .run(...accountIds).changes;
         const factChanges = live
           .prepare(
             `DELETE FROM paper_facts WHERE account_id IN (${placeholders})`,
@@ -651,6 +657,8 @@ export async function applyLegacyPaperPurge(
           .run(...accountIds).changes;
         if (factChanges !== current.totals.factRows)
           fail("paper_facts 删除行数与清单不一致；事务已回滚");
+        // Order-transition facts live in records; remove them with the account.
+        void orderEventChanges;
         const stateChanges = live
           .prepare(
             `DELETE FROM paper_state WHERE account_id IN (${placeholders})`,

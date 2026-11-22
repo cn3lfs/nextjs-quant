@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import {
   maBaselineBuildHash,
@@ -14,7 +15,12 @@ import { checkBarBudget } from "../market/bar-store/resource-budget";
 import { PaperRepository } from "../db/paper-repository";
 import { runPaperPortfolio } from "../strategies/drivers/paper";
 import { capturePaperDecisions } from "./decisions";
-import type { PaperState } from "./model";
+import type {
+  PaperAccount,
+  PaperAdvanceEvent,
+  PaperResult,
+  PaperState,
+} from "./model";
 import { summarizePaper } from "./assessment";
 import { beijingClock } from "~/lib/market/market-session";
 import { paperCompletedAt } from "./advance-clock";
@@ -33,7 +39,162 @@ export type PaperInput = {
   decisions?: PaperState["decisions"];
 };
 const build = () => `${strategyBuildHash}:${maBaselineBuildHash}`;
-type Checkpoint = PaperState & { build?: string };
+
+export class PaperHistoryError extends Error {}
+
+function prefixHasher(result: PaperResult) {
+  const fills = createHash("sha256");
+  const curve = createHash("sha256");
+  let fillIndex = 0;
+  let curveIndex = 0;
+  function append(
+    hash: ReturnType<typeof createHash>,
+    row: PaperResult["fills"][number] | PaperResult["curve"][number],
+  ) {
+    const json = JSON.stringify(row, (_key: string, value: unknown) => {
+      if (typeof value === "number" && !Number.isFinite(value))
+        throw new PaperHistoryError("纸面历史成交或权益含非有限值");
+      if (value !== null && typeof value === "object" && !Array.isArray(value))
+        return Object.fromEntries(
+          Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
+            a < b ? -1 : a > b ? 1 : 0,
+          ),
+        );
+      return value;
+    });
+    hash.update(json).update("\n");
+  }
+  return (cutoff: string) => {
+    while (result.fills[fillIndex] && result.fills[fillIndex]!.date <= cutoff)
+      append(fills, result.fills[fillIndex++]!);
+    while (result.curve[curveIndex] && result.curve[curveIndex]!.date <= cutoff)
+      append(curve, result.curve[curveIndex++]!);
+    if (result.curve[curveIndex - 1]?.date !== cutoff)
+      throw new PaperHistoryError(`纸面历史权益缺少截止 bar ${cutoff}`);
+    return {
+      fills: fillIndex,
+      curve: curveIndex,
+      resultHash: createHash("sha256")
+        .update(fills.copy().digest())
+        .update(curve.copy().digest())
+        .digest("hex"),
+    };
+  };
+}
+
+function verifyEventPrefixes(
+  result: PaperResult,
+  events: readonly PaperAdvanceEvent[],
+) {
+  // Reuse the two running digests across cutoffs so each result row is read once.
+  const prefix = prefixHasher(result);
+  for (const event of events) {
+    const replayed = prefix(event.cutoff);
+    if (
+      replayed.fills !== event.fills ||
+      replayed.curve !== event.curve ||
+      replayed.resultHash !== event.resultHash
+    )
+      throw new PaperHistoryError(
+        `纸面历史成交或权益前缀变化（事件 ${event.sequence}，截止 ${event.cutoff}），拒绝覆盖`,
+      );
+  }
+  return prefix;
+}
+
+function paperHistory(
+  account: PaperAccount,
+  previous: PaperState | null,
+  now: number,
+  engineVersion: string,
+): PaperAdvanceEvent[] {
+  if (!previous && !account.lastBar) return [];
+  if (!previous || !account.lastBar)
+    throw new PaperHistoryError("纸面历史检查点与账户 lastBar 不一致");
+  if (
+    previous.events !== undefined
+      ? !Array.isArray(previous.events) || !previous.engineVersion
+      : previous.engineVersion !== undefined
+  )
+    throw new PaperHistoryError("纸面事件日志与引擎版本记录不完整");
+  if (
+    previous.build &&
+    previous.engineVersion &&
+    previous.build !== previous.engineVersion
+  )
+    throw new PaperHistoryError("纸面 build 与 engineVersion 记录不一致");
+  const previousBuild = previous.engineVersion ?? previous.build;
+  // A legacy checkpoint without an event log is adopted as the baseline; the
+  // old build is recorded, not used to block the first upgraded tick.
+  if (
+    previousBuild !== undefined &&
+    previousBuild !== engineVersion &&
+    previous.events !== undefined
+  )
+    throw new PaperHistoryError(
+      `纸面引擎版本已变化（${previousBuild} → ${engineVersion}），请先执行版本复核并确认`,
+    );
+  const events = previous.events ?? [
+    {
+      runId: account.id,
+      sequence: 1,
+      kind: "baseline",
+      at: now,
+      cutoff: account.lastBar,
+      engineVersion,
+      ...(previousBuild && previousBuild !== engineVersion
+        ? { legacyBuild: previousBuild }
+        : {}),
+      ...prefixHasher(previous.result)(account.lastBar),
+    } satisfies PaperAdvanceEvent,
+  ];
+  if (
+    events.some(
+      (event, index) =>
+        !event ||
+        event.runId !== account.id ||
+        event.sequence !== index + 1 ||
+        (event.kind !== "advance" &&
+          !(index === 0 && event.kind === "baseline")) ||
+        !Number.isFinite(event.at) ||
+        typeof event.engineVersion !== "string" ||
+        !event.engineVersion ||
+        typeof event.cutoff !== "string" ||
+        (index > 0 && event.cutoff <= events[index - 1]!.cutoff),
+    )
+  )
+    throw new PaperHistoryError("纸面事件 runId、sequence 或截止顺序不连续");
+  const last = events.at(-1);
+  if (last?.cutoff !== account.lastBar)
+    throw new PaperHistoryError("纸面事件截止与账户 lastBar 不一致");
+  if (
+    last.fills !== previous.result.fills.length ||
+    last.curve !== previous.result.curve.length
+  )
+    throw new PaperHistoryError("纸面事件前缀计数与保存结果不一致");
+  if (previous.events) verifyEventPrefixes(previous.result, events);
+  return events;
+}
+
+function savePaperBaseline(
+  repo: PaperRepository,
+  account: PaperAccount,
+  previous: PaperState,
+  events: PaperAdvanceEvent[],
+  engineVersion: string,
+) {
+  verifyEventPrefixes(runPaperPortfolio(previous.request), events);
+  return repo.atomic(() => {
+    const saved = repo.save(account, account.revision);
+    repo.saveState(account.id, {
+      ...previous,
+      build: engineVersion,
+      engineVersion,
+      events,
+    });
+    return saved;
+  });
+}
 
 /** Bound ONLY indicator warmup. Every real forward input remains replayable
  * and still counts against the existing ledger/serialization limits. */
@@ -142,7 +303,7 @@ function freezeDatedRows<T extends { date: string }>(
  * Old requests keep their original external-decision replay byte shape. */
 function freezeNativePaperContext(
   q: PortfolioRequest,
-  previous: Checkpoint | null,
+  previous: PaperState | null,
   cutoff: string,
   priorCutoff: string | null,
 ) {
@@ -436,9 +597,14 @@ export function advancePaper(
 ) {
   const account = repo.account(id);
   if (!account) throw new Error("纸面账户不存在");
-  const previous = repo.state(id) as Checkpoint | null;
-  // Build changes are recorded in the checkpoint; the historical fill/equity
-  // prefix check below is the real guard against rewriting past accounting.
+  const previous = repo.state(id);
+  const engineVersion = build();
+  const events = paperHistory(account, previous, now, engineVersion);
+  const idle = () => {
+    if (previous && !previous.events)
+      savePaperBaseline(repo, account, previous, events, engineVersion);
+    return { advanced: 0, fills: 0 };
+  };
   let q = input.request;
   const native = account.candidates.some(
     ({ strategy }) =>
@@ -481,7 +647,7 @@ export function advancePaper(
         (input.benchmark.some((b) => b.date === d) &&
           (d < beijingClock(now).date || input.readyDates.includes(d)))),
   );
-  if (!fresh.length) return { advanced: 0, fills: 0 };
+  if (!fresh.length) return idle();
   if (fresh.some((d, i) => i > 0 && d <= fresh[i - 1]!))
     throw new Error("纸面bar时间顺序无效");
   // Do not jump across a missing source bar or an unreceipted current market day.
@@ -495,7 +661,7 @@ export function advancePaper(
   );
   const blocked = pending.find((d) => !fresh.includes(d));
   const dates = blocked ? fresh.filter((d) => d < blocked) : fresh;
-  if (!dates.length) return { advanced: 0, fills: 0 };
+  if (!dates.length) return idle();
   const cutoff = dates.at(-1)!;
   if (input.contextVersion === "cn-book-1") {
     if (
@@ -711,23 +877,21 @@ export function advancePaper(
       : {}),
   };
   const result = runPaperPortfolio(request);
-  if (
-    previous &&
-    (!isDeepStrictEqual(
-      result.fills.slice(0, previous.result.fills.length),
-      previous.result.fills,
-    ) ||
-      !isDeepStrictEqual(
-        result.curve.slice(0, previous.result.curve.length),
-        previous.result.curve,
-      ))
-  )
-    throw new Error("纸面历史成交或权益前缀变化，拒绝覆盖");
+  const prefix = verifyEventPrefixes(result, events);
+  const event: PaperAdvanceEvent = {
+    runId: id,
+    sequence: (events.at(-1)?.sequence ?? 0) + 1,
+    kind: "advance",
+    at: now,
+    cutoff,
+    engineVersion,
+    ...prefix(cutoff),
+  };
   const benchmark = [
     ...(previous?.benchmark ?? []),
     ...input.benchmark.filter((b) => dateSet.has(b.date)),
   ];
-  const next: Checkpoint = {
+  const next: PaperState = {
     ...(input.contextVersion
       ? {
           contextVersion: input.contextVersion,
@@ -738,21 +902,18 @@ export function advancePaper(
     result,
     benchmark,
     decisions,
-    build: build(),
+    build: engineVersion,
+    engineVersion,
+    events: [...events, event],
   };
-  const newFills = result.fills.slice(previous?.result.fills.length ?? 0);
+  const newFills = event.fills - (events.at(-1)?.fills ?? 0);
   repo.atomic(() => {
     repo.save(
       { ...account, lastBar: cutoff, lastRun: now, error: null, summary: null },
       account.revision,
     );
     repo.saveState(id, next);
-    for (const order of result.orders)
-      repo.fact(id, "order", {
-        id: String(order.id),
-        date: order.signalAt,
-        value: order,
-      });
+    for (const order of result.orders) repo.observeOrder(id, event, order);
     for (const [index, fill] of result.fills.entries())
       repo.fact(
         id,
@@ -813,16 +974,21 @@ export function advancePaper(
   // Metrics are outside the accounting transaction; a reporting failure cannot
   // roll back or rewrite executions. A later tick can retry the projection.
   refreshPaperSummary(repo, id, now);
-  return { advanced: dates.length, fills: newFills.length };
+  return { advanced: dates.length, fills: newFills };
 }
 export function refreshPaperSummary(
   repo: PaperRepository,
   id: string,
   now: number,
 ) {
-  const account = repo.account(id)!;
+  let account = repo.account(id)!;
   const state = repo.state(id);
   if (!state) return;
+  if (!state.events) {
+    const engineVersion = build();
+    const events = paperHistory(account, state, now, engineVersion);
+    account = savePaperBaseline(repo, account, state, events, engineVersion);
+  }
   let buildHash: string | null = null;
   try {
     buildHash = forwardExecutionBuildHash();

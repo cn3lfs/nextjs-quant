@@ -1,7 +1,11 @@
 import { PaperRepository } from "../db/paper-repository";
 import { recordRuntimeError } from "../infra/runtime-errors";
 import { capabilityAllows } from "~/lib/common/capabilities";
-import { advancePaper, refreshPaperSummary } from "./advance";
+import {
+  advancePaper,
+  PaperHistoryError,
+  refreshPaperSummary,
+} from "./advance";
 import { loadPaperInput } from "./inputs";
 import { synchronizePaperMirror } from "./mirror";
 import { recordPaperAlerts } from "./alerts";
@@ -29,7 +33,9 @@ export async function executePaperTick(work: PaperWork) {
           {
             ...account,
             error:
-              "行情、版本或模拟镜像核验未通过；原事实已保留。请检查数据目录、回执和模拟账户配置。",
+              error instanceof PaperHistoryError
+                ? error.message
+                : "行情、版本或模拟镜像核验未通过；原事实已保留。请检查数据目录、回执和模拟账户配置。",
           },
           account.revision,
         );

@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { strategyObjectSchema } from "trading-strategies";
+import { strategyObjectSchema, usesStrategyBook } from "trading-strategies";
+import { marketRules } from "trading-strategy-core/market-rules";
+import { z } from "zod";
 import frozen from "../data/paper-candidates.json";
 import { PaperRepository } from "../db/paper-repository";
 import { AlertRepository } from "../db/alert-repository";
@@ -15,6 +17,204 @@ import {
   type FrozenCandidate,
   type PaperAccount,
 } from "./model";
+import { paperSleevePolicy } from "./policy";
+
+export const registerPaperAccountSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120),
+    market: z.enum(["cn-equity", "crypto"]),
+    currency: z.enum(["CNY", "USDT"]),
+    sleeve: z.string().trim().min(1),
+    initial: z.number().finite().positive().max(1e9),
+    candidates: z.array(strategyObjectSchema).min(1),
+  })
+  .strict();
+
+function createPaperAccount(
+  repo: PaperRepository,
+  input: Pick<
+    PaperAccount,
+    "id" | "name" | "market" | "currency" | "sleeve" | "initial" | "candidates"
+  >,
+  now: number,
+) {
+  const account: PaperAccount = {
+    ...input,
+    startedAt: now,
+    mirror: { venue: "off" },
+    mirrorRevision: randomUUID(),
+    revision: 0,
+    lastBar: null,
+    lastRun: null,
+    error: null,
+    summary: null,
+  };
+  if (!repo.create(account)) throw new Error("纸面账户已存在");
+  const references = new ForwardReferenceRepository(repo.db);
+  const expectations = new AccountWorkspaceRepository(repo.db);
+  for (const { strategy } of account.candidates) {
+    references.bindPaper(account.id, strategy, now);
+    const reference = references.paper(account.id, strategy, now);
+    freezeMatchingAccountExpectation(
+      strategy.id,
+      strategy.version,
+      expectations,
+      reference
+        ? {
+            inputHash: reference.identity.inputHash,
+            resultHash: reference.resultHash,
+            buildHash: reference.identity.buildHash,
+          }
+        : undefined,
+    );
+  }
+  return account;
+}
+
+/** A prospective paper account created only by an explicit request. */
+export function registerPaperAccount(
+  raw: unknown,
+  repo = new PaperRepository(),
+  now = Date.now(),
+) {
+  const { candidates, ...input } = registerPaperAccountSchema.parse(raw);
+  if (input.currency !== (input.market === "crypto" ? "USDT" : "CNY"))
+    throw new Error("纸面账户币种与市场不符");
+  const ids = new Set<string>();
+  const period = candidates[0]!.period;
+  for (const strategy of candidates) {
+    if (ids.has(strategy.id))
+      throw new Error(
+        `纸面候选策略 id 重复（${strategy.id}）；同一账户只能使用一个版本`,
+      );
+    ids.add(strategy.id);
+    if (strategy.market !== input.market || strategy.sleeve !== input.sleeve)
+      throw new Error(`纸面候选市场或 sleeve 与账户不符（${strategy.id}）`);
+    if (strategy.period !== period)
+      throw new Error("合账候选须使用同一原生周期");
+  }
+  return repo.atomic(() => {
+    const existing = repo.ids().map((id) => repo.account(id)!);
+    if (
+      existing.some(
+        (account) => account.name?.toLowerCase() === input.name.toLowerCase(),
+      )
+    )
+      throw new Error(`纸面账户名称已存在（${input.name}）`);
+    for (const strategy of candidates)
+      if (
+        existing.some((account) =>
+          account.candidates.some(
+            (candidate) =>
+              candidate.strategy.id === strategy.id &&
+              candidate.strategy.version === strategy.version,
+          ),
+        )
+      )
+        throw new Error(
+          `纸面候选策略已登记（${strategy.id}:v${strategy.version}）`,
+        );
+
+    const alerts = new AlertRepository(repo.db);
+    const native = candidates.some(
+      (strategy) =>
+        usesStrategyBook(strategy) ||
+        !!strategy.exit.chandelier ||
+        !!strategy.exit.timeReentry,
+    );
+    const symbols = new Set(
+      candidates.flatMap((strategy) =>
+        strategy.universe.kind === "symbols" ? strategy.universe.symbols : [],
+      ),
+    );
+    for (const symbol of symbols) {
+      const valid =
+        input.market === "cn-equity"
+          ? /^(sh|sz|bj)\d{6}$/.test(symbol)
+          : /^(?:cx)?(BTCUSDT|ETHUSDT)$/i.test(symbol);
+      if (!valid) throw new Error(`纸面候选证券代码与市场不符（${symbol}）`);
+    }
+    const policy = {
+      initial: input.initial,
+      sleeves: [paperSleevePolicy(input.market, input.sleeve, symbols.size)],
+      costs: marketRules[input.market].costs ?? undefined,
+    };
+    const rows = candidates.map((strategy): FrozenCandidate => {
+      const lifecycle = readLifecycleCandidateSource(strategy, alerts);
+      if (native && strategy.id.startsWith("l3-") && !lifecycle)
+        throw new Error(`L3 纸面候选缺少同版本冻结来源（${strategy.id}）`);
+      if (
+        strategy.universe.kind !== "symbols" &&
+        !(native && lifecycle?.sourceContext.universeSymbols.length)
+      )
+        throw new Error(`纸面候选缺少冻结证券池（${strategy.id}）`);
+      if (
+        lifecycle &&
+        (candidates.length !== 1 ||
+          lifecycle.executionPolicy.initial !== input.initial ||
+          !isDeepStrictEqual(
+            lifecycle.executionPolicy.sleeves.map((s) => s.id),
+            [input.sleeve],
+          ))
+      )
+        throw new Error("纸面账户本金或合账方式与同版本冻结执行政策不符");
+      alerts.strategies.saveStrategy(strategy);
+      return {
+        strategy,
+        ...(native
+          ? { executionPolicy: lifecycle?.executionPolicy ?? policy }
+          : {}),
+        ...(lifecycle ? { sourceContext: lifecycle.sourceContext } : {}),
+        row: lifecycle?.row ?? unreviewedCandidateRow(strategy, "research"),
+        registration: inactivePaperRegistration,
+        expectation: { windows: [], holdout: null },
+      };
+    });
+    return createPaperAccount(
+      repo,
+      { ...input, id: `paper:${randomUUID()}`, candidates: rows },
+      now,
+    );
+  });
+}
+
+const inactivePaperRegistration: FrozenCandidate["registration"] = {
+  status: "shadow-candidate",
+  active: false,
+  trialSharpes: [],
+  neighbors: [],
+  sizing: "legacy",
+  completeMarketCycles: 0,
+  lowZoneCorroborated: false,
+};
+
+function unreviewedCandidateRow(
+  strategy: FrozenCandidate["strategy"],
+  status: ScoreboardRow["status"],
+  reasons = ["backtest-gates-not-passed"],
+): ScoreboardRow {
+  return {
+    id: strategy.id,
+    level: "strategy",
+    market: strategy.market,
+    sleeve: strategy.sleeve,
+    rule: strategy.entry.kind,
+    status,
+    reasons,
+    return: null,
+    drawdown: null,
+    excess: null,
+    trades: 0,
+    oosWindows: 0,
+    positiveWindows: 0,
+    bias: {
+      universe: "当前登记证券池；历史覆盖未提供",
+      adjustment: "随实际BarStore输入冻结",
+      financial: "未提供该候选冻结研究证据",
+      execution: "模拟；不认证可投资业绩",
+    },
+  };
+}
 
 export type RegisterPaperCandidatesOptions = {
   /** Test-only escape hatch for the retired frozen r2a-* fixtures. */
@@ -80,39 +280,16 @@ export function registerPaperCandidates(
               sourceContext: lifecycle.sourceContext,
             }
           : {}),
-        row: lifecycle?.row ?? {
-          id: strategy.id,
-          level: "strategy",
-          market: strategy.market,
-          sleeve: strategy.sleeve,
-          rule: strategy.entry.kind,
-          status:
+        row:
+          lifecycle?.row ??
+          unreviewedCandidateRow(
+            strategy,
             qualification?.status === "live-candidate"
               ? "live-candidate"
               : "shadow-candidate",
-          reasons: qualification?.reasons ?? ["backtest-gates-not-passed"],
-          return: null,
-          drawdown: null,
-          excess: null,
-          trades: 0,
-          oosWindows: 0,
-          positiveWindows: 0,
-          bias: {
-            universe: "当前登记证券池；历史覆盖未提供",
-            adjustment: "随实际BarStore输入冻结",
-            financial: "未提供该候选冻结研究证据",
-            execution: "模拟；不认证可投资业绩",
-          },
-        },
-        registration: registered ?? {
-          status: "shadow-candidate",
-          active: false,
-          trialSharpes: [],
-          neighbors: [],
-          sizing: "legacy",
-          completeMarketCycles: 0,
-          lowZoneCorroborated: false,
-        },
+            qualification?.reasons,
+          ),
+        registration: registered ?? inactivePaperRegistration,
         expectation: { windows: [], holdout: null },
       });
     }
@@ -194,54 +371,23 @@ export function registerPaperCandidates(
           "L3独立策略分布只能登记独立纸面账户；合账需要新的同源评审",
         );
       const baseId = `paper:${group}`;
-      const account: PaperAccount = {
-        id: repo.account(baseId) ? `${baseId}:from:${now}` : baseId,
-        market: first.market,
-        currency: first.market === "crypto" ? "USDT" : "CNY",
-        sleeve: first.sleeve,
-        initial:
-          policies[0]?.initial ??
-          (first.market === "crypto"
-            ? config.cryptoInitial
-            : config.equityInitial),
-        startedAt: now,
-        candidates: rows,
-        mirror: { venue: "off" },
-        mirrorRevision: randomUUID(),
-        revision: 0,
-        lastBar: null,
-        lastRun: null,
-        error: null,
-        summary: null,
-      };
-      if (repo.create(account)) {
-        const references = new ForwardReferenceRepository(repo.db);
-        for (const candidate of rows) {
-          references.bindPaper(
-            account.id,
-            candidate.strategy,
-            account.startedAt,
-          );
-          const reference = references.paper(
-            account.id,
-            candidate.strategy,
-            account.startedAt,
-          );
-          freezeMatchingAccountExpectation(
-            candidate.strategy.id,
-            candidate.strategy.version,
-            new AccountWorkspaceRepository(repo.db),
-            reference
-              ? {
-                  inputHash: reference.identity.inputHash,
-                  resultHash: reference.resultHash,
-                  buildHash: reference.identity.buildHash,
-                }
-              : undefined,
-          );
-        }
-        created++;
-      }
+      createPaperAccount(
+        repo,
+        {
+          id: repo.account(baseId) ? `${baseId}:from:${now}` : baseId,
+          market: first.market,
+          currency: first.market === "crypto" ? "USDT" : "CNY",
+          sleeve: first.sleeve,
+          initial:
+            policies[0]?.initial ??
+            (first.market === "crypto"
+              ? config.cryptoInitial
+              : config.equityInitial),
+          candidates: rows,
+        },
+        now,
+      );
+      created++;
     }
     return {
       created,
