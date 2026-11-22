@@ -79,9 +79,10 @@
 - **数据口径**：公司行动 action 显式携带 `cashAvailableAt` 与 `timingAssumption: "ex-date-research-scenario"`，不再暗示已知派息/上市日；GBBQ 缓存加入 stat+首尾样本校验；研究采集截止日按已登记实验冻结、新采集取实际覆盖；纸面基准标注“中证800价格指数（不含股息）”。
 - **对拍**：新增 `six-output-parity` 测试，覆盖 orders/fills/curve/rejections/corporateActions/terminalValuations，并用 bigint `ExecutionLedger` 重放 fills 与公司行动，逐笔现金/股数一致。
 - **复审 P1 收口**：提醒仓库同时识别旧键并只采纳一次（已投递旧事件不重投、被引用旧键保持原键）；加密只有可证实的拒单码才允许重试，未知 4xx/5xx 一律 UNKNOWN，停止后拒单不改回 paused；首笔资金流水可按“余额−带符号发生额”反推期初现金；GBBQ 每次由完整内容 SHA-256 决定复用（并发调用不再共享旧读取）；公司行动时点在输入准备阶段对所有 action 校验（时间戳按 `Date.parse` 比较）。
-- **P3 生产组合账本**：`runPortfolio` 的 sleeve 账户改为 `AtomsPortfolioAccount`，现金、数量、FIFO 批次、可卖与公司行动由 bigint `ExecutionLedger` 维护；研究现货使用 24 位现金、18 位数量/价格原子，保留原平均成本公式与对外 number 输出。经典 `daily-profile`/`allocation-profile` 仍在 number 路径。
+- **P3 生产组合账本**：`runPortfolio`、`daily-profile`、`allocation-profile` 全部改用 `AtomsPortfolioAccount`，现金、数量、FIFO 批次、可卖与公司行动由 bigint `ExecutionLedger` 维护；研究路径使用 24 位现金、18 位数量/价格原子，保留原平均成本公式与对外 number 输出。number 版 `ResearchExecutionLedger` 已删除，`portfolio-account.ts` 只保留事件时钟与 action 类型。经典/组合对拍对原子换算尾差按 1e-6 以内放行并注明来源。
 - **P4 纸面**：推进改为 `(runId, sequence)` 事件日志（`engineVersion`、前缀计数、成交/权益 SHA-256），旧 checkpoint 以记录 build 的 baseline 一次性升级；新增显式 `paper.registerPaperAccount` 生产创建入口（显式候选、市场/sleeve/证券池校验）；订单首条事实不可变，状态变化追加 `order-event`（存 `records`，页面合并最新快照），旧清理工具同步删除。
-- **P5 基准口径**：`benchmarkBasis`（`price-index-ex-dividends` / `total-return`）贯穿验证冻结、回放、组合、成绩单、CLI 导出、纸面摘要与 UI；旧数据缺字段显示未知口径。
+- **P5 基准口径**：`benchmarkBasis`（`price-index-ex-dividends` / `total-return`）贯穿验证冻结、回放、组合、成绩单、CLI 导出、纸面摘要与 UI；旧数据缺字段显示未知口径。公司行动新增 `broker-ledger` 口径：派息日未给则现金保持未知、送转上市日未给则新增股份锁定到 `9999-12-31`；派息日到期由 `settlePendingCash` 在开盘前入账。
+- **P6 同输入基准**：新增 `scripts/benchmark-lookup-paths.ts`（1,000 证券 × 1,000 bar）与 `scripts/benchmark-rps-scan.ts`。旧实现对照：RPS 资格查找 3,287.8ms → 368.5ms（约 8.9×），PIT 成员查找 3,477.6ms → 93.0ms（约 37×），chan 4,000 段续链 80.6ms → 21.5ms（约 3.7×），checksum 一致。
 
 ## 保留的边界
 
@@ -90,4 +91,4 @@
 - 完整历史指数成分、首次披露财务版本、外部券商/THS mock 的委托查询仍需外部数据或联调；缺证据时保留未知/阻断，不补造。
 - 少量数据 manifest 精确计数（WDZ、public factor）是数据契约，不是实现形状，保留。
 - GBBQ 没有派息日与送转上市日证据；研究情景按除权日到账并显式标注，不能据此推断真实可成交时点。A 股基准仍为价格指数；结果载荷与 UI 已显式标注 `price-index-ex-dividends`，不能解读为含股息的超额收益。
-- 经典 `daily-profile`/`allocation-profile` 仍使用 number 账本；本次把 `runPortfolio` 生产路径切到 bigint，五分组对拍的现金/权益差异按 1e-9 以内放行并注明原子换算来源。
+- `broker-ledger` 的真实派息日/上市日必须由外部账本提供；缺失时现金/新增股份保持未知或锁定，不按除权日猜测。
