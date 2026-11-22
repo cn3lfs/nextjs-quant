@@ -9,10 +9,7 @@ import {
   researchMarketEvidenceSchema,
   researchEvidenceLookup,
 } from "trading-strategies/research/factors/research-market-evidence";
-import {
-  researchMethodSnapshot,
-  validateResearchMethod,
-} from "../../src/server/research/research-method";
+import { researchMethodSnapshot } from "../../src/server/research/research-method";
 
 const dates = Array.from(
   { length: 7 },
@@ -68,12 +65,7 @@ it("freezes scale-out sources separately and validates proportions and complete 
       (row) => row.path === "stop-loss/references/management.md",
     ),
   ).toBe(true);
-  expect(() =>
-    validateResearchMethod("dual-breakout", method, true, true),
-  ).not.toThrow();
-  expect(() => validateResearchMethod("dual-breakout", method, true)).toThrow(
-    "方法版本",
-  );
+  expect(researchMethodSnapshot("dual-breakout", true, true)).toEqual(method);
   const payload = {
     version: "research-market-evidence-1",
     source: "fixture",

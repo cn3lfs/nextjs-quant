@@ -13,6 +13,8 @@ const fixture = vi.hoisted(() => ({
   partial: false,
   baseFee: "0.0001",
   snapshotWait: null as Promise<void> | null,
+  waitPlace: null as Promise<void> | null,
+  reject: false,
   failSend: false,
   sends: 0,
   balances: { USDT: "1000", BTC: "0", ETH: "0" } as Record<string, string>,
@@ -28,6 +30,7 @@ vi.mock("../../src/server/vault", () => ({
 }));
 vi.mock("../../src/server/crypto-trading/adapter", () => ({
   createSpotAdapter: (): SpotAdapter => ({
+    serverNow: () => Date.now(),
     snapshot: async (): Promise<Snapshot> => {
       await fixture.snapshotWait;
       return {
@@ -63,6 +66,11 @@ vi.mock("../../src/server/crypto-trading/adapter", () => ({
     },
     place: async (order) => {
       fixture.sends++;
+      await fixture.waitPlace;
+      if (fixture.reject)
+        throw Object.assign(new Error("venue rejected"), {
+          outcomeUnknown: false,
+        });
       if (fixture.failSend) throw new Error("socket timeout");
       const asset = order.symbol.slice(0, -4),
         quantity = new Big(order.quantity).times(fixture.partial ? "0.5" : "1");
@@ -130,6 +138,8 @@ beforeEach(() => {
   fixture.partial = false;
   fixture.baseFee = "0.0001";
   fixture.snapshotWait = null;
+  fixture.waitPlace = null;
+  fixture.reject = false;
   fixture.failSend = false;
   fixture.sends = 0;
   fixture.balances = { USDT: "1000", BTC: "0", ETH: "0" };
@@ -144,6 +154,19 @@ it("starts from baseline, freezes shared budgets and applies base-asset commissi
   fixture.cross = true;
   await service.tickCryptoBots();
   // A gap >90s simulates sleep and must rebuild its signal baseline.
+  expect(fixture.sends).toBe(0);
+  await service.tickCryptoBots();
+  expect(
+    (await service.cryptoBotStatus("binance-demo")).bot?.missedSignals,
+  ).toEqual(
+    ["BTCUSDT", "ETHUSDT"].map((symbol) => ({
+      symbol,
+      candleTime: fixture.now - 3600000,
+      at: fixture.now,
+      reason: "reset",
+      side: "BUY",
+    })),
+  );
   expect(fixture.sends).toBe(0);
   fixture.cross = false;
   fixture.now += 3600000;
@@ -183,6 +206,71 @@ it("does not resend a persisted uncertain intent and pauses until exchange evide
   await expect(
     service.controlCryptoBot({ id: "binance-demo", action: "start" }),
   ).rejects.toThrow("订单结果尚未确认");
+  expect(status.bot?.pendingRetry).toBeUndefined();
+  const unknown = status.orders[0]!;
+  fixture.remote.set(unknown.clientId, {
+    ...unknown,
+    state: "REJECTED",
+    executedQuantity: "0",
+  });
+  await service.controlCryptoBot({ id: "binance-demo", action: "start" });
+  await service.tickCryptoBots();
+  expect(fixture.sends).toBe(1);
+  expect((await service.cryptoBotStatus("binance-demo")).orders).toHaveLength(
+    1,
+  );
+});
+it("keeps a stopped bot stopped when an in-flight order is rejected", async () => {
+  await start();
+  fixture.now += 3590000;
+  await service.tickCryptoBots();
+  fixture.now += 10000;
+  fixture.cross = fixture.reject = true;
+  let release!: () => void;
+  fixture.waitPlace = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const ticking = service.tickCryptoBots();
+  try {
+    await vi.waitFor(() => expect(fixture.sends).toBe(1));
+    await service.controlCryptoBot({ id: "binance-demo", action: "stop" });
+  } finally {
+    release();
+    await ticking;
+  }
+  const status = await service.cryptoBotStatus("binance-demo");
+  expect(status.orders[0]?.state).toBe("REJECTED");
+  expect(status.bot?.status).toBe("stopped");
+  expect(status.bot?.pendingRetry).toBeUndefined();
+});
+it("retries a definite rejection once on the same fresh candle after resume", async () => {
+  await start();
+  fixture.now += 3590000;
+  await service.tickCryptoBots();
+  fixture.now += 10000;
+  fixture.cross = true;
+  fixture.reject = true;
+  const id = "binance-demo";
+  await service.tickCryptoBots();
+  const first = (await service.cryptoBotStatus(id)).orders[0]!;
+  expect(first).toMatchObject({ state: "REJECTED", attempt: 1 });
+  await service.tickCryptoBots();
+  expect(fixture.sends).toBe(1);
+  await service.controlCryptoBot({ id, action: "start" });
+  await service.tickCryptoBots();
+  const status = await service.cryptoBotStatus(id);
+  expect(status.bot?.status).toBe("paused");
+  const retry = status.orders.find((order) => order.retryOf === first.clientId);
+  expect(retry).toMatchObject({
+    state: "REJECTED",
+    attempt: 2,
+    candleTime: first.candleTime,
+  });
+  expect(retry?.clientId).not.toBe(first.clientId);
+  await service.controlCryptoBot({ id, action: "start" });
+  await service.tickCryptoBots();
+  await service.tickCryptoBots();
+  expect(fixture.sends).toBe(2);
 });
 it("detects external balance changes rather than adopting external holdings", async () => {
   await start();

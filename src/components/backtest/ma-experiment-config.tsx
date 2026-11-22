@@ -110,7 +110,7 @@ export function MaExperimentConfig({
             </p>
             <p>
               {coverage.earliestStart
-                ? `最早可选开始日 ${coverage.earliestStart}；默认选择末尾约一个月内实际完整交易日。`
+                ? `最早可选开始日 ${coverage.earliestStart}；默认选择最早可运行交易日，可手动改晚。`
                 : "当前覆盖尚无可建议的完整回测窗口。"}
             </p>
           </div>

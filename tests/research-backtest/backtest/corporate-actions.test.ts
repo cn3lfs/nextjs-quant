@@ -1,11 +1,25 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { createHash } from "node:crypto";
+import { mkdir, mkdtemp, stat, utimes, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import Database from "better-sqlite3";
 import {
-  PortfolioAccount,
   actionPrice,
   type PortfolioAction,
 } from "../../../packages/quant-backtest/src/portfolio-account";
+import { AtomsPortfolioAccount as PortfolioAccount } from "../../../packages/quant-backtest/src/portfolio/atoms-account";
 import { runPortfolio, type PortfolioRequest } from "quant-backtest";
 import { defaultExecutionCosts } from "trading-strategy-core/costs";
+import { researchCorporateActions } from "~/server/research/corporate-actions";
+import { corporateActions } from "~/server/market/bar-store/corporate-actions";
+import * as localSource from "~/server/market/bar-store/local-source";
+import { migrate } from "~/server/db/migrations";
+import { PaperRepository } from "~/server/db/paper-repository";
+import { summarizePaper } from "~/server/paper/assessment";
+import { paperAccountsRead } from "~/server/paper/read-projection";
+import type { FrozenCandidate, PaperAccount } from "~/server/paper/model";
+import paperCandidates from "~/server/data/paper-candidates.json";
+import gbbqFixture from "../../fixtures/tdx-gbbq.json";
 
 const day = ["2026-10-09", "2026-10-12", "2026-10-13", "2026-10-14"];
 const action = (patch: Partial<PortfolioAction>): PortfolioAction => ({
@@ -14,7 +28,9 @@ const action = (patch: Partial<PortfolioAction>): PortfolioAction => ({
   dividend: 0,
   bonus: 0,
   evidence: "Fixed GBBQ entitlement scenario",
+  cashAvailableAt: patch.date ?? day[2]!,
   ...patch,
+  timingAssumption: "ex-date-research-scenario",
 });
 describe("corporate action accounting", () => {
   it.each([
@@ -37,6 +53,88 @@ describe("corporate action accounting", () => {
         expect(a.positions.get("A")!.mark).toBe(8); // (10+.5*4)/1.5
     },
   );
+  it("discloses GBBQ timing and credits the dividend on the ex-date in the research ledger", () => {
+    const date = day[2]!;
+    const [observed] = researchCorporateActions(
+      [{ date, name: "除权除息", category: 1, dividend: 1, bonusRatio: 0.1 }],
+      "fixture",
+      date,
+      date,
+    );
+    expect(observed).toMatchObject({
+      date,
+      availableAt: date,
+      cashAvailableAt: date,
+      sharesSellableAt: date,
+      timingAssumption: "ex-date-research-scenario",
+      evidence: expect.stringContaining("派息日/送转上市日未知"),
+    });
+    const replay = runPortfolio(request(date, observed!));
+    expect(replay.curve.find((point) => point.date === day[1])?.cash).toBe(0);
+    expect(replay.curve.find((point) => point.date === date)?.cash).toBe(1000);
+    expect(
+      JSON.parse(JSON.stringify(replay)).corporateActions[0],
+    ).toMatchObject({
+      date,
+      cash: 1000,
+      cashAvailableAt: date,
+      timingAssumption: "ex-date-research-scenario",
+    });
+  });
+  it("publishes the price-index basis with the same paper benchmark return", () => {
+    const replay = request(day[2]!, { dividend: 1 });
+    const account: PaperAccount = {
+      id: "benchmark-fixture",
+      market: "cn-equity",
+      currency: "CNY",
+      sleeve: "swing",
+      startedAt: Date.parse(day[0]!),
+      initial: replay.initial,
+      candidates: [
+        {
+          ...(paperCandidates.candidates[0] as unknown as FrozenCandidate),
+          strategy: replay.strategies[0]!,
+        },
+      ],
+      mirror: { venue: "off" },
+      mirrorRevision: "fixture",
+      revision: 0,
+      lastBar: null,
+      lastRun: null,
+      error: null,
+      summary: null,
+    };
+    const benchmark = replay.instruments[0]!.bars.map((b) => ({ ...b }));
+    account.summary = summarizePaper(
+      account,
+      {
+        request: replay,
+        result: runPortfolio(replay),
+        benchmark,
+        decisions: [],
+      },
+      Date.parse("2026-10-15"),
+    );
+    const db = new Database(":memory:");
+    try {
+      migrate(db);
+      const repo = new PaperRepository(db);
+      repo.create(account);
+      expect(paperAccountsRead(repo)[0]?.summary).toMatchObject({
+        benchmarkName: "中证800价格指数（不含股息）",
+        benchmarkReturn: 9 / 10 - 1,
+      });
+    } finally {
+      db.close();
+    }
+  });
+  it("withholds dividend tax at the declared rate", () => {
+    const a = new PortfolioAccount(1000);
+    a.fill("A", day[1]!, "buy", 100, 10, 0, 1);
+    // 100 shares × 1 CNY dividend × (1 − 10%) = 90 CNY cash.
+    a.corporateAction("A", action({ dividend: 1 }), true, 1000);
+    expect(a.cash).toBeCloseTo(90, 12);
+  });
   it("preserves T+1 locks across splits and explicit bonus availability", () => {
     const a = new PortfolioAccount(10000);
     a.fill("A", day[2]!, "buy", 100, 10, 0, 1);
@@ -217,11 +315,82 @@ describe("corporate action accounting", () => {
       { rightsRatio: 1 },
       { bonus: 1 },
       { shareFactor: NaN },
+      { cashAvailableAt: day[3] },
     ]) {
       const q = request(day[2]!, {});
       q.instruments[0]!.actions = [action(patch)];
       expect(() => runPortfolio(q)).toThrow("corporate action");
     }
+  });
+  it.each([
+    { timingAssumption: "settlement-date" },
+    { timingAssumption: undefined },
+    { cashAvailableAt: undefined },
+    { cashAvailableAt: "invalid" },
+    { cashAvailableAt: day[3] },
+    { sharesSellableAt: day[1] },
+    { sharesSellableAt: "2027-02-29" },
+  ])(
+    "rejects invalid action timing during preparation with no holdings: %j",
+    (patch) => {
+      const q = request(day[2]!, {});
+      q.strategies[0]!.entry = { kind: "constant", value: false };
+      // Validate supplied actions even outside the replay window.
+      q.instruments[0]!.actions = [
+        { ...action({ date: "2026-10-15" }), ...patch } as PortfolioAction,
+      ];
+      expect(() => runPortfolio(q)).toThrow("corporate action");
+    },
+  );
+  it("accepts frozen actions without explicit cash timing in an empty strategy", () => {
+    const q = request(day[2]!, { dividend: 1 });
+    q.strategies[0]!.entry = { kind: "constant", value: false };
+    q.instruments[0]!.actions = [
+      {
+        date: day[2]!,
+        availableAt: day[2]!,
+        dividend: 1,
+        bonus: 0,
+        evidence: "Frozen fixture before cash timing disclosure",
+      },
+    ];
+    const result = runPortfolio(q);
+    expect(result.fills).toEqual([]);
+    expect(result.corporateActions).toEqual([]);
+  });
+  it("accepts the ex-date and an intraday sellable instant in a minute replay", () => {
+    const q = request(day[2]!, { bonus: 0.1, sharesSellableAt: day[2] });
+    const atOpen = (date: string) => `${date}T09:35:00+08:00`;
+    q.calendar = day.map(atOpen);
+    q.start = q.calendar[0]!;
+    q.end = q.calendar[3]!;
+    q.strategies[0]!.period = "5m";
+    const instrument = q.instruments[0]!;
+    instrument.bars = instrument.bars.map((b) => ({
+      ...b,
+      date: atOpen(b.date),
+    }));
+    instrument.signalBars = instrument.signalBars.map((b) => ({
+      ...b,
+      date: atOpen(b.date),
+    }));
+    const entitlement = instrument.actions![0]!;
+    entitlement.date = atOpen(entitlement.date);
+    entitlement.availableAt = atOpen(entitlement.availableAt);
+    entitlement.sharesSellableAt = atOpen(entitlement.sharesSellableAt!);
+    const result = runPortfolio(q);
+    expect(result.corporateActions).toMatchObject([
+      {
+        date: atOpen(day[2]!),
+        cashAvailableAt: day[2],
+        timingAssumption: "ex-date-research-scenario",
+      },
+    ]);
+    expect(result.positions[0]?.lots).toContainEqual({
+      quantity: 100,
+      bought: atOpen(day[2]!),
+      availableOn: atOpen(day[2]!),
+    });
   });
   it("applies an action during a calendar gap on the next event before a pending sale", () => {
     const sunday = "2026-10-11",
@@ -258,4 +427,96 @@ describe("corporate action accounting", () => {
     ]);
     expect(result.equity.at(-1)!.equity).toBe(10000);
   });
+});
+
+it("invalidates cached GBBQ actions when only the middle bytes change under the same stat identity", async () => {
+  const root = await mkdtemp(join(process.env.QUANT_DATA_DIR!, "gbbq-cache-"));
+  const directory = join(root, "T0002", "hq_cache");
+  const path = join(directory, "gbbq");
+  const record = Buffer.from(gbbqFixture.gbbqBase64, "base64").subarray(4, 33);
+  const count = 400;
+  const body = Buffer.alloc(4 + count * record.length);
+  body.writeUInt32LE(count);
+  body.fill(record, 4);
+  const changed = Buffer.from(body);
+  const offset = 4 + 200 * record.length;
+  changed.fill(0, offset, offset + record.length);
+  expect(changed.subarray(0, 4096)).toEqual(body.subarray(0, 4096));
+  expect(changed.subarray(-4096)).toEqual(body.subarray(-4096));
+  const fixedTime = new Date("2026-11-13T00:00:00Z");
+  await mkdir(directory, { recursive: true });
+  await writeFile(path, body);
+  await utimes(path, fixedTime, fixedTime);
+  const initialStat = await stat(path);
+  // Simulate a filesystem that also preserves the finer stat identity.
+  const fingerprint = vi
+    .spyOn(localSource, "sourceFingerprint")
+    .mockResolvedValue(`${path}:fixed-stat-identity`);
+  try {
+    const first = await corporateActions(root);
+    expect([...first.events.values()][0]).toHaveLength(count);
+    expect((await corporateActions(root)).events).toBe(first.events);
+
+    await writeFile(path, changed);
+    await utimes(path, fixedTime, fixedTime);
+    const rewrittenStat = await stat(path);
+    expect(rewrittenStat.size).toBe(initialStat.size);
+    expect(rewrittenStat.mtimeMs).toBe(initialStat.mtimeMs);
+
+    const rewritten = await corporateActions(root);
+    expect([...rewritten.events.values()][0]).toHaveLength(count - 1);
+    expect(rewritten.fingerprint).not.toBe(first.fingerprint);
+    expect(rewritten.fingerprint).toContain(
+      createHash("sha256").update(changed).digest("hex"),
+    );
+    expect((await corporateActions(root)).events).toBe(rewritten.events);
+  } finally {
+    fingerprint.mockRestore();
+  }
+});
+
+it("separates broker pay and listing dates from the ex-date scenario", () => {
+  const account = new PortfolioAccount(10_000);
+  account.fill("sh600000", "2026-01-05", "buy", 100, 10, 0, 1);
+  const applied = account.corporateAction(
+    "sh600000",
+    {
+      date: "2026-01-06",
+      availableAt: "2026-01-06",
+      timingAssumption: "broker-ledger",
+      cashAvailableAt: "2026-01-08",
+      sharesSellableAt: "2026-01-08",
+      dividend: 0.5,
+      bonus: 0.5,
+      evidence: "fixture",
+    },
+    true,
+    0,
+  )!;
+  expect(applied.cash).toBe(50);
+  expect(account.cash).toBe(9_000);
+  expect(account.sellable("sh600000", "2026-01-07", 1)).toBe(100);
+  expect(account.settlePendingCash("2026-01-07")).toBe(0);
+  expect(account.settlePendingCash("2026-01-08")).toBe(50);
+  expect(account.cash).toBe(9_050);
+  expect(account.sellable("sh600000", "2026-01-08", 1)).toBe(150);
+
+  const unknown = new PortfolioAccount(10_000);
+  unknown.fill("sh600000", "2026-01-05", "buy", 100, 10, 0, 1);
+  unknown.corporateAction(
+    "sh600000",
+    {
+      date: "2026-01-06",
+      availableAt: "2026-01-06",
+      timingAssumption: "broker-ledger",
+      dividend: 0.5,
+      bonus: 0.5,
+      evidence: "fixture",
+    },
+    true,
+    0,
+  );
+  expect(unknown.cash).toBe(9_000);
+  expect(unknown.settlePendingCash("2026-12-31")).toBe(0);
+  expect(unknown.sellable("sh600000", "2026-12-31", 1)).toBe(100);
 });

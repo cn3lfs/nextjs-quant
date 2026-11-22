@@ -13,9 +13,11 @@ import {
 } from "quant-backtest";
 import { researchExecutionCosts } from "trading-strategy-core/costs";
 import { createPerformanceReport } from "quant-performance";
-import { strategyBuildHash } from "trading-strategies";
+import { strategyBuildHash, usesStrategyBook } from "trading-strategies";
 import { labBacktestSchema } from "~/lib/research/lab-backtest";
+import { researchStrategyVersion } from "~/lib/research/strategy-version";
 import { readBars } from "../market/bar-store/read-bars";
+import { BarResourceBudget } from "../market/bar-store/resource-budget";
 import { binanceArchiveSource } from "../market/bar-store/binance-archive-source";
 import { corporateActions } from "../market/bar-store/corporate-actions";
 import {
@@ -26,6 +28,14 @@ import { settings } from "../infra/settings";
 import { cryptoPeriodMs } from "~/lib/market/crypto-aggregation";
 import { dailyEquity } from "~/lib/backtest/daily-equity";
 import { isAShareStockSymbol } from "~/lib/market/security-classification";
+import {
+  causalResearchPrices,
+  hasCausalPriceProof,
+  missingCausalPriceBasis,
+  readResearchPriceActions,
+  requiresCausalPriceBasis,
+  type CausalPriceProof,
+} from "./causal-price-basis";
 
 function isExecutionFact(
   value: PortfolioInstrument["execution"],
@@ -45,6 +55,7 @@ function frozenMarketPolicy(
   instruments: readonly PortfolioInstrument[],
   theory: boolean,
   source: "local" | "thsdk",
+  causal: boolean,
 ) {
   const cells = new Set<string>();
   for (const instrument of instruments) {
@@ -68,7 +79,9 @@ function frozenMarketPolicy(
           ? "同花顺原生前复权 qfq（frozen.sources[].adjustment）"
           : theory
             ? "per-symbol GBBQ anchor（frozen.sources[].adjustmentId）"
-            : "forward（frozen.sources[].adjustment）",
+            : causal
+              ? "逐 bar 因果 GBBQ 因子，首根原价固定锚（frozen.sources[].causalPrice）"
+              : "forward（frozen.sources[].adjustment）",
     executionBars: "raw（未复权原价，仅用原价成交）",
     quantityGrid:
       market === "cn-equity"
@@ -106,6 +119,7 @@ export async function prepareLabBacktest(
   const input = labBacktestSchema.parse(work.input),
     strategy = input.strategy,
     config = settings();
+  const causal = requiresCausalPriceBasis(strategy);
   if (strategy.universe.kind !== "symbols")
     throw new Error(
       "请提交已冻结明确证券名单的策略对象；RPS/时点成分须从研究任务冻结",
@@ -128,6 +142,8 @@ export async function prepareLabBacktest(
           `同花顺回测仅支持 A 股股票标的，不支持指数或非股票代码：${symbol}`,
         );
     }
+    if (causal)
+      throw new Error(`${missingCausalPriceBasis}（同花顺仅提供区间前复权）`);
   }
   if (
     strategy.market === "crypto" &&
@@ -142,6 +158,9 @@ export async function prepareLabBacktest(
     throw new Error(
       "该策略需要原生/时点外部证据；请使用冻结研究任务及其报告，不能以缺失输入回测",
     );
+  const budget = new BarResourceBudget();
+  const readForTask: typeof readBars = (query, frozen, fetchHistory) =>
+    read(query, frozen, fetchHistory, budget);
   const theory =
     strategy.entry.kind === "triple-screen"
       ? await loadTheoryMultiperiodSource({
@@ -149,7 +168,7 @@ export async function prepareLabBacktest(
           start: input.start,
           end: input.end,
           config,
-          read,
+          read: readForTask,
           progress,
         })
       : strategy.entry.kind === "utc-orb"
@@ -158,17 +177,28 @@ export async function prepareLabBacktest(
             start: input.start,
             end: input.end,
             config,
-            read,
+            read: readForTask,
             progress,
           })
         : null;
   const actionSource =
     strategy.market === "cn-equity" && input.source === "local" && !theory
-      ? await corporateActions(config.tdxRoot)
+      ? causal
+        ? await readResearchPriceActions(config.tdxRoot).catch(
+            (error: unknown) => {
+              throw new Error(
+                `${missingCausalPriceBasis}：${error instanceof Error ? error.message : String(error)}`,
+              );
+            },
+          )
+        : await corporateActions(config.tdxRoot)
       : null;
+  const corporateActionCoverage =
+    strategy.market === "cn-equity" && input.source === "thsdk" && !theory
+      ? ("excluded" as const)
+      : ("included" as const);
   const instruments: PortfolioInstrument[] = theory?.instruments ?? [],
     sources: Record<string, unknown>[] = theory?.sources ?? [];
-  let total = 0;
   for (const symbol of theory ? [] : symbols) {
     signal?.throwIfAborted();
     const archive =
@@ -183,11 +213,12 @@ export async function prepareLabBacktest(
         : undefined;
     if (strategy.market === "crypto" && !archive)
       throw new Error(`${symbol}缺少本地原生周期官方归档，请在系统回填`);
-    const snapshot = await read(
+    const snapshot = await readForTask(
       {
         instrument: { market: strategy.market, symbol },
         period: strategy.period,
-        adjustment: strategy.market === "cn-equity" ? "forward" : "none",
+        adjustment:
+          strategy.market === "cn-equity" && !causal ? "forward" : "none",
         freezeRaw: true,
         root: config.tdxRoot,
         source: input.source,
@@ -220,8 +251,6 @@ export async function prepareLabBacktest(
         ))
     )
       throw new Error(`${symbol}原生周期行情存在缺口，不能跳过后回测`);
-    total += raw.length;
-    if (total > 2000000) throw new Error("冻结行情超过200万根资源边界");
     if (
       !raw.some(
         (b) =>
@@ -230,19 +259,45 @@ export async function prepareLabBacktest(
       )
     )
       throw new Error(`${symbol}区间行情缺失`);
-    const actions = actionSource
-      ? researchCorporateActions(
+    const actionFingerprint =
+      actionSource &&
+      ("fingerprint" in actionSource
+        ? actionSource.fingerprint
+        : actionSource.sourceSha256);
+    const actions =
+      actionSource && actionFingerprint
+        ? researchCorporateActions(
+            actionSource.events.get(symbol) ?? [],
+            actionFingerprint,
+            raw[0]!.date,
+            input.end,
+          )
+        : [];
+    let signalBars = snapshot.bars;
+    let causalPrice: CausalPriceProof | undefined;
+    if (causal && actionSource && "issues" in actionSource) {
+      if (snapshot.adjustment !== "none")
+        throw new Error(`${symbol}：${missingCausalPriceBasis}（缺少原价）`);
+      try {
+        const price = causalResearchPrices(
+          [...raw],
           actionSource.events.get(symbol) ?? [],
-          actionSource.fingerprint,
-          raw[0]!.date,
-          input.end,
-        )
-      : [];
+          actionSource.sourceSha256,
+          actionSource.issues,
+        );
+        signalBars = price.bars;
+        causalPrice = price.proof;
+      } catch (error) {
+        throw new Error(
+          `${symbol}：${missingCausalPriceBasis}：${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
     instruments.push({
       symbol,
       market: strategy.market,
       bars: raw,
-      signalBars: snapshot.bars,
+      signalBars,
       actions,
       execution:
         strategy.market === "cn-equity"
@@ -261,7 +316,8 @@ export async function prepareLabBacktest(
       symbol,
       hash: snapshot.hash,
       source: snapshot.source,
-      adjustment: snapshot.barStore.adjustmentReference,
+      adjustment: causalPrice?.kind ?? snapshot.barStore.adjustmentReference,
+      ...(causalPrice ? { causalPrice } : {}),
       adjustmentSource:
         snapshot.barStore.adjustmentSource ??
         (strategy.market === "crypto"
@@ -282,6 +338,7 @@ export async function prepareLabBacktest(
     [...new Set(instruments.flatMap((i) => i.bars.map((b) => b.date)))].sort();
   const request: PortfolioRequest = {
     market: strategy.market,
+    observationDetail: usesStrategyBook(strategy) ? "full" : "counts",
     initial: input.initial,
     start: theory?.start ?? input.start,
     end: theory?.end ?? input.end,
@@ -299,21 +356,25 @@ export async function prepareLabBacktest(
     costs: researchExecutionCosts(strategy.market, input.costScenario),
   };
   const frozen = {
+    timingContract: "p5" as const,
     request,
     sources,
     dataSource: input.source,
+    corporateActionCoverage,
     costScenario: input.costScenario,
     marketPolicy: frozenMarketPolicy(
       strategy.market,
       request.instruments,
       !!theory,
       input.source,
+      causal,
     ),
     strategyBuildHash,
+    strategySemanticVersion: researchStrategyVersion(strategy),
     executionBuildHash: forwardExecutionBuildHash(),
     boundary:
       input.source === "thsdk"
-        ? "规则自检；同花顺延迟行情，信号采用原生前复权 qfq，成交采用同源未复权原价；未计入公司行动分红送转，历史ST/IPO/排队未认证；非可信策略业绩"
+        ? "规则自检；同花顺延迟行情，信号采用原生前复权 qfq，成交采用同源未复权原价；未计入公司行动分红送转，不可与本地源结果直接比较；历史ST/IPO/排队未认证；非可信策略业绩"
         : "规则自检；当前证券池、历史ST/IPO/排队及到账日未认证；公司行动沿R2a-5研究情景，币种数量网格未认证；非可信策略业绩",
   };
   if (signal) await new Promise<void>((resolve) => setImmediate(resolve));
@@ -321,7 +382,13 @@ export async function prepareLabBacktest(
   return frozen;
 }
 
-export type FrozenLabBacktest = Awaited<ReturnType<typeof prepareLabBacktest>>;
+export type FrozenLabBacktest = Omit<
+  Awaited<ReturnType<typeof prepareLabBacktest>>,
+  "timingContract" | "strategySemanticVersion"
+> & {
+  timingContract?: "p5";
+  strategySemanticVersion?: ReturnType<typeof researchStrategyVersion>;
+};
 
 export function replayLabBacktest(
   frozen: FrozenLabBacktest,
@@ -330,20 +397,50 @@ export function replayLabBacktest(
 ) {
   signal?.throwIfAborted();
   const { request } = frozen;
+  if (request.strategies.some(requiresCausalPriceBasis)) {
+    const proofs = new Map(
+      frozen.sources.map((source) => [
+        source.symbol,
+        source.causalPrice as CausalPriceProof | undefined,
+      ]),
+    );
+    for (const instrument of request.instruments)
+      if (
+        !hasCausalPriceProof(
+          proofs.get(instrument.symbol),
+          instrument.bars,
+          instrument.signalBars,
+        )
+      )
+        throw new Error(`${instrument.symbol}：${missingCausalPriceBasis}`);
+  }
   const inputHash = createHash("sha256")
     .update(JSON.stringify(frozen))
     .digest("hex");
-  const result = runPortfolio(request, (done, count) => {
-    signal?.throwIfAborted();
-    progress(70 + Math.floor((done / Math.max(1, count)) * 30), "组合回放");
-  });
+  const result = runPortfolio(
+    request,
+    (done, count) => {
+      signal?.throwIfAborted();
+      progress(70 + Math.floor((done / Math.max(1, count)) * 30), "组合回放");
+    },
+    undefined,
+    signal,
+  );
   const performance = createPerformanceReport(
     request.initial,
     dailyEquity(result.curve),
+    undefined,
+    request.market === "crypto" ? 365 : 252,
   );
   const evidence = labBacktestEvidence(request, result);
   return {
     inputHash,
+    timingStatus:
+      frozen.strategyBuildHash !== strategyBuildHash
+        ? ("drift" as const)
+        : frozen.timingContract === "p5"
+          ? ("p5" as const)
+          : ("unknown" as const),
     frozen,
     result,
     overview: performance.overview,

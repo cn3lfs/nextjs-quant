@@ -102,6 +102,12 @@ for (const file of [
     .filter((file) => file.endsWith(".ts"))
     .sort()
     .map((file) => `packages/quant-backtest/src/${file.replaceAll("\\", "/")}`),
+  ...(await readdir("packages/quant-execution/src", { recursive: true }))
+    .filter((file) => file.endsWith(".ts"))
+    .sort()
+    .map(
+      (file) => `packages/quant-execution/src/${file.replaceAll("\\", "/")}`,
+    ),
   ...(await readdir("packages/trading-strategies/src", { recursive: true }))
     .filter((file) => file.endsWith(".ts"))
     .sort()

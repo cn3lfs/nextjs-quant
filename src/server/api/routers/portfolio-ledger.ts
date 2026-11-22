@@ -235,15 +235,17 @@ export const portfolioLedgerRouter = createTRPCRouter({
     .input(deliveryRevokeCheckedSchema)
     .mutation(({ input }) => deliveryRevokeChecked(chartSqlite(), input)),
   deliveryBatches: p("portfolio", "read").query(() =>
-    new DeliveryStore(chartSqlite()).batches().map(({ payload, ...batch }) => ({
-      ...batch,
-      statistics: payload.statistics,
-      ...(payload.scope ? { scope: payload.scope } : {}),
-      ...(payload.statementOpeningCash !== undefined
-        ? { statementOpeningCash: payload.statementOpeningCash }
-        : {}),
-      ...(payload.counts ? { counts: payload.counts } : {}),
-    })),
+    new DeliveryStore(chartSqlite())
+      .batches(false)
+      .map(({ payload, ...batch }) => ({
+        ...batch,
+        statistics: payload.statistics,
+        ...(payload.scope ? { scope: payload.scope } : {}),
+        ...(payload.statementOpeningCash !== undefined
+          ? { statementOpeningCash: payload.statementOpeningCash }
+          : {}),
+        ...(payload.counts ? { counts: payload.counts } : {}),
+      })),
   ),
   deliveryRevoke: p("portfolio", "configure")
     .input(z.string().min(1).max(128))

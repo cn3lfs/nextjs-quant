@@ -4,6 +4,12 @@ import {
   applyAdjustmentAtAnchor,
   applyAdjustmentByDate,
 } from "tstdx/local";
+import { prepareStrategy, researchCandidates } from "trading-strategies";
+import {
+  causalResearchPrices,
+  hasCausalPriceProof,
+  requiresCausalPriceBasis,
+} from "~/server/research/causal-price-basis";
 const bar = (date: string, close: number) => ({
   date,
   open: close,
@@ -52,4 +58,58 @@ it("requires the actual frozen anchor and complete date factors, without guessin
       factors[0]!,
     ),
   ).toThrow("因子");
+});
+
+it("prevents a future split from flipping an absolute-price rule and binds the selected signals", () => {
+  const start = [bar("2026-01-01", 10), bar("2026-01-02", 10)];
+  const extended = [...start, bar("2026-01-05", 5)];
+  const split = {
+    date: "2026-01-05",
+    category: 11,
+    name: "扩缩股",
+    shrinkRatio: 2,
+  };
+  const strategy = {
+    ...researchCandidates(["sh600000"], "cn-equity")[0]!.strategy,
+    entry: {
+      kind: "formula" as const,
+      source: "P:=MA(C,2); 选股:P>N1;",
+      parameters: { N1: 8 },
+    },
+  };
+  expect(requiresCausalPriceBasis(strategy)).toBe(true);
+  expect(
+    requiresCausalPriceBasis({
+      ...strategy,
+      entry: { kind: "formula", source: "选股:C>MA(C,2);" },
+    }),
+  ).toBe(true);
+  expect(
+    requiresCausalPriceBasis({ ...strategy, exit: { rule: strategy.entry } }),
+  ).toBe(true);
+  expect(
+    requiresCausalPriceBasis(
+      researchCandidates(["sh600000"], "cn-equity").find(
+        (c) => c.family === "double-breakout",
+      )!.strategy,
+    ),
+  ).toBe(true);
+  const before = causalResearchPrices(start, [], "fixture-actions", []);
+  const after = causalResearchPrices(extended, [split], "fixture-actions", []);
+  const forward = applyAdjustmentByDate(
+    extended,
+    adjustmentFactors(extended, [split]),
+    "forward",
+  );
+  expect(prepareStrategy(strategy, before.bars).evaluate(1).entry).toBe(true);
+  expect(prepareStrategy(strategy, after.bars).evaluate(1).entry).toBe(true);
+  expect(prepareStrategy(strategy, forward).evaluate(1).entry).toBe(false);
+  expect(after.bars.slice(0, start.length)).toEqual(before.bars);
+  expect(hasCausalPriceProof(after.proof, extended, after.bars)).toBe(true);
+  expect(hasCausalPriceProof(after.proof, extended, forward)).toBe(false);
+  expect(() =>
+    causalResearchPrices(extended, [], "fixture-actions", [
+      { reason: "unparsed record" },
+    ]),
+  ).toThrow("GBBQ evidence");
 });

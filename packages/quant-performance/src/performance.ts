@@ -43,8 +43,7 @@ export type PerformancePeriod = {
   boundary: boolean;
   evaluation: PerformanceEvaluation;
 };
-const yearlyDays = 252;
-const dailyRiskFree = 1.02 ** (1 / yearlyDays) - 1;
+const defaultAnnualizationDays = 252;
 const metric = (value: number | null, reason = "计算结果非有限") =>
   value !== null && Number.isFinite(value)
     ? { value, reason: null }
@@ -69,9 +68,13 @@ export function evaluatePerformance(
   initial: number,
   points: readonly PerformancePoint[],
   initialDate = points[0]?.date,
+  annualizationDays = defaultAnnualizationDays,
 ): PerformanceEvaluation {
   if (!Number.isFinite(initial) || initial <= 0)
     throw new Error("评价期初权益必须为正有限数");
+  if (!Number.isInteger(annualizationDays) || annualizationDays <= 0)
+    throw new Error("年化交易日数必须为正整数");
+  const dailyRiskFree = 1.02 ** (1 / annualizationDays) - 1;
   let previous = initial;
   let previousDate = "";
   for (const point of points) {
@@ -81,7 +84,7 @@ export function evaluatePerformance(
       new Date(point.date).toISOString().slice(0, 10) !== point.date ||
       point.date <= previousDate ||
       !Number.isFinite(point.value) ||
-      point.value <= 0 ||
+      point.value < 0 ||
       (point.benchmarkReturn !== undefined &&
         (!Number.isFinite(point.benchmarkReturn) ||
           point.benchmarkReturn <= -1))
@@ -92,13 +95,13 @@ export function evaluatePerformance(
     previousDate = point.date;
   }
   const returns = points.map((point) => {
-    const value = point.value / previous - 1;
+    const value = previous > 0 ? point.value / previous - 1 : 0;
     previous = point.value;
     return value;
   });
   const n = points.length;
   const empty = metric(null, "没有日收盘净值");
-  const annualMissing = "不足252个交易日，不展示年化收益与Calmar";
+  const annualMissing = `不足${annualizationDays}个交易日，不展示年化收益与Calmar`;
   const missingBenchmark = "缺少完整同窗持有对照";
   const differential = returns.map((r) => r - dailyRiskFree);
   const deviation = n >= 2 ? sampleStd(returns) : 0;
@@ -112,7 +115,8 @@ export function evaluatePerformance(
     : [];
   const activeStd = n >= 2 && hasBenchmark ? sampleStd(active) : 0;
   const total = n ? points.at(-1)!.value / initial - 1 : null;
-  const annual = n >= yearlyDays ? (1 + total!) ** (yearlyDays / n) - 1 : null;
+  const annual =
+    n >= annualizationDays ? (1 + total!) ** (annualizationDays / n) - 1 : null;
   const benchmark = hasBenchmark
     ? points.reduce((value, p) => value * (1 + p.benchmarkReturn!), 1) - 1
     : null;
@@ -171,7 +175,7 @@ export function evaluatePerformance(
     end: points.at(-1)?.date ?? null,
     initial,
     days: n,
-    shortSample: n < yearlyDays,
+    shortSample: n < annualizationDays,
     totalReturn: n ? metric(total) : empty,
     annualReturn: n ? metric(annual, annualMissing) : empty,
     benchmarkReturn: metric(benchmark, missingBenchmark),
@@ -181,18 +185,20 @@ export function evaluatePerformance(
     ),
     sharpe: metric(
       n >= 2 && deviation > 0
-        ? (mean(differential) / deviation) * Math.sqrt(yearlyDays)
+        ? (mean(differential) / deviation) * Math.sqrt(annualizationDays)
         : null,
       n < 2 ? "至少需要2个交易日" : "日收益零波动，夏普不可计算",
     ),
     sortino: metric(
       n && downside > 0
-        ? (mean(differential) / downside) * Math.sqrt(yearlyDays)
+        ? (mean(differential) / downside) * Math.sqrt(annualizationDays)
         : null,
       "无下行偏差或没有样本，索提诺不可计算",
     ),
     informationRatio: metric(
-      activeStd > 0 ? (mean(active) / activeStd) * Math.sqrt(yearlyDays) : null,
+      activeStd > 0
+        ? (mean(active) / activeStd) * Math.sqrt(annualizationDays)
+        : null,
       !hasBenchmark
         ? missingBenchmark
         : n < 2
@@ -200,17 +206,17 @@ export function evaluatePerformance(
           : "跟踪误差为零，信息比率不可计算",
     ),
     annualVolatility: metric(
-      n >= 2 ? deviation * Math.sqrt(yearlyDays) : null,
+      n >= 2 ? deviation * Math.sqrt(annualizationDays) : null,
       "至少需要2个交易日",
     ),
     trackingError: metric(
-      hasBenchmark && n >= 2 ? activeStd * Math.sqrt(yearlyDays) : null,
+      hasBenchmark && n >= 2 ? activeStd * Math.sqrt(annualizationDays) : null,
       hasBenchmark ? "至少需要2个交易日" : missingBenchmark,
     ),
     maxDrawdown: n ? metric(maxDrawdown) : empty,
     calmar: metric(
       annual !== null && maxDrawdown > 0 ? annual / maxDrawdown : null,
-      n < yearlyDays ? annualMissing : "无回撤，Calmar不可计算",
+      n < annualizationDays ? annualMissing : "无回撤，Calmar不可计算",
     ),
     recoveryDays: n ? recovery : empty,
     longestUnderwaterDays: n
@@ -224,9 +230,10 @@ export function performancePeriods(
   initial: number,
   points: readonly PerformancePoint[],
   frequency: PerformanceFrequency,
+  annualizationDays = defaultAnnualizationDays,
 ): PerformancePeriod[] {
   // Validate the full sequence once before splitting; periods cannot hide bad input.
-  evaluatePerformance(initial, points);
+  evaluatePerformance(initial, points, points[0]?.date, annualizationDays);
   const groups = new Map<
     string,
     { points: PerformancePoint[]; initial: number; initialDate: string }
@@ -259,6 +266,7 @@ export function performancePeriods(
       group.initial,
       group.points,
       group.initialDate,
+      annualizationDays,
     ),
   }));
 }

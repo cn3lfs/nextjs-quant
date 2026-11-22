@@ -399,7 +399,7 @@ export function reviewExecutionQuality(
   const counterfactual = reviewTradeNav({
     ...input,
     fills,
-    openingCash: actual.openingCash,
+    openingCash: actual.openingCash ?? undefined,
     flowValuations,
   });
   // W11: diagnose known closing NAVs, never treat missing NAV as zero.

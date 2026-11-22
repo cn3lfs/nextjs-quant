@@ -7,19 +7,24 @@ import {
 import { equityResearchRules } from "trading-strategy-core/market-rules";
 import type { Bar } from "trading-strategy-core/bars";
 
+type GbbqResearchAction = Extract<
+  NonNullable<PortfolioInstrument["actions"]>[number],
+  { timingAssumption: "ex-date-research-scenario" }
+>;
+
 /** Explicit research entitlement assumptions, never personal ledger evidence. */
 export function researchCorporateActions(
   events: readonly TdxXdxr[],
   source: string,
   start: string,
   end: string,
-): NonNullable<PortfolioInstrument["actions"]> {
+): readonly GbbqResearchAction[] {
   const changes = new Map(
     events
       .filter((e) => e.category >= 2 && e.category <= 10)
       .map((e) => [e.date, e]),
   );
-  const actions: NonNullable<PortfolioInstrument["actions"]>[number][] = [];
+  const actions: GbbqResearchAction[] = [];
   for (const e of events.filter((e) => e.date >= start && e.date <= end)) {
     if (e.category === 13 || e.category === 14)
       throw new Error(`Unsupported warrant entitlement ${e.date}`);
@@ -41,16 +46,18 @@ export function researchCorporateActions(
     )
       throw new Error(`Invalid GBBQ ratio ${e.date}`);
     if (!dividend && !bonus && !rightsRatio && shareFactor === 1) continue;
-    const action = {
+    const action: GbbqResearchAction = {
       date: e.date,
       availableAt: e.date,
+      cashAvailableAt: e.date,
+      timingAssumption: "ex-date-research-scenario",
       dividend,
       bonus,
       shareFactor,
       rightsRatio,
       rightsPrice: e.rightsPrice ?? 0,
       ...(bonus ? { sharesSellableAt: e.date } : {}),
-      evidence: `${source}; GBBQ ${e.name}; ex-date cash/bonus availability research assumption; no rights subscription; whole-share floor, residual disclosed`,
+      evidence: `${source}；GBBQ ${e.name}；派息日/送转上市日未知，按除权日研究情景入账/可卖；不用于真实可成交结论；不参与配股，按整数股向下取整并披露余股`,
     };
     if (actions.some((a) => a.date === e.date))
       throw new Error(`Ambiguous same-day GBBQ entitlements ${e.date}`);

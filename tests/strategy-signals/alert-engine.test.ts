@@ -428,6 +428,8 @@ describe("same real outbox with a stub sender", () => {
   });
   const event = (mode: "shadow" | "live"): AlertEvent => ({
     key: alertKey({
+      type: "stop",
+      price: 10,
       strategyId: strategy.id,
       version: 1,
       market: "crypto",
@@ -715,55 +717,101 @@ it("forward return uses T+1 open and fixed T+5 close; frozen outcome never revis
   }
 });
 
-it("paper-first shared key gains one alert audit without changing its first raw evidence", () => {
+it.each([false, true])(
+  "paper-first shared key gains one alert audit and preserves raw evidence (legacy=%s)",
+  (legacy) => {
+    const f = fixture();
+    try {
+      const p = proposal(at("10:00"));
+      const { reason: _reason, source: _source, ...raw } = p.event;
+      const watchRaw = { ...raw, key: alertKey(p.event) };
+      f.repository.strategies.record(strategy, watchRaw);
+      const key = legacy
+        ? JSON.stringify([
+            strategy.id,
+            strategy.version,
+            raw.market,
+            raw.symbol,
+            raw.bar,
+          ])
+        : watchRaw.key;
+      if (legacy)
+        f.db
+          .prepare(
+            "UPDATE watch_events SET dedupe_key=?,payload=? WHERE dedupe_key=?",
+          )
+          .run(key, JSON.stringify({ ...watchRaw, key }), watchRaw.key);
+      const first = f.db
+        .prepare("SELECT payload FROM watch_events WHERE dedupe_key=?")
+        .get(key) as { payload: string };
+      const event: AlertEvent = {
+        ...p.event,
+        key: alertKey(p.event),
+        mode: "shadow",
+        status: "shadow",
+        wouldSend: true,
+        observedAt: at("10:00"),
+        outcomes: [],
+      };
+      const deliver = vi.fn();
+      if (legacy) {
+        f.repository.saveState("test-linked-trade", { alertKey: key });
+        // A referenced legacy row keeps its key but is still adopted exactly once.
+        expect(f.repository.record(strategy, event, deliver)).toBe(true);
+        expect(deliver).toHaveBeenCalledOnce();
+        expect(f.repository.record(strategy, event, deliver)).toBe(false);
+        const legacyStored = f.repository.event(key)!;
+        expect(legacyStored.price).toBe(10);
+        expect(legacyStored.firstWatchPayload).toBe(first.payload);
+        expect(
+          f.db
+            .prepare("SELECT payload FROM watch_events WHERE dedupe_key=?")
+            .get(key),
+        ).toBeTruthy();
+        expect(
+          f.repository.history({
+            page: 0,
+            size: 20,
+            symbol: "",
+            strategyId: "",
+          }).total,
+        ).toBe(1);
+        f.repository.saveState("test-linked-trade", {});
+        return;
+      }
+      expect(f.repository.record(strategy, event, deliver)).toBe(true);
+      expect(f.repository.record(strategy, event, deliver)).toBe(false);
+      expect(deliver).toHaveBeenCalledOnce();
+      const stored = f.repository.event(event.key)!;
+      expect(stored.price).toBe(10);
+      expect(stored.firstWatchPayload).toBe(first.payload);
+      expect(stored.confirmation).toEqual({
+        price: 10,
+        source: "固定合成输入",
+      });
+      expect(JSON.parse(stored.firstWatchPayload!)).toMatchObject({
+        price: 10,
+        type: "entry",
+      });
+      expect(f.repository.strategies.record(strategy, watchRaw)).toBe(false);
+      expect(
+        f.repository.history({ page: 0, size: 20, symbol: "", strategyId: "" })
+          .total,
+      ).toBe(1);
+    } finally {
+      f.db.close();
+    }
+  },
+);
+it("same-bar events with different types or prices persist independently", () => {
   const f = fixture();
   try {
     const p = proposal(at("10:00"));
     const { reason: _reason, source: _source, ...raw } = p.event;
     const watchRaw = { ...raw, key: alertKey(p.event) };
-    f.repository.strategies.record(strategy, { ...watchRaw, price: 9.9 });
-    const first = f.db
-      .prepare("SELECT payload FROM watch_events WHERE dedupe_key=?")
-      .get(alertKey(p.event)) as { payload: string };
-    const event: AlertEvent = {
-      ...p.event,
-      key: alertKey(p.event),
-      mode: "shadow",
-      status: "shadow",
-      wouldSend: true,
-      observedAt: at("10:00"),
-      outcomes: [],
-    };
-    const deliver = vi.fn();
-    expect(f.repository.record(strategy, event, deliver)).toBe(true);
-    expect(f.repository.record(strategy, event, deliver)).toBe(false);
-    expect(deliver).toHaveBeenCalledOnce();
-    const stored = f.repository.event(event.key)!;
-    expect(stored.price).toBe(9.9);
-    expect(stored.firstWatchPayload).toBe(first.payload);
-    expect(stored.confirmation).toEqual({ price: 10, source: "固定合成输入" });
-    expect(JSON.parse(stored.firstWatchPayload!)).toMatchObject({
-      price: 9.9,
-      type: "entry",
-    });
-    expect(
-      f.repository.strategies.record(strategy, { ...watchRaw, price: 9.9 }),
-    ).toBe(false);
-    expect(
-      f.repository.history({ page: 0, size: 20, symbol: "", strategyId: "" })
-        .total,
-    ).toBe(1);
-  } finally {
-    f.db.close();
-  }
-});
-it("conflicting paper/watch directions reject rather than overwriting first evidence", () => {
-  const f = fixture();
-  try {
-    const p = proposal(at("10:00"));
-    const { reason: _reason, source: _source, ...raw } = p.event;
-    const watchRaw = { ...raw, key: alertKey(p.event) };
-    f.repository.strategies.record(strategy, { ...watchRaw, type: "exit" });
+    expect(() =>
+      f.repository.strategies.record(strategy, { ...watchRaw, type: "exit" }),
+    ).toThrow("identity mismatch");
     const before = f.db.prepare("SELECT * FROM watch_events").all();
     const event: AlertEvent = {
       ...p.event,
@@ -774,10 +822,61 @@ it("conflicting paper/watch directions reject rather than overwriting first evid
       observedAt: at("10:00"),
       outcomes: [],
     };
-    expect(() => f.repository.record(strategy, event)).toThrow(
-      "Conflicting same-bar",
-    );
-    expect(f.db.prepare("SELECT * FROM watch_events").all()).toEqual(before);
+    expect(before).toHaveLength(0);
+    const key = JSON.stringify([
+      strategy.id,
+      strategy.version,
+      event.market,
+      event.symbol,
+      event.bar,
+    ]);
+    f.repository.record(strategy, event);
+    f.db
+      .prepare(
+        "UPDATE watch_events SET dedupe_key=?, payload=? WHERE dedupe_key=?",
+      )
+      .run(key, JSON.stringify({ ...event, key }), event.key);
+    const effects = vi.fn();
+    expect(f.repository.record(strategy, event, effects)).toBe(false);
+    expect(effects).not.toHaveBeenCalled();
+    const fill = { ...event, paperFillId: "paper:123" };
+    fill.key = alertKey(fill);
+    expect(f.repository.record(strategy, fill)).toBe(true);
+    const fillKey = JSON.stringify([
+      ...JSON.parse(key),
+      "paper-fill",
+      fill.paperFillId,
+    ]);
+    f.db
+      .prepare(
+        "UPDATE watch_events SET dedupe_key=?,payload=? WHERE dedupe_key=?",
+      )
+      .run(fillKey, JSON.stringify({ ...fill, key: fillKey }), fill.key);
+    expect(f.repository.record(strategy, fill, effects)).toBe(false);
+    expect(effects).not.toHaveBeenCalled();
+    for (const fields of [
+      { type: "exit", price: 10 },
+      { type: "entry", price: 11 },
+      { type: "plan-expired", price: null },
+    ] as const) {
+      const variant = { ...event, ...fields };
+      variant.key = alertKey(variant);
+      expect(JSON.parse(variant.key)).toEqual([
+        strategy.id,
+        1,
+        event.market,
+        event.symbol,
+        event.bar,
+        fields.type,
+        fields.price,
+      ]);
+      expect(f.repository.record(strategy, variant)).toBe(true);
+      expect(f.repository.record(strategy, variant)).toBe(false);
+    }
+    expect(
+      f.repository.history({ page: 0, size: 20, symbol: "", strategyId: "" })
+        .total,
+    ).toBe(5);
   } finally {
     f.db.close();
   }

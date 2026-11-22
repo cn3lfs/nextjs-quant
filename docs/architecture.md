@@ -21,7 +21,7 @@ L1 仓位唯一计算位于 `quant-backtest/portfolio-sizing`，原组合引擎�
 
 L3 的 `trading-strategies/strategy-book` 拥有完成时点的截面排序、regime、周调仓与风险目标；scan/watch/paper/backtest 通过各自适配器消费相同决策。原始行情与冻结财务归源适配器管理，市场低位模块只计算因果观察，不持有账户或下单状态。研究 CLI 先冻结源、共同日期轴、独立历史目标对照与分段调用预算，管理者核对精确计划哈希后才能计算收益。固定菜单区分16个可选主配置、104个经济邻域和8个不执行的schema no-op；缺输入保留证据不足，不填零或改成成功的无交易。
 
-L4 的前向参考仓储保存不可变的同策略定义、输入、结果与执行构建身份；纯一致性判定与纸面登记/推进、实验室资格投影分离。实际worker字节与已加载引擎身份不匹配时拒绝使用，旧账户执行版本仅能通过同请求完整重放及人工确认更新审计元数据。L5 的账户期望由真实冻结回测成交和原价二十市场日收益自动发布，不能手工填汇总；来源失配或公司行动覆盖不足时不可用于衰减建议。以上记录复用typed records，不新增schema20。 纸面账户读取投影逐账户核验当前定义、登记绑定、冻结参考和执行身份，移除响应中的旧评估，不加载checkpoint或改财务历史。影子样本只保留观察覆盖；成绩单与Lab读取当前一致性和回测双门槛，历史晋级不覆盖当前资格。实验室的复盘暂停建议复用周复盘的同策略/版本/revision证据，陈旧建议仅刷新；真实分仓品种上限只取唯一冻结或实际保存的执行政策。
+L4 的前向参考仓储保存不可变的同策略定义、输入、结果与执行构建身份；纯一致性判定与纸面登记/推进、实验室资格投影分离。实际 worker 字节与其构建清单不一致时仍拒绝使用；策略/引擎版本变化记录为 `buildDrift` 并继续，不再阻断冻结输入读取或纸面推进，旧账户执行版本仍以同请求完整重放核对。L5 的账户期望由真实冻结回测成交和原价二十市场日收益自动发布，不能手工填汇总；来源失配或公司行动覆盖不足时不可用于衰减建议。以上记录复用typed records，不新增schema20。 纸面账户读取投影逐账户核验当前定义、登记绑定、冻结参考和执行身份，移除响应中的旧评估，不加载checkpoint或改财务历史。影子样本只保留观察覆盖；成绩单与Lab读取当前一致性和回测双门槛，历史晋级不覆盖当前资格。实验室的复盘暂停建议复用周复盘的同策略/版本/revision证据，陈旧建议仅刷新；真实分仓品种上限只取唯一冻结或实际保存的执行政策。
 
 ## 工作区收口（2026-11-15 起）
 
@@ -188,14 +188,15 @@ flowchart LR
 
 下表依据各包当前 package.json 的工作区依赖；“声明依赖”不表示每个导出都会运行该依赖的 IO。
 
-| 包                                                                      | 责任                                          | 声明的内部依赖                            |
-| ----------------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------- |
-| [tstdx](../packages/tstdx/package.json)                                 | 通达信协议、本地二进制/财务模型与原生导入边界 | 无                                        |
-| [trading-strategy-core](../packages/trading-strategy-core/package.json) | 行情事实、指标、因子与共享规则基础            | tstdx                                     |
-| [trading-strategies](../packages/trading-strategies/package.json)       | 策略目录、方法定义/参数、纯策略与研究规则     | trading-strategy-core                     |
-| [quant-backtest](../packages/quant-backtest/package.json)               | 回放、撮合、费用、账户与订单执行模型          | trading-strategies、trading-strategy-core |
-| [quant-performance](../packages/quant-performance/package.json)         | 独立收益/风险、交易轮次和分期绩效评价         | 无                                        |
-| [quant-rps](../packages/quant-rps/package.json)                         | 多周期横截面强度排名                          | 无                                        |
+| 包                                                                      | 责任                                          | 声明的内部依赖                                             |
+| ----------------------------------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------- |
+| [tstdx](../packages/tstdx/package.json)                                 | 通达信协议、本地二进制/财务模型与原生导入边界 | 无                                                         |
+| [trading-strategy-core](../packages/trading-strategy-core/package.json) | 行情事实、指标、因子与共享规则基础            | tstdx                                                      |
+| [trading-strategies](../packages/trading-strategies/package.json)       | 策略目录、方法定义/参数、纯策略与研究规则     | trading-strategy-core                                      |
+| [quant-execution](../packages/quant-execution/package.json)             | 纯账本、撮合、费用与公司行动状态机            | trading-strategy-core                                      |
+| [quant-backtest](../packages/quant-backtest/package.json)               | 回放、撮合、费用、账户与订单执行模型          | quant-execution、trading-strategies、trading-strategy-core |
+| [quant-performance](../packages/quant-performance/package.json)         | 独立收益/风险、交易轮次和分期绩效评价         | 无                                                         |
+| [quant-rps](../packages/quant-rps/package.json)                         | 多周期横截面强度排名                          | 无                                                         |
 
 例如 core 的 financial 子路径目前转出 tstdx/financial-model；这层现状不等于已完成下一轮包边界清理。纯策略包不反向导入应用、服务端、撮合包或 IO。绩效评价与撮合事务分开，评价失败不改写已完成交易。`packages:build` 通过 pnpm 依赖图编排各工作区包，共用构建器对源码、工具链、依赖产物和输出校验后跳过未变包。策略身份生成器另外声明源码输入；runtime worker 仍重新打包，不凭包缓存跳过。
 

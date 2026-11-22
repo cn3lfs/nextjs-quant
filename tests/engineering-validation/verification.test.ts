@@ -1,51 +1,6 @@
 import { expect, it } from "vitest";
-import { resolve } from "node:path";
-import {
-  compareFailures,
-  knownFailures,
-  spotTests,
-} from "../../scripts/lib/verification";
-const failure = {
-  file: "tests/x.test.ts",
-  line: 1,
-  assertion: "case",
-  reason: "guard",
-  reviewWhen: "next change",
-};
-const report = (status: string) => ({
-  numTotalTests: 1,
-  numFailedTests: status === "failed" ? 1 : 0,
-  testResults: [
-    {
-      name: resolve(failure.file),
-      status,
-      assertionResults: [{ fullName: "case", status }],
-    },
-  ],
-});
-it("compares both directions and never treats load errors as registered assertions", () => {
-  expect(knownFailures("```json\n[]\n```")).toEqual([]);
-  expect(compareFailures(report("passed"), [])).toEqual([]);
-  expect(compareFailures(report("failed"), [])).toHaveLength(1);
-  expect(compareFailures(report("failed"), [failure])).toEqual([]);
-  expect(compareFailures(report("passed"), [failure])).toHaveLength(1);
-  expect(
-    compareFailures(
-      {
-        ...report("failed"),
-        testResults: [
-          {
-            name: resolve(failure.file),
-            status: "failed",
-            assertionResults: [],
-          },
-        ],
-      },
-      [failure],
-    ).length,
-  ).toBeGreaterThan(0);
-  expect(() => knownFailures("[]")).toThrow();
-});
+import { spotTests } from "../../scripts/lib/verification";
+
 it("adds contracts for strategy changes and rejects empty/traversing spot selections", () => {
   expect(
     spotTests(["tests/research-backtest/research-method.test.ts"]),

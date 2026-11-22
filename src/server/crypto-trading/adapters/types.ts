@@ -127,7 +127,7 @@ export class SimulatedSpotTransport {
     if (this.now() < this.cooldownUntil)
       throw new ExchangeError(
         "平台限流冷却中",
-        false,
+        method !== "GET",
         this.cooldownUntil - this.now(),
       );
     if (signed) await this.clock();
@@ -195,15 +195,18 @@ export class SimulatedSpotTransport {
       );
       if (!response.ok) {
         let code: string | undefined;
-        let duplicateClientId = false;
+        let definiteRejection = false;
         try {
           const detail = row.parse(await response.json());
-          code = String(detail.code ?? detail.retCode ?? "");
-          const sanitized = row.parse(this.sanitize(detail));
-          duplicateClientId =
-            code === "-2010" &&
-            typeof sanitized.msg === "string" &&
-            /duplicate/i.test(sanitized.msg);
+          code = String(
+            (venue === "bybit" ? detail.retCode : detail.code) ?? "",
+          );
+          definiteRejection =
+            (venue === "okx" && code === "51008") ||
+            (venue === "binance" &&
+              code === "-2010" &&
+              detail.msg ===
+                "Account has insufficient balance for requested action.");
         } catch {
           /* No untrusted response text in credential-bearing errors. */
         }
@@ -217,8 +220,9 @@ export class SimulatedSpotTransport {
           `平台 HTTP ${response.status}${code ? ` (${code})` : ""}`,
           method !== "GET" &&
             (response.status >= 500 ||
-              ["-1006", "-1007"].includes(code ?? "") ||
-              duplicateClientId),
+              response.status === 429 ||
+              response.status === 418 ||
+              !definiteRejection),
           this.cooldownUntil - this.now(),
           code,
         );
@@ -229,11 +233,28 @@ export class SimulatedSpotTransport {
         const envelope = z
           .object({ code: z.string(), data: z.unknown() })
           .parse(raw);
+        if (
+          method === "POST" &&
+          path === "/api/v5/trade/order" &&
+          (envelope.code === "0" || envelope.code === "1")
+        ) {
+          const [result] = rows.length(1).parse(envelope.data);
+          const code = result!.sCode;
+          if (typeof code === "string" && code !== "0")
+            throw new ExchangeError(
+              `OKX下单 ${code}`,
+              // A rejection code alongside an assigned order id is contradictory;
+              // never turn that into a definite rejection that permits a resend.
+              code !== "51008" || !!result!.ordId,
+              0,
+              code,
+            );
+        }
         if (envelope.code !== "0") {
           if (envelope.code === "50011") this.cooldownUntil = this.now() + 5000;
           throw new ExchangeError(
             `OKX ${envelope.code}`,
-            method !== "GET" && ["50004", "50001"].includes(envelope.code),
+            method !== "GET" && envelope.code !== "51008",
             this.cooldownUntil - this.now(),
             envelope.code,
           );
@@ -247,7 +268,7 @@ export class SimulatedSpotTransport {
         if (envelope.retCode === 10006) this.cooldownUntil = this.now() + 5000;
         throw new ExchangeError(
           `Bybit ${envelope.retCode}`,
-          method !== "GET" && [10000, 10016].includes(envelope.retCode),
+          method !== "GET",
           this.cooldownUntil - this.now(),
           String(envelope.retCode),
         );

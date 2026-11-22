@@ -80,8 +80,6 @@ export function washExternalVotes(
     chips: Vote = "unknown",
     news: Vote = "unknown";
   if (
-    bar.date >= "2000-01-04" &&
-    bar.date <= "2022-11-30" &&
     positive(e.morningLow, e.afternoonOpen, previousClose) &&
     e.morningLow! >= bar.low &&
     e.morningLow! <= bar.high &&

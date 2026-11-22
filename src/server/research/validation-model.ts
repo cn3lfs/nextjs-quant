@@ -1,7 +1,53 @@
 import { z } from "zod";
 import { researchDateSchema } from "trading-strategies/research/contracts/date";
 import { validationDefaults } from "quant-backtest";
-import type { ValidationScore } from "quant-backtest";
+import type { PortfolioInstrument, ValidationScore } from "quant-backtest";
+import type { Bar } from "trading-strategy-core/bars";
+import type { researchCandidates } from "trading-strategies";
+import type { CausalPriceProof } from "./causal-price-basis";
+
+export const benchmarkBasisSchema = z.enum([
+  "price-index-ex-dividends",
+  "total-return",
+]);
+export type BenchmarkBasis = z.infer<typeof benchmarkBasisSchema>;
+
+export type ValidationDataset = {
+  period: ReturnType<typeof researchCandidates>[number]["strategy"]["period"];
+  instruments: PortfolioInstrument[];
+  benchmark: Bar[];
+  dates: string[];
+  benchmarkName: string;
+  /** Older frozen inputs may omit the basis. */
+  benchmarkBasis?: BenchmarkBasis | null;
+  sources: {
+    symbol: string;
+    hash: string;
+    adjustmentReference: string | null;
+    causalPrice?: CausalPriceProof;
+    causalPriceGap?: string;
+    terminalCoverage?: ValidationTerminalCoverage;
+  }[];
+};
+
+export const validationTerminalCoverageSchema = z
+  .object({
+    listingEndsOn: researchDateSchema.nullable(),
+    lastTradingDate: researchDateSchema.nullable(),
+    lastObservedDate: researchDateSchema,
+    unavailableFrom: researchDateSchema.nullable(),
+    gap: z.string().min(1).nullable(),
+  })
+  .strict()
+  .refine((coverage) =>
+    coverage.gap === null
+      ? coverage.unavailableFrom === null &&
+        coverage.lastTradingDate === coverage.lastObservedDate
+      : coverage.unavailableFrom !== null,
+  );
+export type ValidationTerminalCoverage = z.infer<
+  typeof validationTerminalCoverageSchema
+>;
 
 export const validationInputSchema = z
   .object({
@@ -69,11 +115,14 @@ export const scoreboardQuerySchema = z
   })
   .strict();
 export type ScoreboardRow = {
+  benchmarkBasis?: BenchmarkBasis | null;
   /** Full source-gap details live once in the enclosing report/scoreboard registry. */
   missingEvidenceRefs?: string[];
   evidence?: { inputHash: string; resultHash: string; buildHash: string };
   evidenceScope?: "candidate";
   strategyVersion?: number;
+  strategySemanticVersion?: `${number}.0.0`;
+  timingStatus?: "p5" | "drift" | "unknown";
   method?: "lifecycle-2";
   purpose?: "preregistered" | "post-hoc";
   methodLabel?: string;

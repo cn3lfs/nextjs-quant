@@ -84,6 +84,8 @@ export function orderQuantity(value: string, price: string, rules: Rules) {
 }
 
 export type Execution = Order & {
+  attempt?: 1 | 2;
+  retryOf?: string;
   createdAt: number;
   updatedAt: number;
   candleTime: number;
@@ -97,6 +99,8 @@ export type Execution = Order & {
 };
 export type Snapshot = { balances: Balance[]; openOrders: unknown[] };
 export interface SpotAdapter {
+  /** Venue-adjusted clock (host time + server offset). */
+  serverNow(): number;
   snapshot(): Promise<Snapshot>;
   rules(symbol: Symbol): Promise<Rules>;
   candles(symbol: Symbol, minutes: 15 | 60, limit: number): Promise<Candle[]>;
@@ -112,6 +116,19 @@ export type BotState = {
   initialUsdt: string | null;
   positions: Record<Symbol, string>;
   baseline: Record<string, string>;
+  pendingRetry?: {
+    clientId: string;
+    symbol: Symbol;
+    candleTime: number;
+    side: Order["side"];
+  };
+  missedSignals?: {
+    symbol: Symbol;
+    candleTime: number;
+    side: Order["side"];
+    reason: string;
+    at: number;
+  }[];
   lastCandles: Record<string, number>;
   indicators: Record<string, unknown>;
   error: string | null;

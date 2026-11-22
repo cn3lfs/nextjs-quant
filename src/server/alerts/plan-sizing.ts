@@ -7,7 +7,10 @@ import { isDeepStrictEqual } from "node:util";
 import { marketRules } from "trading-strategy-core/market-rules";
 import { executionCostsForDate } from "trading-strategy-core/costs";
 import type { Settings } from "~/lib/domain";
-import { universalMarketSleeve, type AlertEvent } from "~/lib/strategy-facts/alerts";
+import {
+  universalMarketSleeve,
+  type AlertEvent,
+} from "~/lib/strategy-facts/alerts";
 import { AlertRepository } from "../db/alert-repository";
 import { PaperRepository } from "../db/paper-repository";
 import frozen from "../data/paper-candidates.json";

@@ -1,12 +1,18 @@
 import type Database from "better-sqlite3";
 import type { StrategyBookDecision } from "trading-strategies";
+import { isDeepStrictEqual } from "node:util";
 import { sqlite } from "./index";
 import type {
   PaperAccount,
+  PaperAdvanceEvent,
   PaperFact,
   PaperFactKind,
+  PaperOrderEvent,
   PaperState,
 } from "../paper/model";
+
+const orderEventKey = (accountId: string, id: string) =>
+  `paper-order-event:${Buffer.from(accountId, "utf8").toString("hex").toUpperCase()}:${id}`;
 
 /** First-observed inputs and executions are retained until explicit owner deletion.
  * Mutable projections and the replay checkpoint commit under one revision fence. */
@@ -186,19 +192,122 @@ export class PaperRepository {
       .run(id, payload);
   }
   fact(id: string, kind: PaperFactKind, fact: PaperFact, immutable = false) {
+    if (kind === "order-event") {
+      // paper_facts.kind has a fixed SQLite CHECK. The existing records table
+      // stores this append-only fact under an account-scoped key.
+      const key = orderEventKey(id, fact.id);
+      const payload = JSON.stringify({ accountId: id, ...fact });
+      const inserted = this.db
+        .prepare(
+          "INSERT INTO records VALUES(?,?,?,?) ON CONFLICT(id) DO NOTHING",
+        )
+        .run(key, kind, payload, Date.now());
+      if (inserted.changes) return;
+      const previous = this.db
+        .prepare("SELECT kind,payload FROM records WHERE id=?")
+        .get(key) as { kind: string; payload: string };
+      if (previous.kind !== kind || previous.payload !== payload)
+        throw new Error(`纸面历史事实冲突，原记录已保留（${kind} ${fact.id}）`);
+      return;
+    }
     const payload = JSON.stringify(fact.value);
-    const previous = this.db
-      .prepare(
-        "SELECT payload FROM paper_facts WHERE account_id=? AND kind=? AND id=?",
-      )
-      .get(id, kind, fact.id) as { payload: string } | undefined;
-    if (immutable && previous && previous.payload !== payload)
-      throw new Error("纸面历史事实冲突；原始成交保留");
+    if (immutable || kind === "order") {
+      const inserted = this.db
+        .prepare(
+          "INSERT INTO paper_facts VALUES(?,?,?,?,?) ON CONFLICT(account_id,kind,id) DO NOTHING",
+        )
+        .run(id, kind, fact.id, fact.date, payload);
+      if (inserted.changes) return;
+      const previous = this.db
+        .prepare(
+          "SELECT date,payload FROM paper_facts WHERE account_id=? AND kind=? AND id=?",
+        )
+        .get(id, kind, fact.id) as { date: string; payload: string };
+      if (previous.date !== fact.date || previous.payload !== payload)
+        throw new Error(`纸面历史事实冲突，原记录已保留（${kind} ${fact.id}）`);
+      return;
+    }
     this.db
       .prepare(
         "INSERT INTO paper_facts VALUES(?,?,?,?,?) ON CONFLICT(account_id,kind,id) DO UPDATE SET date=excluded.date,payload=excluded.payload",
       )
       .run(id, kind, fact.id, fact.date, payload);
+  }
+  observeOrder(
+    id: string,
+    event: PaperAdvanceEvent,
+    order: PaperOrderEvent["order"],
+  ) {
+    const orderId = String(order.id);
+    const original = this.factValue<PaperOrderEvent["order"]>(
+      id,
+      "order",
+      orderId,
+    );
+    if (!original) {
+      this.fact(
+        id,
+        "order",
+        { id: orderId, date: order.signalAt, value: order },
+        true,
+      );
+      return;
+    }
+    const row = this.db
+      .prepare(
+        `SELECT json_extract(payload,'$.value') AS payload FROM records
+        WHERE kind='order-event' AND id>=? AND id<?
+        ORDER BY id DESC LIMIT 1`,
+      )
+      .get(
+        orderEventKey(id, `${orderId}:`),
+        orderEventKey(id, `${orderId};`),
+      ) as { payload: string } | undefined;
+    const latest = row
+      ? (JSON.parse(row.payload) as PaperOrderEvent).order
+      : original;
+    const identity = ({
+      strategyId,
+      sleeve,
+      symbol,
+      side,
+      signalAt,
+      trigger,
+    }: PaperOrderEvent["order"]) => [
+      strategyId,
+      sleeve,
+      symbol,
+      side,
+      signalAt,
+      trigger,
+    ];
+    if (!isDeepStrictEqual(identity(original), identity(order)))
+      throw new Error(`纸面历史订单身份冲突，原记录已保留（${orderId}）`);
+    const snapshot = JSON.parse(
+      JSON.stringify(order),
+    ) as PaperOrderEvent["order"];
+    if (isDeepStrictEqual(latest, snapshot)) return;
+    const reason =
+      order.reason ??
+      (order.status === "filled" && latest.status !== "filled"
+        ? "订单已成交"
+        : "撮合更新订单快照");
+    this.fact(
+      id,
+      "order-event",
+      {
+        // The fixed width preserves numeric sequence ordering in the SQLite key.
+        id: `${orderId}:${String(event.sequence).padStart(16, "0")}`,
+        date: event.cutoff,
+        value: {
+          orderId: order.id,
+          sequence: event.sequence,
+          reason,
+          order: snapshot,
+        } satisfies PaperOrderEvent,
+      },
+      true,
+    );
   }
   clearPositions(id: string) {
     this.db
@@ -208,24 +317,42 @@ export class PaperRepository {
   page(id: string | undefined, kind: PaperFactKind, page = 0, day?: string) {
     if (!Number.isSafeInteger(page) || page < 0) throw new Error("无效页码");
     const args: (string | number)[] = [kind];
-    let where = "kind=?";
+    let where = "f.kind=?";
     if (id) {
-      where += " AND account_id=?";
+      where += " AND f.account_id=?";
       args.push(id);
     }
     if (day) {
-      where += " AND substr(date,1,10)=?";
+      where += " AND substr(f.date,1,10)=?";
       args.push(day);
     }
+    const facts =
+      kind === "order-event"
+        ? `(SELECT a.id AS account_id, r.kind, json_extract(r.payload,'$.id') AS id,
+             json_extract(r.payload,'$.date') AS date, json_extract(r.payload,'$.value') AS payload
+           FROM records r JOIN paper_accounts a ON a.id=json_extract(r.payload,'$.accountId')
+           WHERE r.kind='order-event')`
+        : "paper_facts";
     return this.atomic(() => {
       const total = (
         this.db
-          .prepare(`SELECT count(*) n FROM paper_facts WHERE ${where}`)
+          .prepare(`SELECT count(*) n FROM ${facts} f WHERE ${where}`)
           .get(...args) as { n: number }
       ).n;
+      const payload =
+        kind === "order"
+          ? `COALESCE(
+              (SELECT json_extract(e.payload,'$.value.order') FROM records e
+               WHERE e.kind='order-event'
+                 AND e.id>='paper-order-event:'||hex(f.account_id)||':'||f.id||':'
+                 AND e.id<'paper-order-event:'||hex(f.account_id)||':'||f.id||';'
+               ORDER BY e.id DESC LIMIT 1),
+              f.payload)`
+          : "f.payload";
       const rows = this.db
         .prepare(
-          `SELECT account_id,id,date,payload FROM paper_facts WHERE ${where} ORDER BY date DESC,account_id,id LIMIT 20 OFFSET ?`,
+          `SELECT f.account_id,f.id,f.date,${payload} AS payload FROM ${facts} f WHERE ${where}
+           ORDER BY f.date DESC,f.account_id,f.id LIMIT 20 OFFSET ?`,
         )
         .all(...args, page * 20) as {
         account_id: string;
@@ -245,6 +372,14 @@ export class PaperRepository {
     });
   }
   factValue<T>(id: string, kind: PaperFactKind, key: string): T | null {
+    if (kind === "order-event") {
+      const row = this.db
+        .prepare(
+          "SELECT json_extract(payload,'$.value') AS payload FROM records WHERE kind=? AND id=?",
+        )
+        .get(kind, orderEventKey(id, key)) as { payload: string } | undefined;
+      return row ? (JSON.parse(row.payload) as T) : null;
+    }
     const row = this.db
       .prepare(
         "SELECT payload FROM paper_facts WHERE account_id=? AND kind=? AND id=?",

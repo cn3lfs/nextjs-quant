@@ -39,6 +39,7 @@ export type PortfolioInstrument = {
     valuation: "last-close" | "total-loss";
     evidence: string;
   };
+  /** Research scenario timing or the original shape of a historical frozen action. */
   actions?: readonly PortfolioAction[];
 };
 export type PortfolioSleeve = {
@@ -48,7 +49,7 @@ export type PortfolioSleeve = {
   maxPositions: number;
 };
 export type PortfolioRequest = {
-  /** Scoring runs retain exact counters instead of millions of no-op rows. */
+  /** Defaults to "counts". Only "full" retains per-bar observations. */
   observationDetail?: "full" | "counts";
   /** Research sensitivity only. Equal-score buys default to ascending symbols. */
   buyTieBreak?: "symbol-ascending" | "symbol-descending";

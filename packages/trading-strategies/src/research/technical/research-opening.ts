@@ -20,7 +20,8 @@ export function openingMinuteStart(calendar: readonly string[], start: string) {
   const index = calendar.findIndex((date) => date >= start);
   const first =
     index >= 0 ? (calendar[Math.max(0, index - 5)] ?? start) : start;
-  return first < "2000-01-04" ? "2000-01-04" : first;
+  const floor = calendar[0] ?? start;
+  return first < floor ? floor : first;
 }
 const price = z.number().finite().positive();
 const timestamp = z.string().datetime({ offset: true });
@@ -48,7 +49,7 @@ export const openingPlanSchema = z
 export const openingPlansSchema = z.array(openingPlanSchema).max(100000);
 export type OpeningPlan = z.infer<typeof openingPlanSchema>;
 export const openingBoundary =
-  "OP工程v1：双突破已确认入场基线叠加开盘管理，不声称完整择股体系。五类位置及生命/观察/压力线须提供前一交易日15:00前已知的逐证券逐日计划（symbol/date/source/version/effectiveAt/availableAt/capturedAt/position/life/observation/resistance/special）；缺失为待数据，特殊日不套普通剧本。大幅高开>5%、明显高开[2%,5%]、平开[-1%,1%]、明显低开[-5%,-2%]、大幅低开<-5%；灰区(1%,2%)及(-2%,-1%)仅观察，不强塞五档。开盘取当日日线open（9:30已知），绝不用首根5分钟close。前30分钟为9:30–10:00六根已完成K线，持续确认两根5分钟收盘，边界相等不算突破；回踩容差0.2%、缩量<0.8/放量>=1.5为工程参数，早盘累计量与此前五个完整交易日同时段比较。昨日蜡烛：实体>=全幅60%为大阳/大阴，上下影>=实体2倍且>=全幅40%，十字实体<=全幅10%；涨停形态无历史状态不猜测。风险生命线优先；观察线失守减原始仓位一半，每证券日一次，已确认请求保留；买入最早10:00下一根open，单次风险和市值各取基线一半，目标空间至少2R。OP04/05只管理相同双突破持仓，不新增逆势买点；OP06/07/08分别比较昨收、冻结30分钟区间及生命/观察线。账本逐批T+1，当日新仓退出意图保留到可卖日；只对完成K线确认后下一根open模拟成交，不推断K内顺序。硬窗口2000-01-04..2022-11-30与逐日48根沿用原引擎。无lc1/竞价历史，竞价量和第一分钟判断单列待数据，五分钟版本不替代。未真实回测。";
+  "OP工程v1：双突破已确认入场基线叠加开盘管理，不声称完整择股体系。五类位置及生命/观察/压力线须提供前一交易日15:00前已知的逐证券逐日计划（symbol/date/source/version/effectiveAt/availableAt/capturedAt/position/life/observation/resistance/special）；缺失为待数据，特殊日不套普通剧本。大幅高开>5%、明显高开[2%,5%]、平开[-1%,1%]、明显低开[-5%,-2%]、大幅低开<-5%；灰区(1%,2%)及(-2%,-1%)仅观察，不强塞五档。开盘取当日日线open（9:30已知），绝不用首根5分钟close。前30分钟为9:30–10:00六根已完成K线，持续确认两根5分钟收盘，边界相等不算突破；回踩容差0.2%、缩量<0.8/放量>=1.5为工程参数，早盘累计量与此前五个完整交易日同时段比较。昨日蜡烛：实体>=全幅60%为大阳/大阴，上下影>=实体2倍且>=全幅40%，十字实体<=全幅10%；涨停形态无历史状态不猜测。风险生命线优先；观察线失守减原始仓位一半，每证券日一次，已确认请求保留；买入最早10:00下一根open，单次风险和市值各取基线一半，目标空间至少2R。OP04/05只管理相同双突破持仓，不新增逆势买点；OP06/07/08分别比较昨收、冻结30分钟区间及生命/观察线。账本逐批T+1，当日新仓退出意图保留到可卖日；只对完成K线确认后下一根open模拟成交，不推断K内顺序。窗口由数据覆盖决定与逐日48根沿用原引擎。无lc1/竞价历史，竞价量和第一分钟判断单列待数据，五分钟版本不替代。未真实回测。";
 
 export const openingBands = [
   "large-up",

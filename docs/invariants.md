@@ -28,7 +28,7 @@
 ## 策略规则维护边界（2026-11-11）
 
 - `trading-strategies`拥有纯策略规则、方法自有ID/定义/参数和中性事实契约；按研究家族直接使用`trading-strategies/research/*`。不能从包内反向导入应用、服务端、撮合包或IO，包括type import、动态import和re-export。执行器的费用、卖出步长及现金约束通过显式报价事实注入，不在策略包复制撮合算法。
-- 活动算法路径不保留兼容转发；迁移台账[strategy-module-migration.json](strategy-module-migration.json)用于一次性迁移验收，逐项检查旧路径不存在、新路径存在及 JSON 资产有效。事实来源和冻结档案按其记录保留，不因迁移改写历史。
+- 活动算法路径不保留兼容转发；一次性迁移已完成，迁移台账不再作为长期门禁。旧路径不存在、新路径存在由依赖方向与少量固定路径测试保护；事实来源和冻结档案按原记录保留，不因迁移改写历史。
 - 稳定分类 ID 由 `strategyCategories` 统一维护；策略定义与方法投影共用。规则、风控政策、研究分析、数据工具分别标识，目录存在或工程测试通过不等于可运行任务或可信业绩。
 - 策略中心登记日线规则与对照，包含经典系统基线；来源固定提交、完整许可、原始文件摘要和初始化差异都可核对。回放预热与指标最小有效窗口分别说明，不把本地自然零轴/中点规则冒称原作者完整系统。历史研究 RPC 生命周期独立保持，迁移不自动复活旧任务。
 - `strategyBuildHash`覆盖策略及传递共享源的TS、JSON、锁文件和身份生成脚本；新经典源码被离线经典实验来源清单直接纳入。校验代码身份时不能漏掉实际计算资产。
@@ -365,7 +365,7 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 - 逐日现金对账只比较有来源证据的柜台余额与现有账本日末现金，不调整期初现金、分类、NAV 或成交排序；缺失、来源冲突和非法输入明确保留，JSON 可追溯到文件哈希与原始行号。
 - VWAP 成交额加权均值沿用既有算法，算术均值单列；有效数量、金额覆盖和排除原因同时披露。诊断类别不是已证实根因，不放宽倍率、500 BP 或执行损耗不可用边界。
 - 五类研究 attempt 与成功候选使用记录分开；失败、取消、宿主中断不计作成功候选。普通探索审计失败显示不完整，不伪造历史记录或试验总数。
-- 样本最终验证冻结完整配置、数据、交易条件与运行引擎哈希后才能计算。揭示必须持久化成功才开放结果、衍生统计和导出；重试复用冻结输入并拒绝版本漂移，删除任务不抹去审计事实。
+- 样本最终验证冻结完整配置、数据、交易条件与运行引擎版本后才能计算。构建/引擎版本变化按 `buildDrift` 记录并在报告中披露，不使旧冻结输入不可读；行情、成交或配置内容变化仍拒绝混用。揭示必须持久化成功才开放结果、衍生统计和导出；重试复用冻结输入，删除任务不抹去审计事实。
 - 区间重叠提示仅说明可能被使用，不能证明样本从未被应用外研究触碰。该流程不证明历史证券池完整或策略业绩可信。
 - 测试见 `cash-reconciliation.test.ts`、`research-governance.test.ts`、`research-lifecycle.test.ts`、`research-governance-api.test.ts` 及既有执行质量测试。
 
@@ -411,3 +411,11 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 - 今日情报仅按已有新闻库的名称/代码匹配当前持仓和未结束计划；图表事件保留发布时间、标题及原文定位，不作为策略输入，匹配不证明影响。
 - 备份使用SQLite在线备份保证已提交WAL一致性；完成后再轮换自身命名的成功备份，默认保留3份，失败不挤掉成功备份。拒绝目录链接，不删除用户自备份文件。真实库版本取pragma，不硬编码。
 - 提醒去重键仅作内部定位；普通页面显示策略、品种、bar与类型。原始JSON只留显式导出或策略/公式编辑器；用户维护的MCP诊断文案按保护约束保留。验证见[r3c-workspaces.test.ts](../tests/workbench/r3c-workspaces.test.ts)、[两宽度浏览器路径](../tests/e2e/r3c-workspaces.spec.ts)。
+
+## 回测执行核心与交割单软删除（2026-11-21）
+
+- `AccountBook` 是现金、持仓、FIFO 批次与公司行动的唯一状态机；`ResearchExecutionLedger`（number）供 `runPortfolio`，`ExecutionLedger`（bigint）供行情原子/外部成交。两者共享状态机但数值适配不同，不能把 bigint 适配器的行为直接冒充生产回测。测试：`packages/quant-execution/tests/execution-core.test.ts`、`packages/quant-backtest/tests/portfolio-account-migration.test.ts`、`execution-ledger-parity.test.ts`。
+- 成交回放必须同时校验净结算额、可卖批次与现金；公司行动新增份额必须有明确可卖日，缩股余股按最大余数分配。测试：`execution-core.test.ts`。
+- 交割单撤销是软删除：`delivery_batches.revoked_at` 只隐藏活动视图，逐批 claim 保留原始证据，canonical payload 保持首个接受版本；撤销不得删除其他活动批次仍拥有的经济行。测试：`tests/research-backtest/delivery-store.test.ts`。
+- 研究行情预算按任务累计原价与 signalBars，超限使任务失败并给出证券/周期/阶段/用量，不得把预算异常当作单标的不可用后缩小池。测试：`tests/research-backtest/lab-replay.test.ts`、`validation-work.test.ts`。
+- PIT 名册只使用回放日已知的上市/退市事实；缺公告或抓取时点时不提前淘汰。财务 `current-revision` 不得冒充首次披露。测试：`tests/research-backtest/pit-roster.test.ts`、`validation-financials.test.ts`。

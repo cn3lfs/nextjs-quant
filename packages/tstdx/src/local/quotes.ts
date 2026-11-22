@@ -1,5 +1,5 @@
 import { resolveTdxRoot } from "./root.js";
-import { readdir, stat, readFile, open } from "node:fs/promises";
+import { readdir, stat, open } from "node:fs/promises";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import type { Stats } from "node:fs";
@@ -135,6 +135,36 @@ export function parseBars(
   dailyDecimals = 2,
   repairs: ParseRepairs = { fixed: 0, dropped: 0 },
 ): Bar[] {
+  return parseBarPage(buffer, period, referenceYear, dailyDecimals, repairs);
+}
+
+export type WindowBounds = { from: string; to?: string };
+export type PageRange = WindowBounds & {
+  previous: string;
+  first?: string;
+  last?: string;
+  regularMinuteSession: boolean;
+};
+
+export const inWindow = (date: string, { from, to }: WindowBounds) =>
+  date >= from && (!to || date.slice(0, 10) <= to);
+
+export function isRegularMinuteBar(date: string) {
+  const minute = Number(date.slice(11, 13)) * 60 + Number(date.slice(14, 16));
+  return (
+    minute % 5 === 0 &&
+    ((minute > 570 && minute <= 690) || (minute > 780 && minute <= 900))
+  );
+}
+
+export function parseBarPage(
+  buffer: Buffer,
+  period: Period,
+  referenceYear: number,
+  dailyDecimals: number,
+  repairs: ParseRepairs,
+  range?: PageRange,
+): Bar[] {
   if (![2, 3].includes(dailyDecimals)) throw new Error("本地日线价格精度无效");
   if (buffer.length % 32 !== 0)
     throw new Error("行情文件不完整：记录长度不是 32 字节的整数倍");
@@ -153,7 +183,7 @@ export function parseBars(
       years.set(i, year);
       nextYear = year;
     }
-  let previous = "";
+  let previous = range?.previous ?? "";
   for (let i = 0; i < buffer.length; i += 32) {
     let date: string,
       year: number,
@@ -221,6 +251,13 @@ export function parseBars(
       repairs.fixed++;
     }
     previous = date;
+    if (range) {
+      range.first ??= date;
+      range.last = date;
+      if (period === "5m" && range.regularMinuteSession)
+        range.regularMinuteSession = isRegularMinuteBar(date);
+      if (!inWindow(date, range)) continue;
+    }
     bars.push({ date, open, high, low, close, volume, amount });
   }
   return bars;
@@ -278,27 +315,56 @@ export async function scan(root: string): Promise<Coverage> {
     throw new Error("目录中没有可读取的 A 股行情，请检查通达信路径及盘后下载");
   return { root, counts, securities, scannedAt: Date.now() };
 }
+export function quoteFile(
+  directory: string,
+  symbol: string,
+  period: Period,
+  chartFunds?: boolean,
+) {
+  validateLocalSymbol(symbol);
+  const fund = isLocalFund(symbol);
+  if (!isAStock(symbol) && !isMarketIndex(symbol) && !(fund && chartFunds))
+    throw new Error("仅支持A股与沪深指数行情；场内基金须使用图表读取入口");
+  return join(
+    directory,
+    "vipdoc",
+    symbol.slice(0, 2),
+    period === "day" ? "lday" : "fzline",
+    `${symbol}.${period === "day" ? "day" : "lc5"}`,
+  );
+}
+
+export async function quoteSnapshot(
+  directory: string,
+  symbol: string,
+  period: Period,
+  bars: Bar[],
+  hash: string,
+  note: string,
+): Promise<Snapshot> {
+  return {
+    id: `snapshot-${symbol}-${period}-${hash.slice(0, 16)}`,
+    ...(note ? { sourceNote: note } : {}),
+    symbol,
+    name: (await securityNames(directory, symbol.slice(0, 2))).get(symbol),
+    period,
+    source: "tdx-local",
+    dataRoot: directory,
+    adjustment: "none",
+    createdAt: Date.now(),
+    bars,
+    hash,
+  };
+}
+
 export async function readSnapshot(
   root: string,
   symbol: string,
   period: Period,
   options: { chartFunds?: boolean } = {},
 ): Promise<Snapshot> {
-  validateLocalSymbol(symbol);
-  const fund = isLocalFund(symbol);
-  if (
-    !isAStock(symbol) &&
-    !isMarketIndex(symbol) &&
-    !(fund && options.chartFunds)
-  )
-    throw new Error("仅支持A股与沪深指数行情；场内基金须使用图表读取入口");
-  const file = join(
-    resolveTdxRoot(root),
-    "vipdoc",
-    symbol.slice(0, 2),
-    period === "day" ? "lday" : "fzline",
-    `${symbol}.${period === "day" ? "day" : "lc5"}`,
-  );
+  const directory = resolveTdxRoot(root);
+  const file = quoteFile(directory, symbol, period, options.chartFunds);
   for (let attempt = 0; attempt < 3; attempt++) {
     const handle = await open(file, "r");
     let buffer: Buffer;
@@ -322,23 +388,23 @@ export async function readSnapshot(
       continue;
     }
     const repairs = { fixed: 0, dropped: 0 };
-    const bars = parseBars(buffer, period, undefined, fund ? 3 : 2, repairs),
+    const bars = parseBars(
+        buffer,
+        period,
+        undefined,
+        isLocalFund(symbol) ? 3 : 2,
+        repairs,
+      ),
       hash = createHash("sha256").update(buffer).digest("hex");
     if (!bars.length) throw new Error("行情文件为空");
-    const note = repairNote(repairs);
-    return {
-      id: `snapshot-${symbol}-${period}-${hash.slice(0, 16)}`,
-      ...(note ? { sourceNote: note } : {}),
+    return quoteSnapshot(
+      directory,
       symbol,
-      name: (await securityNames(root, symbol.slice(0, 2))).get(symbol),
       period,
-      source: "tdx-local",
-      dataRoot: resolveTdxRoot(root),
-      adjustment: "none",
-      createdAt: Date.now(),
       bars,
       hash,
-    };
+      repairNote(repairs),
+    );
   }
   throw new Error("通达信正在更新文件，请稍后重试");
 }

@@ -432,6 +432,7 @@ export async function crypto(
   from?: string,
 ) {
   const input = await prior<{
+    end?: string;
     coverage: {
       rows: {
         pair: string;
@@ -459,7 +460,7 @@ export async function crypto(
       adjustment: "none",
       cryptoSource: "binance",
       from: "1970-01-01",
-      to: "2026-11-13",
+      to: input.end,
       limit: 2000000,
     });
     if (
@@ -512,5 +513,14 @@ export async function crypto(
     ],
     benchmarkName: "Prior BTC hold, uncharged benchmark",
   };
+  console.log(
+    JSON.stringify({
+      phase: "crypto-cutoff",
+      period,
+      source: input.end ? "frozen-experiment" : "source-coverage",
+      cutoff: input.end ?? benchmark.at(-1)?.date ?? null,
+      coveredThrough: benchmark.at(-1)?.date ?? null,
+    }),
+  );
   return { dataset, base: frozen(dataset) };
 }

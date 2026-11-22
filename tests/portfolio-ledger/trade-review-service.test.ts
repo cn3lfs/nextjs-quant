@@ -44,6 +44,33 @@ it("R7 清仓恢复不改变残差，openingUnknown 与离线分段证据保留"
   expect(snapshot.nav.days.map((day) => day.nav.value)).toEqual([
     1000, 2495.9, 2495.9,
   ]);
+  const unknown = replayTradeReview({
+    ...snapshot.replayInput,
+    nav: { tradingDays: snapshot.replayInput.nav.tradingDays },
+  });
+  expect(unknown.nav.openingCash).toBeNull();
+  expect(unknown.basis.openingCash).toContain("期初现金未知");
+  expect(unknown.nav.twr.value).toBeNull();
+  expect(unknown.nav.twr.reasons[0]?.reason).toContain("期初现金未知");
+  expect(unknown.projectedCashDays.map((day) => day.cash.value)).toEqual([
+    null,
+    null,
+    null,
+  ]);
+  expect(unknown.unexplainedCashResidual).toMatchObject({
+    value: null,
+    reason: "期初现金未知",
+  });
+  const anchored = replayTradeReview({
+    ...unknown.replayInput,
+    trades: {
+      ...unknown.replayInput.trades,
+      cashFlows: [{ ...parsed.cashFlows[0]!, balanceCash: 1000 }],
+    },
+  });
+  expect(anchored.nav.openingCash).toBe(2000);
+  expect(anchored.basis.openingCash).toContain("首笔资金事件");
+  expect(anchored.projectedCashDays).toEqual(snapshot.projectedCashDays);
   expect(snapshot.unexplainedCashResidual.value).toBeCloseTo(295.9);
   expect(snapshot.projectedCashDays.map((day) => day.cash.value)).toEqual([
     1000, 2200, 2200,

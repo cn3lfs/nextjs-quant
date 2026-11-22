@@ -83,7 +83,7 @@ export const patternScreenRequestSchema = z
       .strict()
       .optional(),
     combineMode: z.enum(["any", "all"]).default("any"),
-    lookbackBars: z.number().int().min(1).max(20).default(3),
+    lookbackBars: z.number().int().min(1).max(250).default(3),
     minRps20: rps,
     minRps50: rps,
     minRps120: rps,

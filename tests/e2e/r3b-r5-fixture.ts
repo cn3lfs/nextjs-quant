@@ -141,6 +141,8 @@ export async function seedR3bR5Fixture(db: Database.Database, root: string) {
     .find((s) => s.id === "QA-r3b-decay" && s.version === 1);
   if (!strategy) throw new Error("R3b R5 fixture requires the R3b seed");
   const identity = {
+    type: "entry" as const,
+    price: 10,
     strategyId: strategy.id,
     version: 1,
     market: "cn-equity" as const,
@@ -151,8 +153,6 @@ export async function seedR3bR5Fixture(db: Database.Database, root: string) {
   const event: AlertEvent = {
     ...identity,
     key: alertKey(identity),
-    type: "entry",
-    price: 10,
     stop: 9,
     target: 20,
     sleeve: "swing",

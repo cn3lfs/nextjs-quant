@@ -1,3 +1,4 @@
+import { alertKey } from "../../../lib/strategy-facts/alerts";
 import {
   strategyProtection,
   usesStrategyBook,
@@ -108,22 +109,19 @@ export function watchStrategy(
   )
     type = "entry";
   if (!type) return [];
+  const identity = {
+    strategyId: strategy.id,
+    version: strategy.version,
+    market: strategy.market,
+    symbol: series.symbol,
+    bar: asOf,
+    type,
+    price,
+  };
   return [
     {
-      key: JSON.stringify([
-        strategy.id,
-        strategy.version,
-        strategy.market,
-        series.symbol,
-        asOf,
-      ]),
-      strategyId: strategy.id,
-      version: strategy.version,
-      market: strategy.market,
-      symbol: series.symbol,
-      bar: asOf,
-      type,
-      price,
+      ...identity,
+      key: alertKey(identity),
       sleeve: strategy.sleeve,
       stop: result.decision.stopLevel,
       target: result.strategy.exit.takeProfit

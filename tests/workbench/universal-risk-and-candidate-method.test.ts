@@ -66,6 +66,8 @@ function makeEvent(
   reason = "收盘扫描：明日计划候选；入场条件通过；价格分位 0.08 / 回撤 0.35",
 ): AlertEvent {
   const identity = {
+    type: "entry" as const,
+    price: 10,
     strategyId: strategy.id,
     version: strategy.version,
     market: strategy.market,
@@ -75,8 +77,6 @@ function makeEvent(
   return {
     ...identity,
     key: alertKey(identity),
-    type: "entry",
-    price: 10,
     stop: 9,
     target: 13,
     sleeve: strategy.sleeve,

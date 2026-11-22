@@ -4,7 +4,10 @@ import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
 import { PaperRepository } from "../../db/paper-repository";
 import { get, put } from "../../db";
 import { paperSettingsSchema, mirrorSettingsSchema } from "../../paper/model";
-import { registerPaperCandidates } from "../../paper/registration";
+import {
+  registerPaperAccount,
+  registerPaperAccountSchema,
+} from "../../paper/registration";
 import { configurePaperMirror } from "../../paper/mirror";
 import { runWorker } from "../../jobs/jobs";
 import { beijingClock } from "~/lib/market/market-session";
@@ -16,6 +19,7 @@ import {
 const id = z.string().min(1).max(240);
 const kind = z.enum([
   "order",
+  "order-event",
   "fill",
   "position",
   "equity",
@@ -96,7 +100,7 @@ export const paperRouter = createTRPCRouter({
         // only allowed through the audited legacy cleanup manifest/backup flow.
         for (const id of repo.ids()) {
           const a = repo.account(id)!;
-          if (!a.lastBar)
+          if (!a.lastBar && a.name === undefined)
             repo.save(
               {
                 ...a,
@@ -111,13 +115,9 @@ export const paperRouter = createTRPCRouter({
         return put("paper-settings", "paper-settings", input);
       });
     }),
-  registerPaperCandidates: p("portfolio", "configure").mutation(() =>
-    registerPaperCandidates(
-      new PaperRepository(),
-      Date.now(),
-      get("paper-settings") ?? {},
-    ),
-  ),
+  registerPaperAccount: p("portfolio", "configure")
+    .input(registerPaperAccountSchema)
+    .mutation(({ input }) => registerPaperAccount(input)),
   advancePaperAccounts: p("portfolio", "compute").mutation(() =>
     runWorker({ type: "paper-tick", now: Date.now() }),
   ),
@@ -139,6 +139,14 @@ export const paperRouter = createTRPCRouter({
         const account = repo.account(input.id);
         if (!account || account.lastBar)
           throw new Error("只能修改尚未推进的纸面账户初始资金");
+        if (
+          account.name !== undefined &&
+          account.candidates.some(
+            ({ executionPolicy }) =>
+              executionPolicy && executionPolicy.initial !== input.initial,
+          )
+        )
+          throw new Error("初始资金与冻结执行政策不符");
         return repo.save(
           { ...account, initial: input.initial, mirrorRevision: randomUUID() },
           account.revision,

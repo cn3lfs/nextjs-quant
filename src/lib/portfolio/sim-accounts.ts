@@ -127,6 +127,7 @@ interface SimExecution {
   planId: string | null;
   gross: string;
   commission: string;
+  transfer: string;
   tax: string;
   slippage: string;
   netCashDelta: string;

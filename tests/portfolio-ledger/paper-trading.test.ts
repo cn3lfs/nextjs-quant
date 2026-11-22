@@ -52,7 +52,10 @@ const days = [
   "2026-10-14",
   "2026-10-15",
 ];
-function fixture(market: "cn-equity" | "crypto" = "cn-equity") {
+function fixture(
+  market: "cn-equity" | "crypto" = "cn-equity",
+  strategyCount = 1,
+) {
   const db = new Database(":memory:");
   connections.push(db);
   db.pragma("foreign_keys=ON");
@@ -87,7 +90,11 @@ function fixture(market: "cn-equity" | "crypto" = "cn-equity") {
     sleeve: "swing",
     startedAt: Date.parse("2026-10-09T00:00:00Z"),
     initial: 10000,
-    candidates: [candidate],
+    candidates: Array.from({ length: strategyCount }, (_, i) =>
+      i === 0
+        ? candidate
+        : { ...candidate, strategy: { ...strategy, id: strategy.id + i } },
+    ),
     mirror: { venue: "off" },
     mirrorRevision: "first",
     revision: 0,
@@ -123,7 +130,7 @@ function fixture(market: "cn-equity" | "crypto" = "cn-equity") {
         },
       },
     ],
-    strategies: [strategy],
+    strategies: account.candidates.map((c) => c.strategy),
     sleeves: [{ id: "swing", share: 1, riskPerTrade: 1, maxPositions: 1 }],
     costs: {
       ...defaultExecutionCosts,
@@ -141,6 +148,43 @@ function fixture(market: "cn-equity" | "crypto" = "cn-equity") {
   };
   return { repo, account, request, input, dates };
 }
+it("budgets frozen decisions across strategies before advancing", () => {
+  const { repo, account, input, dates } = fixture("cn-equity", 2);
+  try {
+    vi.stubEnv("QUANT_BAR_STORE_MAX_BARS", String(dates.length));
+    expect(() =>
+      advancePaper(repo, account.id, input, Date.now()),
+    ).toThrowError(
+      expect.objectContaining({
+        code: "BAR_STORE_BUDGET_EXCEEDED",
+        diagnostic: expect.objectContaining({
+          symbol: "paper-decisions",
+          requestedBars: dates.length * 2,
+        }),
+      }),
+    );
+    expect(repo.account(account.id)!.lastBar).toBeNull();
+  } finally {
+    vi.unstubAllEnvs();
+  }
+  advancePaper(repo, account.id, input, Date.now());
+  expect(repo.state(account.id)!.decisions).toHaveLength(dates.length * 2);
+});
+it("preserves paper facts on a calendar budget failure and advances at the configured limit", () => {
+  const { repo, account, input, dates } = fixture();
+  try {
+    vi.stubEnv("QUANT_BAR_STORE_MAX_BARS", String(dates.length - 1));
+    expect(() => advancePaper(repo, account.id, input, Date.now())).toThrow(
+      /上限 4 根.*QUANT_BAR_STORE_MAX_BARS/,
+    );
+    expect(repo.account(account.id)!.lastBar).toBeNull();
+    vi.stubEnv("QUANT_BAR_STORE_MAX_BARS", String(dates.length));
+    advancePaper(repo, account.id, input, Date.now());
+    expect(repo.account(account.id)!.lastBar).toBe(dates.at(-1));
+  } finally {
+    vi.unstubAllEnvs();
+  }
+});
 it.each(["cn-equity", "crypto"] as const)(
   "%s paper and runPortfolio have identical fills, orders, daily equity and positions",
   (market) => {
@@ -211,6 +255,192 @@ it("restart after three days equals continuous operation, no duplicate trades or
   recordPaperAlerts(restarted, a.account.id, Date.now(), deliver);
   expect(deliver).toHaveBeenCalledTimes(0);
 });
+it("appends sequenced checkpoints and preserves the first order bytes when pending becomes filled", () => {
+  const { repo, account, input, dates } = fixture();
+  const orderBytes = () =>
+    repo.db
+      .prepare(
+        "SELECT date,payload FROM paper_facts WHERE account_id=? AND kind='order' AND id='1'",
+      )
+      .get(account.id);
+  const through = (count: number) => ({
+    ...input,
+    request: { ...input.request, calendar: dates.slice(0, count) },
+  });
+  advancePaper(repo, account.id, through(1), Date.now());
+  const initial = repo.state(account.id)!;
+  const original = orderBytes();
+  expect(repo.page(account.id, "order")).toMatchObject({
+    total: 1,
+    items: [{ id: "1", date: dates[0], value: { status: "pending" } }],
+  });
+  expect(repo.page(account.id, "order-event").total).toBe(0);
+
+  advancePaper(repo, account.id, through(2), Date.now());
+  const next = repo.state(account.id)!;
+  expect(next.engineVersion).toBe(next.build);
+  expect(next.events).toEqual([
+    {
+      runId: account.id,
+      sequence: 1,
+      at: Date.now(),
+      cutoff: dates[0],
+      fills: 0,
+      curve: 1,
+      resultHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      kind: "advance",
+      engineVersion: next.engineVersion,
+    },
+    {
+      runId: account.id,
+      sequence: 2,
+      at: Date.now(),
+      cutoff: dates[1],
+      fills: 1,
+      curve: 2,
+      resultHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      kind: "advance",
+      engineVersion: next.engineVersion,
+    },
+  ]);
+  expect(next.events![0]).toEqual(initial.events![0]);
+  expect(next.events![1]!.resultHash).not.toBe(next.events![0]!.resultHash);
+  const current = next.result.orders[0]!;
+  expect(current.status).toBe("filled");
+  expect(orderBytes()).toEqual(original);
+  expect(repo.page(account.id, "order-event")).toMatchObject({
+    total: 1,
+    items: [
+      {
+        date: dates[1],
+        value: {
+          orderId: 1,
+          sequence: 2,
+          reason: "订单已成交",
+          order: current,
+        },
+      },
+    ],
+  });
+  expect(repo.page(account.id, "order", 0, dates[0])).toEqual({
+    total: 1,
+    items: [{ account: account.id, id: "1", date: dates[0], value: current }],
+  });
+  expect(advancePaper(repo, account.id, through(2), Date.now())).toEqual({
+    advanced: 0,
+    fills: 0,
+  });
+  expect(repo.state(account.id)).toEqual(next);
+  advancePaper(repo, account.id, through(3), Date.now());
+  expect(repo.page(account.id, "order-event").total).toBe(1);
+  expect(orderBytes()).toEqual(original);
+});
+it.each([
+  ["sequence", /sequence/],
+  ["cutoff", /lastBar/],
+  ["stored fill", /前缀变化/],
+  ["earlier event hash", /前缀变化.*事件 1/],
+  ["replayed fills", /前缀变化.*事件 2/],
+  ["engine version", /引擎版本已变化.*old-build.*复核/],
+] as const)(
+  "rejects paper history drift in %s before committing another bar",
+  (field, error) => {
+    const { repo, account, input, dates } = fixture();
+    for (const count of [1, 2])
+      advancePaper(
+        repo,
+        account.id,
+        {
+          ...input,
+          request: { ...input.request, calendar: dates.slice(0, count) },
+        },
+        Date.now(),
+      );
+    const state = repo.state(account.id)!;
+    if (field === "sequence") state.events![0]!.sequence = 2;
+    if (field === "cutoff") state.events![1]!.cutoff = dates[2]!;
+    if (field === "stored fill") state.result.fills[0]!.quantity += 1;
+    if (field === "earlier event hash")
+      state.events![0]!.resultHash = "a".repeat(64);
+    if (field === "replayed fills") input.request.costs!.minimumCommission = 5;
+    if (field === "engine version") {
+      state.engineVersion = "old-build";
+      state.build = "old-build";
+    }
+    repo.saveState(account.id, state);
+    const before = repo.account(account.id);
+    expect(() => advancePaper(repo, account.id, input, Date.now())).toThrow(
+      error,
+    );
+    expect(repo.account(account.id)).toEqual(before);
+    expect(repo.state(account.id)).toEqual(state);
+    expect(repo.page(account.id, "advance").total).toBe(2);
+  },
+);
+it("adopts a legacy checkpoint from another build as a recorded baseline", () => {
+  const { repo, account, input, dates } = fixture();
+  advancePaper(
+    repo,
+    account.id,
+    { ...input, request: { ...input.request, calendar: dates.slice(0, 2) } },
+    Date.now(),
+  );
+  const {
+    events: _events,
+    engineVersion: _version,
+    ...legacy
+  } = repo.state(account.id)!;
+  repo.saveState(account.id, { ...legacy, build: "old-build" });
+  vi.setSystemTime(Date.now() + 1000);
+  advancePaper(repo, account.id, input, Date.now());
+  const next = repo.state(account.id)!;
+  expect(next.events).toHaveLength(2);
+  expect(next.events![0]).toMatchObject({
+    kind: "baseline",
+    legacyBuild: "old-build",
+    sequence: 1,
+  });
+  expect(next.events![1]).toMatchObject({ kind: "advance", sequence: 2 });
+});
+
+it.each([false, true])(
+  "upgrades a legacy checkpoint to one verified baseline (fresh bars: %s)",
+  (fresh) => {
+    const { repo, account, input, dates } = fixture();
+    const prior = {
+      ...input,
+      request: { ...input.request, calendar: dates.slice(0, 2) },
+    };
+    advancePaper(repo, account.id, prior, Date.now());
+    const { events, engineVersion, ...legacy } = repo.state(account.id)!;
+    repo.saveState(account.id, legacy);
+    vi.setSystemTime(Date.now() + 1000);
+    advancePaper(repo, account.id, fresh ? input : prior, Date.now());
+    const next = repo.state(account.id)!;
+    expect(next.events).toHaveLength(fresh ? 2 : 1);
+    expect(next.events![0]).toEqual({
+      ...events![0],
+      cutoff: dates[1],
+      at: Date.now(),
+      kind: "baseline",
+      fills: 1,
+      curve: 2,
+      resultHash: events![0]!.resultHash,
+    });
+    expect(next.engineVersion).toBe(engineVersion);
+    if (fresh)
+      expect(next.events![1]).toMatchObject({
+        sequence: 2,
+        kind: "advance",
+        cutoff: dates.at(-1),
+      });
+    else {
+      expect(next.result).toEqual(legacy.result);
+      expect(repo.page(account.id, "advance").total).toBe(1);
+      expect(repo.page(account.id, "order-event").total).toBe(0);
+    }
+  },
+);
 it("A-share bonus and dividend preserve T+1; limit-down prevents a sale until a tradable bar", () => {
   const f = fixture();
   f.request.strategies[0]!.exit = { stop: { kind: "fixed", fraction: 0.1 } };

@@ -79,13 +79,15 @@ export function replayTradeReview(input: TradeReviewReplayInput) {
   // path WITHOUT those anchors; discrepancies must never become invented flows.
   const projected = reviewTradeNav({
     ...input.nav,
-    openingCash: nav.openingCash,
+    openingCash: nav.openingCash ?? undefined,
     fills: input.trades.fills.map((f) => ({ ...f, balanceCash: null })),
     cashFlows: input.trades.cashFlows ?? [],
     bars: input.trades.bars ?? {},
   });
   // Use R4's statement event order for reconciliation, including same-day rows.
   let cash: number | null = nav.openingCash;
+  const projectedCashReason =
+    nav.openingCash === null ? "期初现金未知" : "资金发生额缺失";
   const residuals = nav.replay.flatMap((event) => {
     const f = input.trades.fills[event.originalOrder];
     if (!f) {
@@ -107,7 +109,7 @@ export function replayTradeReview(input: TradeReviewReplayInput) {
               statementCash: flow.balanceCash,
               projectedCash: cash,
               value: cash === null ? null : flow.balanceCash - cash,
-              reason: cash === null ? "资金发生额缺失" : null,
+              reason: cash === null ? projectedCashReason : null,
             },
           ];
     }
@@ -132,7 +134,7 @@ export function replayTradeReview(input: TradeReviewReplayInput) {
             statementCash: f.balanceCash,
             projectedCash: cash,
             value: cash === null ? null : f.balanceCash - cash,
-            reason: cash === null ? "资金发生额缺失" : null,
+            reason: cash === null ? projectedCashReason : null,
           },
         ];
   });
@@ -190,7 +192,9 @@ export function replayTradeReview(input: TradeReviewReplayInput) {
       cash: `R4净值采用柜台余额；残差独立展示，不产生平账流水；推算现金不采用后续柜台余额；${nav.basis.reverseRepo}`,
       openingCash:
         input.nav.openingCash === undefined
-          ? "沿用R4首笔余额反推，否则假设0；不是完整账本证明"
+          ? nav.openingCash === null
+            ? "期初现金未知，缺少首笔资金事件的余额及发生额证据"
+            : "按首笔资金事件的柜台余额与实际发生额反推期初现金"
           : "调用方提供期初现金",
       costMethods: "移动加权与FIFO并列；openingUnknown收益留空",
     },
@@ -251,7 +255,7 @@ export async function buildTradeReviewSnapshot(
   const ledger = db.transaction(() => ({
     fills: store.fills(o.account),
     cashFlows: store.cashFlows(o.account),
-    batches: store.batches().filter((b) => b.account === o.account),
+    batches: store.batches(false).filter((b) => b.account === o.account),
   }))();
   const bars: Record<string, Bar[]> = {};
   const sources: Evidence[] = [];

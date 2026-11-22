@@ -16,6 +16,8 @@ export type LowZoneFact = {
   temperature: number | null;
   source: string;
   confidence: "verified" | "approximate";
+  /** Financial vintage; absent means unknown/legacy, never first-release proof. */
+  vintage?: "first-observed" | "current-revision";
 };
 export type LowZoneComponent = {
   value: number | null;

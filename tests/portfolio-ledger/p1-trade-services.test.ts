@@ -6,6 +6,7 @@ const stubs = vi.hoisted(() => ({
   order: vi.fn(),
   open: vi.fn(),
   positions: vi.fn(),
+  status: vi.fn(),
 }));
 vi.mock("../../src/server/portfolio/mock/mock-trading", () => ({
   MockTradingAdapter: class {
@@ -22,7 +23,12 @@ vi.mock("../../src/server/portfolio/mock/mock-trading", () => ({
       if (!this.deps.enabled()) throw new Error("未开启");
       return stubs.order(input, confirmed);
     }
+    orderStatus(entrustNos: readonly string[]) {
+      if (!this.deps.enabled()) throw new Error("未开启");
+      return stubs.status(entrustNos);
+    }
   },
+  mockCredentialRevision: (account: unknown) => JSON.stringify(account),
   reconcilePositions: vi.fn(),
 }));
 vi.mock("../../src/server/market/data-health", () => ({
@@ -54,6 +60,7 @@ import {
   openMockAccount,
   previewMockOrder,
   confirmMockOrder,
+  queryMockOrderStatus,
 } from "../../src/server/portfolio/mock/mock-trading-service";
 import {
   recordLocalTrade,
@@ -79,9 +86,12 @@ beforeEach(() => {
   sqlite().exec(
     "DELETE FROM records; DELETE FROM trade_ledger; DELETE FROM trade_adjustments; DELETE FROM signal_ledger;",
   );
-  stubs.order.mockReset().mockResolvedValue("受控受理");
+  stubs.order
+    .mockReset()
+    .mockResolvedValue({ message: "受控受理", entrustNos: [] });
   stubs.open.mockReset();
   stubs.positions.mockReset();
+  stubs.status.mockReset();
 });
 afterEach(() => vi.useRealTimers());
 it("workspace position pages retain full-book totals and omit archived evidence", async () => {
@@ -188,13 +198,65 @@ it("confirmation tokens are single-use, survive errors as attempted, and never c
   expect(stubs.order).toHaveBeenCalledTimes(1);
   expect(stubs.order).toHaveBeenCalledWith(p.input, true);
   expect((await tradeDashboard()).trades).toHaveLength(0);
-  expect(get<{ state: string }>(p.id)?.state).toBe("attempted");
+  expect(get<{ state: string }>(p.id)?.state).toBe("accepted");
   const q = await previewMockOrder(input());
   stubs.order.mockRejectedValueOnce(new Error("受控结果未知"));
   await expect(confirmMockOrder(q.id)).rejects.toThrow("结果未知");
   await expect(confirmMockOrder(q.id)).rejects.toThrow("已确认");
   expect(stubs.order).toHaveBeenCalledTimes(2);
 });
+it("manual order queries bind the sending credential and trading day", async () => {
+  setMockEnabled(true);
+  const account = {
+    username: "mock-user",
+    account: "mock-fund",
+    state: "ready" as const,
+    shareholders: [{ gddm: "mock-share", scdm: "2" }],
+  };
+  await saveSecret("mock-trading-account", account);
+  stubs.order.mockResolvedValue({
+    message: "受控受理",
+    entrustNos: ["E1"],
+    credentialRevision: JSON.stringify(account),
+    tradeDate: "2026-09-10",
+  });
+  stubs.status.mockResolvedValue({
+    attributable: true,
+    fillStatus: "matched",
+    rows: [],
+  });
+  const p = await previewMockOrder(input());
+  await confirmMockOrder(p.id);
+  expect(await queryMockOrderStatus(p.id)).toMatchObject({
+    state: "accepted",
+    entrustNos: ["E1"],
+    fillStatus: "matched",
+  });
+  expect(stubs.status).toHaveBeenCalledWith(["E1"]);
+
+  // A later day cannot use the current-day trade endpoint to claim the order.
+  vi.setSystemTime(new Date("2026-09-11T15:10:00+08:00"));
+  expect(await queryMockOrderStatus(p.id)).toMatchObject({
+    state: "accepted",
+    fillStatus: "unknown",
+    attributable: false,
+  });
+  expect(stubs.status).toHaveBeenCalledTimes(1);
+
+  // A replacement credential must not look up its own trades under the old ref.
+  vi.setSystemTime(new Date("2026-09-10T15:10:00+08:00"));
+  await saveSecret("mock-trading-account", {
+    ...account,
+    account: "other-fund",
+  });
+  expect(await queryMockOrderStatus(p.id)).toMatchObject({
+    state: "accepted",
+    fillStatus: "unknown",
+    attributable: false,
+  });
+  expect(stubs.status).toHaveBeenCalledTimes(1);
+});
+
 it("expired and disabled confirmation do not place orders", async () => {
   setMockEnabled(true);
   const p = await previewMockOrder(input());

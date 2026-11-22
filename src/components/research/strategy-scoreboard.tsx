@@ -7,6 +7,7 @@ import { useAccumulatedPages, useTablePage } from "../ui/use-infinite-table";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
 import { Segmented } from "../panels";
 import type { CurrentScoreboardRow } from "~/server/db/validation-scoreboard";
+import { benchmarkBasisLabel } from "./benchmark-basis";
 
 const rowKey = (row: CurrentScoreboardRow) => row.id;
 const pct = (value: number | null) =>
@@ -36,6 +37,12 @@ const columns: DataTableColumn<CurrentScoreboardRow>[] = [
     header: "超额",
     enableSorting: true,
     cell: ({ row }) => pct(row.original.excess),
+  },
+  {
+    id: "benchmarkBasis",
+    header: "基准口径",
+    enableSorting: false,
+    cell: ({ row }) => benchmarkBasisLabel(row.original.benchmarkBasis),
   },
   {
     id: "drawdown",

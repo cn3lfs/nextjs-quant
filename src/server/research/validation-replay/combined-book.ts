@@ -13,14 +13,19 @@ export function combinedBook(
   dataset: ValidationDataset,
   primary: PortfolioRequest,
   secondary?: PortfolioRequest,
+  signal?: AbortSignal,
 ) {
+  signal?.throwIfAborted();
+  const benchmarkBasis = dataset.benchmarkBasis ?? null;
   const shares = frozen.input.market === "cn-equity" ? [1, 0.65] : [0.75, 0.8];
   const variants = shares.map((share, index) => {
+    signal?.throwIfAborted();
     const strategies = [
       ...primary.strategies,
       ...(secondary?.strategies ?? []),
     ];
     const instruments = primary.instruments.map((p) => {
+      signal?.throwIfAborted();
       const other = secondary?.instruments.find((s) => s.symbol === p.symbol);
       return {
         ...p,
@@ -37,7 +42,7 @@ export function combinedBook(
         },
       };
     });
-    const low = combinedLowZoneTargets(frozen, primary);
+    const low = combinedLowZoneTargets(frozen, primary, signal);
     const sleeves = [
       { ...primary.sleeves[0]!, share: secondary ? share : 1 },
       ...(secondary ? [{ ...secondary.sleeves[0]!, share: 1 - share }] : []),
@@ -45,6 +50,10 @@ export function combinedBook(
     const request: PortfolioRequest = {
       ...primary,
       strategies,
+      memberships: [
+        ...(primary.memberships ?? []),
+        ...(secondary?.memberships ?? []),
+      ],
       instruments,
       sleeves,
       rebalance: { everyBars: 20, drift: 0.05 },
@@ -52,10 +61,18 @@ export function combinedBook(
         ? { sleeveTargets: low }
         : {}),
     };
-    const result = runPortfolio(request);
+    const result = runPortfolio(request, undefined, undefined, signal);
     const score = scoreValidationResult(result, request, dataset);
+    const valuation = score.valuation;
+    // A stale mark can change cash transfers and every sleeve's funded path.
+    const transfers = valuation
+      ? result.transfers.filter(({ date }) =>
+          valuation.positions.every((gap) => date < gap.unavailableFrom),
+        )
+      : result.transfers;
     const transfersBySleeve = new Map<string, Map<string, number>>();
-    for (const transfer of result.transfers) {
+    for (const transfer of transfers) {
+      signal?.throwIfAborted();
       const dates =
         transfersBySleeve.get(transfer.sleeve) ?? new Map<string, number>();
       dates.set(
@@ -65,10 +82,20 @@ export function combinedBook(
       transfersBySleeve.set(transfer.sleeve, dates);
     }
     const sleeveScores = sleeves.map((s) => {
+      if (valuation)
+        return {
+          sleeve: s.id,
+          daily: score.daily,
+          observed: 0,
+          return: null,
+          drawdown: null,
+          valuation,
+        };
       // Remove cash transfers before computing sleeve time-weighted returns.
       let previous = frozen.input.initial * s.share;
       const byDay = new Map<string, number[]>();
       for (const point of result.curve) {
+        signal?.throwIfAborted();
         const current = point.sleeves.find((r) => r.id === s.id)!.equity;
         const transfer = transfersBySleeve.get(s.id)?.get(point.date) ?? 0;
         const value = previous > 0 ? (current - transfer) / previous - 1 : null;
@@ -90,7 +117,12 @@ export function combinedBook(
           ? []
           : [{ date: result.equity[i]!.date, value: (nav *= 1 + value) }],
       );
-      const evaluation = evaluatePerformance(1, active);
+      const evaluation = evaluatePerformance(
+        1,
+        active,
+        active[0]?.date,
+        frozen.input.market === "crypto" ? 365 : 252,
+      );
       return {
         sleeve: s.id,
         daily,
@@ -122,14 +154,17 @@ export function combinedBook(
       correlation:
         pairs.length >= 20 && denominator > 0 ? covariance / denominator : null,
       overlapDays: pairs.length,
-      transfers: result.transfers,
-      sleeveCurves: result.equity.map((p) => ({
-        date: p.date,
-        sleeves: p.sleeves,
-      })),
+      transfers,
+      sleeveCurves: valuation
+        ? null
+        : result.equity.map((p) => ({
+            date: p.date,
+            sleeves: p.sleeves,
+          })),
     };
   });
   const rows: ScoreboardRow[] = variants.map((v) => ({
+    benchmarkBasis,
     riskAdjusted: v.score.riskAdjusted,
     biasTags: validationBiasTags(frozen),
     id: `book-${frozen.input.market}-${dataset.period}-${v.name}`,
@@ -145,7 +180,13 @@ export function combinedBook(
     oosWindows: 0,
     positiveWindows: 0,
     bias: biasLabels(frozen, "combined"),
-    reasons: ["descriptive-full-period-book-not-independent-oos"],
+    reasons: [
+      "descriptive-full-period-book-not-independent-oos",
+      ...(v.score.valuation?.positions.map(
+        ({ symbol, sleeve, unavailableFrom, reason }) =>
+          `terminal-valuation-blocked: ${symbol}/${sleeve} from ${unavailableFrom}: ${reason}`,
+      ) ?? []),
+    ],
   }));
   for (const sleeve of variants[0]!.sleeveScores) {
     rows.push({
@@ -157,15 +198,18 @@ export function combinedBook(
       return: sleeve.return,
       excess: null,
       drawdown: sleeve.drawdown,
-      reasons: [
-        "transfer-adjusted-conditional-sleeve-returns",
-        "inactive-days-excluded-not-zero-filled",
-      ],
+      reasons: sleeve.valuation
+        ? rows[0]!.reasons
+        : [
+            "transfer-adjusted-conditional-sleeve-returns",
+            "inactive-days-excluded-not-zero-filled",
+          ],
     });
   }
   return {
     market: frozen.input.market,
     period: dataset.period,
+    benchmarkBasis,
     variants,
     rows,
     boundary:
@@ -178,7 +222,9 @@ export function combinedBook(
 export function combinedLowZoneTargets(
   frozen: FrozenValidationInput,
   primary: PortfolioRequest,
+  signal?: AbortSignal,
 ) {
+  signal?.throwIfAborted();
   const symbols = new Set([
     "sh000300",
     ...primary.instruments.map((i) => i.symbol),
@@ -194,6 +240,7 @@ export function combinedLowZoneTargets(
   const targets: NonNullable<PortfolioRequest["sleeveTargets"]>[number][] = [];
   let cursor = 0;
   for (const date of primary.calendar) {
+    signal?.throwIfAborted();
     while (events[cursor] && events[cursor]!.date <= date) {
       const e = events[cursor++]!;
       state.set(e.symbol, e.targetShare);

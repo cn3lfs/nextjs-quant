@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { PortfolioAccount } from "../src/portfolio-account.js";
+import { AtomsPortfolioAccount as PortfolioAccount } from "../src/portfolio/atoms-account.js";
 import { runPortfolio, type PortfolioRequest } from "../src/index.js";
 
 it("uses exact entitlement instants across UTC/Shanghai labels while retaining default T+1", () => {

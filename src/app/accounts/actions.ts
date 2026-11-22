@@ -16,6 +16,7 @@ import {
   reconcileMock,
   previewMockOrder,
   confirmMockOrder,
+  queryMockOrderStatus,
 } from "~/server/portfolio/mock/mock-trading-service";
 import { put } from "~/server/db";
 export async function saveTrade(input: unknown) {
@@ -47,6 +48,9 @@ export async function previewOrder(input: unknown) {
 }
 export async function confirmOrder(id: string) {
   return confirmMockOrder(id);
+}
+export async function queryOrderStatus(id: string) {
+  return queryMockOrderStatus(z.string().parse(id));
 }
 export async function updateStop(symbol: string, stop: number) {
   z.string()

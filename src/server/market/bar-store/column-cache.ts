@@ -25,11 +25,15 @@ import { contentDigest } from "./content-digest";
 const headerSize = 16384;
 const magic = "QBARCOL1";
 const maximumFileBytes = 128 * 1024 * 1024;
+const columnBytesPerBar = 60;
+const maximumFileBars = Math.floor(
+  (maximumFileBytes - headerSize - 4) / columnBytesPerBar,
+);
 export class CacheBusyError extends Error {}
 const fields = ["open", "high", "low", "close", "volume", "amount"] as const;
 const metadataSchema = z.object({
   fingerprint: z.string(),
-  count: z.number().int().min(0).max(2000000),
+  count: z.number().int().min(0).max(maximumFileBars),
   bytes: z.number().int().min(headerSize).max(maximumFileBytes),
   digest: z.string(),
   checksum: z.number().int().min(0).max(0xffffffff).optional(),
@@ -62,7 +66,7 @@ export function cachePath(key: string) {
 }
 function encodeBlock(bars: readonly Bar[]) {
   const n = bars.length,
-    body = Buffer.alloc(4 + n * 60);
+    body = Buffer.alloc(4 + n * columnBytesPerBar);
   body.writeUInt32LE(n);
   for (let i = 0; i < n; i++) {
     const bar = bars[i]!,
@@ -135,7 +139,7 @@ function decodeBlocks(body: Buffer): Bar[] {
   for (let cursor = 0; cursor < body.length;) {
     if (cursor + 4 > body.length) throw new Error("BarStore 缓存块截断");
     const n = body.readUInt32LE(cursor),
-      length = 4 + n * 60;
+      length = 4 + n * columnBytesPerBar;
     if (!n || cursor + length > body.length)
       throw new Error("BarStore 缓存列截断");
     const block = body.subarray(cursor, cursor + length);
@@ -308,6 +312,7 @@ export function writeColumnCache(
   fingerprint: string,
   source: Record<string, unknown>,
 ) {
+  if (bars.length > maximumFileBars) throw new Error("BarStore 单文件容量超限");
   const path = cachePath(key),
     lock = `${path}.lock`;
   mkdirSync(dirname(path), { recursive: true });

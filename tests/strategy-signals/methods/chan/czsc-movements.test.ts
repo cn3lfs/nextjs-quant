@@ -11,7 +11,7 @@ it("monthly anchor is independent, with calendar-complete input owned by monthly
   expect(() => chanAnchorDateCodes(["2020-02-30"], 3)).toThrow();
   expect(() => chanAnchorDateCodes(["2020-02-28", "2020-01-31"], 3)).toThrow();
   expect(() => chanAnchorDateCodes(["2020-01-02T09:35:00+08:00"], 3)).toThrow();
-  expect(() => chanAnchorDateCodes(["2023-01-03T09:35:00+08:00"], 2)).toThrow(
-    "窗口",
-  );
+  expect(chanAnchorDateCodes(["2023-01-03T09:35:00+08:00"], 2)).toEqual([
+    230103,
+  ]);
 });

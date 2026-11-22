@@ -35,6 +35,8 @@ export function seedR3aFixture(db: Database.Database) {
     status: "shadow-candidate",
   });
   const identity = {
+    type: "entry" as const,
+    price: bar.close,
     strategyId: strategy.id,
     version: 1,
     market: "cn-equity" as const,
@@ -44,8 +46,6 @@ export function seedR3aFixture(db: Database.Database) {
   const event: AlertEvent = {
     ...identity,
     key: alertKey(identity),
-    type: "entry",
-    price: bar.close,
     stop: bar.close * 0.9,
     target: bar.close * 1.3,
     sleeve: "swing",

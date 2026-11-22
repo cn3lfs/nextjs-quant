@@ -15,6 +15,7 @@ import { parseIndustryMembers } from "../../market/industry-blocks";
 import { readBars } from "../../market/bar-store/read-bars";
 
 import {
+  lifecycleConfigHash,
   type LifecycleFamilyAxis,
   type LifecycleSourceBundle,
   type LifecycleLowZoneIndex,
@@ -53,8 +54,14 @@ export function lifecycleFinancialValuations(
   symbols: readonly string[],
   calendar: readonly string[],
   sourceHash: string,
-): MarketLowZoneInput["valuations"] {
-  const values: MarketLowZoneInput["valuations"][number][] = [];
+  purpose:
+    | "first-vintage"
+    | "current-revision-diagnostic" = "current-revision-diagnostic",
+) {
+  const values: (MarketLowZoneInput["valuations"][number] & {
+    vintage?: "current-revision";
+    knownAt?: null;
+  })[] = [];
   for (const symbol of symbols) {
     const caps = financial.caps[symbol] ?? {},
       history = financial.reports[symbol] ?? [],
@@ -65,19 +72,20 @@ export function lifecycleFinancialValuations(
       // Absent source dates stay absent facts; explicit null/duplicate caps
       // are retained. Neither case becomes a synthetic zero denominator.
       if (!Object.hasOwn(caps, date)) continue;
-      let visible = 0,
-        latest = "";
-      for (const report of history)
-        if (financialVisibleAt(report, date)) {
-          visible++;
-          if (report.reportDate > latest) latest = report.reportDate;
+      if (purpose === "current-revision-diagnostic") {
+        let visible = 0,
+          latest = "";
+        for (const report of history)
+          if (financialVisibleAt(report, date)) {
+            visible++;
+            if (report.reportDate > latest) latest = report.reportDate;
+          }
+        // Equal visible counts identify the same report set; report freshness can expire independently.
+        const key = `${visible}:${(Date.parse(date) - Date.parse(latest)) / dayMs > 550}`;
+        if (featureKey !== key) {
+          features = classicFinancialFeatures(history, date);
+          featureKey = key;
         }
-      // Visibility is monotone in asOf. Equal visible counts identify the same
-      // report set; the existing550-day freshness boundary is a separate key.
-      const key = `${visible}:${(Date.parse(date) - Date.parse(latest)) / dayMs > 550}`;
-      if (featureKey !== key) {
-        features = classicFinancialFeatures(history, date);
-        featureKey = key;
       }
       const cap = financial.caps[symbol]?.[date] ?? null;
       const positive = (value: number | null | undefined) =>
@@ -88,6 +96,9 @@ export function lifecycleFinancialValuations(
         symbol,
         date,
         availableAt: date,
+        ...(purpose === "first-vintage"
+          ? { knownAt: null, vintage: "current-revision" as const }
+          : {}),
         marketCap: positive(cap) ? cap : null,
         pe: positive(cap) && positive(net) ? cap! / net! : null,
         pb: positive(cap) && positive(equity) ? cap! / equity! : null,
@@ -252,6 +263,9 @@ async function frozenLowZoneIndex(
   rankPath: string,
   rankBytes: number,
 ): Promise<LifecycleLowZoneIndex> {
+  // Keep the historical L3 pointer key and its captured index window intact.
+  const registeredCutoff =
+    configHash === lifecycleConfigHash ? "2026-11-13" : undefined;
   const role = symbol === "sh000300" ? "primary" : "diagnostic",
     root = options.tdxRoot === undefined ? "E:/new_tdx64" : options.tdxRoot,
     sourcePath = root ? join(root, "vipdoc/sh/lday", `${symbol}.day`) : "",
@@ -260,7 +274,7 @@ async function frozenLowZoneIndex(
       symbol,
       configHash,
       priceHash,
-      through: "2026-11-13",
+      through: registeredCutoff,
     }),
     pointerPath = join(output, `index-${symbol}-${key}.json`);
   try {
@@ -277,30 +291,33 @@ async function frozenLowZoneIndex(
           root,
           source: "local",
           live: false,
-          to: "2026-11-13",
+          to: registeredCutoff,
           now: Date.parse(frozenAt),
         });
       if ((await hashFile(sourcePath)) !== sourceHash)
         throw new Error("Index source changed during immutable capture");
       const missing: string[] = [];
-      if (snapshot.barStore.formingDates.length)
-        missing.push(`${symbol}: source includes forming bars`);
+      const forming = new Set(snapshot.barStore.formingDates);
+      if (forming.size) missing.push(`${symbol}: source includes forming bars`);
       if (snapshot.barStore.priceRepaired)
         missing.push(
           `${symbol}: repaired source; diagnostic price is not certified original`,
         );
+      const bars = registeredCutoff
+        ? snapshot.bars
+        : snapshot.bars.filter((bar) => !forming.has(bar.date));
       const value = {
           version: "lifecycle-index-1",
           key,
           capturedAt: frozenAt,
           symbol,
           role,
-          bars: snapshot.bars,
+          bars,
           sourcePath,
           hash: snapshot.hash,
           sourceHash,
           missing,
-          barsHash: lifecycleRawPrefixHash(snapshot.bars),
+          barsHash: lifecycleRawPrefixHash(bars),
         },
         plain = JSON.stringify(value),
         bytes = gzipSync(plain),
@@ -399,6 +416,7 @@ async function readFinancialValuations(
         [symbol],
         calendar,
         financial.hash,
+        "first-vintage",
       ),
     );
     delete facts.caps[symbol];
@@ -465,6 +483,13 @@ export async function captureLowZoneSources(
     commonIndexBars = primary.bars.filter((b) => b.date <= sourceEnd),
     calendar = commonIndexBars.map((b) => b.date),
     missing = [...primary.missing];
+  for (const index of indices)
+    await stage(
+      `low-zone:cutoff:${index.symbol}:${configHash === lifecycleConfigHash ? "registered" : "source-coverage"}:${index.bars.at(-1)?.date ?? "unavailable"}`,
+    );
+  await stage(
+    `low-zone:cutoff:common-coverage:${calendar.at(-1) ?? "unavailable"}`,
+  );
   if (!membership)
     missing.push(
       "primary sh000300 current-labelled membership source absent; no CSI800 substitution",
@@ -486,6 +511,9 @@ export async function captureLowZoneSources(
       stage,
     );
     decoded = true;
+    missing.push(
+      "financial: first disclosure vintage and revision knownAt unavailable; PE/PB remain unknown",
+    );
   } else
     missing.push(
       "financial: original csi800-financial-1 has PIT reports, date-matched caps and GP16 source hashes; full frozen financial decode deferred to the explicit source resource gate",

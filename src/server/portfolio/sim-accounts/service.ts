@@ -24,6 +24,7 @@ import {
   type SimPlanBinding,
   type SimPlanBindingInput,
 } from "~/lib/portfolio/sim-accounts";
+import { settings } from "~/server/infra/settings";
 import { tradePlanSchema } from "~/server/db/strategy-repository";
 import {
   accountView,
@@ -234,10 +235,23 @@ function evaluate(
   repo: SimAccountRepository,
   account: Account,
   terms: OrderTerms,
+  now = Date.now(),
 ) {
   requireActive(account);
+  const today =
+    account.market === "crypto"
+      ? new Date(now).toISOString().slice(0, 10)
+      : chinaDate(now);
+  if (terms.tradeDate > today) throw new Error("不能在未来日期成交");
   if (settlementDate(account.market, terms.tradeDate) !== terms.tradeDate)
     throw new Error("A股周末休市，不能在该日期成交");
+  const calendar = settings().calendar;
+  if (
+    account.market === "cn-equity" &&
+    calendar.length &&
+    !calendar.includes(terms.tradeDate)
+  )
+    throw new Error("A股非交易日，不能在该日期成交");
   if (terms.executionMode !== "manual") {
     if (!terms.planId) throw new Error("计划成交必须指定 planId");
     if (compatiblePlan(repo, terms.planId, account) !== terms.symbol)
@@ -261,13 +275,14 @@ function evaluate(
 export function previewSimOrder(
   input: SimOrderPreview,
   db: Db,
+  now = Date.now(),
 ): SimOrderPreviewResult {
   const order = simOrderPreviewSchema.parse(input);
   const repo = new SimAccountRepository(db);
   return repo.read(() => {
     const account = repo.account(order.accountId);
     const terms = orderTerms(order, account.market);
-    const { sellable, result } = evaluate(repo, account, terms);
+    const { sellable, result } = evaluate(repo, account, terms, now);
     const money = (n: bigint) => formatAtoms(n, moneyDigits(account.market));
     const qty = (n: bigint) => formatAtoms(n, quantityDigits(account.market));
     return {
@@ -279,6 +294,7 @@ export function previewSimOrder(
       price: money(terms.price),
       gross: money(result.gross),
       commission: money(result.commission),
+      transfer: money(result.transfer),
       tax: money(result.tax),
       slippage: money(result.slippage),
       netCashDelta: money(result.delta),
@@ -288,7 +304,11 @@ export function previewSimOrder(
     };
   });
 }
-export function confirmSimOrder(input: SimOrderConfirm, db: Db) {
+export function confirmSimOrder(
+  input: SimOrderConfirm,
+  db: Db,
+  now = Date.now(),
+) {
   const order = simOrderConfirmSchema.parse(input);
   const repo = new SimAccountRepository(db);
   return repo.write(() => {
@@ -308,7 +328,7 @@ export function confirmSimOrder(input: SimOrderConfirm, db: Db) {
       if (existing.input_hash !== hash) throw new Error("委托幂等键冲突");
       return repo.receipt(account, existing.id);
     }
-    const { result } = evaluate(repo, account, terms);
+    const { result } = evaluate(repo, account, terms, now);
     return repo.settle(
       account,
       order.clientRequestId,

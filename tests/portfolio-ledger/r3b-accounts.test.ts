@@ -80,6 +80,8 @@ function seed() {
   });
   const event: AlertEvent = {
     key: alertKey({
+      type: "entry",
+      price: 9.5,
       strategyId: strategy.id,
       version: 1,
       market: "cn-equity",

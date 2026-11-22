@@ -1,6 +1,10 @@
 import type { Bar } from "trading-strategy-core/bars";
 import type { CzscFamily, CzscResult } from "./czsc.js";
-import type { ChanMovement, CzscMovements } from "./czsc-movements.js";
+import type {
+  ChanAssociation,
+  ChanMovement,
+  CzscMovements,
+} from "./czsc-movements.js";
 import { chanStructureCriterion } from "./research-chan-criteria.js";
 import { chanNativeCandidates } from "./research-chan-native.js";
 
@@ -55,7 +59,7 @@ export const chanC4Presets = [
             ...p,
             id: p.id.replace("-daily-", "-five-"),
             anchor: 2,
-            window: ["2000-01-04", "2022-11-30"],
+            window: null,
           },
         ]
       : [{ ...p, window: null }],
@@ -71,7 +75,7 @@ export const chanC4Presets = [
   }));
 
 export const chanC4Boundary =
-  "第17/18/20/29/33课：czsc-tdx api v5 递归表按调用方锚序列（日线/五分钟/完整月线）构建；C4 level 0 为相邻端点间的笔/线段，level L+1 为原生递归第 L 层（level 1 即配置级别走势，与信号所属走势一一关联）。趋势完成以原生完成证据为准（趋势末端一类点且后继走势已确立），背驰后回到最后中枢使其事后延伸（第29课）不再视为矛盾。图锚、config、输入/DLL版本分别隔离；不以ID跨前缀关联，不把端点作为首见时点。三锚分开统计、不同表比较；五分钟2000-01-04..2022-11-30，月线仅用完整月历聚合。候选、确认、revision分别留痕。";
+  "第17/18/20/29/33课：czsc-tdx api v5 递归表按调用方锚序列（日线/五分钟/完整月线）构建；C4 level 0 为相邻端点间的笔/线段，level L+1 为原生递归第 L 层（level 1 即配置级别走势，与信号所属走势一一关联）。趋势完成以原生完成证据为准（趋势末端一类点且后继走势已确立），背驰后回到最后中枢使其事后延伸（第29课）不再视为矛盾。图锚、config、输入/DLL版本分别隔离；不以ID跨前缀关联，不把端点作为首见时点。三锚分开统计、不同表比较；五分钟窗口由数据覆盖决定，月线仅用完整月历聚合。候选、确认、revision分别留痕。";
 type Signal = CzscFamily["signals"][number];
 type Verdict = {
   status: "matched" | "not-matched" | "missing";
@@ -104,18 +108,29 @@ export function chanC4Trend(
   config: 0 | 1100,
   signal: Signal,
 ): Verdict {
+  const table = result.families.find((f) => f.config === config)?.native
+    ?.recursiveMovements;
+  const association = table?.associations.find(
+    (a) =>
+      a.structureId === signal.structure?.trendId && a.status === "verified",
+  );
+  return trendVerdict(result, bars, config, signal, table, association);
+}
+
+function trendVerdict(
+  result: CzscResult,
+  bars: readonly Bar[],
+  config: 0 | 1100,
+  signal: Signal,
+  table: CzscMovements | undefined,
+  association: ChanAssociation | undefined,
+): Verdict {
   const fact = chanStructureCriterion(
     "trend-divergence",
     result,
     bars,
     config,
     signal,
-  );
-  const table = result.families.find((f) => f.config === config)?.native
-    ?.recursiveMovements;
-  const association = table?.associations.find(
-    (a) =>
-      a.structureId === signal.structure?.trendId && a.status === "verified",
   );
   return {
     ...verdict(
@@ -145,7 +160,13 @@ export function chanC4Sequence(table: CzscMovements, level: number) {
   const rows = table.movements.filter((m) => m.level === level);
   if (!rows.length)
     return { status: "missing" as const, rows: [], reason: "缺操作级别走势" };
-  const roots = rows.filter((m) => !rows.some((p) => p.successorId === m.id));
+  const byId = new Map<number, ChanMovement>();
+  const successorIds = new Set<number>();
+  for (const row of rows) {
+    if (!byId.has(row.id)) byId.set(row.id, row);
+    successorIds.add(row.successorId);
+  }
+  const roots = rows.filter((m) => !successorIds.has(m.id));
   if (roots.length !== 1)
     return {
       status: "missing" as const,
@@ -169,9 +190,7 @@ export function chanC4Sequence(table: CzscMovements, level: number) {
       break;
     }
     sequence.push(current);
-    const next: ChanMovement | undefined = rows.find(
-      (m) => m.id === current!.successorId,
-    );
+    const next = byId.get(current.successorId);
     if (current.successorId && (!next || next.start !== current.end))
       return {
         status: "missing" as const,
@@ -387,6 +406,19 @@ const missing = (reason: string): Verdict => ({
   evidence: null,
 });
 
+function smallTurnIndex(table: CzscMovements) {
+  const byStructureId = new Map<number, ChanAssociation>();
+  for (const row of table.associations) {
+    if (row.status === "verified" && !byStructureId.has(row.structureId))
+      byStructureId.set(row.structureId, row);
+  }
+  const byMovementId = new Map<number, ChanMovement>();
+  for (const row of table.movements) {
+    if (!byMovementId.has(row.id)) byMovementId.set(row.id, row);
+  }
+  return { byStructureId, byMovementId };
+}
+
 /** Resolve only explicit association/member/successor references in this snapshot. */
 export function chanC4SmallTurnFromSignal(
   result: CzscResult,
@@ -398,24 +430,32 @@ export function chanC4SmallTurnFromSignal(
     table = family?.native?.recursiveMovements;
   if (!table || !family || signal.kind !== 3)
     return missing("小转大缺当前前缀三买必要条件");
-  const movement = (s: Signal | undefined) =>
-    table.movements.find(
-      (m) =>
-        m.id ===
-        table.associations.find(
-          (a) =>
-            a.status === "verified" && a.structureId === s?.structure?.trendId,
-        )?.movementId,
-    );
-  const trend = movement(signal),
-    meta = signal.structure;
+  return smallTurnFromSignal(
+    result,
+    bars,
+    family,
+    table,
+    signal,
+    smallTurnIndex(table),
+  );
+}
+
+function smallTurnFromSignal(
+  result: CzscResult,
+  bars: readonly Bar[],
+  family: CzscFamily,
+  table: CzscMovements,
+  signal: Signal,
+  { byStructureId, byMovementId }: ReturnType<typeof smallTurnIndex>,
+): Verdict {
+  const config = family.config;
+  const meta = signal.structure;
+  const association = meta && byStructureId.get(meta.trendId);
+  const trend = association && byMovementId.get(association.movementId);
   const point = (id: number | undefined) => family.points[(id ?? 0) - 1];
   const leave = point(meta?.leavePointId),
     retest = point(meta?.retestPointId);
   const last = table.centers.find((c) => c.id === trend?.centerIds.at(-1));
-  const association = table.associations.find(
-    (a) => a.status === "verified" && a.structureId === meta?.trendId,
-  );
   const old = family.native!.trends.find(
     (t) => t.id === association?.structureId,
   );
@@ -447,11 +487,20 @@ export function chanC4SmallTurnFromSignal(
   const reference = refs[0]!;
   let answer: Verdict = missing("缺已关联小级别顶背驰及其显式后继下跌");
   for (const top of family.signals.filter((s) => s.kind === -1)) {
-    const small = movement(top);
+    const associated =
+      top.structure && byStructureId.get(top.structure.trendId);
+    const small = associated && byMovementId.get(associated.movementId);
     if (!small || small.level >= trend.level || small.start < reference.end)
       continue;
-    const necessary = chanC4Trend(result, bars, config, top);
-    const down = table.movements.find((m) => m.id === small.successorId);
+    const necessary = trendVerdict(
+      result,
+      bars,
+      config,
+      top,
+      table,
+      associated,
+    );
+    const down = byMovementId.get(small.successorId);
     if (!down) continue;
     answer = chanC4SmallTurn(table, {
       trendId: trend.id,
@@ -500,19 +549,23 @@ export function chanC4SmallTurnSignalDecisions(
   observations: readonly ChanC4DecisionObservation[],
 ): ChanC4SignalDecision[] {
   if (signal.kind !== 3) return [];
-  const table = result.families.find((family) => family.config === config)
-    ?.native?.recursiveMovements;
-  if (!table) throw new Error("结构缺口：缺C4锚定递归走势表");
-  const association = table.associations.find(
-    (row) =>
-      row.structureId === signal.structure?.trendId &&
-      row.status === "verified",
-  );
-  const movement = table.movements.find(
-    (row) => row.id === association?.movementId,
-  );
+  const family = result.families.find((f) => f.config === config);
+  const table = family?.native?.recursiveMovements;
+  if (!family || !table) throw new Error("结构缺口：缺C4锚定递归走势表");
+  const index = smallTurnIndex(table);
+  const association =
+    signal.structure && index.byStructureId.get(signal.structure.trendId);
+  const movement =
+    association && index.byMovementId.get(association.movementId);
   if (movement && movement.level !== level) return [];
-  const answer = chanC4SmallTurnFromSignal(result, bars, config, signal);
+  const answer = smallTurnFromSignal(
+    result,
+    bars,
+    family,
+    table,
+    signal,
+    index,
+  );
   const references =
     (answer.evidence as { referenceIds?: number[] } | null)?.referenceIds ?? [];
   const decisions: ChanC4SignalDecision[] = [];

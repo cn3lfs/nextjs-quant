@@ -1,5 +1,6 @@
 import type { Bar } from "trading-strategy-core/bars";
 import { ma } from "trading-strategy-core/indicators";
+import { isResearchDate } from "../contracts/window.js";
 export const volumeAdaptedProfiles = {
   "vp-basis-amount": ["VP-amount-basis", "同币种成交额量价对照", "amount"],
   "vp-basis-adjusted": [
@@ -43,7 +44,7 @@ export function isVolumeAdapted(id: string): id is VolumeAdaptedId {
   return Object.hasOwn(volumeAdaptedProfiles, id);
 }
 export const volumeAdaptedBoundary =
-  "工程v1量价适配：共用收涨严格>2%、当日量/前5根均量≥1.5入场，跌幅<-2%或失守MA20退出，连续成立只首日入场。成交额版全程使用同币种同单位amount；后复权版priceFactor与volumeFactor互为倒数、价格另加现金累计调整，禁止当今修订因子回填，仅信号转换而非成交报价。成长板历史身份为创业/科创，量阈1.8，价格阈独立3%与4%；北证留后续市场，不冒充沪深。ETF限境内股票ETF且有当日T+1证据，量阈1.3；指数无直接成交标的，仅参考，不冒充可交易指数。小盘工程定义流通市值≤50亿元且股数≤5亿，换手[3,15]%且高于前5均值，蓝筹非本预设。流通变化分段版要求当前与前5根相同流通股数，否则待新段积满5根；不把普通除权排除当作流通变更。高位为前60根低收至前收≥50%，七维洗盘/派发事实必须完整，任一派发退出，全非派发且连续两日新高才放行。筹码需同日历史算法/复权/窗口、价格质量配平，现价上方筹码≤20%且获利筹码≥50%；大单与超大单分别净流入>0，不以OBV替代。VP用前20完成日高低间均匀分配十二箱，最大箱并列取低价，前收不高于HVN上沿而当日放量突破上沿入场，失守下沿退出，明确日线近似非真实逐笔筹码。周/日均线20向上且价在其上，60分钟5/10金叉择时，必须完成的21周/21日/11小时原始序列及各窗口结束时点/日历完备证据；小时必须按最近三交易日10:30/11:30/14:00/15:00的末11根精确对齐，周内未完成周拒绝；分钟仅2000-01-04至2022-11-30。缺必要字段保留不可用，固定输入可验不表示真实历史已接入；信号日收盘回放、次日合法开盘成交、T+1及最长持有期保持。";
+  "工程v1量价适配：共用收涨严格>2%、当日量/前5根均量≥1.5入场，跌幅<-2%或失守MA20退出，连续成立只首日入场。成交额版全程使用同币种同单位amount；后复权版priceFactor与volumeFactor互为倒数、价格另加现金累计调整，禁止当今修订因子回填，仅信号转换而非成交报价。成长板历史身份为创业/科创，量阈1.8，价格阈独立3%与4%；北证留后续市场，不冒充沪深。ETF限境内股票ETF且有当日T+1证据，量阈1.3；指数无直接成交标的，仅参考，不冒充可交易指数。小盘工程定义流通市值≤50亿元且股数≤5亿，换手[3,15]%且高于前5均值，蓝筹非本预设。流通变化分段版要求当前与前5根相同流通股数，否则待新段积满5根；不把普通除权排除当作流通变更。高位为前60根低收至前收≥50%，七维洗盘/派发事实必须完整，任一派发退出，全非派发且连续两日新高才放行。筹码需同日历史算法/复权/窗口、价格质量配平，现价上方筹码≤20%且获利筹码≥50%；大单与超大单分别净流入>0，不以OBV替代。VP用前20完成日高低间均匀分配十二箱，最大箱并列取低价，前收不高于HVN上沿而当日放量突破上沿入场，失守下沿退出，明确日线近似非真实逐笔筹码。周/日均线20向上且价在其上，60分钟5/10金叉择时，必须完成的21周/21日/11小时原始序列及各窗口结束时点/日历完备证据；小时必须按最近三交易日10:30/11:30/14:00/15:00的末11根精确对齐，周内未完成周拒绝；分钟窗口由数据覆盖决定。缺必要字段保留不可用，固定输入可验不表示真实历史已接入；信号日收盘回放、次日合法开盘成交、T+1及最长持有期保持。";
 export function volumeAdaptedDefinition(id: VolumeAdaptedId) {
   return {
     label: `量价 · ${volumeAdaptedProfiles[id][1]}`,
@@ -219,8 +220,7 @@ export function volumePeriodGate(
 ) {
   const p = e?.periods;
   if (
-    date < "2000-01-04" ||
-    date > "2022-11-30" ||
+    !isResearchDate(date) ||
     !p?.complete ||
     !p.calendarSource.trim() ||
     p.observedAt !== `${date}T15:00:00+08:00` ||
@@ -460,8 +460,7 @@ export function researchVolumeAdaptedSeries(
           ].some((v) => typeof v !== "boolean")
         )
           missing("60根位置与七维派发判据完整覆盖");
-        else if (raw.date < "2000-01-04" || raw.date > "2022-11-30")
-          reason = "分钟判据超出2000-01-04至2022-11-30覆盖";
+        else if (!isResearchDate(raw.date)) reason = "分钟判据日期非法";
         else {
           const distribution = [
             d.price,
@@ -488,7 +487,7 @@ export function researchVolumeAdaptedSeries(
         const gate = volumePeriodGate(bars.slice(0, i + 1), e, raw.date);
         if (gate === null)
           missing(
-            "已完成周/日/60分钟序列与结束时点、完整日历；分钟限2022-11-30以前",
+            "已完成周/日/60分钟序列与结束时点、完整日历；分钟窗口以当时数据覆盖为准",
           );
         entry = gate === true;
         detail = { gate };

@@ -889,8 +889,6 @@ async function runLifecycleResearchLocked(
             corporateActions: [],
           };
         } else {
-          if (forwardExecutionBuildHash() !== plan.buildHash)
-            throw new Error("Runtime build changed during research");
           assertLifecycleProcessBudget("segment-before");
           physicalCalls++;
           let lastProgress = performance.now();

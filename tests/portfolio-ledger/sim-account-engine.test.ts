@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { migrate } from "~/server/db/migrations";
+import { migrate, migrations } from "~/server/db/migrations";
 import {
   confirmSimOrder,
   createSimAccount,
@@ -74,6 +74,7 @@ it("手算买入耗尽 1005.50 元，T+1 解锁，卖出净收 1093.90 元", () 
   expect(preview).toMatchObject({
     gross: "1000.00",
     commission: "5.00",
+    transfer: "0.00",
     slippage: "0.50",
     tax: "0.00",
     netCashDelta: "-1005.50",
@@ -102,6 +103,7 @@ it("手算买入耗尽 1005.50 元，T+1 解锁，卖出净收 1093.90 元", () 
   expect(detail(id).positions[0]?.sellableQuantity).toBe("100");
   expect(confirmSimOrder({ ...sell, tradeDate: nextDay }, db)).toMatchObject({
     commission: "5.00",
+    transfer: "0.00",
     tax: "0.55",
     slippage: "0.55",
     netCashDelta: "1093.90",
@@ -119,21 +121,22 @@ it("手算买入耗尽 1005.50 元，T+1 解锁，卖出净收 1093.90 元", () 
 
 it("周五买入的 A 股周末不解锁，周末买卖均拒绝，周一可以卖出", () => {
   const id = equity();
+  const now = Date.parse("2026-11-23T12:00:00+08:00");
   const order = { ...buy(id), tradeDate: "2026-11-20" };
-  confirmSimOrder({ ...order, clientRequestId: "friday" }, db);
+  confirmSimOrder({ ...order, clientRequestId: "friday" }, db, now);
   for (const tradeDate of ["2026-11-21", "2026-11-22"]) {
     expect(detail(id, tradeDate).positions[0]?.sellableQuantity).toBe("0");
     for (const side of ["buy", "sell"] as const) {
       const closed = { ...order, tradeDate, side };
-      expect(() => previewSimOrder(closed, db)).toThrow("周末休市");
+      expect(() => previewSimOrder(closed, db, now)).toThrow("周末休市");
       expect(() =>
-        confirmSimOrder({ ...closed, clientRequestId: "weekend" }, db),
+        confirmSimOrder({ ...closed, clientRequestId: "weekend" }, db, now),
       ).toThrow("周末休市");
     }
   }
   const monday = { ...order, tradeDate: "2026-11-23", side: "sell" as const };
-  expect(previewSimOrder(monday, db).sellableQuantityBefore).toBe("100");
-  confirmSimOrder({ ...monday, clientRequestId: "monday" }, db);
+  expect(previewSimOrder(monday, db, now).sellableQuantityBefore).toBe("100");
+  confirmSimOrder({ ...monday, clientRequestId: "monday" }, db, now);
   expect(detail(id, monday.tradeDate).positions).toEqual([]);
 });
 
@@ -399,7 +402,9 @@ it("计划绑定校验市场与账户状态，覆盖保存后只随当前绑定�
 });
 
 it("同毫秒按修订序重放移动成本，查询可独立翻页，拒绝倒签成交", () => {
-  vi.spyOn(Date, "now").mockReturnValue(1700000000000);
+  vi.spyOn(Date, "now").mockReturnValue(
+    Date.parse("2026-11-23T12:00:00+08:00"),
+  );
   const id = equity(),
     order = buy(id);
   confirmSimOrder({ ...order, clientRequestId: "1" }, db);
@@ -421,7 +426,12 @@ it("同毫秒按修订序重放移动成本，查询可独立翻页，拒绝倒�
   );
   const remaining = detail(id);
   expect(remaining.positions).toMatchObject([
-    { quantity: "100", sellableQuantity: "0", costBasis: "1505.75" },
+    {
+      quantity: "100",
+      sellableQuantity: "0",
+      costBasis: "1505.75",
+      averageCost: "15.05750000",
+    },
   ]);
   expect(() =>
     confirmSimOrder({ ...order, clientRequestId: "backdated" }, db),
@@ -460,6 +470,7 @@ it("币种 T+0 使用八位原子，超出 JS 安全整数余额仍逐原子守�
     symbol: "cxBTCUSDT",
     gross: "60.00000000",
     commission: "0.06000000",
+    transfer: "0.00000000",
     tax: "0.00000000",
     slippage: "0.03000000",
     netCashDelta: "-60.09000000",
@@ -580,5 +591,45 @@ it("两个连接争用同一笔余额与可卖股数时，旧预览不能重复�
   } finally {
     b.close();
     a.close();
+  }
+});
+
+it("v22 历史成交迁入 v23 后过户费默认为零，负过户费被拒绝", () => {
+  const legacy = new Database(":memory:");
+  try {
+    for (const sql of migrations.slice(0, 22)) legacy.exec(sql);
+    legacy.pragma("user_version=22");
+    const id = createSimAccount(
+      { name: "历史账户", market: "cn-equity", initialCapital: "10000" },
+      legacy,
+    ).id;
+    legacy
+      .prepare(
+        "INSERT INTO sim_orders VALUES(?,'order','req','hash','sh600519','buy','manual',NULL,100,1000,?,1,'{}')",
+      )
+      .run(id, firstDay);
+    legacy
+      .prepare(
+        "INSERT INTO sim_fills VALUES(?,'fill','order','sh600519','buy',100,1000,100000,500,0,50,?,1)",
+      )
+      .run(id, firstDay);
+    legacy
+      .prepare(
+        "INSERT INTO sim_cash_flows VALUES(?,'flow','settle','settlement',-100550,'fill',1,'')",
+      )
+      .run(id);
+    migrate(legacy);
+    expect(legacy.pragma("user_version", { simple: true })).toBe(23);
+    expect(
+      getSimAccountDetail({ accountId: id, currentTradeDate: nextDay }, legacy),
+    ).toMatchObject({
+      trades: [{ transfer: "0.00", netCashDelta: "-1005.50" }],
+      positions: [{ costBasis: "1005.50" }],
+    });
+    expect(() => legacy.exec("UPDATE sim_fills SET transfer_atoms=-1")).toThrow(
+      /CHECK/,
+    );
+  } finally {
+    legacy.close();
   }
 });

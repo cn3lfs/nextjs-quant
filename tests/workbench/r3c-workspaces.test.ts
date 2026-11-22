@@ -65,6 +65,8 @@ function repository() {
 }
 function event(bar: string): AlertEvent {
   const identity = {
+    type: "entry" as const,
+    price: 10,
     strategyId: strategy.id,
     version: 1,
     market: "cn-equity" as const,
@@ -74,9 +76,7 @@ function event(bar: string): AlertEvent {
   return {
     ...identity,
     key: alertKey(identity),
-    type: "entry",
     sleeve: "swing",
-    price: 10,
     stop: 9,
     target: null,
     observedAt: Date.parse(`${bar}T07:01:00Z`),
@@ -433,7 +433,7 @@ describe("R3c database backup", () => {
       await backupDatabase();
     }
     const status = await databaseStatus();
-    expect(status.version).toBe(21);
+    expect(status.version).toBe(23);
     expect(status.keep).toBe(2);
     expect(status.backups).toHaveLength(2);
     expect(status.latest).toBeGreaterThan(0);

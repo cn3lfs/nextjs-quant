@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import type { FileHandle } from "node:fs/promises";
 import {
@@ -8,6 +9,7 @@ import {
   readFile,
   readdir,
   rename,
+  stat,
   unlink,
   writeFile,
 } from "node:fs/promises";
@@ -501,16 +503,13 @@ export type ResearchExecutionIdentity = {
   lockfile: ResearchDependencyHash;
 };
 
-/** Conservative default: every package that a research CLI can import plus the
- * app source closure. A later import addition cannot silently escape the hash. */
+/** Lightweight run identity: workspace/package inputs and git HEAD, never the
+ * whole source tree. Explicit runner/definition files remain hashed by
+ * `researchExecutionIdentity` because they are the code this run executes. */
 export const defaultResearchArtifactRoots = [
-  "packages/quant-backtest/dist",
-  "packages/quant-performance/dist",
-  "packages/quant-rps/dist",
-  "packages/trading-strategies/dist",
-  "packages/trading-strategy-core/dist",
-  "packages/tstdx/dist",
-  "src",
+  "package.json",
+  "pnpm-lock.yaml",
+  "git:HEAD",
 ] as const;
 
 function dependencyLabel(path: string): string {
@@ -541,15 +540,31 @@ export async function researchArtifactIdentity(
 ): Promise<{ roots: string[]; hash: string }> {
   const hash = createHash("sha256");
   const labels: string[] = [];
-  for (const folder of roots) {
-    const label = dependencyLabel(folder);
+  for (const root of roots) {
+    const label = dependencyLabel(root);
     labels.push(label);
-    for (const name of (await readdir(folder, { recursive: true }))
-      .filter((name) => /\.(js|ts|tsx|json)$/.test(name))
-      .sort()) {
-      hash.update(`${label}/${dependencyLabel(name)}`);
-      hash.update(await readFile(join(folder, name)));
+    if (label === "git:HEAD") {
+      let head = "unavailable";
+      try {
+        head = execFileSync("git", ["rev-parse", "HEAD"], {
+          encoding: "utf8",
+        }).trim();
+      } catch {
+        /* Source snapshots and packaged runs may not have a git checkout. */
+      }
+      hash.update(`${label}:${head}`);
+      continue;
     }
+    if ((await stat(root)).isDirectory()) {
+      for (const name of (await readdir(root, { recursive: true }))
+        .filter((name) => /\.(js|ts|tsx|json)$/.test(name))
+        .sort()) {
+        hash.update(`${label}/${dependencyLabel(name)}`);
+        hash.update(await readFile(join(root, name)));
+      }
+      continue;
+    }
+    hash.update(`${label}:`).update(await readFile(root));
   }
   return { roots: labels, hash: hash.digest("hex") };
 }

@@ -1027,7 +1027,8 @@ export function prepareStrategy(
         return (i) =>
           patternAt(rule, i).some(
             (match) =>
-              match.direction === (executionSide === "entry" ? "long" : "short"),
+              match.direction ===
+              (executionSide === "entry" ? "long" : "short"),
           );
       case "rps":
         return (i) => {

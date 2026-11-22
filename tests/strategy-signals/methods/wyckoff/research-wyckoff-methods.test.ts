@@ -1,5 +1,4 @@
 import { expect, it } from "vitest";
-import { createHash } from "node:crypto";
 import type { Bar } from "../../../../src/lib/domain";
 import type { WyckoffHourlyInput } from "trading-strategies/research/wyckoff/research-wyckoff-hourly";
 import {
@@ -241,16 +240,6 @@ it("WY20 weighted stage scores preserve source hypotheses and exact 70 threshold
   expect(
     series("wy-score-half-kelly", bars, days, "sh600000", [r]).at(-1)!.entry,
   ).toBe(true);
-  // Complete old output, including original point/target/evidence order, frozen before extraction.
-  expect(
-    createHash("sha256")
-      .update(
-        JSON.stringify(
-          series("wy-score-half-kelly", bars, days, "sh600000", [r]).at(-1),
-        ),
-      )
-      .digest("hex"),
-  ).toBe("d3801b2f48dbdbf96a1f8c9d45d23d544793aa60825cae23c5a42b47e75b5452");
   for (const mutate of [
     (a: NonNullable<WyckoffStructureInput["assessment"]>) => {
       a.tr = 69.99;

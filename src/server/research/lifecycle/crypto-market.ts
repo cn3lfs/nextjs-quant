@@ -6,6 +6,7 @@ import { binanceArchiveSource } from "../../market/bar-store/binance-archive-sou
 import { publicDataFiles } from "../../data-sources/binance/public-data-store";
 
 import {
+  lifecycleConfigHash,
   type LifecycleMarketSource,
   type LifecycleSourceOptions,
   type SourceStage,
@@ -82,8 +83,15 @@ export async function captureCryptoMarkets(
         coverage: ReturnType<typeof lifecycleCryptoCoverage>;
       }
     > = {};
-  const cap = "2026-11-13",
-    through = dayAfter(cap);
+  // The immutable L3 registration declares this cap in axes.crypto.end.
+  const registeredCutoff =
+    (options.expectedConfigHash ?? lifecycleConfigHash) === lifecycleConfigHash
+      ? "2026-11-13"
+      : undefined;
+  const now = Date.parse(frozenAt);
+  const through = registeredCutoff
+    ? Date.parse(dayAfter(registeredCutoff))
+    : now;
   for (const period of ["day", "4h"] as const)
     for (const symbol of ["BTCUSDT", "ETHUSDT"]) {
       const key = `${symbol}:${period}`,
@@ -94,7 +102,7 @@ export async function captureCryptoMarkets(
           symbol,
           interval,
           0,
-          Date.parse(through) - 1,
+          registeredCutoff ? through - 1 : through,
         );
         if (paths.some((p) => !p.endsWith(".zip")))
           throw new Error(
@@ -110,16 +118,18 @@ export async function captureCryptoMarkets(
           symbol: `cx${symbol}`,
           period,
           configuredRoot: binanceRoot,
-          to: cap,
-          now: Date.parse(frozenAt),
+          to: registeredCutoff,
+          now,
         });
         if (!snapshot)
           throw new Error("Native original official archive missing");
-        const bars = snapshot.bars.filter((b) =>
-          period === "day"
-            ? b.date <= cap
-            : Date.parse(b.date) <= Date.parse(through),
-        );
+        const bars = registeredCutoff
+          ? snapshot.bars.filter((b) =>
+              period === "day"
+                ? b.date <= registeredCutoff
+                : Date.parse(b.date) <= through,
+            )
+          : snapshot.bars;
         const coverage = lifecycleCryptoCoverage(bars, period),
           missing = coverage.missing.map(
             (d) => `native:${key}: incomplete UTC day ${d}`,
@@ -187,6 +197,10 @@ export async function captureCryptoMarkets(
         };
       }
     }
+  for (const [key, source] of Object.entries(cryptoSources))
+    await stage(
+      `crypto:cutoff:${key}:${registeredCutoff ? "registered" : "source-coverage"}:${registeredCutoff ?? source.coverage.last ?? "unavailable"}`,
+    );
   await stage("crypto:captured");
   const cryptoMarket = (period: "day" | "4h"): LifecycleMarketSource => {
     const sources = ["BTCUSDT", "ETHUSDT"].map(
@@ -248,7 +262,14 @@ export async function captureCryptoMarkets(
   return {
     binanceRoot,
     cryptoSources,
-    cap,
+    // The caller intersects the complete-day coverage of each family's required series.
+    cap:
+      registeredCutoff ??
+      Object.values(cryptoSources)
+        .flatMap((s) => (s.coverage.last ? [s.coverage.last] : []))
+        .sort()
+        .at(-1) ??
+      frozenAt.slice(0, 10),
     day: cryptoMarket("day"),
     fourHour: cryptoMarket("4h"),
   };

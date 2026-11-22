@@ -3,10 +3,13 @@ import { get, put, sqlite } from "../../db";
 import { saveSecret, readSecret } from "../../vault";
 import {
   MockTradingAdapter,
+  mockCredentialRevision,
   reconcilePositions,
   type MockAccount,
+  type MockOrderStatus,
   type MockResponseEvidence,
 } from "./mock-trading";
+import { chinaDate } from "~/lib/market/security-trading-status";
 import {
   tradeInputSchema,
   type TradeInput,
@@ -53,7 +56,13 @@ export async function reconcileMock() {
 type PendingOrder = {
   input: TradeInput;
   expires: number;
-  state: "pending" | "attempted";
+  state: "pending" | "attempted" | "accepted" | "unknown";
+  receipt?: {
+    entrustNos: string[];
+    at: number;
+    credentialRevision: string;
+    tradeDate: string;
+  };
 };
 export async function previewMockOrder(input: unknown) {
   if (!mockEnabled()) throw new Error("同花顺模拟盘未开启");
@@ -93,7 +102,74 @@ export async function confirmMockOrder(id: string) {
     !context.calendar.includes(context.today)
   )
     throw new Error("交易日期已变化，请重新预览");
-  return adapter().order(order.input, true);
+  try {
+    const receipt = await adapter().order(order.input, true);
+    put<PendingOrder>("mock-order", id, {
+      ...order,
+      state: "accepted",
+      receipt: {
+        entrustNos: receipt.entrustNos,
+        at: Date.now(),
+        credentialRevision: receipt.credentialRevision,
+        tradeDate: receipt.tradeDate,
+      },
+    });
+    return receipt;
+  } catch (error) {
+    // The single attempt already left the process; never let the token look
+    // confirmable again, and keep the remote outcome unknown.
+    put<PendingOrder>("mock-order", id, { ...order, state: "unknown" });
+    throw error;
+  }
+}
+
+/** Read-only: consults the venue, never resubmits or rewrites business state. */
+export async function queryMockOrderStatus(id: string) {
+  if (!/^mock-order-[\da-f-]{36}$/.test(id)) throw new Error("无效委托编号");
+  if (!mockEnabled()) throw new Error("同花顺模拟盘未开启");
+  const order = get<PendingOrder>(id);
+  if (!order) throw new Error("委托记录不存在");
+  const entrustNos = order.receipt?.entrustNos ?? [];
+  const unattributable = (reason: string): MockOrderStatus => ({
+    attributable: false,
+    fillStatus: "unknown",
+    rows: [],
+    reason,
+  });
+  if (!order.receipt || order.state !== "accepted" || entrustNos.length === 0)
+    return {
+      state: order.state,
+      entrustNos,
+      ...unattributable("缺少发送时的委托号，无法按成交归属"),
+    };
+  // The venue only exposes today's trades. Bind the query to the credential
+  // snapshot and trading date that actually sent the order; never let a new
+  // account or a later day claim an old entrust number.
+  const current = await readSecret<MockAccount>(credentialId);
+  if (
+    !current ||
+    mockCredentialRevision(current) !== order.receipt.credentialRevision
+  )
+    return {
+      state: order.state,
+      entrustNos,
+      ...unattributable("凭证已变化，保持未知；请人工核对"),
+    };
+  const today = chinaDate(Date.now());
+  if (today !== order.receipt.tradeDate)
+    return {
+      state: order.state,
+      entrustNos,
+      ...unattributable("跨日无历史委托查询能力，保持未知"),
+    };
+  const status = await adapter().orderStatus(entrustNos);
+  if (chinaDate(Date.now()) !== today)
+    return {
+      state: order.state,
+      entrustNos,
+      ...unattributable("查询跨越交易日，保持未知"),
+    };
+  return { state: order.state, entrustNos, ...status };
 }
 
 export function mockDiagnostics() {

@@ -33,6 +33,7 @@ import { settings } from "../../infra/settings";
 import { freeChartHistory, thsdkChartHistory } from "../free-chart-sources";
 import { mergeOnlineDailyTail } from "../chart-online-delta";
 import { marketSourceSchema } from "~/lib/market/market-source";
+import { checkBarBudget, type BarResourceBudget } from "./resource-budget";
 
 export const readBarsInput = z
   .object({
@@ -47,7 +48,7 @@ export const readBarsInput = z
       .string()
       .refine((v) => Number.isFinite(Date.parse(v)))
       .optional(),
-    limit: z.number().int().min(1).max(2000000).optional(),
+    limit: z.number().int().safe().min(1).optional(),
     live: z.boolean().default(false),
     root: z.string().optional(),
     chartFunds: z.boolean().default(false),
@@ -99,6 +100,10 @@ const withinStart = (date: string, start?: string) =>
     : Date.parse(date) >= Date.parse(start));
 const hashOf = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
+
+const isExchangeDate = (value: string) =>
+  /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+  new Date(value).toISOString().slice(0, 10) === value;
 
 function completedDailySource(bars: Bar[], now: number, adjusted: boolean) {
   const today = beijingClock(now).date;
@@ -274,10 +279,20 @@ export async function readBars<const T extends ReadBarsInput>(
   value: T,
   frozen?: Omit<Snapshot, "period"> & { period: ChartPeriod },
   thsdkFetch?: typeof thsdkChartHistory,
+  budget?: BarResourceBudget,
 ): Promise<BarSeries & { period: T["period"] }> {
   const input = readBarsInput.parse(value),
     now = input.now ?? Date.now();
   const { market, symbol } = input.instrument;
+  const budgetContext = { symbol, period: input.period };
+  const checkSourceBudget = (bars: number) => {
+    if (budget) budget.checkSource(bars, budgetContext);
+    else checkBarBudget(bars, budgetContext, "source");
+  };
+  if (input.limit) {
+    if (budget) budget.checkLimit(input.limit, budgetContext);
+    else checkBarBudget(input.limit, budgetContext, "limit");
+  }
   if (input.period !== "month" && !marketPeriods[market].includes(input.period))
     throw new Error("该市场不支持所选周期");
   if (market === "futures")
@@ -388,8 +403,25 @@ export async function readBars<const T extends ReadBarsInput>(
   } else if (explicitThs) {
     raw = await readNativeThs();
   } else {
+    // Aggregation, adjustment and live overlay need the original prefix for
+    // bucket diagnostics, reference factors and overlap validation.
+    const window =
+      input.from &&
+      isExchangeDate(input.from) &&
+      (!input.to || isExchangeDate(input.to)) &&
+      input.adjustment === "none" &&
+      input.period === base &&
+      !input.live
+        ? { from: input.from, to: input.to }
+        : undefined;
     const local = () =>
-      localBars(root, symbol, base === "day" ? "day" : "5m", input.chartFunds);
+      localBars(
+        root,
+        symbol,
+        base === "day" ? "day" : "5m",
+        input.chartFunds,
+        window,
+      );
     if (input.source && input.source !== "local") {
       try {
         if (input.source !== "auto") throw new Error("selected remote source");
@@ -428,6 +460,7 @@ export async function readBars<const T extends ReadBarsInput>(
       }
     } else raw = await local();
   }
+  checkSourceBudget(raw.bars.length + (raw.rawBars?.length ?? 0));
   const priceRepaired =
     raw.barStore?.priceRepaired ??
     (raw.source === "tdx-local" && Boolean(raw.sourceNote));
@@ -452,6 +485,7 @@ export async function readBars<const T extends ReadBarsInput>(
         requests: 1,
       });
       raw = merged.snapshot;
+      checkSourceBudget(raw.bars.length);
       if (raw.bars.at(-1)?.date === clock.date)
         overlay = {
           source: remote.source,
@@ -597,6 +631,17 @@ export async function readBars<const T extends ReadBarsInput>(
         // adjusted history a second time just to identify that deterministic view.
         hashOf({ base: raw.hash, period: input.period, metadata });
   if (adjustmentSource) metadata.adjustmentSource = adjustmentSource;
+  const rawBars =
+    input.freezeRaw && input.adjustment !== "none"
+      ? (thsRawBars ?? raw.bars.filter((b) => withinEnd(b.date, input.to)))
+      : raw.rawBars;
+  const outputBars = bars.length + (rawBars?.length ?? 0);
+  if (budget) {
+    // A research freeze carries both execution and signal series, including
+    // when the snapshot aliases the unadjusted rows for both.
+    const aliasedRawBars = input.freezeRaw && !rawBars ? bars.length : 0;
+    budget.retain(outputBars + aliasedRawBars, budgetContext);
+  } else checkBarBudget(outputBars, budgetContext, "output");
   return {
     ...raw,
     id:
@@ -610,12 +655,7 @@ export async function readBars<const T extends ReadBarsInput>(
     adjustment: input.adjustment,
     bars,
     ...(nativeThs ? { sourceVersions } : {}),
-    ...(input.freezeRaw && input.adjustment !== "none"
-      ? {
-          rawBars:
-            thsRawBars ?? raw.bars.filter((b) => withinEnd(b.date, input.to)),
-        }
-      : {}),
+    ...(rawBars ? { rawBars } : {}),
     hash,
     barStore: metadata,
   } as BarSeries & { period: T["period"] };

@@ -8,16 +8,14 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { compareFailures, knownFailures, spotTests } from "./lib/verification";
-import { collectMethodEvidence } from "./lib/trading-method-evidence";
+import { spotTests } from "./lib/verification";
 
 const [mode, ...files] = process.argv.slice(2);
 if (mode !== "spot" && mode !== "batch")
   throw new Error("Use verify:spot <tests...> or verify:batch");
 if (mode === "batch" && files.length)
   throw new Error("verify:batch takes no arguments");
-const selected =
-  mode === "spot" ? spotTests(files, collectMethodEvidence([]).imports) : [];
+const selected = mode === "spot" ? spotTests(files) : [];
 const pnpm = process.env.npm_execpath;
 if (!pnpm) throw new Error("Run through pnpm verify:spot / verify:batch");
 const parent = resolve(tmpdir(), "quant-verification");
@@ -65,31 +63,12 @@ try {
   if (mode === "spot") command(["run", "test", ...selected]);
   else {
     command(["typecheck"]);
-    const registered = knownFailures(
-      readFileSync("docs/known-test-failures.md", "utf8"),
-    );
-    const report = join(run, "vitest.json");
-    command(
-      [
-        "run",
-        "test",
-        "--reporter=default",
-        "--reporter=json",
-        "--reporter=./scripts/lib/verification-reporter.ts",
-        `--outputFile=${report}`,
-      ],
-      registered.length > 0,
-    );
-    try {
-      failures.push(
-        ...compareFailures(
-          JSON.parse(readFileSync(report, "utf8")),
-          registered,
-        ),
-      );
-    } catch (error) {
-      failures.push(`Invalid/missing test report: ${String(error)}`);
-    }
+    command([
+      "run",
+      "test",
+      "--reporter=default",
+      "--reporter=./scripts/lib/verification-reporter.ts",
+    ]);
     try {
       const runtime = JSON.parse(
         readFileSync(env.QUANT_VERIFY_RUNTIME_REPORT, "utf8"),
@@ -105,14 +84,10 @@ try {
     }
     command(["build"]);
     command(["format:check"]);
-    // Source snapshots are byte-exact copies of external skill files; their
-    // trailing whitespace belongs to the author, not to us, and "fixing" it
-    // would break the manifest hashes that make drift reviewable.
-    const diff = spawnSync(
-      "git",
-      ["diff", "--check", "--", ".", ":!docs/trading-skills-source-snapshots"],
-      { env, stdio: "inherit" },
-    );
+    const diff = spawnSync("git", ["diff", "--check", "--", "."], {
+      env,
+      stdio: "inherit",
+    });
     if (diff.status !== 0) failures.push("git diff --check");
   }
 } finally {

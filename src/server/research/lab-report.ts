@@ -43,13 +43,15 @@ export async function labValidationReport(hash: string, id: string) {
     .object({
       inputHash: z.string(),
       result: z.object({
+        timingStatus: z.enum(["p5", "drift", "unknown"]).optional(),
         suites: z.array(z.object({ suite: z.object({ rows: z.array(row) }) })),
       }),
     })
     .parse(raw);
-  return (
-    report.result.suites
-      .flatMap((s) => s.suite.rows)
-      .find((r) => r.id === id) ?? null
-  );
+  const candidate = report.result.suites
+    .flatMap((s) => s.suite.rows)
+    .find((r) => r.id === id);
+  return candidate
+    ? { ...candidate, timingStatus: report.result.timingStatus ?? "unknown" }
+    : null;
 }

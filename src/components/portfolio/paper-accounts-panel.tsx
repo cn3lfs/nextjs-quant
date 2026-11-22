@@ -261,7 +261,7 @@ export function PaperAccountsPanel() {
             onClick={() => setSelected(a.id)}
           >
             <strong className="break-all text-nc-accent">
-              模拟 · {a.id.replace(/^paper:/, "")}
+              模拟 · {a.name ?? a.id.replace(/^paper:/, "")}
             </strong>
             <span>
               {a.currency} · 本金 {formatNumber(a.initial)} · 累计{" "}
@@ -286,7 +286,20 @@ export function PaperAccountsPanel() {
               )}
             </span>
             <span>
-              同期基准{" "}
+              {(() => {
+                const name =
+                  a.summary?.benchmarkName ??
+                  (a.market === "cn-equity"
+                    ? "中证800价格指数（不含股息）"
+                    : "同期基准");
+                const basis = a.summary?.benchmarkBasis;
+                if (name.includes("含股息") || name.includes("不含股息"))
+                  return name;
+                if (basis === "total-return") return name + "（含股息再投资）";
+                if (basis === "price-index-ex-dividends")
+                  return name + "（不含股息）";
+                return a.market === "cn-equity" ? name + "（不含股息）" : name;
+              })()}{" "}
               {formatPercent(
                 a.summary?.benchmarkReturn == null
                   ? null
@@ -302,7 +315,7 @@ export function PaperAccountsPanel() {
         ))}
       </div>
       {!query.isLoading && !query.data?.length && (
-        <p>尚未登记；在设置中选择本金与合账方式，按冻结规则登记候选。</p>
+        <p>尚未登记。创建纸面账户时须显式提供候选策略。</p>
       )}
       {detail.error && <p role="alert">{detail.error.message}</p>}
       {detail.data?.candidates.map((c) => (

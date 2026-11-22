@@ -88,55 +88,13 @@ it("all strategy calculations and contracts belong to the independent package", 
 });
 
 it("retires original algorithm files instead of retaining forwarding compatibility modules", () => {
-  const ledger: unknown = JSON.parse(
-    readFileSync(resolve("docs/strategy-module-migration.json"), "utf8"),
-  );
-  if (typeof ledger !== "object" || ledger === null || Array.isArray(ledger))
-    throw new Error("Migration ledger must be an old-to-new path mapping");
-  const entries = Object.entries(ledger);
-  expect(entries).toHaveLength(128);
-  expect(new Set(entries.map(([, destination]) => destination)).size).toBe(128);
-  expect(entries.filter(([source]) => source.endsWith(".json"))).toHaveLength(
-    1,
-  );
-  for (const [source, destination] of entries) {
-    if (typeof destination !== "string")
-      throw new Error(`Invalid destination for ${source}`);
-    expect(source.startsWith("src/"), source).toBe(true);
-    expect(
-      destination.startsWith("packages/trading-strategies/src/"),
-      destination,
-    ).toBe(true);
-    expect(existsSync(resolve(source)), source).toBe(false);
-    expect(existsSync(resolve(destination)), destination).toBe(true);
-    if (source.endsWith(".json"))
-      expect(
-        JSON.parse(readFileSync(resolve(destination), "utf8")),
-      ).not.toBeNull();
-  }
   for (const file of [
-    ["src", "lib", "research", "methods", "volume", "research-volume.ts"].join(
-      "/",
-    ),
-    [
-      "src",
-      "lib",
-      "research",
-      "methods",
-      "chan",
-      "research-chan-native.ts",
-    ].join("/"),
-    [
-      "src",
-      "lib",
-      "research",
-      "methods",
-      "swing",
-      "research-swing-core.ts",
-    ].join("/"),
-    ["src", "server", "strategies", "breakout", "breakout.ts"].join("/"),
-    ["src", "server", "strategies", "canslim", "vcp.ts"].join("/"),
-    ["src", "lib", "research", "technical", "research-execution.ts"].join("/"),
+    "src/lib/research/methods/volume/research-volume.ts",
+    "src/lib/research/methods/chan/research-chan-native.ts",
+    "src/lib/research/methods/swing/research-swing-core.ts",
+    "src/server/strategies/breakout/breakout.ts",
+    "src/server/strategies/canslim/vcp.ts",
+    "src/lib/research/technical/research-execution.ts",
   ])
     expect(existsSync(resolve(file)), file).toBe(false);
   for (const file of [

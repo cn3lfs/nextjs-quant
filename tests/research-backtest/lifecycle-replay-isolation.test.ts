@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
-import { resolve } from "node:path";
+import { mkdtempSync, rmSync } from "node:fs";
+import { join, resolve } from "node:path";
 
 function inspect(directory: string, config = "r2a4.json") {
   return spawnSync(
@@ -27,24 +28,34 @@ function inspect(directory: string, config = "r2a4.json") {
   );
 }
 it("writes a frozen replay into this verification task while preserving its original configuration", () => {
-  const task = resolve(process.env.QUANT_DATA_DIR!, "replay");
-  const result = inspect(resolve(task, "data"));
-  expect(result.status, result.stderr).toBe(0);
-  expect(JSON.parse(result.stdout.trim())).toEqual({
-    output: task,
-    task: ".test-data/r2a4",
-    method: null,
-  });
+  const base = mkdtempSync(resolve(".test-data/isolation-"));
+  try {
+    const task = join(base, "replay");
+    const result = inspect(join(task, "data"));
+    expect(result.status, result.stderr).toBe(0);
+    expect(JSON.parse(result.stdout.trim())).toEqual({
+      output: task,
+      task: ".test-data/r2a4",
+      method: null,
+    });
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
 });
 it("also isolates a frozen R2a5 replay without changing its legacy method", () => {
-  const task = resolve(process.env.QUANT_DATA_DIR!, "replay-r2a5");
-  const result = inspect(resolve(task, "data"), "r2a5.json");
-  expect(result.status, result.stderr).toBe(0);
-  expect(JSON.parse(result.stdout.trim())).toEqual({
-    output: task,
-    task: ".test-data/r2a5",
-    method: null,
-  });
+  const base = mkdtempSync(resolve(".test-data/isolation-"));
+  try {
+    const task = join(base, "replay-r2a5");
+    const result = inspect(join(task, "data"), "r2a5.json");
+    expect(result.status, result.stderr).toBe(0);
+    expect(JSON.parse(result.stdout.trim())).toEqual({
+      output: task,
+      task: ".test-data/r2a5",
+      method: null,
+    });
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
 });
 it("refuses replay writes over the original frozen source or outside isolated test data", () => {
   expect(inspect(resolve(".test-data/r2a4/data")).status).not.toBe(0);

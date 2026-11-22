@@ -248,9 +248,7 @@ it("all final five methods registered only after actual DLL verification", () =>
   ]);
   expect(chanC4Presets).toHaveLength(9);
   expect(
-    chanC4Presets
-      .filter((p) => p.anchor === 2)
-      .every((p) => p.window?.join("/") === "2000-01-04/2022-11-30"),
+    chanC4Presets.filter((p) => p.anchor === 2).every((p) => p.window === null),
   ).toBe(true);
   expect(
     chanC4Presets.every(

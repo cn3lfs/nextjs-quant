@@ -31,6 +31,10 @@ type ProtectedChecksums = {
   trade_fills: ProtectedChecksum;
   cash_flows: ProtectedChecksum;
   trade_ledger: ProtectedChecksum;
+  delivery_batches?: ProtectedChecksum;
+  trade_fills_claims?: ProtectedChecksum;
+  cash_flows_claims?: ProtectedChecksum;
+  delivery_uncertain_claims?: ProtectedChecksum;
 };
 
 export type LegacyCleanupManifest = {
@@ -117,7 +121,7 @@ type CliArgs =
       backupPath: string;
     };
 
-const protectedTables = [
+const [importBatches, tradeFills, cashFlows] = [
   {
     table: "import_batches",
     columns: [
@@ -149,10 +153,28 @@ const protectedTables = [
     columns: ["id", "account", "flow_date", "batch_id", "payload"],
     orderBy: "id",
   },
+] as const;
+
+const deliveryTables = [
   {
-    table: "trade_ledger",
-    columns: ["id", "symbol", "trade_date", "payload"],
+    table: "delivery_batches",
+    columns: [...importBatches.columns, "revoked_at"],
     orderBy: "id",
+  },
+  {
+    table: "trade_fills_claims",
+    columns: ["claim_order", ...tradeFills.columns],
+    orderBy: "claim_order",
+  },
+  {
+    table: "cash_flows_claims",
+    columns: ["claim_order", ...cashFlows.columns],
+    orderBy: "claim_order",
+  },
+  {
+    table: "delivery_uncertain_claims",
+    columns: ["batch_id", "fact_table"],
+    orderBy: "batch_id,fact_table",
   },
 ] as const;
 
@@ -181,10 +203,18 @@ function fail(message: string): never {
   throw new LegacyPaperCleanupError(message);
 }
 
-function tableExists(db: Database.Database, table: string) {
+function relationExists(
+  db: Database.Database,
+  name: string,
+  type: "table" | "view",
+) {
   return !!db
-    .prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?")
-    .get(table);
+    .prepare("SELECT 1 FROM sqlite_master WHERE type=? AND name=?")
+    .get(type, name);
+}
+
+function tableExists(db: Database.Database, table: string) {
+  return relationExists(db, table, "table");
 }
 
 function databasePath(raw: string) {
@@ -206,9 +236,12 @@ function checksumRows(
   columns: readonly string[],
   orderBy: string,
   where?: { clause: string; params: unknown[] },
+  type: "table" | "view" = "table",
 ): ProtectedChecksum {
-  if (!tableExists(db, table))
-    fail(`表 ${table} 不存在；请确认数据库版本，拒绝继续`);
+  if (!relationExists(db, table, type))
+    fail(
+      `${type === "view" ? "视图" : "表"} ${table} 不存在；请确认数据库版本，拒绝继续`,
+    );
   const filter = where ? ` WHERE ${where.clause}` : "";
   const rows = db
     .prepare(
@@ -224,24 +257,33 @@ function checksumRows(
   };
 }
 
-function checksumTable(
-  db: Database.Database,
-  table: string,
-  columns: readonly string[],
-  orderBy: string,
-): ProtectedChecksum {
-  return checksumRows(db, table, columns, orderBy);
-}
-
 function protectedChecksums(db: Database.Database): ProtectedChecksums {
+  const version = db.pragma("user_version", { simple: true }) as number;
+  const hasDeliveryClaims = version >= 22;
   const result = {} as ProtectedChecksums;
-  for (const spec of protectedTables) {
-    result[spec.table] = checksumTable(
+  for (const { table, columns, orderBy } of [
+    importBatches,
+    tradeFills,
+    cashFlows,
+  ]) {
+    result[table] = checksumRows(
       db,
-      spec.table,
-      spec.columns,
-      spec.orderBy,
+      table,
+      columns,
+      orderBy,
+      undefined,
+      hasDeliveryClaims ? "view" : "table",
     );
+  }
+  result.trade_ledger = checksumRows(
+    db,
+    "trade_ledger",
+    ["id", "symbol", "trade_date", "payload"],
+    "id",
+  );
+  if (hasDeliveryClaims) {
+    for (const { table, columns, orderBy } of deliveryTables)
+      result[table] = checksumRows(db, table, columns, orderBy);
   }
   return result;
 }
@@ -602,6 +644,12 @@ export async function applyLegacyPaperPurge(
 
         const accountIds = current.accounts.map((account) => account.id);
         const placeholders = accountIds.map(() => "?").join(",");
+        const orderEventChanges = live
+          .prepare(
+            `DELETE FROM records WHERE kind='order-event'
+               AND json_extract(payload,'$.accountId') IN (${placeholders})`,
+          )
+          .run(...accountIds).changes;
         const factChanges = live
           .prepare(
             `DELETE FROM paper_facts WHERE account_id IN (${placeholders})`,
@@ -609,6 +657,8 @@ export async function applyLegacyPaperPurge(
           .run(...accountIds).changes;
         if (factChanges !== current.totals.factRows)
           fail("paper_facts 删除行数与清单不一致；事务已回滚");
+        // Order-transition facts live in records; remove them with the account.
+        void orderEventChanges;
         const stateChanges = live
           .prepare(
             `DELETE FROM paper_state WHERE account_id IN (${placeholders})`,

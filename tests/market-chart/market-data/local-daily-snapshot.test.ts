@@ -57,12 +57,19 @@ it("requires explicit repair, returns to newer local data and retains imported p
     adjustment: "none" as const,
   };
   expect((await readBars(input)).source).toBe("tdx-local");
+  expect(
+    await readBars({ ...input, from: "2026-09-10", to: "2026-09-10" }),
+  ).toMatchObject({ source: "tdx-local", bars: [] });
   put("tdx-full-day-current", "tdx-full-day-current-sh600000", {
     snapshotId: imported.id,
     importedAt: 10,
     repairSameDate: true,
   });
   expect((await readBars(input)).bars[0]?.close).toBe(11);
+  expect(
+    (await readBars({ ...input, from: "2026-09-11", to: "2026-09-11" })).bars[0]
+      ?.close,
+  ).toBe(11);
   put("tdx-full-day-current", "tdx-full-day-current-sh600000", {
     snapshotId: imported.id,
     importedAt: 10,
@@ -71,6 +78,9 @@ it("requires explicit repair, returns to newer local data and retains imported p
   expect((await readBars(input)).source).toBe("tdx-full-package");
   await writeFile(file, bytes(20260914));
   expect((await readBars(input)).source).toBe("tdx-local");
+  expect(
+    await readBars({ ...input, from: "2026-09-11", to: "2026-09-11" }),
+  ).toMatchObject({ source: "tdx-local", bars: [] });
   expect(
     await readBars({ ...input, root: join(root, "missing") }),
   ).toMatchObject({

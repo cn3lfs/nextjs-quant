@@ -21,13 +21,25 @@ export type ValidationWork = {
 export async function executeValidationWork(
   work: ValidationWork,
   progress: (n: number, phase: string) => void = () => {},
+  signal?: AbortSignal,
 ) {
+  const controller = new AbortController();
+  const replaySignal = signal
+    ? AbortSignal.any([signal, controller.signal])
+    : controller.signal;
   const assertActive = () => {
+    replaySignal.throwIfAborted();
     if (
       work.jobId &&
       !["queued", "running"].includes(readJob(work.jobId)?.status ?? "missing")
     )
-      throw new Error("Research task cancelled or no longer active");
+      controller.abort(
+        new DOMException(
+          "Research task cancelled or no longer active",
+          "AbortError",
+        ),
+      );
+    replaySignal.throwIfAborted();
   };
   assertActive();
   const started = performance.now();
@@ -38,12 +50,30 @@ export async function executeValidationWork(
         work.root,
         progress,
       );
+  assertActive();
   const captureMs = performance.now() - started;
   const inputHash =
     work.frozenHash ?? (await writeValidationArtifact("input", frozen));
   progress(40, `输入已冻结 ${inputHash}`);
   assertActive();
-  const result = replayValidationInput(frozen, progress);
+  const result = replayValidationInput(
+    frozen,
+    (n, phase) => {
+      progress(n, phase);
+      assertActive();
+    },
+    replaySignal,
+  );
+  for (const dataset of frozen.datasets) {
+    for (const source of dataset.sources ?? []) {
+      const gap = source.terminalCoverage?.gap;
+      if (gap)
+        result.missing.push({
+          id: `terminal-valuation:${source.symbol}:${dataset.period}`,
+          reason: gap,
+        });
+    }
+  }
   assertActive();
   const resultHash = await writeValidationArtifact("report", {
     inputHash,
@@ -76,6 +106,7 @@ export async function executeValidationWork(
   return {
     ...scoreboard,
     artifactVersion: result.version,
+    timingStatus: result.timingStatus,
     schemaMigration: "unchanged" as const,
     captureMs,
     boundary: "Rule-check-only; no notifications or account/order API calls",

@@ -48,6 +48,8 @@ export function recordPaperAlerts(
         (c) => c.strategy.id === fill.strategyId,
       )!.strategy;
       const identity = {
+        type: "paper-fill" as const,
+        price: fill.price,
         strategyId: strategy.id,
         version: strategy.version,
         market: account.market,
@@ -58,8 +60,6 @@ export function recordPaperAlerts(
       const event: AlertEvent = {
         ...identity,
         key: alertKey(identity),
-        type: "paper-fill",
-        price: fill.price,
         sleeve: fill.sleeve,
         stop: null,
         target: null,

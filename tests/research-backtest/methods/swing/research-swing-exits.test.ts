@@ -5,10 +5,7 @@ import {
   swingExitKind,
 } from "trading-strategies/research/swing/research-swing-exits";
 import { researchSpecSchema } from "../../../../src/lib/research/strategy-research";
-import {
-  researchMethodSnapshot,
-  validateResearchMethod,
-} from "../../../../src/server/research/research-method";
+import { researchMethodSnapshot } from "../../../../src/server/research/research-method";
 const dates = Array.from(
   { length: 12 },
   (_, i) => `2024-01-${String(i + 2).padStart(2, "0")}`,
@@ -75,9 +72,9 @@ it("pins the recognized rule and both source files without naming edited custom 
         "swing-trader/references/position-management.md",
       ]),
     );
-    expect(() => validateResearchMethod(input, saved)).not.toThrow();
+    const before = researchMethodSnapshot(input);
     input.management!.scaleOut![1]!.atR = 3;
     expect(researchMethodSnapshot(input)).not.toHaveProperty("swingExit");
-    expect(() => validateResearchMethod(input, saved)).toThrow("方法版本");
+    expect(researchMethodSnapshot(input)).not.toEqual(before);
   }
 });

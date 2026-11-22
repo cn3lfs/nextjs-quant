@@ -95,7 +95,7 @@ it("filters aggregate observation counts by sleeve with the same sleeve scores",
 });
 it("retains every fill, cash, rejection and equity value when replacing no-op observations with exact counts", () => {
   const q = input();
-  const full = runPortfolio(q),
+  const full = runPortfolio({ ...q, observationDetail: "full" }),
     compact = runPortfolio({ ...q, observationDetail: "counts" });
   const { observations, ...financial } = full;
   const {

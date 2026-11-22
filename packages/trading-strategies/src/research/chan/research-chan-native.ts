@@ -76,7 +76,7 @@ export const isChanFiveMinute = (id: string) =>
   (isChanZhongyin(id) || (id.startsWith("chan-") && id.endsWith("-c4"))) &&
   id.includes("-five-");
 export const chanZhongyinBoundary =
-  "CH10第89/90课具名组合：relative-level-0的中阴结束首次可知前缀，若同一前缀存在新确认原生三买则入场，三卖退出已有多仓；候选/完成/后继确立分别冻结首见时间，不以证据端点回填。纯结构主版与BOLL20辅助版分名（BOLL20/2：中阴区间内带宽最小处为收口，其后不早于中阴结束的首次放大为结束，由本仓按收盘价计算，不是主判据），与不含中阴过滤的三买基线对照。日线daily-anchor-v1与five-minute-anchor-v1分别运行分表，五分钟锁定2000-01-04..2022-11-30，按五分钟全前缀观察、当日收盘归集、下一合法日线开盘成交，非盘中成交；固定持有期及T+1沿用执行器。旧笔/线段/三买基线未经验证，不宣称原文全覆盖；递归单中枢节点不冒充趋势，固定输入不证明收益。";
+  "CH10第89/90课具名组合：relative-level-0的中阴结束首次可知前缀，若同一前缀存在新确认原生三买则入场，三卖退出已有多仓；候选/完成/后继确立分别冻结首见时间，不以证据端点回填。纯结构主版与BOLL20辅助版分名（BOLL20/2：中阴区间内带宽最小处为收口，其后不早于中阴结束的首次放大为结束，由本仓按收盘价计算，不是主判据），与不含中阴过滤的三买基线对照。日线daily-anchor-v1与five-minute-anchor-v1分别运行分表，五分钟窗口由数据覆盖决定，按五分钟全前缀观察、当日收盘归集、下一合法日线开盘成交，非盘中成交；固定持有期及T+1沿用执行器。旧笔/线段/三买基线未经验证，不宣称原文全覆盖；递归单中枢节点不冒充趋势，固定输入不证明收益。";
 export const chanNativeStrategies = Object.fromEntries(
   chanNativeIds.map((id) => [
     id,

@@ -27,7 +27,6 @@ function old() {
 it("v15 data and foreign keys survive v16; repeat is idempotent; actual v15 app refuses upgrade", () => {
   const db = old();
   try {
-    const repo = new StrategyRepository(db);
     const event = {
       key: JSON.stringify([strategy.id, 1, "crypto", "BTCUSDT", "2026-11-13"]),
       strategyId: strategy.id,
@@ -41,11 +40,22 @@ it("v15 data and foreign keys survive v16; repeat is idempotent; actual v15 app 
       stop: null,
       target: null,
     };
-    repo.record(strategy, event);
+    db.prepare("INSERT INTO watch_events VALUES(?,?,?,?,?,?,?,?,?,?)").run(
+      event.key,
+      event.strategyId,
+      event.version,
+      event.symbol,
+      event.bar,
+      event.type,
+      event.price,
+      "new",
+      null,
+      JSON.stringify(event),
+    );
     const before = db.prepare("SELECT * FROM watch_events").all();
     const records = db.prepare("SELECT * FROM records").all();
     migrate(db);
-    expect(db.pragma("user_version", { simple: true })).toBe(21);
+    expect(db.pragma("user_version", { simple: true })).toBe(23);
     expect(db.prepare("SELECT * FROM watch_events").all()).toEqual(before);
     expect(db.prepare("SELECT * FROM records").all()).toEqual(records);
     expect(db.pragma("foreign_key_check")).toEqual([]);

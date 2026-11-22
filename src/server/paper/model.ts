@@ -48,6 +48,8 @@ export type FrozenCandidate = {
 };
 export type PaperAccount = {
   id: string;
+  /** Present on explicitly registered accounts. */
+  name?: string;
   market: "cn-equity" | "crypto";
   currency: "CNY" | "USDT";
   sleeve: string;
@@ -73,6 +75,8 @@ export type PaperSummary = {
   trades: number;
   winRate: number | null;
   benchmarkReturn: number | null;
+  benchmarkName?: string;
+  benchmarkBasis?: "price-index-ex-dividends" | "total-return" | null;
   signals: number;
   days: number;
   assessment: {
@@ -90,7 +94,21 @@ export type PaperSummary = {
     conformance?: ForwardConformance;
   } | null;
 };
+export type PaperAdvanceEvent = {
+  runId: string;
+  sequence: number;
+  /** Build hash of a checkpoint adopted before the event log existed. */
+  legacyBuild?: string;
+  kind: "baseline" | "advance";
+  at: number;
+  cutoff: string;
+  fills: number;
+  curve: number;
+  resultHash: string;
+  engineVersion: string;
+};
 export type PaperState = {
+  build?: string;
   contextVersion?: "cn-book-1";
   /** Full-history source proofs; pre-start OHLC itself need not be duplicated. */
   sourceIdentity?: Readonly<Record<string, unknown>>;
@@ -108,9 +126,14 @@ export type PaperState = {
     observedAt: number;
     source: string;
   }[];
-};
+} & (
+  | { engineVersion: string; events: PaperAdvanceEvent[] }
+  // Legacy checkpoints can be read as-is until the first verified baseline.
+  | { engineVersion?: never; events?: never }
+);
 export type PaperFactKind =
   | "order"
+  | "order-event"
   | "fill"
   | "position"
   | "equity"
@@ -119,3 +142,9 @@ export type PaperFactKind =
   | "advance"
   | "mirror";
 export type PaperFact = { id: string; date: string; value: unknown };
+export type PaperOrderEvent = {
+  orderId: number;
+  sequence: number;
+  reason: string;
+  order: PaperResult["orders"][number];
+};

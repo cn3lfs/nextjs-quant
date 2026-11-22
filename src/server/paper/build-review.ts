@@ -159,12 +159,22 @@ export function confirmPaperBuild(
     // instead of reformatting any financial bytes during a metadata-only update.
     if (persistedJson(snapshot.state) !== snapshot.raw)
       throw new Error("冻结记录格式已变化，不能证明只更新执行版本");
-    const next = { ...snapshot.state, build: value.newBuild };
+    const next = {
+      ...snapshot.state,
+      build: value.newBuild,
+      ...(snapshot.state.events ? { engineVersion: value.newBuild } : {}),
+    };
     const nextPayload = persistedJson(next);
-    const priorWithoutBuild = { ...snapshot.state };
-    delete priorWithoutBuild.build;
-    const nextWithoutBuild = { ...next } as typeof snapshot.state;
-    delete nextWithoutBuild.build;
+    const {
+      build: _priorBuild,
+      engineVersion: _priorEngine,
+      ...priorWithoutBuild
+    } = snapshot.state;
+    const {
+      build: _nextBuild,
+      engineVersion: _nextEngine,
+      ...nextWithoutBuild
+    } = next;
     if (persistedJson(priorWithoutBuild) !== persistedJson(nextWithoutBuild))
       throw new Error("版本确认不能改变其他冻结字段");
     repo.replaceBuild(value.accountId, snapshot.raw, nextPayload);

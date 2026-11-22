@@ -240,7 +240,8 @@ describe("common frozen request under cost scenarios", () => {
           amount * ((3 * multiplier) / 10000),
         );
         const tax = amount * ((row.taxBps * multiplier) / 10000);
-        expect(sell!.fee).toBeCloseTo(commission + tax, 6);
+        const transfer = amount * ((0.1 * multiplier) / 10000);
+        expect(sell!.fee).toBeCloseTo(commission + tax + transfer, 6);
       }
   });
 

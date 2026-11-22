@@ -5,11 +5,9 @@ import {
   type StrategyBookDecision,
   type StrategyReentryState,
 } from "trading-strategies";
-import {
-  PortfolioAccount,
-  type PortfolioAction,
-} from "../portfolio-account.js";
+import { type PortfolioAction } from "../portfolio-account.js";
 import { portfolioObservationDay } from "../portfolio-clock.js";
+import { AtomsPortfolioAccount } from "./atoms-account.js";
 import {
   type PortfolioInstrument,
   type PortfolioRequest,
@@ -40,7 +38,7 @@ export function createPortfolioState(
   } = preparePortfolioRequest(request, preparation);
   const accounts = new Map(
     sleeves.map((s) => {
-      const account = new PortfolioAccount(initial);
+      const account = new AtomsPortfolioAccount(initial);
       account.transfer(initial * s.share - initial);
       return [s.id, account] as const;
     }),
@@ -110,7 +108,7 @@ export function createPortfolioState(
     symbol: string;
     strategyId: string;
     evidence: string;
-  } & NonNullable<ReturnType<PortfolioAccount["corporateAction"]>>)[] = [];
+  } & NonNullable<ReturnType<AtomsPortfolioAccount["corporateAction"]>>)[] = [];
   const terminalValuations: {
     date: string;
     symbol: string;
@@ -211,6 +209,25 @@ export function createPortfolioState(
       removePending(order);
     }
   };
+  const rpsBySymbol = new Map(
+    [...instruments].map(([symbol, { instrument }]) => {
+      const points = instrument.external?.rps ?? [];
+      const byDate = new Map<string, (typeof points)[number]>();
+      for (const point of points) {
+        if (!byDate.has(point.date)) byDate.set(point.date, point);
+      }
+      return [symbol, byDate] as const;
+    }),
+  );
+  const membershipByStrategy = new Map<string, Map<string, Set<string>>>();
+  for (const row of request.memberships ?? []) {
+    let byDate = membershipByStrategy.get(row.strategyId);
+    if (!byDate) {
+      byDate = new Map();
+      membershipByStrategy.set(row.strategyId, byDate);
+    }
+    if (!byDate.has(row.date)) byDate.set(row.date, new Set(row.symbols));
+  }
   const eligibleAt = (
     strategy: (typeof strategies)[number],
     symbol: string,
@@ -225,18 +242,14 @@ export function createPortfolioState(
     if (strategy.universe.kind === "symbols")
       return symbolUniverses.get(strategy.id)!.has(symbol);
     if (strategy.universe.kind === "rps") {
-      const point = source.instrument.external?.rps?.find(
-          (p) => p.date === date,
-        ),
+      const point = rpsBySymbol.get(source.instrument.symbol)?.get(date),
         value =
           point?.values[point.periods.indexOf(strategy.universe.period)]?.rps;
       return value != null && value >= strategy.universe.minimum;
     }
-    const membership = request.memberships?.find(
-      (m) => m.strategyId === strategy.id && m.date === date,
-    );
+    const membership = membershipByStrategy.get(strategy.id)?.get(date);
     if (!membership) throw new Error("Missing PIT universe membership");
-    return membership.symbols.includes(symbol);
+    return membership.has(symbol);
   };
   return {
     request,

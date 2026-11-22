@@ -4,10 +4,8 @@ import {
   equityResearchRules,
   marketRules,
 } from "trading-strategy-core/market-rules";
-import {
-  PortfolioAccount,
-  replayPortfolioEvents,
-} from "./portfolio-account.js";
+import { AtomsPortfolioAccount as PortfolioAccount } from "./portfolio/atoms-account.js";
+import { replayPortfolioEvents } from "./portfolio-account.js";
 import { csi800SignalBars } from "trading-strategies";
 import { ema } from "trading-strategy-core/indicators";
 import {

@@ -31,6 +31,8 @@ const strategy = strategyObjectSchema.parse({
 const bar = "2026-11-17",
   now = Date.parse(bar + "T08:00:00Z");
 const identity = {
+  type: "entry" as const,
+  price: 12,
   strategyId: strategy.id,
   version: 1,
   market: strategy.market,
@@ -40,8 +42,6 @@ const identity = {
 const event: AlertEvent = {
   ...identity,
   key: alertKey(identity),
-  type: "entry",
-  price: 12,
   stop: 10,
   target: null,
   observedAt: now,

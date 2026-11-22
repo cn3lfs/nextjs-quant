@@ -8,19 +8,21 @@ import {
 } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
-import { strategyBuildHash } from "trading-strategies";
 import { dataDirectory } from "../db";
-import { validationInputSchema } from "./validation-model";
+import {
+  validationInputSchema,
+  validationTerminalCoverageSchema,
+} from "./validation-model";
 import {
   validationHash,
   type FrozenValidationInput,
 } from "./validation-capture";
-import { validationBuildHash } from "./validation-identity";
 
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
 const top = z
   .object({
     version: z.literal("research-validation-input-1"),
+    timingContract: z.literal("p5").optional(),
     input: validationInputSchema,
     strategyBuildHash: digest,
     validationBuildHash: digest,
@@ -30,6 +32,17 @@ const top = z
           .object({
             instruments: z.array(z.unknown()).max(40),
             dates: z.array(z.string()).max(20000),
+            sources: z
+              .array(
+                z
+                  .object({
+                    terminalCoverage:
+                      validationTerminalCoverageSchema.optional(),
+                  })
+                  .passthrough(),
+              )
+              .max(40)
+              .optional(),
           })
           .passthrough(),
       )
@@ -94,14 +107,8 @@ export async function readValidationInput(hash: string) {
   if (validationHash(value) !== hash)
     throw new Error("Frozen input hash mismatch");
   top.parse(value);
-  const frozen = value as FrozenValidationInput;
-  if (frozen.strategyBuildHash !== strategyBuildHash)
-    throw new Error(
-      "Research engine/rule version changed; frozen input cannot be silently reinterpreted",
-    );
-  if (frozen.validationBuildHash !== validationBuildHash())
-    throw new Error(
-      "Research validation/metrics adapter version changed; rebuild and capture a new input",
-    );
-  return frozen;
+  // Build identity is recorded metadata, not a read gate. The content hash
+  // above protects against corrupted files; a changed build is surfaced by the
+  // caller/report as drift instead of making old frozen inputs unreadable.
+  return value as FrozenValidationInput;
 }

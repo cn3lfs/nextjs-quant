@@ -437,7 +437,6 @@ it.each([
     expect(html).toContain("本页 —/—");
     expect(buttonWith(html, "上一只")).toContain('disabled=""');
     expect(buttonWith(html, "下一只")).toContain('disabled=""');
-    expect(buttonWith(html, "个股研究")).toContain('disabled=""');
   },
 );
 

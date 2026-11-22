@@ -456,10 +456,11 @@ export function createOrderExecutor(state: PortfolioState) {
               price,
             rules.step,
           );
-    order.status =
-      remaining > targetRemaining + 1e-8 && order.side === "sell"
-        ? "pending"
-        : "filled";
+    const targetPending =
+      order.targetWeight !== undefined
+        ? Math.abs(remaining - targetRemaining) > 1e-8
+        : order.side === "sell" && remaining > 1e-8;
+    order.status = targetPending ? "pending" : "filled";
     if (order.status !== "pending") removePending(order);
     order.reason = null;
     if (!remaining) {

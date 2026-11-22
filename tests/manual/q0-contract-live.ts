@@ -79,7 +79,7 @@ if (mode === "reconcile") {
     evidence: context.evidence(buy.symbol),
   });
   const local = await tradeDashboard();
-  let sell: string;
+  let sell: unknown;
   try {
     sell = await adapter.order(
       { ...buy, id: crypto.randomUUID(), side: "sell" },

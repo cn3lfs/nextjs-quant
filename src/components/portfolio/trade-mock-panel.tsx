@@ -28,6 +28,7 @@ import {
   reconcileAccount,
   previewOrder,
   confirmOrder,
+  queryOrderStatus,
 } from "~/app/accounts/actions";
 const number = (value: number | null | undefined) =>
   value == null ? "—" : displayNumber(value, 2);
@@ -71,6 +72,13 @@ export function TradeMockPanel({
   }, [preview]);
   const [markets, setMarkets] = useState<string[]>([]),
     [remoteQuery, setRemoteQuery] = useState<unknown>(null);
+  const [receipt, setReceipt] = useState<{
+      id: string;
+      entrustNos: string[];
+    } | null>(null),
+    [orderStatus, setOrderStatus] = useState<Awaited<
+      ReturnType<typeof queryOrderStatus>
+    > | null>(null);
   const run = (work: () => Promise<void>) =>
     start(async () => {
       setMessage("");
@@ -311,7 +319,14 @@ export function TradeMockPanel({
                       const id = preview.id;
                       setPreview(null);
                       try {
-                        setMessage(await confirmOrder(id));
+                        const result = await confirmOrder(id);
+                        setReceipt({ id, entrustNos: result.entrustNos });
+                        setOrderStatus(null);
+                        setMessage(
+                          result.entrustNos.length
+                            ? `${result.message}；委托号：${result.entrustNos.join("、")}`
+                            : `${result.message}；响应未返回委托号，无法按委托号归属成交`,
+                        );
                       } catch (error) {
                         throw new Error(
                           `委托结果未确认，请先查询当日成交或对账；不要直接新建委托重试。${error instanceof Error ? error.message : ""}`,
@@ -329,6 +344,51 @@ export function TradeMockPanel({
                 >
                   取消
                 </Button>
+              </div>
+            )}
+            {receipt && (
+              <div className="notice mt-3">
+                <p>
+                  最近一次委托号：
+                  {receipt.entrustNos.length
+                    ? receipt.entrustNos.join("、")
+                    : "响应未返回委托号"}
+                  。仅委托号可归属成交，不按标的或数量猜测。
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={
+                    pending || !enabled || receipt.entrustNos.length === 0
+                  }
+                  onClick={() =>
+                    run(async () => {
+                      setOrderStatus(await queryOrderStatus(receipt.id));
+                    })
+                  }
+                >
+                  查询委托状态
+                </Button>
+                {orderStatus && (
+                  <>
+                    <p className="muted">
+                      受理状态：{orderStatus.state}； 成交归属：
+                      {orderStatus.fillStatus === "matched"
+                        ? "已按委托号命中成交"
+                        : orderStatus.fillStatus === "unfilled"
+                          ? "未命中成交"
+                          : "未知（缺少委托号或存在无法归属的成交行）"}
+                      ；
+                      {orderStatus.attributable
+                        ? "可按委托号归属"
+                        : "不能确认成交归属"}
+                      ；命中 {orderStatus.rows.length} 行。
+                    </p>
+                    <pre className="overflow-auto">
+                      {formatEvidenceText(orderStatus.rows)}
+                    </pre>
+                  </>
+                )}
               </div>
             )}
             {diff && (

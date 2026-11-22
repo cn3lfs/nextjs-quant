@@ -41,6 +41,7 @@ interface TradeRow extends ReplayFill {
   account_id: string;
   id: string;
   order_id: string;
+  transfer_atoms: bigint;
   price_atoms: bigint;
   executed_at: bigint;
   client_request_id: string;
@@ -108,6 +109,7 @@ function tradeView(row: TradeRow, account: AccountRow): SimTradeRow {
     price: money(row.price_atoms),
     gross: money(row.gross_atoms),
     commission: money(row.commission_atoms),
+    transfer: money(row.transfer_atoms),
     tax: money(row.tax_atoms),
     slippage: money(row.slippage_atoms),
     netCashDelta: money(row.delta_atoms),
@@ -317,8 +319,8 @@ export class SimAccountRepository {
       );
     this.db
       .prepare(
-        `INSERT INTO sim_fills(account_id,id,order_id,symbol,side,quantity_atoms,price_atoms,gross_atoms,commission_atoms,tax_atoms,slippage_atoms,trade_date,executed_at)
-      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        `INSERT INTO sim_fills(account_id,id,order_id,symbol,side,quantity_atoms,price_atoms,gross_atoms,commission_atoms,transfer_atoms,tax_atoms,slippage_atoms,trade_date,executed_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       )
       .run(
         account.id,
@@ -330,6 +332,7 @@ export class SimAccountRepository {
         terms.price,
         result.gross,
         result.commission,
+        result.transfer,
         result.tax,
         result.slippage,
         terms.tradeDate,

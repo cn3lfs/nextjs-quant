@@ -49,9 +49,9 @@ export async function settleAlertOutcomes(now: number, repo: AlertRepository) {
       continue;
     }
     const crypto = event.market === "crypto";
-    const observedDate = crypto
-      ? new Date(event.observedAt).toISOString().slice(0, 10)
-      : beijingClock(event.observedAt).date;
+    // Anchor forward returns on the signal bar, not on when the scan happened.
+    // A close scan finishing after midnight must not shift T+1 by a day.
+    const observedDate = event.bar.slice(0, 10);
     const clock = beijingClock(now);
     const completedThrough = crypto
       ? new Date(now - 86400000).toISOString().slice(0, 10)

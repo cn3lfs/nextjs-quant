@@ -56,6 +56,8 @@ const strategy: StrategyObjectInput = {
 let db: Database.Database, repo: AlertRepository;
 function event(overrides: Partial<AlertEvent> = {}) {
   const identity = {
+    type: "entry" as const,
+    price: 10,
     strategyId: strategy.id,
     version: 1,
     market: "cn-equity" as const,
@@ -65,8 +67,6 @@ function event(overrides: Partial<AlertEvent> = {}) {
   return {
     ...identity,
     key: alertKey(identity),
-    type: "entry",
-    price: 10,
     stop: 9,
     target: 13,
     sleeve: "swing",
@@ -107,7 +107,12 @@ function strategyEvent(
     symbol: "sh600000",
     bar,
   };
-  return { ...event(), ...identity, key: alertKey(identity), observedAt };
+  return {
+    ...event(),
+    ...identity,
+    key: alertKey({ ...event(), ...identity }),
+    observedAt,
+  };
 }
 function scanState(
   target: StrategyObjectInput,
@@ -166,6 +171,7 @@ it("quantity preview and create share admission; post-close exposure remains usa
     market: "crypto",
     symbol: "BTCUSDT",
     key: alertKey({
+      ...e,
       strategyId: cryptoStrategy.id,
       version: 1,
       market: "crypto",
@@ -251,7 +257,11 @@ it("candidate filters run before stable server pagination; missed entries never 
       symbol: `cx${i}USDT`,
       bar: "2026-11-13",
     };
-    repo.record(paged, { ...event(), ...identity, key: alertKey(identity) });
+    repo.record(paged, {
+      ...event(),
+      ...identity,
+      key: alertKey({ ...event(), ...identity }),
+    });
   }
   repo.saveState(`candidate-scan:crypto:${paged.id}:1`, {
     market: "crypto",
@@ -503,7 +513,11 @@ it("crypto candidates keep their original presentation and plan availability", (
     symbol: "BTCUSDT",
     bar: "2026-11-18",
   };
-  repo.record(crypto, { ...event(), ...identity, key: alertKey(identity) });
+  repo.record(crypto, {
+    ...event(),
+    ...identity,
+    key: alertKey({ ...event(), ...identity }),
+  });
   repo.saveState(`candidate-scan:crypto:${crypto.id}:1`, {
     market: "crypto",
     strategyId: crypto.id,
@@ -545,7 +559,11 @@ it("the first market page uses server-filtered rows, never the mixed today batch
     symbol: "BTCUSDT",
     bar: "2026-11-13",
   };
-  repo.record(crypto, { ...event(), ...identity, key: alertKey(identity) });
+  repo.record(crypto, {
+    ...event(),
+    ...identity,
+    key: alertKey({ ...event(), ...identity }),
+  });
   repo.saveState(`candidate-scan:crypto:${crypto.id}:1`, {
     market: "crypto",
     strategyId: crypto.id,

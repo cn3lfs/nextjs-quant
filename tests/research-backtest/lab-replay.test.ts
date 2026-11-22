@@ -6,7 +6,7 @@ import { executeLabBacktest } from "../../src/server/research/lab-backtest";
 import { runResearchLabReplay } from "../../scripts/research-lab-replay";
 import { dataDirectory } from "../../src/server/db";
 import { saveSettings, settings } from "../../src/server/infra/settings";
-import type { readBars } from "../../src/server/market/bar-store/read-bars";
+import { readBars } from "../../src/server/market/bar-store/read-bars";
 import fixture from "../fixtures/tdx-gbbq.json";
 
 // Runtime bytes are not needed to replay a frozen request; keep this fixture
@@ -15,7 +15,10 @@ vi.mock("../../src/server/research/forward-identity", () => ({
   forwardExecutionBuildHash: () => "d".repeat(64),
 }));
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
+});
 
 const strategy = strategyObjectSchema.parse({
   id: "QA-lab-replay",
@@ -86,6 +89,52 @@ function quiet() {
 }
 
 describe("read-only replay of an exported lab backtest", () => {
+  it("fails the lab task when the next symbol's raw and signal pair exceeds the shared budget", async () => {
+    const symbols = ["sh600000", "sh600001"];
+    const read: typeof readBars = (input, frozen, _fetchHistory, budget) =>
+      readBars(
+        input,
+        frozen,
+        async () => ({ bars, source: "thsdk-hq", historyExhausted: true }),
+        budget,
+      );
+    const work = {
+      type: "lab-backtest" as const,
+      input: {
+        source: "thsdk" as const,
+        strategy: {
+          ...strategy,
+          universe: { kind: "symbols" as const, symbols },
+        },
+        initial: 100000,
+        start: bars[0]!.date,
+        end: bars.at(-1)!.date,
+      },
+    };
+    vi.stubEnv("QUANT_BAR_STORE_MAX_BARS", "12");
+    vi.stubEnv("QUANT_BAR_STORE_MAX_ESTIMATED_BYTES", undefined);
+    await expect(
+      executeLabBacktest(work, undefined, read),
+    ).rejects.toMatchObject({
+      code: "BAR_STORE_BUDGET_EXCEEDED",
+      diagnostic: {
+        period: "day",
+        symbol: symbols[1],
+        stage: "source",
+        retainedBars: 8,
+        requestedBars: 8,
+        maxBars: 12,
+        estimatedBytes: 4096,
+        maxEstimatedBytes: 3072,
+      },
+    });
+    vi.stubEnv("QUANT_BAR_STORE_MAX_BARS", "16");
+    const result = await executeLabBacktest(work, undefined, read);
+    expect(result.frozen.request.instruments.map((i) => i.symbol)).toEqual(
+      symbols,
+    );
+  });
+
   it("replays the frozen request through the CLI and matches the lab entry", async () => {
     const { live, exportPath, directory } = await labExport();
     expect(live.result.fills.length).toBeGreaterThan(0);

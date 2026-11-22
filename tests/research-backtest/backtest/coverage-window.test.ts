@@ -62,7 +62,7 @@ it("counts prefixes for larger factor lookbacks instead of treating a nonempty s
     suggestFiveMinuteWindow([...two, ...day("2026-10-13")], 60).suggestedStart,
   ).toBe("2026-10-13");
 });
-it("uses an actual session at or after the month threshold rather than inventing a weekend start", () => {
+it("defaults to the earliest runnable session and honors an explicit recent-window cap", () => {
   const dates: string[] = [];
   for (
     let ms = Date.parse("2026-09-01T00:00:00Z");
@@ -73,9 +73,14 @@ it("uses an actual session at or after the month threshold rather than inventing
     if (![0, 6].includes(date.getUTCDay()))
       dates.push(date.toISOString().slice(0, 10));
   }
-  expect(suggestFiveMinuteWindow(dates.flatMap(day), 20)).toMatchObject({
+  expect(suggestFiveMinuteWindow(dates.flatMap(day), 20, 30)).toMatchObject({
     earliestStart: "2026-09-02",
     suggestedStart: "2026-09-14",
+    suggestedEnd: "2026-10-12",
+  });
+  expect(suggestFiveMinuteWindow(dates.flatMap(day), 20)).toMatchObject({
+    earliestStart: "2026-09-02",
+    suggestedStart: "2026-09-02",
     suggestedEnd: "2026-10-12",
   });
 });

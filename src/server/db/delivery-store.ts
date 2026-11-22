@@ -62,6 +62,8 @@ type BatchPayload = Pick<
   };
 };
 export type ImportBatch = ImportOptions & {
+  revokedAt: number | null;
+  status: "active" | "revoked";
   id: string;
   fileHash: string;
   fileName: string;
@@ -73,6 +75,27 @@ export function deliveryRowId(account: string, fingerprintSource: string) {
   return createHash("sha256")
     .update(`${account}|${fingerprintSource}`)
     .digest("hex");
+}
+
+type DeliveryFactTable = "trade_fills" | "cash_flows";
+
+// Caller aliases its active economic row as f.
+export function exclusiveDeliveryRow(table: DeliveryFactTable) {
+  return `NOT EXISTS (SELECT 1 FROM ${table}_claims other
+    JOIN import_batches active ON active.id=other.batch_id
+    WHERE other.id=f.id AND other.batch_id<>f.batch_id)`;
+}
+
+function importResultMetadata({
+  cashFlowSummary,
+  statementOpeningCash,
+  counts,
+}: Pick<BatchPayload, "cashFlowSummary" | "statementOpeningCash" | "counts">) {
+  return {
+    ...(cashFlowSummary ? { cashFlowSummary } : {}),
+    ...(statementOpeningCash !== undefined ? { statementOpeningCash } : {}),
+    ...(counts ? { counts } : {}),
+  };
 }
 
 export class DeliveryStore {
@@ -111,6 +134,7 @@ export class DeliveryStore {
                 "price",
                 "quantity",
                 "amount",
+                "fees",
                 "netAmount",
               ]
             : ["flowDate", "kind", "amount", "code"]
@@ -145,15 +169,13 @@ export class DeliveryStore {
     );
     if (duplicate)
       parsed.diagnostics.push(
-        `${prefix}${duplicate} 笔因已存在而跳过，保留先导入的版本；如需保留交割单的过户费，请先导入交割单。`,
+        `${prefix}${duplicate} 笔因已存在而跳过，保留先导入的版本。`,
       );
     return rows;
   }
 
   commitImport(input: CommitImportInput): ImportResult {
     const { account, source, scope } = importOptionsSchema.parse(input);
-    if (scope === "cashFlowsOnly" && input.parsed.fills.length)
-      throw new Error("cashFlowsOnly 批次不能包含成交，请按指定范围重新解析");
     return this.db
       .transaction(() => {
         const existing = this.db
@@ -162,31 +184,35 @@ export class DeliveryStore {
           )
           .get(account, input.fileHash) as
           { id: string; payload: string } | undefined;
-        const metadata = {
-          ...(input.parsed.cashFlowSummary
-            ? { cashFlowSummary: input.parsed.cashFlowSummary }
-            : {}),
-          ...(input.parsed.statementOpeningCash !== undefined
-            ? { statementOpeningCash: input.parsed.statementOpeningCash }
-            : {}),
-          ...(input.parsed.counts ? { counts: input.parsed.counts } : {}),
-        };
         if (existing) {
           const previous = JSON.parse(existing.payload) as BatchPayload;
           if ((previous.scope ?? "all") !== (scope ?? "all"))
             throw new Error(
               "同一文件已按不同 scope 导入；请先核对并撤销原批次，再选择新的导入范围",
             );
+          // A retry writes nothing; report zero new rows while keeping the
+          // persisted batch identity and original duplicate count.
           return {
-            ...metadata,
-            batchId: existing.id,
-            alreadyImported: true,
+            ...importResultMetadata(previous),
             fills: 0,
             cashFlows: 0,
             duplicate:
-              input.parsed.fills.length + input.parsed.cashFlows.length,
+              previous.receipt?.duplicate ??
+              (previous.statistics?.fills ?? 0) +
+                (previous.statistics?.cashFlows ?? 0),
+            batchId: existing.id,
+            alreadyImported: true,
+            ...(previous.receipt?.duplicate
+              ? { diagnostics: previous.diagnostics }
+              : {}),
           };
         }
+
+        if (scope === "cashFlowsOnly" && input.parsed.fills.length)
+          throw new Error(
+            "cashFlowsOnly 批次不能包含成交，请按指定范围重新解析",
+          );
+        const metadata = importResultMetadata(input.parsed);
         const rows = this.inspect(account, input.parsed);
         const conflicts = rows.filter((row) => row.status === "conflict");
         if (conflicts.length)
@@ -253,13 +279,13 @@ export class DeliveryStore {
               `SELECT id FROM ${type === "fill" ? "trade_fills" : "cash_flows"} WHERE id=?`,
             )
             .get(id);
-          if (exists) {
-            result.duplicate++;
-            return;
-          }
+          if (exists) result.duplicate++;
+          const serialized = JSON.stringify(row);
           if ("tradeDate" in row) {
             this.db
-              .prepare("INSERT INTO trade_fills VALUES (?,?,?,?,?,?,?)")
+              .prepare(
+                "INSERT INTO trade_fills_claims (id,account,symbol,code,trade_date,batch_id,payload) VALUES (?,?,?,?,?,?,?) ON CONFLICT(id,batch_id) DO NOTHING",
+              )
               .run(
                 id,
                 account,
@@ -267,14 +293,26 @@ export class DeliveryStore {
                 row.code,
                 row.tradeDate,
                 batchId,
-                JSON.stringify(row),
+                serialized,
               );
-            result.fills++;
+            this.db
+              .prepare(
+                "INSERT INTO trade_fills_canonical (id,payload) VALUES (?,?) ON CONFLICT(id) DO NOTHING",
+              )
+              .run(id, serialized);
+            if (!exists) result.fills++;
           } else {
             this.db
-              .prepare("INSERT INTO cash_flows VALUES (?,?,?,?,?)")
-              .run(id, account, row.flowDate, batchId, JSON.stringify(row));
-            result.cashFlows++;
+              .prepare(
+                "INSERT INTO cash_flows_claims (id,account,flow_date,batch_id,payload) VALUES (?,?,?,?,?) ON CONFLICT(id,batch_id) DO NOTHING",
+              )
+              .run(id, account, row.flowDate, batchId, serialized);
+            this.db
+              .prepare(
+                "INSERT INTO cash_flows_canonical (id,payload) VALUES (?,?) ON CONFLICT(id) DO NOTHING",
+              )
+              .run(id, serialized);
+            if (!exists) result.cashFlows++;
           }
         };
         input.parsed.fills.forEach((row) => insert(row, "fill"));
@@ -293,11 +331,13 @@ export class DeliveryStore {
       .immediate();
   }
 
-  batches(): ImportBatch[] {
+  batches(includeRevoked = true): ImportBatch[] {
     return (
       this.db
         .prepare(
-          "SELECT id,account,source,file_hash AS fileHash,file_name AS fileName,imported_at AS importedAt,payload FROM import_batches ORDER BY imported_at,id",
+          `SELECT id,account,source,file_hash AS fileHash,file_name AS fileName,imported_at AS importedAt,
+            revoked_at AS revokedAt,CASE WHEN revoked_at IS NULL THEN 'active' ELSE 'revoked' END status,payload
+           FROM delivery_batches ${includeRevoked ? "" : "WHERE revoked_at IS NULL"} ORDER BY imported_at,id`,
         )
         .all() as (Omit<ImportBatch, "payload"> & { payload: string })[]
     ).map((row) => ({
@@ -340,15 +380,50 @@ export class DeliveryStore {
   revokeBatch(batchId: string) {
     return this.db
       .transaction(() => {
-        const fills = this.db
-          .prepare("DELETE FROM trade_fills WHERE batch_id=?")
-          .run(batchId).changes;
-        const cashFlows = this.db
-          .prepare("DELETE FROM cash_flows WHERE batch_id=?")
-          .run(batchId).changes;
+        const impact = (table: DeliveryFactTable) => {
+          const { count } = this.db
+            .prepare(
+              `SELECT count(*) count FROM ${table} f WHERE f.batch_id=? AND ${exclusiveDeliveryRow(table)}`,
+            )
+            .get(batchId) as { count: number };
+          if (count) {
+            const uncertain = this.db
+              .prepare(
+                `SELECT u.batch_id FROM delivery_uncertain_claims u
+               JOIN import_batches other ON other.id=u.batch_id
+               JOIN import_batches target ON target.account=other.account
+               WHERE target.id=? AND other.id<>target.id AND u.fact_table=? LIMIT 1`,
+              )
+              .get(batchId, table) as { batch_id: string } | undefined;
+            if (uncertain)
+              throw new Error(
+                `交割单归属冲突：历史批次 ${uncertain.batch_id} 缺少逐行归属记录，已保留全部数据`,
+              );
+          }
+          return count;
+        };
+        const fills = impact("trade_fills");
+        const cashFlows = impact("cash_flows");
+        // Each batch keeps its own claim payload. Revoking the first batch must
+        // not rewrite another batch's original row index or evidence.
         const batches = this.db
-          .prepare("DELETE FROM import_batches WHERE id=?")
-          .run(batchId).changes;
+          .prepare(
+            "UPDATE delivery_batches SET revoked_at=? WHERE id=? AND revoked_at IS NULL",
+          )
+          .run(Date.now(), batchId).changes;
+        // Once no active batch claims a fact, drop its canonical projection so a
+        // later reimport can establish fresh economics.
+        for (const table of ["trade_fills", "cash_flows"] as const)
+          this.db
+            .prepare(
+              `DELETE FROM ${table}_canonical WHERE id IN (
+                 SELECT c.id FROM ${table}_claims c WHERE c.batch_id=?
+                 AND NOT EXISTS (
+                   SELECT 1 FROM ${table}_claims other
+                   JOIN import_batches active ON active.id=other.batch_id
+                   WHERE other.id=c.id))`,
+            )
+            .run(batchId);
         return { fills, cashFlows, batches };
       })
       .immediate();

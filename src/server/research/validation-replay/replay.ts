@@ -3,30 +3,96 @@ import {
   runValidationSuite,
   type ValidationScore,
 } from "quant-backtest";
-import { lowZoneCycles } from "trading-strategies";
+import {
+  historicalLowSeries,
+  lowZoneCycles,
+  strategyBuildHash,
+} from "trading-strategies";
 import { multipleTesting, sharpeDaily } from "~/lib/backtest/multiple-testing";
 import { combinatoriallySymmetricCv } from "~/lib/backtest/backtest-overfit";
+import { researchStrategyVersion } from "~/lib/research/strategy-version";
 import { indexFacts } from "../index-context";
 import {
   assessValidationCandidates,
   validationMethodEvidence,
 } from "../validation-method";
 import { type FrozenValidationInput } from "../validation-capture";
-import { type ScoreboardRow } from "../validation-model";
+import {
+  benchmarkBasisSchema,
+  type BenchmarkBasis,
+  type ScoreboardRow,
+} from "../validation-model";
 import { scoreValidationResult } from "./scoring";
 import { type DecisionCache, projectCandidate } from "./candidate-input";
 import { numericNeighbors } from "./parameter-neighbors";
 import { validationBiasTags, biasLabels } from "./bias";
 import { combinedBook } from "./combined-book";
 import { projectToExecutionClock } from "./execution-clock";
+import { CausalPriceBasisError } from "../causal-price-basis";
+import { firstVintageValuations } from "../validation-financials";
+import { validateFrozenValidationUniverse } from "../validation-universe";
+import { validationBuildHash } from "../validation-identity";
+
+function replayTimingStatus(frozen: FrozenValidationInput) {
+  if (frozen.strategyBuildHash !== strategyBuildHash) return "drift";
+  try {
+    if (frozen.validationBuildHash !== validationBuildHash()) return "drift";
+  } catch {
+    return "unknown";
+  }
+  return frozen.timingContract === "p5" ? "p5" : "unknown";
+}
 
 export function replayValidationInput(
   frozen: FrozenValidationInput,
   progress: (n: number, phase: string) => void = () => {},
+  signal?: AbortSignal,
 ) {
+  signal?.throwIfAborted();
+  if (
+    frozen.timingContract === "p5" &&
+    frozen.input.market === "cn-equity" &&
+    !frozen.universe?.lifecycleEvidenceThrough
+  )
+    throw new Error("Missing frozen roster date evidence for P5 replay");
+  if (frozen.universe)
+    validateFrozenValidationUniverse(frozen.universe, frozen.input.end);
+  const timingStatus = replayTimingStatus(frozen);
+  const storedBenchmarkBasis = benchmarkBasisSchema.nullable().default(null);
+  const daily = frozen.datasets.find((dataset) => dataset.period === "day");
+  frozen = {
+    ...frozen,
+    datasets: frozen.datasets.map((dataset) => ({
+      ...dataset,
+      benchmarkBasis: storedBenchmarkBasis.parse(dataset.benchmarkBasis),
+    })),
+    lowZones: frozen.lowZones.flatMap((row) => {
+      if (
+        !row.observations.some(
+          (observation) =>
+            observation.pe.value !== null || observation.pb.value !== null,
+        )
+      )
+        return [row];
+      if (row.symbol === "sh000300" && daily)
+        return [{ ...row, observations: historicalLowSeries(daily.benchmark) }];
+      const instrument = daily?.instruments.find(
+        (item) => item.symbol === row.symbol,
+      );
+      if (!instrument) return [];
+      const facts = firstVintageValuations(instrument.external?.lowZone ?? []);
+      return [
+        {
+          ...row,
+          observations: historicalLowSeries(instrument.signalBars, {}, facts),
+        },
+      ];
+    }),
+  };
   const boards: ScoreboardRow[] = [];
   const suites: {
     period: string;
+    benchmarkBasis: BenchmarkBasis | null;
     suite: ReturnType<typeof runValidationSuite>;
     diagnostics: unknown;
     regimes: unknown;
@@ -34,6 +100,7 @@ export function replayValidationInput(
   const combinedBooks: ReturnType<typeof combinedBook>[] = [];
   const cycleEvaluations: {
     id: string;
+    benchmarkBasis: BenchmarkBasis | null;
     cycles: {
       start: string;
       end: string;
@@ -48,11 +115,21 @@ export function replayValidationInput(
   ]);
   const missing: { id: string; reason: string }[] = [];
   for (const [datasetIndex, dataset] of frozen.datasets.entries()) {
+    signal?.throwIfAborted();
+    const benchmarkBasis = dataset.benchmarkBasis ?? null;
     const declared = candidates.filter(
       (c) => c.strategy.period === dataset.period,
     );
     const requests = declared.flatMap((candidate) => {
-      const projected = projectCandidate(candidate, dataset, frozen, cache);
+      signal?.throwIfAborted();
+      let projected: ReturnType<typeof projectCandidate>;
+      try {
+        projected = projectCandidate(candidate, dataset, frozen, cache);
+      } catch (error) {
+        if (!(error instanceof CausalPriceBasisError)) throw error;
+        missing.push({ id: candidate.strategy.id, reason: error.message });
+        return [];
+      }
       if (projected) {
         const center = candidate.strategy.id.replace(
           /-neighbor-(?:entry-)?\d+$/,
@@ -99,10 +176,15 @@ export function replayValidationInput(
           ),
           `验证 ${dataset.period} ${done}/${total}`,
         ),
+      signal,
     );
     const fullPeriod = requests.map((r) => ({
       id: r.id,
-      score: scoreValidationResult(runPortfolio(r.request), r.request, dataset),
+      score: scoreValidationResult(
+        runPortfolio(r.request, undefined, undefined, signal),
+        r.request,
+        dataset,
+      ),
     }));
     const trials = fullPeriod.map((r) => sharpeDaily(r.score.daily));
     const diagnostics = {
@@ -184,7 +266,13 @@ export function replayValidationInput(
         };
       }),
     }));
-    suites.push({ period: dataset.period, suite, diagnostics, regimes });
+    suites.push({
+      period: dataset.period,
+      benchmarkBasis,
+      suite,
+      diagnostics,
+      regimes,
+    });
     for (const row of suite.rows) {
       const candidate = declared.find((c) => c.strategy.id === row.id)!;
       const reasons = [...row.reasons];
@@ -204,13 +292,13 @@ export function replayValidationInput(
               end: cycleRequest.end,
               complete: c.complete && c.end <= request.end,
               evaluation: scoreValidationResult(
-                runPortfolio(cycleRequest),
+                runPortfolio(cycleRequest, undefined, undefined, signal),
                 cycleRequest,
                 dataset,
               ),
             };
           });
-        cycleEvaluations.push({ id: row.id, cycles });
+        cycleEvaluations.push({ id: row.id, benchmarkBasis, cycles });
         if (
           cycles.filter((c) => c.complete).length <
           frozen.input.policy.minimumMarketCycles
@@ -234,8 +322,10 @@ export function replayValidationInput(
       )
         reasons.push("low-zone-input-confidence");
       boards.push({
+        benchmarkBasis,
         riskAdjusted: row.holdout.base.riskAdjusted,
         biasTags: validationBiasTags(frozen),
+        strategySemanticVersion: researchStrategyVersion(candidate.strategy),
         id: row.id,
         level: "strategy",
         market: candidate.strategy.market,
@@ -266,6 +356,7 @@ export function replayValidationInput(
         dataset,
         first.request,
         second?.request,
+        signal,
       );
       combinedBooks.push(book);
       boards.push(...book.rows);
@@ -291,6 +382,7 @@ export function replayValidationInput(
           base,
           projectToExecutionClock(primary.request, base, 16),
           projectToExecutionClock(secondary.request, base, 4),
+          signal,
         );
         combinedBooks.push(book);
         boards.push(...book.rows);
@@ -353,11 +445,20 @@ export function replayValidationInput(
           .map(validationMethodEvidence),
       };
   }
+  for (const board of boards) board.timingStatus = timingStatus;
+  const firstBasis = frozen.datasets[0]?.benchmarkBasis ?? null;
+  const benchmarkBasis = frozen.datasets.every(
+    (dataset) => dataset.benchmarkBasis === firstBasis,
+  )
+    ? firstBasis
+    : null;
   return {
     ...(frozen.input.policy.method === "lifecycle-2"
       ? { method: "lifecycle-2" as const, purpose: frozen.input.policy.purpose }
       : {}),
     version: "research-validation-scoreboard-1" as const,
+    benchmarkBasis,
+    timingStatus,
     rows: boards,
     suites,
     combinedBooks,

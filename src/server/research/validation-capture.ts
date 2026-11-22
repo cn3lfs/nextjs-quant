@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { isAStock } from "tstdx/local";
-import { calculateRps, type RpsSecurity } from "quant-rps";
+import { calculateRpsAtIndex, type RpsSecurity } from "quant-rps";
 import {
   historicalLowSeries,
   researchCandidates,
@@ -10,19 +10,28 @@ import {
 import type { PortfolioInstrument } from "quant-backtest";
 import type { FormulaRpsPoint } from "trading-strategies/formula/tdx-formula";
 import { readBars } from "../market/bar-store/read-bars";
-import { corporateActions } from "../market/bar-store/corporate-actions";
+import {
+  BarResourceBudget,
+  BarResourceBudgetError,
+} from "../market/bar-store/resource-budget";
 import {
   captureValidationUniverse,
+  validationListingEnd,
   validationMembersAt,
+  type ValidationMember,
 } from "./validation-universe";
 import { captureLowZoneFinancials } from "./validation-financials";
 import { captureNativeChanObservations } from "../strategies/strategy-center-native";
 import {
   researchCorporateActions,
-  researchExecutionEvidence,
+  researchExecutionAt,
 } from "./corporate-actions";
 import type { Bar } from "trading-strategy-core/bars";
-import type { ValidationInput } from "./validation-model";
+import type {
+  ValidationDataset,
+  ValidationInput,
+  ValidationTerminalCoverage,
+} from "./validation-model";
 import { cryptoPeriodMs } from "~/lib/market/crypto-aggregation";
 import { validationBuildHash } from "./validation-identity";
 import { cryptoSymbol, isCryptoSymbol, cryptoPair } from "~/lib/market/crypto";
@@ -32,12 +41,17 @@ import {
 } from "./validation-crypto-history";
 import { readColumnCache } from "../market/bar-store/column-cache";
 import { readFinancialPoolHistory } from "../data-sources/tdx/local-financial-files";
+import { chinaDate } from "~/lib/market/security-trading-status";
+import {
+  causalResearchPrices,
+  readResearchPriceActions,
+  type CausalPriceProof,
+} from "./causal-price-basis";
 
 export const validationHash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
-type Period = ReturnType<
-  typeof researchCandidates
->[number]["strategy"]["period"];
+export type { ValidationDataset } from "./validation-model";
+type Period = ValidationDataset["period"];
 /** Intraday labels are candle ends; daily labels are candle opens. */
 export function researchHistoryBefore(
   oldest: string,
@@ -51,18 +65,74 @@ export function researchHistoryBefore(
     ? null
     : new Date(opening - 1).toISOString();
 }
-export type ValidationDataset = {
-  period: Period;
-  instruments: PortfolioInstrument[];
-  benchmark: Bar[];
-  dates: string[];
-  benchmarkName: string;
-  sources: {
-    symbol: string;
-    hash: string;
-    adjustmentReference: string | null;
-  }[];
-};
+class CryptoHistoryPageLimitError extends Error {}
+
+function validationTerminal(
+  member: ValidationMember | undefined,
+  end: string,
+  lastBar: Bar,
+  benchmarkDates: ReadonlySet<string>,
+):
+  | {
+      coverage: ValidationTerminalCoverage;
+      terminal?: PortfolioInstrument["terminal"];
+    }
+  | undefined {
+  if (!member) return;
+  const listingEndsOn = validationListingEnd(member);
+  const notice = member.terminalStatus?.lastTrading;
+  const lastTradingDate = notice?.date ?? null;
+  if (
+    (!listingEndsOn || listingEndsOn > end) &&
+    (!lastTradingDate || lastTradingDate > end)
+  )
+    return;
+
+  let gap: string | null = null;
+  if (!notice) gap = "Independent final trading-date evidence unavailable";
+  else if (
+    notice.date !== lastBar.date ||
+    !Number.isFinite(lastBar.close) ||
+    lastBar.close <= 0 ||
+    !Number.isFinite(lastBar.volume) ||
+    lastBar.volume <= 0
+  )
+    gap = `Missing observed raw close on final trading date ${notice.date}`;
+  else if (!benchmarkDates.has(notice.date))
+    gap = `Replay calendar missing final trading date ${notice.date}`;
+  else if (notice.publishedOn > notice.date)
+    gap = `Final trading date ${notice.date} was disclosed after that session`;
+
+  // The first unpriced day is a coverage boundary. It never asserts a trading date.
+  const afterObserved = new Date(Date.parse(lastBar.date) + 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  const unavailableFrom = gap
+    ? (lastTradingDate ??
+      (listingEndsOn && listingEndsOn < afterObserved
+        ? listingEndsOn
+        : afterObserved))
+    : null;
+  return {
+    coverage: {
+      listingEndsOn,
+      lastTradingDate,
+      lastObservedDate: lastBar.date,
+      unavailableFrom,
+      gap,
+    },
+    ...(notice && !gap
+      ? {
+          terminal: {
+            date: notice.date,
+            valuation: "last-close",
+            evidence: `Final trading date ${notice.date} (${notice.source}; archive SHA256 ${member.terminalStatus!.evidenceHash}); listing ends ${listingEndsOn ?? "unknown"}; raw last-close sensitivity only`,
+          },
+        }
+      : {}),
+  };
+}
+
 export async function captureValidationInput(
   input: ValidationInput,
   root: string,
@@ -89,19 +159,26 @@ export async function captureValidationInput(
       maximumPbo: input.policy.maximumPbo ?? 0.5,
     },
   };
-  if (input.end >= new Date().toISOString().slice(0, 10))
+  if (
+    input.end >=
+    (input.market === "cn-equity"
+      ? chinaDate(Date.now())
+      : new Date().toISOString().slice(0, 10))
+  )
     throw new Error("Only completed historical dates are permitted");
   const universe =
     input.market === "cn-equity"
       ? await captureValidationUniverse(root, input.start, input.end)
       : null;
   const available = universe?.members
-    .filter(
-      (m) =>
+    .filter((m) => {
+      const listingEnd = validationListingEnd(m);
+      return (
         m.local &&
         (!m.listingDate || m.listingDate <= input.end) &&
-        (!m.delistingDate || m.delistingDate >= input.start),
-    )
+        (!listingEnd || listingEnd > input.start)
+      );
+    })
     .map((m) => m.symbol) ?? [
     "cxBTCUSDT",
     "cxETHUSDT",
@@ -117,13 +194,15 @@ export async function captureValidationInput(
       ? [
           ...new Set([
             ...universe.members
-              .filter(
-                (m) =>
+              .filter((m) => {
+                const listingEnd = validationListingEnd(m);
+                return (
                   m.local &&
-                  m.delistingDate &&
-                  m.delistingDate >= input.start &&
-                  m.delistingDate <= input.end,
-              )
+                  listingEnd &&
+                  listingEnd > input.start &&
+                  listingEnd <= input.end
+                );
+              })
               .map((m) => m.symbol),
             ...Array.from(
               { length: Math.min(input.sampleSize, available.length) },
@@ -140,6 +219,16 @@ export async function captureValidationInput(
       : available);
   if (input.market === "cn-equity" && requested.some((s) => !isAStock(s)))
     throw new Error("Equity research requires stock symbols");
+  if (new Set(requested).size !== requested.length)
+    throw new Error("Research symbols must be unique");
+  if (universe && explicitSymbols) {
+    const members = new Set(universe.members.map(({ symbol }) => symbol));
+    const absent = explicitSymbols.filter((symbol) => !members.has(symbol));
+    if (absent.length)
+      throw new Error(
+        `Symbols absent from frozen local roster: ${absent.join(", ")}`,
+      );
+  }
   const excluded: { symbol: string; period: string; reason: string }[] = [];
   const gaps: string[] = [];
   const datasets: ValidationDataset[] = [];
@@ -157,7 +246,10 @@ export async function captureValidationInput(
   }[] = [];
   const periods: Period[] =
     input.market === "cn-equity" ? ["day"] : ["day", "4h", "1h", "15m"];
-  const actions = universe ? await corporateActions(root) : null;
+  const budget = new BarResourceBudget();
+  const readForTask: typeof readBars = (query) =>
+    readBars(query, undefined, undefined, budget);
+  const actions = universe ? await readResearchPriceActions(root) : null;
   const financialHistory = universe
     ? await readFinancialPoolHistory(root, requested, {
         asOf: input.end,
@@ -172,14 +264,14 @@ export async function captureValidationInput(
   const rpsAudit: {
     date: string;
     pool: number;
-    excluded: ReturnType<typeof calculateRps>["excluded"];
+    excluded: ReturnType<typeof calculateRpsAtIndex>["excluded"];
   }[] = [];
   for (const period of periods) {
     const instruments: PortfolioInstrument[] = [],
       sources: ValidationDataset["sources"] = [];
     const benchmarkSnapshot =
       input.market === "cn-equity"
-        ? await readBars({
+        ? await readForTask({
             instrument: { market: "cn-equity", symbol: "sh000300" },
             root,
             period: "day",
@@ -187,6 +279,9 @@ export async function captureValidationInput(
             to: input.end,
           })
         : null;
+    const benchmarkDates = new Set(
+      benchmarkSnapshot?.bars.map((bar) => bar.date),
+    );
     for (const [index, symbol] of requested.entries()) {
       signal?.throwIfAborted();
       progress(
@@ -199,6 +294,7 @@ export async function captureValidationInput(
       );
       try {
         const from = input.market === "crypto" ? "1970-01-01" : undefined;
+        const budgetContext = { symbol, period };
         const quarantine = new Map<string, Bar>();
         const read = async (to: string) => {
           const query = {
@@ -212,11 +308,15 @@ export async function captureValidationInput(
             freezeRaw: true,
             to,
             ...(input.market === "crypto"
-              ? { from, cryptoSource: input.cryptoSource, limit: 2000000 }
+              ? { from, cryptoSource: input.cryptoSource }
               : {}),
           };
-          if (input.market !== "crypto") return readBars(query);
+          if (input.market !== "crypto") return readForTask(query);
           const result = await readResearchCryptoWindow(query);
+          budget.checkSource(
+            result.snapshot.bars.length + result.quarantined.length,
+            budgetContext,
+          );
           for (const bar of result.quarantined) quarantine.set(bar.date, bar);
           return result.snapshot;
         };
@@ -235,16 +335,17 @@ export async function captureValidationInput(
                 ?.metadata.source.historyExhausted === true
             )
               break;
-            // Each page adds at most 5,000 source bars. Keep the existing
-            // BarStore two-million-bar budget; never truncate a research window.
+            // BarStore limits source bars separately. This bounds pagination
+            // even if a venue keeps returning progressively smaller pages.
             if (page >= 400)
-              throw new Error(
-                "Crypto source exceeds existing two-million-bar budget",
+              throw new CryptoHistoryPageLimitError(
+                `Crypto history pagination limit exceeded [${symbol} ${period}, source]: ${page}/400 pages`,
               );
             let earlier: Awaited<ReturnType<typeof read>>;
             try {
               earlier = await read(before);
             } catch (error) {
+              if (error instanceof BarResourceBudgetError) throw error;
               gaps.push(
                 `${symbol}/${period} earlier history before ${oldest} unavailable: ${error instanceof Error ? error.message : "source unavailable"}`,
               );
@@ -262,13 +363,16 @@ export async function captureValidationInput(
               cryptoSource: "binance",
               from,
               to: input.end,
-              limit: 2000000,
             });
             if (!cached)
               throw new Error(
                 "Observed crypto cache disappeared before freeze",
               );
             snapshot = cached.snapshot;
+            budget.checkSource(
+              snapshot.bars.length + cached.quarantined.length,
+              budgetContext,
+            );
             for (const bar of cached.quarantined) quarantine.set(bar.date, bar);
           } else snapshot = await read(input.end);
         }
@@ -276,11 +380,23 @@ export async function captureValidationInput(
           gaps.push(
             `${symbol}/${period} quarantined off-grid raw source bar: ${JSON.stringify(bar)}`,
           );
+        const member = universe?.members.find((m) => m.symbol === symbol);
+        const listingEnd = member ? validationListingEnd(member) : null;
+        const lastTrading = member?.terminalStatus?.lastTrading?.date;
+        if (listingEnd && listingEnd <= input.start)
+          throw new Error(
+            `Member already delisted at research start: ${listingEnd}`,
+          );
         const completed = snapshot.bars.filter(
-          (b) => !snapshot.barStore.formingDates.includes(b.date),
+          (b) =>
+            !snapshot.barStore.formingDates.includes(b.date) &&
+            (!listingEnd || b.date < listingEnd) &&
+            (!lastTrading || b.date <= lastTrading),
         );
         if (snapshot.sourceNote && input.market === "cn-equity")
           throw new Error(`Repaired/dropped source: ${snapshot.sourceNote}`);
+        if (universe && !snapshot.rawBars)
+          throw new Error("Missing unadjusted A-share execution prices");
         const rawByDate = new Map(
           (snapshot.rawBars ?? completed).map((b) => [b.date, b]),
         );
@@ -290,16 +406,49 @@ export async function captureValidationInput(
         const events =
           actions?.events
             .get(symbol)
-            ?.filter((a) => a.date >= input.start && a.date <= input.end) ?? [];
-        const lifecycle = universe?.members.find((m) => m.symbol === symbol);
-        if (lifecycle?.delistingDate && lifecycle.delistingDate <= input.end)
-          throw new Error(
-            "Delisted member retained in universe; settlement/terminal valuation evidence missing for executable replay",
+            ?.filter(
+              (a) =>
+                a.date >= input.start &&
+                a.date <= input.end &&
+                (!listingEnd || a.date < listingEnd) &&
+                (!lastTrading || a.date <= lastTrading),
+            ) ?? [];
+        const terminal = validationTerminal(
+          member,
+          input.end,
+          bars.at(-1)!,
+          benchmarkDates,
+        );
+        if (terminal?.coverage.gap)
+          gaps.push(
+            `${symbol}/${period} terminal valuation unavailable: ${terminal.coverage.gap}`,
           );
+        let signalBars = completed;
+        let causalPrice: CausalPriceProof | undefined;
+        let causalPriceGap: string | undefined;
+        if (actions) {
+          try {
+            const causal = causalResearchPrices(
+              bars,
+              actions.events.get(symbol) ?? [],
+              actions.sourceSha256,
+              actions.issues,
+            );
+            signalBars = causal.bars;
+            causalPrice = causal.proof;
+          } catch (error) {
+            causalPriceGap =
+              error instanceof Error ? error.message : String(error);
+          }
+        }
+        // Crypto pages are transient. Commit only the final frozen raw/signal
+        // pair to the task budget after paging and quarantine have finished.
+        if (input.market === "crypto")
+          budget.retain(bars.length + signalBars.length, budgetContext);
         const entitlements = actions
           ? researchCorporateActions(
               events,
-              actions.fingerprint,
+              actions.sourceSha256,
               input.start,
               input.end,
             )
@@ -316,7 +465,17 @@ export async function captureValidationInput(
                 limitUp: null,
                 limitDown: null,
               }
-            : researchExecutionEvidence(symbol, bars, entitlements);
+            : Object.fromEntries(
+                bars.map((bar, index) => [
+                  bar.date,
+                  researchExecutionAt(
+                    symbol,
+                    bar,
+                    bars[index - 1],
+                    entitlements,
+                  )!,
+                ]),
+              );
         let lowZone: LowZoneFact[] = [];
         if (input.market === "cn-equity") {
           try {
@@ -335,24 +494,34 @@ export async function captureValidationInput(
           }
           lowZones.push({
             symbol,
-            observations: historicalLowSeries(completed, {}, lowZone),
+            observations: historicalLowSeries(signalBars, {}, lowZone),
           });
         }
         instruments.push({
           symbol,
           market: input.market,
           bars,
-          signalBars: completed,
+          signalBars,
           execution,
           external: { lowZone },
           actions: entitlements,
+          ...(terminal?.terminal ? { terminal: terminal.terminal } : {}),
         });
         sources.push({
           symbol,
           hash: snapshot.hash,
-          adjustmentReference: snapshot.barStore.adjustmentReference,
+          adjustmentReference:
+            causalPrice?.kind ?? snapshot.barStore.adjustmentReference,
+          ...(causalPrice ? { causalPrice } : {}),
+          ...(causalPriceGap ? { causalPriceGap } : {}),
+          ...(terminal ? { terminalCoverage: terminal.coverage } : {}),
         });
       } catch (error) {
+        if (
+          error instanceof BarResourceBudgetError ||
+          error instanceof CryptoHistoryPageLimitError
+        )
+          throw error;
         excluded.push({
           symbol,
           period,
@@ -384,17 +553,21 @@ export async function captureValidationInput(
     }
     if (universe) {
       const rpsPeriods = [20, 50, 120];
-      const adjusted = await Promise.all(
-        instruments.map((i) =>
-          readBars({
+      const adjusted = [];
+      for (const i of instruments) {
+        adjusted.push(
+          await readForTask({
             instrument: { market: "cn-equity", symbol: i.symbol },
             root,
             period: "day",
             adjustment: "backward",
-            to: input.end,
+            to: sources.find((source) => source.symbol === i.symbol)
+              ?.terminalCoverage
+              ? i.bars.at(-1)!.date
+              : input.end,
           }),
-        ),
-      );
+        );
+      }
       const bySymbol = new Map(
         adjusted.map((s) => [
           s.symbol,
@@ -415,16 +588,22 @@ export async function captureValidationInput(
       const points = new Map<string, FormulaRpsPoint[]>(
         instruments.map((i) => [i.symbol, []]),
       );
+      const rpsRoster = {
+        members: universe.members.filter((member) =>
+          bySymbol.has(member.symbol),
+        ),
+      };
       for (const [dayIndex, date] of calendar.entries()) {
-        const members = new Set(validationMembersAt(universe, date));
+        const members = new Set(validationMembersAt(rpsRoster, date));
         const ranked =
           dayIndex < 120
             ? null
-            : calculateRps(
+            : calculateRpsAtIndex(
                 rpsStocks.filter((s) => members.has(s.symbol)),
                 calendar,
-                date,
+                dayIndex,
                 rpsPeriods,
+                date,
               );
         if (ranked)
           rpsAudit.push({ date, pool: ranked.pool, excluded: ranked.excluded });
@@ -474,14 +653,17 @@ export async function captureValidationInput(
       benchmark: [...benchmark],
       dates,
       sources,
+      benchmarkBasis:
+        input.market === "cn-equity" ? "price-index-ex-dividends" : null,
       benchmarkName:
         input.market === "cn-equity"
-          ? "沪深300原价价格指数（无股息）；首日开盘持有"
+          ? "沪深300价格指数（不含股息）；首日开盘持有"
           : `BTCUSDT ${input.cryptoSource} 持有（无费用，首日开盘）`,
     });
   }
   return {
     version: "research-validation-input-1" as const,
+    timingContract: "p5" as const,
     input,
     root,
     strategyBuildHash,
@@ -504,22 +686,13 @@ export async function captureValidationInput(
     candidateMenu: researchCandidates(
       datasets[0]?.instruments.map((i) => i.symbol) ?? requested,
       input.market,
-    ).map((candidate) => ({
-      ...candidate,
-      strategy: {
-        ...candidate.strategy,
-        version:
-          Number.parseInt(
-            validationHash([candidate.strategy, strategyBuildHash]).slice(
-              0,
-              12,
-            ),
-            16,
-          ) + 1,
-      },
-    })),
+    ),
   };
 }
-export type FrozenValidationInput = Awaited<
-  ReturnType<typeof captureValidationInput>
->;
+export type FrozenValidationInput = Omit<
+  Awaited<ReturnType<typeof captureValidationInput>>,
+  "timingContract" | "universe"
+> & {
+  timingContract?: "p5";
+  universe: import("./validation-universe").ValidationUniverse | null;
+};

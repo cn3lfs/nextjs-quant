@@ -1,6 +1,23 @@
 export * from "./types.js";
 export * from "./root.js";
-export * from "./quotes.js";
+export {
+  isAStock,
+  isLocalFund,
+  parseBars,
+  parseNames,
+  readHistoricalSnapshot,
+  readSnapshot,
+  readTailSnapshot,
+  repairNote,
+  scan,
+  securityNames,
+  tailCacheStats,
+  type ParseRepairs,
+} from "./quotes.js";
+export {
+  readWindowSnapshot,
+  type TdxLocalWindowSnapshot,
+} from "./window-snapshot.js";
 export * from "./tail-cache-codec.js";
 export * from "./blocks.js";
 export * from "./names.js";

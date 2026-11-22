@@ -157,6 +157,40 @@ describe("manual paper execution-build review", () => {
       ),
     ).toThrow("已变化");
   });
+  it("updates the active engine version on confirmation and keeps the original event version", () => {
+    const f = fixture();
+    const events = [
+      {
+        runId: f.account.id,
+        sequence: 1,
+        kind: "baseline" as const,
+        at: 1,
+        cutoff: f.account.lastBar!,
+        fills: f.checkpoint.result.fills.length,
+        curve: f.checkpoint.result.curve.length,
+        resultHash: "f".repeat(64),
+        engineVersion: f.checkpoint.build,
+      },
+    ];
+    f.paper.saveState(f.account.id, {
+      ...f.checkpoint,
+      engineVersion: f.checkpoint.build,
+      events,
+    });
+    const manifest = reviewPaperBuild(f.account.id, f.repo);
+    expect(manifest.oldBuild).toBe(f.checkpoint.build);
+    expect(manifest.exact).toBe(true);
+    confirmPaperBuild(
+      { manifestHash: manifest.manifestHash, confirmed: true },
+      f.repo,
+    );
+    expect(f.paper.state(f.account.id)).toEqual({
+      ...f.checkpoint,
+      build: manifest.newBuild,
+      engineVersion: manifest.newBuild,
+      events,
+    });
+  });
   it("a changed financial result cannot be accepted or overwritten", () => {
     const f = fixture();
     f.checkpoint.result.equity[0]!.equity += 1;

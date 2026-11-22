@@ -198,8 +198,7 @@ export function useIntersectionLoadMore({
     const scrollRoot = node.closest<HTMLElement>(
       '[data-slot="table-container"], [data-infinite-scroll-root], .nc-table-scroll, .table-wrap',
     );
-    const effectiveRootMargin =
-      rootMargin ?? (scrollRoot ? "120px" : "240px");
+    const effectiveRootMargin = rootMargin ?? (scrollRoot ? "120px" : "240px");
     const observer = new IntersectionObserver(
       (entries) => {
         if (active && entries.some((entry) => entry.isIntersecting)) load();

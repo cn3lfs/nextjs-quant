@@ -42,3 +42,16 @@ export type {
 
 export * from "./portfolio-sizing.js";
 export * from "./portfolio-clock.js";
+
+// Unified execution core facade. The portfolio engine keeps its historical
+// `runPortfolio` entrypoint while new adapters (paper/sim/import) can use the
+// pure ledger and matching primitives directly.
+export { ExecutionLedger, executionVersion } from "quant-execution";
+export type {
+  CorporateActionEffect,
+  CostRates,
+  ExecutionQuote,
+  OrderIntent,
+  PositionLot,
+} from "quant-execution";
+export { postPortfolioFill } from "./portfolio/execution-ledger.js";

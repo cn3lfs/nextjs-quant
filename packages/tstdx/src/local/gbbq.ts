@@ -358,7 +358,9 @@ export function adjustmentFactors(
   bars: Bar[],
   events: TdxXdxr[] = [],
 ): AdjustFactor[] {
-  const dividends = events.filter((event) => event.category === 1),
+  const dividends = events.filter(
+      (event) => event.category === 1 || event.category === 11,
+    ),
     /**
      * 股本变动类记录（2 送配股上市 … 10 可转债上市），按日期索引，同日多条时取
      * 最后一条。用途只有一个：区分 `bonusRatio > 0` 的两种情形——
@@ -420,7 +422,16 @@ export function adjustmentFactors(
         cash = (event.dividend ?? 0) * 10,
         rights = sharesUnchanged ? 0 : (event.rightsRatio ?? 0) * 10,
         bonus = sharesUnchanged ? 0 : (event.bonusRatio ?? 0) * 10,
-        divisor = 10 + rights + bonus,
+        // Category 11 "扩缩股" is a pure share multiplier: quantity × ratio,
+        // price ÷ ratio. It must enter the signal factor too, otherwise the
+        // account adjusts shares while the signal series keeps a false gap.
+        shareFactor =
+          event.category === 11 &&
+          Number.isFinite(event.shrinkRatio) &&
+          (event.shrinkRatio ?? 0) > 0
+            ? event.shrinkRatio!
+            : 1,
+        divisor = (10 + rights + bonus) * shareFactor,
         adjusted =
           divisor > 0
             ? (base * 10 - cash + rights * (event.rightsPrice ?? 0)) / divisor

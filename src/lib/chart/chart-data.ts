@@ -57,14 +57,17 @@ export function breakoutChartData(
     const selected = (["swing-high", "swing-low"] as const).map((source) =>
       point.levels.filter((level) => level.source === source).at(-1),
     );
+    const barIndexByDate = new Map<string, number>();
+    if (selected.some(Boolean)) {
+      bars.forEach((bar, index) => {
+        if (!barIndexByDate.has(bar.date)) barIndexByDate.set(bar.date, index);
+      });
+    }
     const seen = new Set<number>();
     for (const l of selected) {
       if (!l || seen.has(l.price)) continue;
       seen.add(l.price);
-      const begin = Math.max(
-        start,
-        bars.findIndex((b) => b.date === l.confirmedAt),
-      );
+      const begin = Math.max(start, barIndexByDate.get(l.confirmedAt) ?? -1);
       if (begin >= asOf) continue;
       lines.push({
         title: `${l.source === "swing-high" ? "波段高点" : "波段低点"} ${displayNumber(l.price, 2)}`,

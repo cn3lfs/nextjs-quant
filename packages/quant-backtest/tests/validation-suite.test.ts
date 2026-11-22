@@ -22,6 +22,7 @@ function request(): PortfolioRequest {
     };
   });
   return {
+    observationDetail: "full",
     market: "crypto",
     start: bars[0]!.date,
     end: bars.at(-1)!.date,
@@ -123,6 +124,62 @@ function menu(input = request()) {
   ];
 }
 describe("frozen walk-forward validation", () => {
+  it("keeps exact signal counts by default and retains per-bar rows only on request", () => {
+    const input = request();
+    const full = runPortfolio(input);
+    const counts = {
+      trend: {
+        entries: full.observations.filter((row) => row.decision.entry === true)
+          .length,
+        exits: full.observations.filter((row) => row.decision.exit === true)
+          .length,
+      },
+    };
+    expect(counts.trend.entries).toBeGreaterThan(0);
+    delete input.observationDetail;
+    for (const req of [
+      input,
+      { ...input, observationDetail: "counts" as const },
+    ]) {
+      expect(runPortfolio(req)).toMatchObject({
+        observations: [],
+        observationCounts: counts,
+      });
+    }
+  });
+
+  it("propagates an abort during the first replay window before scoring it", () => {
+    const input = request();
+    const instrument = input.instruments[0]!;
+    const facts = instrument.execution;
+    if (!("tradable" in facts) || typeof facts.tradable !== "boolean")
+      throw new Error("Expected constant execution facts");
+    const controller = new AbortController();
+    let observations = 0;
+    input.instruments = [
+      {
+        ...instrument,
+        execution: () => {
+          if (++observations === 4) controller.abort();
+          return facts as import("../src/portfolio/types.js").PortfolioExecution;
+        },
+      },
+    ];
+    expect(() =>
+      runValidationSuite(
+        [{ id: "trend", family: "baseline", request: input }],
+        input.calendar,
+        policy,
+        () => {
+          throw new Error("Cancelled window reached scoring");
+        },
+        undefined,
+        controller.signal,
+      ),
+    ).toThrow(expect.objectContaining({ name: "AbortError" }));
+    expect(observations).toBeGreaterThanOrEqual(4);
+  });
+
   it("can pass the declared gates, and a failing cost leg vetoes an otherwise passing candidate", () => {
     const input = request();
     const bars = Array.from({ length: 220 }, (_, i) => ({

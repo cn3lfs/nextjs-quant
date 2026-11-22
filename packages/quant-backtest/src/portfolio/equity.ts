@@ -102,7 +102,8 @@ export function rebalanceAndMarkEquity(
         strategyId: identity.strategyId,
         sleeve,
         quantity: position.quantity,
-        weight: (position.quantity * position.mark) / row.equity,
+        weight:
+          row.equity > 0 ? (position.quantity * position.mark) / row.equity : 0,
       });
     }
   daily.set(observationDay(date), { ...row, date: observationDay(date) });
@@ -147,7 +148,7 @@ export function portfolioResult(state: PortfolioState) {
     curve,
     positionSnapshots,
     observations,
-    ...(request.observationDetail === "counts" ? { observationCounts } : {}),
+    ...(request.observationDetail !== "full" ? { observationCounts } : {}),
     transfers,
     corporateActions,
     terminalValuations,

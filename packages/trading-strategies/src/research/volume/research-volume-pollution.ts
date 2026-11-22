@@ -1,4 +1,5 @@
 import type { Bar } from "trading-strategy-core/bars";
+import { isResearchDate } from "../contracts/window.js";
 export const volumePollutionProfiles = {
   "vp-limit-book": ["VP-limit-orderbook", "一字板封单与开板替代"],
   "vp-limit-reseal-path": ["VP-limit-reseal", "换手回封与一字后续"],
@@ -28,7 +29,7 @@ export function isVolumePollution(id: string): id is VolumePollutionId {
   return Object.hasOwn(volumePollutionProfiles, id);
 }
 export const volumePollutionBoundary =
-  "量能失真工程v1，共用涨幅>2%且当量/前5根均量≥1.5买、跌幅<-2%卖；各具名过滤单独对照，连续成立只首日入场，退出优先。证据按研究日15:00已知时点过滤，盘后龙虎榜必须下一日才可用；事件完整覆盖空数组才等于无事件。盘口逐次涨跌停价序列必须覆盖交易时段、封单份额/实际量/开板数，替代量能：封单量≥实际量且零开板的一字涨停才给观察买信号，成交仍下一合法开盘；一字跌停退出；回封需真实开板再封，天地/地天各按路径识别并半仓；首板≥1.5倍、中继换手[3,15]%并回封、至少第三板加速<1倍且封单≥量。炸板放量且上影≥全幅40%退出。结算仅沪深股票/境内股票ETF的有来源T+1可执行，T+0/指数/外部市场明确不适用；不修改现有T+1账本。大宗输入核实已含统计且量额扣除配平，对前5根及当日全段扣除后重判；未包含统计不重复减。指数申赎再平衡事件且14:57-15:00量占比≥50%禁入。IPO仅完整上市以来1至59个历史交易日均量，至少一个历史日，半仓且不用普通换手/60日极值。复牌前停牌至少5交易日，首5个交易日禁入，第6日起当量≤停前20有效日均量2倍才恢复。规整挂单比例≥80%且价变幅≤1%和量比≥1.5过滤；笔均量≥此前5日笔均量3倍且价变幅≤1%过滤，均只是风险假设。孤量候选前量<0.8倍、候选≥2.5倍；次日收盘不低于候选且量≥候选日前5均量并有完整消息覆盖/已验证催化才确认，异常量来源必须排除。龙虎榜游资事件披露后两交易日禁入；解禁生效日且流通股数增加/量增禁入；重组公告后五交易日半仓；指数纳入与剔除生效日均禁入并保留方向；季末最后三交易日且量比≥1.5禁入。六步严格按盘口、股本、过户尾盘、上市复牌、孤量盘口、常规顺序，任一必要证据缺失不可用；股本影响走历史换手归一，不能填默认false。盘中证据限2000-01-04至2022-11-30；收盘研究下一开盘执行，非真实历史接入或业绩。";
+  "量能失真工程v1，共用涨幅>2%且当量/前5根均量≥1.5买、跌幅<-2%卖；各具名过滤单独对照，连续成立只首日入场，退出优先。证据按研究日15:00已知时点过滤，盘后龙虎榜必须下一日才可用；事件完整覆盖空数组才等于无事件。盘口逐次涨跌停价序列必须覆盖交易时段、封单份额/实际量/开板数，替代量能：封单量≥实际量且零开板的一字涨停才给观察买信号，成交仍下一合法开盘；一字跌停退出；回封需真实开板再封，天地/地天各按路径识别并半仓；首板≥1.5倍、中继换手[3,15]%并回封、至少第三板加速<1倍且封单≥量。炸板放量且上影≥全幅40%退出。结算仅沪深股票/境内股票ETF的有来源T+1可执行，T+0/指数/外部市场明确不适用；不修改现有T+1账本。大宗输入核实已含统计且量额扣除配平，对前5根及当日全段扣除后重判；未包含统计不重复减。指数申赎再平衡事件且14:57-15:00量占比≥50%禁入。IPO仅完整上市以来1至59个历史交易日均量，至少一个历史日，半仓且不用普通换手/60日极值。复牌前停牌至少5交易日，首5个交易日禁入，第6日起当量≤停前20有效日均量2倍才恢复。规整挂单比例≥80%且价变幅≤1%和量比≥1.5过滤；笔均量≥此前5日笔均量3倍且价变幅≤1%过滤，均只是风险假设。孤量候选前量<0.8倍、候选≥2.5倍；次日收盘不低于候选且量≥候选日前5均量并有完整消息覆盖/已验证催化才确认，异常量来源必须排除。龙虎榜游资事件披露后两交易日禁入；解禁生效日且流通股数增加/量增禁入；重组公告后五交易日半仓；指数纳入与剔除生效日均禁入并保留方向；季末最后三交易日且量比≥1.5禁入。六步严格按盘口、股本、过户尾盘、上市复牌、孤量盘口、常规顺序，任一必要证据缺失不可用；股本影响走历史换手归一，不能填默认false。盘中证据限当时可得数据覆盖；收盘研究下一开盘执行，非真实历史接入或业绩。";
 export function volumePollutionDefinition(id: VolumePollutionId) {
   return {
     label: `量价 · ${volumePollutionProfiles[id][1]}`,
@@ -139,8 +140,7 @@ export function pollutionLimitState(
 ) {
   const l = e?.limit;
   if (
-    date < "2000-01-04" ||
-    date > "2022-11-30" ||
+    !isResearchDate(date) ||
     !l?.complete ||
     !positive(l.up) ||
     !positive(l.down) ||
@@ -416,8 +416,7 @@ export function pollutionDecision(
   if (id === "vp-auction-exclude") {
     const a = e?.auction;
     if (
-      b.date < "2000-01-04" ||
-      b.date > "2022-11-30" ||
+      !isResearchDate(b.date) ||
       !a?.complete ||
       !positive(a.totalShares) ||
       !nonnegative(a.last3Shares) ||
@@ -479,8 +478,7 @@ export function pollutionDecision(
   if (id === "vp-order-shape-risk") {
     const o = e?.orders;
     if (
-      b.date < "2000-01-04" ||
-      b.date > "2022-11-30" ||
+      !isResearchDate(b.date) ||
       !o?.complete ||
       !nonnegative(o.regularFraction) ||
       o.regularFraction > 1
@@ -498,8 +496,7 @@ export function pollutionDecision(
       .slice(Math.max(0, i - 5), i + 1)
       .map((x) => pollutionEvidenceAt(rows, x.date)?.trades);
     if (
-      b.date < "2000-01-04" ||
-      b.date > "2022-11-30" ||
+      !isResearchDate(b.date) ||
       trades.length !== 6 ||
       trades.some(
         (t) =>

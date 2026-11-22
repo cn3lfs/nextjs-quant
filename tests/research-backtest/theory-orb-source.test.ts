@@ -119,6 +119,24 @@ beforeEach(() => {
 });
 
 describe("UTC ORB source adapter", () => {
+  it("reports the configured byte ceiling for frozen ORB bars", async () => {
+    try {
+      vi.stubEnv("QUANT_BAR_STORE_MAX_ESTIMATED_BYTES", "256");
+      await expect(loadTheoryOrbSource(options())).rejects.toMatchObject({
+        code: "BAR_STORE_BUDGET_EXCEEDED",
+        diagnostic: {
+          symbol: "cxBTCUSDT",
+          period: "5m",
+          stage: "output",
+          requestedBars: state.bars.length,
+          maxEstimatedBytes: 256,
+        },
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("freezes raw unadjusted 5m sessions with expected slots and coverage", async () => {
     const result = await loadTheoryOrbSource(options());
     expect(result.instruments).toHaveLength(1);

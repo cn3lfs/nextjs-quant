@@ -1,7 +1,11 @@
 import type Database from "better-sqlite3";
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { DeliveryStore, type ImportBatch } from "./delivery-store";
+import {
+  DeliveryStore,
+  exclusiveDeliveryRow,
+  type ImportBatch,
+} from "./delivery-store";
 
 export const deliveryBatchPageSchema = z
   .object({
@@ -46,7 +50,10 @@ export function deliveryAccountVersion(
   );
 }
 
-type SummaryRow = Omit<ImportBatch, "payload" | "scope"> & {
+type SummaryRow = Omit<
+  ImportBatch,
+  "payload" | "scope" | "status" | "revokedAt"
+> & {
   scope: "all" | "cashFlowsOnly";
   statisticsJson: string;
   receiptJson: string | null;
@@ -57,8 +64,8 @@ const projection = `b.id,b.account,b.source,b.file_hash fileHash,b.file_name fil
   coalesce(json_extract(b.payload,'$.scope'),'all') scope,
   json_extract(b.payload,'$.statistics') statisticsJson,
   json_extract(b.payload,'$.receipt') receiptJson,
-  (SELECT count(*) FROM trade_fills f WHERE f.batch_id=b.id) ownedFills,
-  (SELECT count(*) FROM cash_flows c WHERE c.batch_id=b.id) ownedCashFlows`;
+  (SELECT count(*) FROM trade_fills f WHERE f.batch_id=b.id AND ${exclusiveDeliveryRow("trade_fills")}) ownedFills,
+  (SELECT count(*) FROM cash_flows f WHERE f.batch_id=b.id AND ${exclusiveDeliveryRow("cash_flows")}) ownedCashFlows`;
 function summary(row: SummaryRow) {
   const { statisticsJson, receiptJson, ...value } = row;
   return {
@@ -303,7 +310,9 @@ export function deliveryBatchExport(db: Database.Database, id: string) {
     const { payload, ...base } = row;
     const facts = (table: "trade_fills" | "cash_flows") =>
       db
-        .prepare(`SELECT id,payload FROM ${table} WHERE batch_id=? ORDER BY id`)
+        .prepare(
+          `SELECT id,payload FROM ${table}_claims WHERE batch_id=? ORDER BY id`,
+        )
         .all(id)
         .map((value) => {
           const fact = value as { id: string; payload: string };

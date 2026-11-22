@@ -6,7 +6,19 @@ import {
 } from "trading-strategies";
 import { marketRules } from "trading-strategy-core/market-rules";
 import { executionCostsSchema } from "trading-strategy-core/costs";
+import { z } from "zod";
+import type { PortfolioAction } from "quant-execution";
 import { type PortfolioInstrument, type PortfolioRequest } from "./types.js";
+
+const actionDate = z.union([
+  z.string().date(),
+  z.string().datetime({ offset: true }),
+]);
+
+function isActionDate(value: unknown): value is string {
+  const parsed = actionDate.safeParse(value);
+  return parsed.success && Number.isFinite(Date.parse(parsed.data));
+}
 
 export const keyFor = (strategy: string, symbol: string) =>
   JSON.stringify([strategy, symbol]);
@@ -21,6 +33,38 @@ export function createPortfolioPreparation() {
     PortfolioInstrument,
     { signature: string; prepared: PreparedInstrument }
   >();
+}
+
+function invalidActionTiming(action: PortfolioAction) {
+  const timing = action.timingAssumption as
+    "ex-date-research-scenario" | "broker-ledger" | undefined;
+  if (timing === "ex-date-research-scenario")
+    return (
+      !isActionDate(action.cashAvailableAt) ||
+      (action.cashAvailableAt !== action.date &&
+        action.cashAvailableAt !== action.date.slice(0, 10)) ||
+      (action.sharesSellableAt !== undefined &&
+        (!isActionDate(action.sharesSellableAt) ||
+          Date.parse(action.sharesSellableAt) < Date.parse(action.date))) ||
+      (action.bonus > 0 && !action.sharesSellableAt)
+    );
+  if (timing === "broker-ledger")
+    return (
+      (action.cashAvailableAt !== undefined &&
+        (!isActionDate(action.cashAvailableAt) ||
+          Date.parse(action.cashAvailableAt) < Date.parse(action.date))) ||
+      (action.sharesSellableAt !== undefined &&
+        (!isActionDate(action.sharesSellableAt) ||
+          Date.parse(action.sharesSellableAt) < Date.parse(action.date)))
+    );
+  if (timing !== undefined || action.cashAvailableAt !== undefined) return true;
+  if (
+    action.sharesSellableAt !== undefined &&
+    (!isActionDate(action.sharesSellableAt) ||
+      Date.parse(action.sharesSellableAt) < Date.parse(action.date))
+  )
+    return true;
+  return action.bonus > 0 && !action.sharesSellableAt;
 }
 
 export function preparePortfolioRequest(
@@ -165,7 +209,7 @@ export function preparePortfolioRequest(
         actions.some(
           (a) =>
             !a.evidence ||
-            a.availableAt > a.date ||
+            Date.parse(a.availableAt) > Date.parse(a.date) ||
             !Number.isFinite(a.dividend) ||
             a.dividend < 0 ||
             !Number.isFinite(a.bonus) ||
@@ -180,10 +224,7 @@ export function preparePortfolioRequest(
               (a.rightsPrice === undefined ||
                 !Number.isFinite(a.rightsPrice) ||
                 a.rightsPrice < 0)) ||
-            (a.sharesSellableAt !== undefined &&
-              (!Number.isFinite(Date.parse(a.sharesSellableAt)) ||
-                a.sharesSellableAt < a.date)) ||
-            (a.bonus > 0 && !a.sharesSellableAt),
+            invalidActionTiming(a),
         )
       )
         throw new Error("Unsupported / unproven corporate action");

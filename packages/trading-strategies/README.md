@@ -56,9 +56,9 @@ pnpm --filter trading-strategies build
 
 统一目录现有91项（57日线、25目标权重预设、3研究、6输入/模型缺口），与原九方向历史证据索引分开维护。六个既有代表已进入统一回放，其历史证据级别保持原样；RPS七周期是同一家族预设，不计作七种独立alpha。财务4项与协方差风险平价来源见[前批交付](../../docs/strategy-signals/2026-11-11-strategy-module-boundaries.md)，成长/年度财务、组合/公式、盘中/周线政策和原生逐日执行见[本批交付](../../docs/strategy-signals/2026-11-11-strategy-factor-native.md)。
 
-research子路径维护策略政策、形态、筛选与中性事实契约；原始供应商列解析、数据读取、证据hash与任务留应用。费用/数量报价由执行器注入，成交原语复用quant-backtest，回放与持仓账本由实际执行层维护。累计128条完整旧路径映射见[迁移台账](../../docs/strategy-module-migration.json)；另有部分文件仅拆策略语义，不登记整文件搬迁。包只依赖中性FormulaRuntime，应用唯一实现执行既有DSL；原生观察由应用逐收盘固定前缀生成，包消费冻结结构并决定信号。
+research子路径维护策略政策、形态、筛选与中性事实契约；原始供应商列解析、数据读取、证据hash与任务留应用。费用/数量报价由执行器注入，成交原语复用quant-backtest，回放与持仓账本由实际执行层维护。一次性迁移台账已退役，活动路径不保留兼容转发；部分文件只拆策略语义，不做整文件搬迁。包只依赖中性FormulaRuntime，应用唯一实现执行既有DSL；原生观察由应用逐收盘固定前缀生成，包消费冻结结构并决定信号。
 
-版本化策略对象使用包根strategyObjectSchema/prepareStrategy；纯公式通过trading-strategies/formula/*直接使用。方法目录execution字段由scripts/audit-strategy-objects.ts --write生成，精确绑定才标runnable，其他方法保留reference。
+版本化策略对象使用包根strategyObjectSchema/prepareStrategy；纯公式通过trading-strategies/formula/*直接使用。方法目录的execution字段按需手工维护，精确绑定才标runnable，其他方法保留reference。
 
 ## 2026-11-17 理论代理融合
 
