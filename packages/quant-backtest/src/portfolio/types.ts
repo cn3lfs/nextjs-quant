@@ -9,6 +9,7 @@ import { type PortfolioAction } from "../portfolio-account.js";
 
 export type Market = "cn-equity" | "crypto";
 export type PortfolioExecution = {
+  slippagePolicy?: "reject" | "clamp" | "none";
   evidence: string;
   minimum?: number;
   step?: number;
@@ -62,6 +63,8 @@ export type PortfolioRequest = {
   strategies: readonly StrategyObjectInput[];
   sleeves: readonly PortfolioSleeve[];
   costs?: ExecutionCosts;
+  maxParticipation?: number;
+  capacityPolicy?: "clip" | "reject";
   bookFacts?: Readonly<Record<string, StrategyBookFacts>>;
   /** A completed pre-start weekly signal seeds only next-session orders; no warmup equity is scored. */
   bookSeeds?: readonly {
@@ -127,6 +130,7 @@ export type PortfolioOrder = {
   status: "pending" | "filled" | "rejected";
   reason: string | null;
   attempts: number;
+  capacityClipped?: true;
   trigger: "signal" | "stop" | "target" | "trailing" | "time";
   rankScore?: number;
   weightCeiling?: number;
@@ -149,6 +153,7 @@ export type PortfolioFill = {
   fee: number;
   cashAfter: number;
   holdingAfter: number;
+  capacityClipped?: true;
   executionEvidence?: {
     intendedPrice: number;
     slippageBps: number;

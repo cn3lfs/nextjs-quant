@@ -9,7 +9,7 @@
     "complex": "gpt-6.2-astra",
     "review": "gpt-6.2-sol",
     "everydayFast": "claude-deepseek:default",
-    "everydayEfficient": "gemini-4-hydrogen-high"
+    "everydayEfficient": "gpt-6.2-sol"
   },
   "timeouts": {
     "defaultMs": 900000,

@@ -9,6 +9,7 @@ import {
 import {
   prepareLabBacktest,
   type FrozenLabBacktest,
+  type LabExecutionProfile,
 } from "../../../src/server/research/lab-backtest";
 import { readBars } from "../../../src/server/market/bar-store/read-bars";
 
@@ -24,6 +25,9 @@ export type PrepareDiagnoseRequestInput = {
   costScenario: ResearchCostScenario;
   config: Settings;
   forceCausalPrice: boolean;
+  executionProfile?: LabExecutionProfile;
+  maxParticipation?: number;
+  capacityPolicy?: "clip" | "reject";
 };
 
 export type DiagnoseSourceQuality = {
@@ -109,6 +113,9 @@ export async function prepareDiagnoseRequest(
       forceCausalPrice: input.forceCausalPrice,
       dataQualityMode: "record-only",
       gbbqIssuePolicy: "record-only",
+      executionProfile: input.executionProfile,
+      maxParticipation: input.maxParticipation,
+      capacityPolicy: input.capacityPolicy,
     },
   );
   const benchmark = await readBars({

@@ -79,6 +79,20 @@ export function preparePortfolioRequest(
     !["cn-equity", "crypto"].includes(market)
   )
     throw new Error("Invalid portfolio request");
+  const { maxParticipation, capacityPolicy } = request;
+  if (
+    maxParticipation !== undefined &&
+    (!Number.isFinite(maxParticipation) ||
+      maxParticipation <= 0 ||
+      maxParticipation > 1)
+  )
+    throw new Error("Invalid maxParticipation");
+  if (
+    capacityPolicy !== undefined &&
+    (maxParticipation === undefined ||
+      !["clip", "reject"].includes(capacityPolicy))
+  )
+    throw new Error("Invalid capacityPolicy");
   if (
     !sleeves.length ||
     new Set(sleeves.map((s) => s.id)).size !== sleeves.length ||

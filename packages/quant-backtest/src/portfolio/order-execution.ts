@@ -47,6 +47,8 @@ function quantityRules(
   if (
     typeof execution?.evidence !== "string" ||
     !execution.evidence.trim() ||
+    (execution.slippagePolicy !== undefined &&
+      !["reject", "clamp", "none"].includes(execution.slippagePolicy)) ||
     ![execution.limitUp, execution.limitDown].every(
       (v) =>
         v === null || (typeof v === "number" && Number.isFinite(v) && v > 0),
@@ -150,6 +152,7 @@ export function createOrderExecutor(state: PortfolioState) {
     const price = result.price;
     const sleeve = sleeves.find((s) => s.id === order.sleeve)!;
     let quantity = holding?.quantity ?? 0;
+    let stop: number | null = null;
     if (order.side === "buy") {
       const heldNames = new Set(
         [...account.positions.keys()].map((k) => identities.get(k)!.symbol),
@@ -182,7 +185,7 @@ export function createOrderExecutor(state: PortfolioState) {
           ? 1
           : source.instrument.bars[si]!.close /
             source.instrument.signalBars[si]!.close;
-      let stop =
+      stop =
         strategy.exit.stop?.kind === "fixed"
           ? price * (1 - strategy.exit.stop.fraction)
           : known?.stopLevel == null
@@ -373,31 +376,6 @@ export function createOrderExecutor(state: PortfolioState) {
           return;
         }
       }
-      controls.set(
-        key,
-        control
-          ? { ...control, tranches: control.tranches + 1 }
-          : {
-              stop,
-              entry: price,
-              studyEntry: {
-                entry:
-                  (price *
-                    source.instrument.signalBars[source.indices.get(date)!]!
-                      .close) /
-                  source.instrument.bars[source.indices.get(date)!]!.close,
-                entryIndex: source.indices.get(date)!,
-                signalIndex: source.indices.get(order.signalAt)!,
-                lastExitIndex: lastExitIndices.get(key),
-              },
-              high: price,
-              target: strategy.exit.takeProfit
-                ? price * (1 + strategy.exit.takeProfit)
-                : null,
-              bars: 0,
-              tranches: 1,
-            },
-      );
     } else {
       quantity = Math.min(
         quantity,
@@ -435,6 +413,53 @@ export function createOrderExecutor(state: PortfolioState) {
     if (quantity <= 0) {
       reject(order, date, "无可成交数量");
       return;
+    }
+    const capacityAmount =
+      request.maxParticipation !== undefined && bar && bar.amount > 0
+        ? bar.amount * request.maxParticipation
+        : Infinity;
+    const capacityClipped =
+      Number.isFinite(capacityAmount) &&
+      quantity * price > capacityAmount + 1e-8;
+    if (capacityClipped) {
+      const reason = "超过参与率上限（容量情景）";
+      if (request.capacityPolicy !== "clip") {
+        reject(order, date, reason);
+        return;
+      }
+      quantity = floorStep(capacityAmount / price, rules.step);
+      if (quantity < rules.minimum || (order.side === "sell" && quantity < 1)) {
+        reject(order, date, reason);
+        return;
+      }
+      order.capacityClipped = true;
+    }
+    if (order.side === "buy") {
+      controls.set(
+        key,
+        control
+          ? { ...control, tranches: control.tranches + 1 }
+          : {
+              stop,
+              entry: price,
+              studyEntry: {
+                entry:
+                  (price *
+                    source.instrument.signalBars[source.indices.get(date)!]!
+                      .close) /
+                  source.instrument.bars[source.indices.get(date)!]!.close,
+                entryIndex: source.indices.get(date)!,
+                signalIndex: source.indices.get(order.signalAt)!,
+                lastExitIndex: lastExitIndices.get(key),
+              },
+              high: price,
+              target: strategy.exit.takeProfit
+                ? price * (1 + strategy.exit.takeProfit)
+                : null,
+              bars: 0,
+              tranches: 1,
+            },
+      );
     }
     const fee = feeFor(quantity, price, order.side, dateCosts);
     account.fill(
@@ -485,6 +510,7 @@ export function createOrderExecutor(state: PortfolioState) {
       fee,
       cashAfter: account.cash,
       holdingAfter: remaining,
+      ...(capacityClipped ? { capacityClipped: true as const } : {}),
       ...(lifecycle
         ? {
             executionEvidence: {

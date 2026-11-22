@@ -8,6 +8,7 @@ import { readBars } from "../../../src/server/market/bar-store/read-bars";
 import {
   replayLabBacktest,
   type FrozenLabBacktest,
+  type LabExecutionProfile,
 } from "../../../src/server/research/lab-backtest";
 import { runDiagnostics } from "./diagnostics";
 import {
@@ -47,6 +48,9 @@ export type RunDiagnoseOptions = {
   limit?: number;
   riskPerTrade?: number;
   maxPositions?: number;
+  executionProfile?: LabExecutionProfile;
+  maxParticipation?: number;
+  capacityPolicy?: "clip" | "reject";
   log?: (line: string) => void;
 };
 
@@ -206,6 +210,9 @@ async function writeArtifacts(dir: string, context: ArtifactContext) {
     riskPerTrade: context.riskPerTrade,
     maxPositions: context.maxPositions,
     costScenario: context.costScenario,
+    executionProfile: frozen.executionProfile ?? "strict",
+    maxParticipation: frozen.maxParticipation ?? null,
+    capacityPolicy: frozen.capacityPolicy ?? null,
     tdxRoot: context.tdxRoot,
     dataAsOf: [
       ...new Set(
@@ -271,6 +278,7 @@ async function writeArtifacts(dir: string, context: ArtifactContext) {
         "fee",
         "cashAfter",
         "holdingAfter",
+        "capacityClipped",
       ],
       result.fills.map((fill) => [
         fill.orderId,
@@ -285,6 +293,7 @@ async function writeArtifacts(dir: string, context: ArtifactContext) {
         fill.fee,
         fill.cashAfter,
         fill.holdingAfter,
+        fill.capacityClipped === true,
       ]),
     ),
     { encoding: "utf8", flag: "wx" },
@@ -350,6 +359,9 @@ async function writeErrorArtifacts(
     end: string;
     initial: number;
     costScenario: ResearchCostScenario;
+    executionProfile: LabExecutionProfile;
+    maxParticipation: number | null;
+    capacityPolicy: "clip" | "reject" | null;
     tdxRoot: string;
   },
 ) {
@@ -362,6 +374,9 @@ async function writeErrorArtifacts(
     end: context.end,
     initial: context.initial,
     costScenario: context.costScenario,
+    executionProfile: context.executionProfile,
+    maxParticipation: context.maxParticipation,
+    capacityPolicy: context.capacityPolicy,
     tdxRoot: context.tdxRoot,
     status: cell.status,
     layer: cell.layer,
@@ -409,6 +424,9 @@ export async function runDiagnose(options: RunDiagnoseOptions) {
   if (new Set(options.symbols).size !== options.symbols.length)
     throw new Error("标的需要唯一");
   const config = settingsSchema.parse({ tdxRoot: options.tdxRoot });
+  const executionProfile = options.executionProfile ?? "strict";
+  const maxParticipation = options.maxParticipation ?? null;
+  const capacityPolicy = options.capacityPolicy ?? null;
   const planned = planDiagnoseCells({
     symbols: options.symbols,
     strategies: options.strategies,
@@ -480,6 +498,9 @@ export async function runDiagnose(options: RunDiagnoseOptions) {
         costScenario: options.cost,
         config,
         forceCausalPrice: item.strategy !== "hold",
+        executionProfile,
+        ...(maxParticipation === null ? {} : { maxParticipation }),
+        ...(capacityPolicy === null ? {} : { capacityPolicy }),
       });
       const replay = replayLabBacktest(frozen);
       const diagnostics = runDiagnostics({
@@ -487,6 +508,12 @@ export async function runDiagnose(options: RunDiagnoseOptions) {
         frozen,
         replay,
       });
+      const counts: typeof diagnostics.counts = {
+        ...diagnostics.counts,
+        capacityClippedFills: replay.result.fills.filter(
+          (fill) => fill.capacityClipped === true,
+        ).length,
+      };
       await writeArtifacts(runPath, {
         strategyConfig,
         frozen,
@@ -500,17 +527,20 @@ export async function runDiagnose(options: RunDiagnoseOptions) {
         maxPositions,
         costScenario: options.cost,
       });
-      await writeJson(join(runPath, "diagnostics.json"), diagnostics);
+      await writeJson(join(runPath, "diagnostics.json"), {
+        ...diagnostics,
+        counts,
+      });
       await writeJson(join(runPath, "summary.json"), {
         status: diagnostics.status,
         layer: diagnostics.layer,
-        counts: diagnostics.counts,
+        counts,
         overview: replay.overview,
         findings: diagnostics.findings,
       });
       cell.status = diagnostics.status;
       cell.layer = diagnostics.layer;
-      cell.counts = diagnostics.counts;
+      cell.counts = counts;
       cell.overview = replay.overview;
       cell.findings = diagnostics.findings;
       cell.checks = diagnostics.checks;
@@ -534,6 +564,9 @@ export async function runDiagnose(options: RunDiagnoseOptions) {
           end: options.end,
           initial: options.initial,
           costScenario: options.cost,
+          executionProfile,
+          maxParticipation,
+          capacityPolicy,
           tdxRoot: options.tdxRoot,
         });
       } catch {

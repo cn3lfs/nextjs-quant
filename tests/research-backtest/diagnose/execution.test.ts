@@ -9,6 +9,15 @@ import {
   executionCostsForDate,
   researchExecutionCosts,
 } from "trading-strategy-core/costs";
+import {
+  researchExecutionAt,
+  researchExecutionEvidence,
+} from "~/server/research/corporate-actions";
+import {
+  replayLabBacktest,
+  type FrozenLabBacktest,
+} from "~/server/research/lab-backtest";
+import { runDiagnostics } from "../../../scripts/lib/backtest-diagnose/diagnostics";
 import { reconcileFills } from "../../../scripts/lib/backtest-diagnose/reconcile";
 import { buildStrategy } from "../../../scripts/lib/backtest-diagnose/strategy-specs";
 
@@ -319,3 +328,117 @@ it.each([
     expect(result.fills.some((fill) => fill.date === dates[1])).toBe(false);
   },
 );
+
+it("omits slippagePolicy from both forms of research execution evidence by default", () => {
+  const bars = request().instruments[0]!.bars.slice(0, 2);
+  const [first, second] = bars;
+  const at = researchExecutionAt(symbol, second, first, undefined);
+  const byDate = researchExecutionEvidence(symbol, bars, undefined);
+  expect(Object.keys(at!).sort()).toEqual([
+    "evidence",
+    "limitDown",
+    "limitUp",
+    "minimum",
+    "step",
+    "tradable",
+  ]);
+  expect(byDate).toEqual({
+    [dates[0]]: researchExecutionAt(symbol, first, undefined, undefined),
+    [dates[1]]: at,
+  });
+  for (const execution of Object.values(byDate)) {
+    expect(execution).not.toHaveProperty("slippagePolicy");
+  }
+});
+
+it.each(["reject", "clamp", "none"] as const)(
+  "records explicit %s in direct and date-keyed research execution evidence",
+  (slippagePolicy) => {
+    const bars = request().instruments[0]!.bars.slice(0, 2);
+    const [first, second] = bars;
+    const at = researchExecutionAt(
+      symbol,
+      second,
+      first,
+      undefined,
+      undefined,
+      slippagePolicy,
+    );
+    expect(at).toMatchObject({
+      slippagePolicy,
+      limitUp: 11.22,
+      limitDown: 9.18,
+    });
+    const byDate = researchExecutionEvidence(
+      symbol,
+      bars,
+      undefined,
+      slippagePolicy,
+    );
+    expect(byDate).toMatchObject({
+      [dates[0]]: { slippagePolicy, limitUp: null, limitDown: null },
+      [dates[1]]: { slippagePolicy, limitUp: 11.22, limitDown: 9.18 },
+    });
+  },
+);
+
+it("passes fee, cardinality, equity and ledger diagnostics for a capacity-clipped buy", () => {
+  const input = request({ day2: { amount: 175_000 } });
+  const instrument = input.instruments[0]!;
+  const bars = instrument.bars.slice(0, 2);
+  input.end = dates[1];
+  input.calendar = dates.slice(0, 2);
+  input.instruments = [{ ...instrument, bars, signalBars: bars }];
+  input.maxParticipation = 0.01;
+  input.capacityPolicy = "clip";
+  const frozen: FrozenLabBacktest = {
+    request: input,
+    sources: [],
+    dataSource: "local",
+    corporateActionCoverage: "included",
+    costScenario: "fixed",
+    strategyBuildHash: "",
+    executionBuildHash: "",
+    boundary: "synthetic capacity cell",
+    marketPolicy: {
+      signalBars: "raw",
+      executionBars: "raw",
+      priceLimits: "scenario",
+      quantityGrid: {
+        kind: "fixture",
+        minimumStepCells: ["100/100"],
+        evidence: "synthetic A-share lots",
+      },
+    },
+  };
+  const replay = replayLabBacktest(frozen);
+  expect(replay.result.fills).toHaveLength(1);
+  const fill = replay.result.fills[0]!;
+  // The ¥1,750 cap fits one ¥1,050 lot. Its fee is ¥5 + ¥1,050 × 0.1bp.
+  expect(fill).toMatchObject({
+    date: dates[1],
+    price: 10.5,
+    quantity: 100,
+    capacityClipped: true,
+  });
+  expect(fill.fee).toBeCloseTo(5.0105, 8);
+  expect(fill.cashAfter).toBeCloseTo(1_544.9895, 8);
+  expect(replay.result.curve.at(-1)?.equity).toBeCloseTo(2_564.9895, 8);
+
+  const report = runDiagnostics({ request: input, frozen, replay });
+  expect(report.status).toBe("ok");
+  expect(report.checks.filter(({ status }) => status === "fail")).toHaveLength(
+    0,
+  );
+  for (const id of [
+    "feeMatches",
+    "orderFillCardinality",
+    "equityIdentity",
+    "ledgerReconcile",
+  ]) {
+    expect(report.checks.find((check) => check.id === id)).toMatchObject({
+      id,
+      status: "pass",
+    });
+  }
+});

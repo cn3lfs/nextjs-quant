@@ -34,6 +34,8 @@ const defaultStrategies = [
   "formula",
 ];
 const costScenarios = ["fixed", "base", "double-cost"] as const;
+const executionProfiles = ["strict", "clamp", "no-slippage"] as const;
+const capacityPolicies = ["clip", "reject"] as const;
 
 type Args = {
   plan: boolean;
@@ -49,6 +51,9 @@ type Args = {
   outDir: string;
   dataDir: string;
   limit?: number;
+  executionProfile: (typeof executionProfiles)[number];
+  maxParticipation?: number;
+  capacityPolicy?: (typeof capacityPolicies)[number];
 };
 
 function usage() {
@@ -65,6 +70,9 @@ function usage() {
     "  --out         输出目录（默认 .test-data/backtest-diagnose/out）",
     "  --data-dir    隔离 QUANT_DATA_DIR，必须在 <repo>/.test-data 下",
     "  --limit       只跑前 N 个单元（冒烟）",
+    "  --execution-profile strict | clamp | no-slippage（默认 strict）",
+    "  --max-participation  成交额参与率上限 (0,1]；不设置则不启用容量约束",
+    "  --capacity-policy    clip | reject（默认 reject，须与 --max-participation 同用）",
     "  --plan        只打印诊断单元，不读取行情",
   ].join("\n");
 }
@@ -112,6 +120,9 @@ function parseArgs(argv: readonly string[]): Args {
         "--out",
         "--data-dir",
         "--limit",
+        "--execution-profile",
+        "--max-participation",
+        "--capacity-policy",
       ].includes(arg)
     )
       throw new Error(`未知参数：${arg}\n${usage()}`);
@@ -137,6 +148,36 @@ function parseArgs(argv: readonly string[]): Args {
   const limit = limitRaw === undefined ? undefined : Number(limitRaw);
   if (limit !== undefined && (!Number.isInteger(limit) || limit < 1))
     throw new Error("--limit 须为正整数");
+  const executionProfile = (values.get("--execution-profile") ??
+    "strict") as Args["executionProfile"];
+  if (!executionProfiles.includes(executionProfile))
+    throw new Error(
+      `--execution-profile 须为 ${executionProfiles.join(" | ")}`,
+    );
+  const maxParticipationRaw = values.get("--max-participation");
+  const maxParticipation =
+    maxParticipationRaw === undefined ? undefined : Number(maxParticipationRaw);
+  if (
+    maxParticipation !== undefined &&
+    (!Number.isFinite(maxParticipation) ||
+      maxParticipation <= 0 ||
+      maxParticipation > 1)
+  )
+    throw new Error("--max-participation 须为 (0,1] 内的有限小数");
+  const capacityRaw = values.get("--capacity-policy");
+  if (capacityRaw !== undefined && maxParticipation === undefined)
+    throw new Error("--capacity-policy 须与 --max-participation 同时提供");
+  const capacityPolicy =
+    capacityRaw === undefined
+      ? maxParticipation === undefined
+        ? undefined
+        : ("reject" as const)
+      : (capacityRaw as Args["capacityPolicy"]);
+  if (
+    capacityPolicy !== undefined &&
+    !capacityPolicies.includes(capacityPolicy)
+  )
+    throw new Error(`--capacity-policy 须为 ${capacityPolicies.join(" | ")}`);
   return {
     plan,
     symbols: parseList(
@@ -163,6 +204,9 @@ function parseArgs(argv: readonly string[]): Args {
       return raw ? resolve(raw) : "";
     })(),
     limit,
+    executionProfile,
+    maxParticipation,
+    capacityPolicy,
   };
 }
 
@@ -230,6 +274,9 @@ async function main() {
     console.log(
       `窗口：${args.start === "auto" ? "auto（首根日线 + 策略预热）" : args.start} ~ ${args.end}`,
     );
+    console.log(
+      `执行情景：${args.executionProfile}；参与率上限：${args.maxParticipation ?? "关闭"}；容量策略：${args.capacityPolicy ?? "未启用"}`,
+    );
     cells.forEach((cell, index) =>
       console.log(
         `[${index + 1}] ${cell.mode} ${cell.strategy} ${cell.symbols.join("+")}`,
@@ -283,6 +330,9 @@ async function main() {
     cost: args.cost,
     outDir: runRoot,
     limit: args.limit,
+    executionProfile: args.executionProfile,
+    maxParticipation: args.maxParticipation,
+    capacityPolicy: args.capacityPolicy,
     log: (line) => console.log(line),
   });
   const counts = {

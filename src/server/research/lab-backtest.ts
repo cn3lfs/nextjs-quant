@@ -109,9 +109,20 @@ export type LabBacktestWork = {
   input: z.input<typeof labBacktestSchema>;
 };
 type LabProgress = (n: number, phase: string) => void;
+/** Slippage handling handed to per-date execution evidence. Defaults to strict. */
+export type LabExecutionProfile = "strict" | "clamp" | "no-slippage";
 export type LabBacktestPrepareOptions = {
   /** Supplied by diagnostic CLIs so no production settings database is opened. */
   config?: Settings;
+  /**
+   * `strict` rejects a slipped price outside the observable bar, `clamp` keeps
+   * it inside the bar, and `no-slippage` fills at the open. Defaults to strict.
+   */
+  executionProfile?: LabExecutionProfile;
+  /** Research capacity scenario: cap order value at this share of bar amount. */
+  maxParticipation?: number;
+  /** Only meaningful together with `maxParticipation`; defaults to reject. */
+  capacityPolicy?: "clip" | "reject";
   /** Force the causal price basis even when the rule alone does not require it. */
   forceCausalPrice?: boolean;
   /** `record-only` keeps repaired bars visible instead of rejecting the run. */
@@ -125,6 +136,21 @@ export type LabBacktestPrepareOptions = {
   gbbqIssuePolicy?: "strict" | "record-only";
 };
 
+function slippagePolicyFor(
+  profile: LabExecutionProfile,
+): NonNullable<PortfolioExecution["slippagePolicy"]> {
+  switch (profile) {
+    case "strict":
+      return "reject";
+    case "clamp":
+      return "clamp";
+    case "no-slippage":
+      return "none";
+    default:
+      throw new Error(`未知执行情景：${String(profile)}`);
+  }
+}
+
 export async function prepareLabBacktest(
   work: LabBacktestWork,
   progress: LabProgress = () => {},
@@ -136,6 +162,8 @@ export async function prepareLabBacktest(
   const input = labBacktestSchema.parse(work.input),
     strategy = input.strategy,
     config = options?.config ?? settings();
+  const executionProfile = options?.executionProfile ?? "strict";
+  const slippagePolicy = slippagePolicyFor(executionProfile);
   const causal =
     requiresCausalPriceBasis(strategy) || options?.forceCausalPrice === true;
   // Relaxed GBBQ handling is opt-in and only valid alongside record-only data.
@@ -346,7 +374,7 @@ export async function prepareLabBacktest(
       actions,
       execution:
         strategy.market === "cn-equity"
-          ? researchExecutionEvidence(symbol, raw, actions)
+          ? researchExecutionEvidence(symbol, raw, actions, slippagePolicy)
           : {
               evidence:
                 "R2a-5 research quantity grid; not verified venue filters",
@@ -414,6 +442,13 @@ export async function prepareLabBacktest(
       },
     ],
     costs: researchExecutionCosts(strategy.market, input.costScenario),
+    // Absent fields keep the engine's default (no capacity constraint).
+    ...(options?.maxParticipation === undefined
+      ? {}
+      : { maxParticipation: options.maxParticipation }),
+    ...(options?.capacityPolicy === undefined
+      ? {}
+      : { capacityPolicy: options.capacityPolicy }),
   };
   // The diagnostic CLIs run without the packaged validation worker. A missing
   // runtime identity only removes provenance there; production and paper paths
@@ -442,6 +477,9 @@ export async function prepareLabBacktest(
     strategyBuildHash,
     strategySemanticVersion: researchStrategyVersion(strategy),
     executionBuildHash,
+    executionProfile,
+    maxParticipation: options?.maxParticipation ?? null,
+    capacityPolicy: options?.capacityPolicy ?? null,
     boundary:
       input.source === "thsdk"
         ? "规则自检；同花顺延迟行情，信号采用原生前复权 qfq，成交采用同源未复权原价；未计入公司行动分红送转，不可与本地源结果直接比较；历史ST/IPO/排队未认证；非可信策略业绩"
@@ -454,10 +492,19 @@ export async function prepareLabBacktest(
 
 export type FrozenLabBacktest = Omit<
   Awaited<ReturnType<typeof prepareLabBacktest>>,
-  "timingContract" | "strategySemanticVersion"
+  | "timingContract"
+  | "strategySemanticVersion"
+  | "executionProfile"
+  | "maxParticipation"
+  | "capacityPolicy"
 > & {
   timingContract?: "p5";
   strategySemanticVersion?: ReturnType<typeof researchStrategyVersion>;
+  // Optional so legacy fixtures and recorded jobs remain assignable; prepared
+  // runs always resolve the profile and record the capacity settings.
+  executionProfile?: LabExecutionProfile;
+  maxParticipation?: number | null;
+  capacityPolicy?: "clip" | "reject" | null;
 };
 
 export function replayLabBacktest(

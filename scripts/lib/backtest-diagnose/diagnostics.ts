@@ -340,11 +340,25 @@ export function runDiagnostics(input: DiagnosticsInput): DiagnosticReport {
     evidence: mismatched.slice(0, 5),
   });
 
+  // A superseded target order keeps its prior partial fills when a new
+  // completed-bar target replaces it. That is the only rejected-with-fills
+  // lifecycle supported on this path.
+  const supersededTarget = (order: (typeof result.orders)[number]) =>
+    order.targetWeight !== undefined &&
+    order.reason === "被新的完成bar调仓目标替代";
+  // Partial/multi-fill execution is supported only for target-weight orders and
+  // explicitly capacity-clipped orders. A plain signal order must still fill
+  // in one executable slice.
+  const partialFillPath = (order: (typeof result.orders)[number]) =>
+    order.targetWeight !== undefined || order.capacityClipped === true;
+  const distinctFillDates = (fills: readonly { date: string }[]) =>
+    new Set(fills.map((fill) => fill.date)).size === fills.length;
+
   const conservation = result.orders.filter((order) => {
     const fills = orderFillCounts.get(order.id) ?? 0;
     return (
       (order.status === "filled" && fills === 0) ||
-      (order.status === "rejected" && fills > 0)
+      (order.status === "rejected" && fills > 0 && !supersededTarget(order))
     );
   });
   add({
@@ -356,24 +370,48 @@ export function runDiagnostics(input: DiagnosticsInput): DiagnosticReport {
     evidence: conservation.slice(0, 5),
   });
 
-  // One order may produce at most one fill on this path. A filled order must
-  // have exactly one, a rejected or pending order none, and that fill must
-  // belong to the same signal. Counting alone misses a second fill that
-  // differs in price or quantity, so check cardinality and identity together.
   const cardinalityViolations: unknown[] = [];
   for (const order of result.orders) {
     const fills = fillsByOrder.get(order.id) ?? [];
-    if (order.status === "filled") {
-      if (fills.length !== 1) {
-        cardinalityViolations.push({
-          order: { id: order.id, status: order.status },
-          fillCount: fills.length,
-          reason: "filled 订单应恰有一笔成交",
-          fills,
-        });
-        continue;
-      }
-      const fill = fills[0]!;
+    if (order.status === "filled" && fills.length < 1)
+      cardinalityViolations.push({
+        order: { id: order.id, status: order.status },
+        fillCount: fills.length,
+        reason: "filled 订单至少一笔成交",
+      });
+    else if (
+      order.status === "rejected" &&
+      fills.length > 0 &&
+      !supersededTarget(order)
+    )
+      cardinalityViolations.push({
+        order: { id: order.id, status: order.status },
+        fillCount: fills.length,
+        reason: "rejected 订单仅允许被新目标替代的已成交调仓单",
+        fills,
+      });
+    if (
+      fills.length > 1 &&
+      (!partialFillPath(order) || !distinctFillDates(fills))
+    )
+      cardinalityViolations.push({
+        order: { id: order.id, status: order.status },
+        fillCount: fills.length,
+        reason: "多笔成交仅允许目标/容量裁剪路径，且每笔成交日期不同",
+        fills,
+      });
+    if (
+      order.status === "pending" &&
+      fills.length > 0 &&
+      !partialFillPath(order)
+    )
+      cardinalityViolations.push({
+        order: { id: order.id, status: order.status },
+        fillCount: fills.length,
+        reason: "pending 有成交仅允许目标/容量裁剪路径",
+        fills,
+      });
+    for (const fill of fills) {
       const mismatchedFields = (
         ["signalAt", "side", "symbol", "strategyId"] as const
       ).filter((field) => fill[field] !== order[field]);
@@ -383,22 +421,25 @@ export function runDiagnostics(input: DiagnosticsInput): DiagnosticReport {
           fill,
           mismatchedFields,
         });
-    } else if (fills.length > 0) {
-      cardinalityViolations.push({
-        order: { id: order.id, status: order.status },
-        fillCount: fills.length,
-        reason: "未成交订单不应有成交记录",
-        fills,
-      });
     }
   }
+  const cardinalityOrderIds = [
+    ...new Set(
+      cardinalityViolations.map(
+        (violation) => (violation as { order: { id: number } }).order.id,
+      ),
+    ),
+  ];
   add({
     id: "orderFillCardinality",
     status: cardinalityViolations.length ? "fail" : "pass",
     message: cardinalityViolations.length
-      ? `${cardinalityViolations.length} 个订单的成交笔数或归属与订单不一致`
-      : "filled 订单恰有一笔成交，其余订单无成交，且成交归属与订单一致",
-    evidence: cardinalityViolations.slice(0, 5),
+      ? `${cardinalityViolations.length} 个订单的成交笔数或归属与订单不一致（订单 ${cardinalityOrderIds.join(", ")}）；filled 至少一笔；rejected 仅允许被替代的调仓单；pending 仅允许目标/容量分笔；多笔须日期不同`
+      : "filled 至少一笔；rejected 仅允许被替代的调仓单；pending 仅允许目标/容量分笔且日期不同；成交归属一致",
+    evidence: {
+      orderIds: cardinalityOrderIds,
+      violations: cardinalityViolations.slice(0, 5),
+    },
   });
 
   add({

@@ -14,6 +14,7 @@ import {
  * labelled scenario. Current ST/IPO status is not a historical substitute.
  */
 export type ExecutionRules = {
+  slippagePolicy?: "reject" | "clamp" | "none";
   quoteProfile?: keyof typeof openingQuoteProfiles;
   evidence: string;
   minimumBuy: number;
@@ -90,10 +91,21 @@ export function fillMarketOrder(
     bar.open <= rules.limitDown + profile.limitTolerance
   )
     return { price: null, reason: "开盘跌停，无法证明卖出成交" };
-  if (profile.rejectOnePrice && bar.high === bar.low)
+  if (
+    bar.high === bar.low &&
+    (profile.rejectOnePrice ||
+      rules.slippagePolicy === "clamp" ||
+      rules.slippagePolicy === "none")
+  )
     return { price: null, reason: "一字行情，保守不成交" };
-  const price =
+  const intended =
     bar.open * (1 + ((side === "buy" ? 1 : -1) * costs.slippageBps) / 10000);
+  const price =
+    rules.slippagePolicy === "none"
+      ? bar.open
+      : rules.slippagePolicy === "clamp"
+        ? Math.min(bar.high, Math.max(bar.low, intended))
+        : intended;
   if (
     price > bar.high ||
     price < bar.low ||

@@ -69,11 +69,19 @@ export function researchExecutionEvidence(
   symbol: string,
   bars: readonly Bar[],
   actions: PortfolioInstrument["actions"],
+  slippagePolicy?: PortfolioExecution["slippagePolicy"],
 ): PortfolioInstrument["execution"] {
   return Object.fromEntries(
     bars.map((bar, i) => [
       bar.date,
-      researchExecutionAt(symbol, bar, bars[i - 1], actions)!,
+      researchExecutionAt(
+        symbol,
+        bar,
+        bars[i - 1],
+        actions,
+        undefined,
+        slippagePolicy,
+      )!,
     ]),
   );
 }
@@ -83,6 +91,7 @@ export function researchExecutionAt(
   previousBar: Readonly<Bar> | undefined,
   actions: PortfolioInstrument["actions"],
   tradingStatus?: { st: boolean; source: string; date: string },
+  slippagePolicy?: PortfolioExecution["slippagePolicy"],
 ): PortfolioExecution | undefined {
   if (!bar) return undefined;
   const rules = equityResearchRules(symbol, bar.date, tradingStatus);
@@ -92,6 +101,7 @@ export function researchExecutionAt(
   ) ?? [])
     if (previous !== undefined) previous = actionPrice(previous, action);
   return {
+    ...(slippagePolicy === undefined ? {} : { slippagePolicy }),
     evidence: tradingStatus
       ? `Board-rule scenario; same-date ST=${tradingStatus.st}: ${tradingStatus.source}; IPO/queue unverified`
       : "Board-rule scenario; historical ST/IPO/queue unverified",

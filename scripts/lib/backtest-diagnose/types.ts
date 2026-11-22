@@ -26,6 +26,8 @@ export type DiagnoseCounts = {
   fills: number;
   rejections: number;
   closedTrades: number;
+  /** Fills whose quantity was reduced by the capacity participation cap. */
+  capacityClippedFills?: number;
 };
 
 export type DiagnosticCheck = {
@@ -76,4 +78,5 @@ export const emptyCounts = (): DiagnoseCounts => ({
   fills: 0,
   rejections: 0,
   closedTrades: 0,
+  capacityClippedFills: 0,
 });
