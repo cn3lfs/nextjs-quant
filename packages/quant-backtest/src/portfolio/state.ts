@@ -5,11 +5,9 @@ import {
   type StrategyBookDecision,
   type StrategyReentryState,
 } from "trading-strategies";
-import {
-  PortfolioAccount,
-  type PortfolioAction,
-} from "../portfolio-account.js";
+import { type PortfolioAction } from "../portfolio-account.js";
 import { portfolioObservationDay } from "../portfolio-clock.js";
+import { AtomsPortfolioAccount } from "./atoms-account.js";
 import {
   type PortfolioInstrument,
   type PortfolioRequest,
@@ -40,7 +38,7 @@ export function createPortfolioState(
   } = preparePortfolioRequest(request, preparation);
   const accounts = new Map(
     sleeves.map((s) => {
-      const account = new PortfolioAccount(initial);
+      const account = new AtomsPortfolioAccount(initial);
       account.transfer(initial * s.share - initial);
       return [s.id, account] as const;
     }),
@@ -110,7 +108,7 @@ export function createPortfolioState(
     symbol: string;
     strategyId: string;
     evidence: string;
-  } & NonNullable<ReturnType<PortfolioAccount["corporateAction"]>>)[] = [];
+  } & NonNullable<ReturnType<AtomsPortfolioAccount["corporateAction"]>>)[] = [];
   const terminalValuations: {
     date: string;
     symbol: string;
