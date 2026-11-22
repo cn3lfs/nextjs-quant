@@ -167,7 +167,11 @@ it("all ten task captures freeze the exact source inputs and built strategy iden
     expect(run.frozen.sourceHash).toBe("source-hash");
     expect(run.frozen.calendarHash).toBe("calendar-hash");
     expect(run.result).toEqual(
-      replayDailyStudy(run.frozen.bars, [], { ...options, strategy: id }),
+      replayDailyStudy(run.frozen.bars, [], {
+        ...options,
+        strategy: id,
+        symbol: source.symbol,
+      }),
     );
     expect(run.inputHash).toBe(
       createHash("sha256").update(JSON.stringify(run.frozen)).digest("hex"),

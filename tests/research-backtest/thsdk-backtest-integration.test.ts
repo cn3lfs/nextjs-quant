@@ -204,6 +204,8 @@ describe("THSDK lab execution", () => {
           adjustmentSource: "thsdk-native",
           volumeUnit: "股",
           dataAsOf: fields.end,
+          priceRepaired: false,
+          sourceNote: null,
         },
       ]);
       expect(backtest.frozen.request.instruments[0]).toMatchObject({
@@ -255,7 +257,7 @@ describe("THSDK lab execution", () => {
     const { read } = fixtures([fields.end]);
 
     await expect(executeLabBacktest(thsdkWork, () => {}, read)).rejects.toThrow(
-      "包含未完成或修复行情",
+      "包含未完成行情",
     );
   });
 
