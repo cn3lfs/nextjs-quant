@@ -79,13 +79,15 @@
 - **数据口径**：公司行动 action 显式携带 `cashAvailableAt` 与 `timingAssumption: "ex-date-research-scenario"`，不再暗示已知派息/上市日；GBBQ 缓存加入 stat+首尾样本校验；研究采集截止日按已登记实验冻结、新采集取实际覆盖；纸面基准标注“中证800价格指数（不含股息）”。
 - **对拍**：新增 `six-output-parity` 测试，覆盖 orders/fills/curve/rejections/corporateActions/terminalValuations，并用 bigint `ExecutionLedger` 重放 fills 与公司行动，逐笔现金/股数一致。
 - **复审 P1 收口**：提醒仓库同时识别旧键并只采纳一次（已投递旧事件不重投、被引用旧键保持原键）；加密只有可证实的拒单码才允许重试，未知 4xx/5xx 一律 UNKNOWN，停止后拒单不改回 paused；首笔资金流水可按“余额−带符号发生额”反推期初现金；GBBQ 每次由完整内容 SHA-256 决定复用（并发调用不再共享旧读取）；公司行动时点在输入准备阶段对所有 action 校验（时间戳按 `Date.parse` 比较）。
+- **P3 生产组合账本**：`runPortfolio` 的 sleeve 账户改为 `AtomsPortfolioAccount`，现金、数量、FIFO 批次、可卖与公司行动由 bigint `ExecutionLedger` 维护；研究现货使用 24 位现金、18 位数量/价格原子，保留原平均成本公式与对外 number 输出。经典 `daily-profile`/`allocation-profile` 仍在 number 路径。
+- **P4 纸面**：推进改为 `(runId, sequence)` 事件日志（`engineVersion`、前缀计数、成交/权益 SHA-256），旧 checkpoint 以记录 build 的 baseline 一次性升级；新增显式 `paper.registerPaperAccount` 生产创建入口（显式候选、市场/sleeve/证券池校验）；订单首条事实不可变，状态变化追加 `order-event`（存 `records`，页面合并最新快照），旧清理工具同步删除。
+- **P5 基准口径**：`benchmarkBasis`（`price-index-ex-dividends` / `total-return`）贯穿验证冻结、回放、组合、成绩单、CLI 导出、纸面摘要与 UI；旧数据缺字段显示未知口径。
 
 ## 保留的边界
 
 - `docs/trading-skills-method-map.json` 是活数据目录（策略中心/理论研究使用），保留；只删除源锁与漂移审计。
 - runner/显式 definitions 的运行期一致性与 worker 字节校验保留，防止长任务混用两个版本；改无关源码不再中断。
-- 生产 `runPortfolio` 使用 `ResearchExecutionLedger`（number）而不是 bigint `ExecutionLedger`；两者共享 `AccountBook`。切到 bigint 需单独验证 binary64 尾差与全部历史，不在本批次声称完成。
 - 完整历史指数成分、首次披露财务版本、外部券商/THS mock 的委托查询仍需外部数据或联调；缺证据时保留未知/阻断，不补造。
 - 少量数据 manifest 精确计数（WDZ、public factor）是数据契约，不是实现形状，保留。
-- 纸面仍以冻结请求全量重放 + 深比较核对历史，未改为 `(runId, sequence)` 事件日志；生产策略纸面创建入口仍只允许显式测试夹具，订单事实仍按同一 ID 更新，未拆成不可变状态事件。这些不阻断现有个人纸面账户运行，但属于后续独立项。
-- GBBQ 没有派息日与送转上市日证据；研究情景按除权日到账并显式标注，不能据此推断真实可成交时点。基准仍为价格指数，不含股息；相对收益解读需保留该口径。
+- GBBQ 没有派息日与送转上市日证据；研究情景按除权日到账并显式标注，不能据此推断真实可成交时点。A 股基准仍为价格指数；结果载荷与 UI 已显式标注 `price-index-ex-dividends`，不能解读为含股息的超额收益。
+- 经典 `daily-profile`/`allocation-profile` 仍使用 number 账本；本次把 `runPortfolio` 生产路径切到 bigint，五分组对拍的现金/权益差异按 1e-9 以内放行并注明原子换算来源。
