@@ -128,7 +128,7 @@ export type LabBacktestPrepareOptions = {
   /** `record-only` keeps repaired bars visible instead of rejecting the run. */
   dataQualityMode?: "strict" | "record-only";
   /**
-   * Whole-file GBBQ parse issues and category 13/14 warrant entitlements are
+   * Own-symbol and unattributable GBBQ parse issues and category 13/14 warrant entitlements are
    * rejected by default. `record-only` skips those per symbol, passes the
    * filtered events downstream and discloses the counts/dates in `sources`.
    * It only takes effect together with `dataQualityMode: "record-only"`.
@@ -243,6 +243,10 @@ export async function prepareLabBacktest(
           )
         : await corporateActions(config.tdxRoot)
       : null;
+  const sourceIssues =
+    actionSource && "issues" in actionSource ? actionSource.issues : undefined;
+  const unattributedIssues =
+    sourceIssues?.filter((issue) => issue.symbol === undefined) ?? [];
   const corporateActionCoverage =
     strategy.market === "cn-equity" && input.source === "thsdk" && !theory
       ? ("excluded" as const)
@@ -342,10 +346,7 @@ export async function prepareLabBacktest(
             input.end,
           )
         : [];
-    const gbbqIssueCount =
-      actionSource && "issues" in actionSource
-        ? actionSource.issues.length
-        : undefined;
+    const ownIssues = sourceIssues?.filter((issue) => issue.symbol === symbol);
     let signalBars = snapshot.bars;
     let causalPrice: CausalPriceProof | undefined;
     if (causal && actionSource && "issues" in actionSource) {
@@ -356,7 +357,7 @@ export async function prepareLabBacktest(
           [...raw],
           symbolEvents,
           actionSource.sourceSha256,
-          recordOnlyGbbq ? [] : actionSource.issues,
+          recordOnlyGbbq ? [] : [...(ownIssues ?? []), ...unattributedIssues],
         );
         signalBars = price.bars;
         causalPrice = price.proof;
@@ -406,11 +407,12 @@ export async function prepareLabBacktest(
       // reach this point have no issues or warrants to report.
       ...(recordOnlyGbbq
         ? {
-            ...(gbbqIssueCount === undefined
+            ...(ownIssues === undefined
               ? {}
               : {
-                  gbbqIssueCount,
-                  gbbqIssueNote: `整份 GBBQ 有 ${gbbqIssueCount} 条未解析记录（代码/市场/类别未识别等），属于全文件计数，不证明 ${symbol} 事件完整`,
+                  gbbqIssueCount: ownIssues.length,
+                  gbbqUnattributedIssueCount: unattributedIssues.length,
+                  gbbqIssueNote: `GBBQ 有 ${ownIssues.length} 条未解析记录归属 ${symbol}；全文件另有 ${unattributedIssues.length} 条无法归属，不能证明 ${symbol} 事件完整`,
                 }),
             skippedWarrants,
           }

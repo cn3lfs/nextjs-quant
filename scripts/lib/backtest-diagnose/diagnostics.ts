@@ -763,9 +763,13 @@ export function runDiagnostics(input: DiagnosticsInput): DiagnosticReport {
   );
   // GBBQ coverage fields are optional until the policy task writes them, so
   // read them defensively and treat gaps as data limitations, never failures.
+  const gbbqCount = (source: Record<string, unknown>, key: string) =>
+    typeof source[key] === "number" ? (source[key] as number) : 0;
   const gbbqIssues = frozen.sources.filter(
     (source) =>
-      typeof source.gbbqIssueCount === "number" && source.gbbqIssueCount > 0,
+      gbbqCount(source, "gbbqIssueCount") +
+        gbbqCount(source, "gbbqUnattributedIssueCount") >
+      0,
   );
   const skippedWarrants = frozen.sources.filter((source) => {
     const value = source.skippedWarrants;
@@ -801,7 +805,8 @@ export function runDiagnostics(input: DiagnosticsInput): DiagnosticReport {
       })),
       gbbqIssues: gbbqIssues.map((source) => ({
         symbol: source.symbol,
-        count: source.gbbqIssueCount,
+        count: gbbqCount(source, "gbbqIssueCount"),
+        unattributed: gbbqCount(source, "gbbqUnattributedIssueCount"),
       })),
       skippedWarrants: skippedWarrants.map((source) => ({
         symbol: source.symbol,

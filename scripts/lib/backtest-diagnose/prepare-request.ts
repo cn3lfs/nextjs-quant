@@ -36,8 +36,11 @@ export type DiagnoseSourceQuality = {
   adjustment: string | null;
   priceRepaired: boolean;
   sourceNote: string | null;
-  /** Whole-file unparsed GBBQ records; not a per-symbol completeness claim. */
+  /** Unparsed GBBQ records attributed to this symbol. */
   gbbqIssueCount: number;
+  /** Unparsed GBBQ records whose security cannot be decoded; these could
+   * belong to any symbol and are not a per-symbol completeness claim. */
+  gbbqUnattributedIssueCount: number;
   /** Category 13/14 warrant dates skipped under the record-only GBBQ policy. */
   skippedWarrants: string[];
   /** Bars inside the window but absent from the benchmark calendar, dropped
@@ -63,6 +66,10 @@ function sourceQuality(sources: readonly Record<string, unknown>[]) {
       typeof source.sourceNote === "string" ? source.sourceNote : null,
     gbbqIssueCount:
       typeof source.gbbqIssueCount === "number" ? source.gbbqIssueCount : 0,
+    gbbqUnattributedIssueCount:
+      typeof source.gbbqUnattributedIssueCount === "number"
+        ? source.gbbqUnattributedIssueCount
+        : 0,
     skippedWarrants: Array.isArray(source.skippedWarrants)
       ? source.skippedWarrants.filter(
           (date): date is string => typeof date === "string",

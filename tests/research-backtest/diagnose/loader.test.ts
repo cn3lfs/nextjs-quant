@@ -17,7 +17,8 @@ import {
 } from "~/server/research/lab-backtest";
 import { buildStrategy } from "../../../scripts/lib/backtest-diagnose/strategy-specs";
 
-const { symbol, dividend } = vi.hoisted(() => ({
+const { symbol, dividend, issues } = vi.hoisted(() => ({
+  issues: [] as { offset: number; reason: string; symbol?: string }[],
   symbol: "sh600000",
   dividend: {
     date: "2025-01-08",
@@ -33,7 +34,7 @@ vi.mock("~/server/research/causal-price-basis", async (importOriginal) => ({
   >()),
   readResearchPriceActions: async () => ({
     events: new Map([[symbol, [dividend]]]),
-    issues: [],
+    issues,
     sourceSha256: "synthetic GBBQ",
   }),
 }));
@@ -109,7 +110,11 @@ function fixture(bars = rawBars) {
   const query = vi.fn<(input: ReadBarsInput) => void>();
   const read: typeof readBars = async (input) => {
     query(input);
-    return { ...snapshot, period: input.period };
+    return {
+      ...snapshot,
+      symbol: input.instrument.symbol,
+      period: input.period,
+    };
   };
   return { query, read };
 }
@@ -226,5 +231,51 @@ it("can prepare diagnostic inputs when the runtime worker identity is absent", a
     ).resolves.toMatchObject({ request: { start, end } });
   } finally {
     vi.unstubAllEnvs();
+  }
+});
+
+it("blocks strict causal prices only for own or unattributable GBBQ issues", async () => {
+  const other = "sz000001";
+  const prepare = (
+    target: string,
+    policy: "strict" | "record-only" = "strict",
+  ) =>
+    prepareLabBacktest(
+      {
+        ...work,
+        input: {
+          ...work.input,
+          strategy: buildStrategy("hold", [target], "single"),
+        },
+      },
+      undefined,
+      fixture().read,
+      undefined,
+      { ...options, gbbqIssuePolicy: policy },
+    );
+  issues.push({ symbol: other, offset: 4, reason: "事件日期非法" });
+  try {
+    const clean = await prepare(symbol);
+    expect(clean.sources[0]?.causalPrice).toBeDefined();
+    expect(clean.sources[0]).not.toHaveProperty("gbbqIssueCount");
+    await expect(prepare(other)).rejects.toThrow(
+      /Missing or invalid GBBQ evidence/,
+    );
+    issues.push({ offset: 33, reason: "无法归属" });
+    await expect(prepare(symbol)).rejects.toThrow(
+      /Missing or invalid GBBQ evidence/,
+    );
+    for (const [target, ownCount] of [
+      [symbol, 0],
+      [other, 1],
+    ] as const) {
+      const frozen = await prepare(target, "record-only");
+      expect(frozen.sources[0]).toMatchObject({
+        gbbqIssueCount: ownCount,
+        gbbqUnattributedIssueCount: 1,
+      });
+    }
+  } finally {
+    issues.length = 0;
   }
 });

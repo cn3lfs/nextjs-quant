@@ -1,21 +1,61 @@
 import {
   strategyObjectSchema,
   studyWarmup,
+  volumeStudyBindings,
+  wyckoffStudyBindings,
   type StrategyObjectInput,
 } from "trading-strategies";
 import type { DiagnoseMode } from "./types";
 
 /** The five adapter families approved for the first diagnostic batch. */
-export const SIGNAL_STRATEGY_KEYS = [
+const ADAPTER_STRATEGY_KEYS = [
   "dual-ma",
   "turtle",
   "rsi2",
   "double-breakout",
   "formula",
 ] as const;
+
+/**
+ * Research volume-price studies accepted as signal keys. The literal list is
+ * checked against the catalog binding record, so a typo or a removed study id
+ * fails type checking instead of surfacing as an unknown-key runtime error.
+ */
+const VOLUME_STUDY_STRATEGY_KEYS = [
+  "research-volume-price-protected",
+  "research-volume-flat-expanded",
+  "research-volume-up-contracted",
+  "research-volume-down-contracted",
+  "research-volume-up-normal",
+  "research-volume-flat-contracted",
+  "research-volume-breakout-15",
+  "research-volume-breakout-20",
+  "research-volume-average-cross",
+] as const satisfies readonly (keyof typeof volumeStudyBindings)[];
+
+/** Research Wyckoff studies accepted as signal keys, checked against the catalog. */
+const WYCKOFF_STUDY_STRATEGY_KEYS = [
+  "research-wy-spring-protected",
+  "research-wy-sos-protected",
+  "research-wy-jac-protected",
+  "research-wy-lps-protected",
+  "research-wy-reaccumulation-protected",
+  "research-wy-trend-pullback-protected",
+] as const satisfies readonly (keyof typeof wyckoffStudyBindings)[];
+
+export const STUDY_STRATEGY_KEYS = [
+  ...VOLUME_STUDY_STRATEGY_KEYS,
+  ...WYCKOFF_STUDY_STRATEGY_KEYS,
+] as const;
+
+export const SIGNAL_STRATEGY_KEYS = [
+  ...ADAPTER_STRATEGY_KEYS,
+  ...STUDY_STRATEGY_KEYS,
+] as const;
 /** `hold` is the ledger/accounting control, not a strategy. */
 export const CONTROL_KEYS = ["hold"] as const;
 
+export type StudyStrategyKey = (typeof STUDY_STRATEGY_KEYS)[number];
 export type SignalStrategyKey = (typeof SIGNAL_STRATEGY_KEYS)[number];
 export type ControlKey = (typeof CONTROL_KEYS)[number];
 export type StrategyKey = SignalStrategyKey | ControlKey;
@@ -27,6 +67,9 @@ export const STRATEGY_KEYS: readonly StrategyKey[] = [
 export const isStrategyKey = (value: string): value is StrategyKey =>
   (STRATEGY_KEYS as readonly string[]).includes(value);
 
+const isStudyStrategyKey = (key: StrategyKey): key is StudyStrategyKey =>
+  (STUDY_STRATEGY_KEYS as readonly StrategyKey[]).includes(key);
+
 /**
  * Bars that must precede the scored window. The study rules use their catalog
  * warmup; the remaining absolute-price rules settle on 250 trading days (the
@@ -35,6 +78,7 @@ export const isStrategyKey = (value: string): value is StrategyKey =>
  */
 export function warmupBarsFor(key: StrategyKey): number {
   if (key === "hold") return 0;
+  if (isStudyStrategyKey(key)) return studyWarmup(key);
   if (key === "turtle" || key === "rsi2")
     return studyWarmup(key as "turtle" | "rsi2");
   return 250;
@@ -47,6 +91,11 @@ const FORMULA_EXIT = "选股:C<MA(C,20);";
 function rulesFor(
   key: StrategyKey,
 ): Pick<StrategyObjectInput, "entry" | "exit"> {
+  if (isStudyStrategyKey(key))
+    return {
+      entry: { kind: "study-rule", strategy: key, side: "entry" },
+      exit: { rule: { kind: "study-rule", strategy: key, side: "exit" } },
+    };
   switch (key) {
     case "dual-ma":
       return {

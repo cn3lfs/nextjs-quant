@@ -98,9 +98,16 @@ export function equityResearchRules(
   if (!status) return board;
   if (!status.source.trim() || status.date !== date.slice(0, 10))
     throw new Error("ST status must have same-date historical evidence");
-  // STAR/ChiNext keep their board limits; confirmed main-board ST uses 5%.
+  // STAR/ChiNext keep their board limits. Confirmed main-board ST uses 5%
+  // before 2026-07-06 and 10% from that date; without same-date evidence the
+  // caller gets the plain board rule above.
   return {
     ...board,
-    limit: status.st && board.limit === 0.1 ? 0.05 : board.limit,
+    limit:
+      status.st && board.limit === 0.1
+        ? date >= "2026-07-06"
+          ? 0.1
+          : 0.05
+        : board.limit,
   };
 }

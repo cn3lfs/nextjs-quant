@@ -53,5 +53,25 @@ describe("declared historical costs and same-date ST evidence", () => {
     expect(() =>
       equityResearchRules("sh600000", date, { ...status, date: "2020-08-31" }),
     ).toThrow("same-date");
+    // Main-board ST widened to 10% on 2026-07-06; the 5% rule ends the day
+    // before, and ChiNext/STAR keep their 20% limits throughout.
+    expect(
+      equityResearchRules("sh600000", "2026-07-05", {
+        ...status,
+        date: "2026-07-05",
+      }).limit,
+    ).toBe(0.05);
+    expect(
+      equityResearchRules("sh600000", "2026-07-06", {
+        ...status,
+        date: "2026-07-06",
+      }).limit,
+    ).toBe(0.1);
+    expect(
+      equityResearchRules("sz300001", "2026-07-06", {
+        ...status,
+        date: "2026-07-06",
+      }).limit,
+    ).toBe(0.2);
   });
 });

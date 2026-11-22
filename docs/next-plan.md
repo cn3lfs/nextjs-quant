@@ -1,5 +1,15 @@
 # 当前实施计划
 
+## 2026-11-22：回测诊断第二批（量价 / 威科夫）已交付
+
+- 门禁：`pnpm check` 现为异步 `spawn`，每步关闭 stdin、15 分钟单步超时、超时按进程树终止（Windows `taskkill /T`）；`check-result.json` 记录每步耗时与 `timedOut`。完整门禁 6/6 步通过。
+- 研究口径：[回测研究假设](research-backtest/2026-11-22-backtest-assumptions.md)冻结 strict 基线、clamp 强制敏感性、单标的全历史 0.5% 容量档。
+- 策略映射：诊断器支持 9 个量价 + 6 个威科夫 `research-*` study key；每个 key 在结构化 fixture 上必须有真实入场，并与 `createExtendedStudyRule` 对齐。
+- 量价：[170/170 单元 ok](research-backtest/2026-11-22-volume-family-diagnostic.md)，9 个策略均有成交。
+- 威科夫：[119/119 单元 ok](research-backtest/2026-11-22-wyckoff-family-diagnostic.md)，但 `wy-lps`、`wy-reaccumulation`、`wy-trend-pullback` 在五标的全历史上零入场；已登记为下一阶段研究前置问题。
+- 数据：[GBBQ 按标的归因](research-backtest/2026-11-22-data-hardening.md)，无法归属的记录仍阻断 strict；主板 ST 自 2026-07-06 起按 10% 研究口径。
+- 下一阶段可行性：[缠论/成长/RPS](research-backtest/2026-11-22-batch5-feasibility.md)。
+
 ## 2026-11-21：回测与交易基础设施优化已交付
 
 回测引擎与交易基础设施完成一轮结构性优化：去治理化（源锁/深度指纹/构建硬门禁/固定窗口/死板测试）、`AccountBook` 统一账本与 `quant-execution` 包、交割单软删除 v22、PIT/因果复权、窗口读取与按任务预算；后续收口把 sim 账本并入 `AccountBook`、补 `sim_fills.transfer_atoms`（v23）、THS 委托号对账、RPS/chan 热路径索引化，并修复提醒键、加密漏单/拒单重试、真实 NAV 期初现金、观察明细默认值、取消信号、可配置预算与公司行动时点披露。全量根测试 7,769 项零失败（收口前基线）。详见[交付记录](project/2026-11-21-backtest-infra-optimization.md)。生产回测仍使用 number 适配器，bigint 适配器用于行情原子、sim 与外部成交；完整历史指数成分、首次披露财务版本、真实场所历史委托查询仍依赖外部数据或联调。

@@ -26,12 +26,13 @@ import { XDXR_CATEGORIES, type TdxXdxr } from "../wire.js";
  */
 const SHARE_CHANGE_CATEGORIES = new Set([2, 3, 4, 5, 6, 7, 8, 9, 10]);
 
+export const GBBQ_RECORD_SIZE = 29;
+
 const KEY = Buffer.from(GBBQ_KEY_BASE64, "base64"),
   S1 = 0x48,
   S2 = 0x448,
   S3 = 0x848,
   S4 = 0xc48,
-  RECORD_SIZE = 29,
   /** 每条记录只有前 24 字节（3 个 Blowfish 块）被加密，尾部 5 字节是明文。 */
   ENCRYPTED_SIZE = 24;
 
@@ -70,50 +71,70 @@ function decrypt(block: Buffer) {
  * 与 7709 协议解析出的除权记录形状一致，两条路的结果可以直接互相校验。
  */
 export function parseGbbqFile(buffer: Buffer) {
+  return parseGbbqRecords(buffer, decrypt);
+}
+
+/** Decode framed records; plaintext fixtures use the identity decoder. */
+export function parseGbbqRecords(
+  buffer: Buffer,
+  decodeRecord: (record: Buffer) => Buffer,
+) {
   if (buffer.length < 4) throw new Error("gbbq 文件过短");
   if (buffer.length > 64 * 1024 * 1024) throw new Error("gbbq 文件容量超限");
   const count = buffer.readUInt32LE(0);
-  if (buffer.length < 4 + count * RECORD_SIZE)
+  if (buffer.length < 4 + count * GBBQ_RECORD_SIZE)
     throw new Error(
-      `gbbq 文件不完整：声明 ${count} 条，实际只有 ${Math.floor((buffer.length - 4) / RECORD_SIZE)} 条`,
+      `gbbq 文件不完整：声明 ${count} 条，实际只有 ${Math.floor((buffer.length - 4) / GBBQ_RECORD_SIZE)} 条`,
     );
   const events = new Map<string, TdxXdxr[]>();
-  const issues: { offset: number; reason: string }[] = [];
-  if (buffer.length !== 4 + count * RECORD_SIZE)
+  const issues: { offset: number; reason: string; symbol?: string }[] = [];
+  if (buffer.length !== 4 + count * GBBQ_RECORD_SIZE)
     issues.push({
-      offset: 4 + count * RECORD_SIZE,
+      offset: 4 + count * GBBQ_RECORD_SIZE,
       reason: "声明记录之外存在尾部字节，未解释",
     });
   for (let i = 0; i < count; i++) {
-    const record = decrypt(
+    const record = decodeRecord(
       Buffer.from(
-        buffer.subarray(4 + i * RECORD_SIZE, 4 + (i + 1) * RECORD_SIZE),
+        buffer.subarray(
+          4 + i * GBBQ_RECORD_SIZE,
+          4 + (i + 1) * GBBQ_RECORD_SIZE,
+        ),
       ),
     );
     const market = record.readUInt8(0),
-      code = record.toString("ascii", 1, 7),
       packed = record.readUInt32LE(8),
       category = record.readUInt8(12);
+    // ASCII decoding clears the high bit, so 0xB6 would read as "6" and a
+    // corrupted record could be attributed to a real security. Check raw bytes.
+    const codeBytes = record.subarray(1, 7),
+      code = codeBytes.every((byte) => byte >= 0x30 && byte <= 0x39)
+        ? codeBytes.toString("ascii")
+        : "";
     // gbbq 覆盖全市场，含指数、基金、债券等非 A 股品种；损坏或未知记录直接跳过，
     // 因为整份文件里只要有少数条目解不出，也不应连累其余可用的历史。
-    if (
-      !/^\d{6}$/.test(code) ||
-      !XDXR_CATEGORIES[category] ||
-      ![0, 1, 2].includes(market)
-    ) {
+    const symbol =
+      code && [0, 1, 2].includes(market)
+        ? (market === 1 ? "sh" : market === 0 ? "sz" : "bj") + code
+        : undefined;
+    if (!symbol || !XDXR_CATEGORIES[category]) {
       issues.push({
-        offset: 4 + i * RECORD_SIZE,
+        offset: 4 + i * GBBQ_RECORD_SIZE,
+        ...(symbol ? { symbol } : {}),
         reason: "证券代码、市场或事件类别未识别",
       });
       continue;
     }
     const date = formatPacked(packed);
     if (!date) {
-      issues.push({ offset: 4 + i * RECORD_SIZE, reason: "事件日期非法" });
+      issues.push({
+        offset: 4 + i * GBBQ_RECORD_SIZE,
+        symbol,
+        reason: "事件日期非法",
+      });
       continue;
     }
-    const symbol = (market === 1 ? "sh" : market === 0 ? "sz" : "bj") + code,
-      first = record.readFloatLE(13),
+    const first = record.readFloatLE(13),
       second = record.readFloatLE(17),
       third = record.readFloatLE(21),
       fourth = record.readFloatLE(25),
@@ -140,7 +161,11 @@ export function parseGbbqFile(buffer: Buffer) {
         (value) => typeof value === "number" && !Number.isFinite(value),
       )
     ) {
-      issues.push({ offset: 4 + i * RECORD_SIZE, reason: "事件数值非法" });
+      issues.push({
+        offset: 4 + i * GBBQ_RECORD_SIZE,
+        symbol,
+        reason: "事件数值非法",
+      });
       continue;
     }
     if (list) list.push(event);
