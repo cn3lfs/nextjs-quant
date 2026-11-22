@@ -75,6 +75,7 @@ export class ExecutionLedger {
   private readonly book: AccountBook<Atoms, Lot, Position>;
   private readonly pending = new Map<string, OrderIntent>();
   private readonly log: ExecutionEvent[] = [];
+  private readonly pendingCash: { availableAt: string; amount: Atoms }[] = [];
 
   constructor(
     market: Market,
@@ -312,6 +313,19 @@ export class ExecutionLedger {
     this.book.cash = next;
   }
 
+  /** Credit broker-ledger dividends whose evidenced pay date has arrived. */
+  settlePendingCash(date: string) {
+    let credited = 0n;
+    for (let i = this.pendingCash.length - 1; i >= 0; i--) {
+      const row = this.pendingCash[i]!;
+      if (row.availableAt > date) continue;
+      this.book.cash = this.balanceAfter(row.amount);
+      credited += row.amount;
+      this.pendingCash.splice(i, 1);
+    }
+    return credited;
+  }
+
   /** Settlement of an evidenced terminal value may close locked inventory. */
   settleTerminalValue(symbol: string, price: number) {
     if (!Number.isFinite(price) || price < 0)
@@ -333,23 +347,49 @@ export class ExecutionLedger {
     wholeShares: boolean,
     dividendTaxBps: number,
   ) {
-    if (
-      (action.cashAvailableAt !== undefined ||
-        action.timingAssumption !== undefined) &&
-      (action.timingAssumption !== "ex-date-research-scenario" ||
+    const broker = action.timingAssumption === "broker-ledger";
+    if (action.timingAssumption !== undefined && !broker) {
+      if (
+        action.timingAssumption !== "ex-date-research-scenario" ||
         !Number.isFinite(Date.parse(action.cashAvailableAt)) ||
         (action.cashAvailableAt !== action.date &&
-          action.cashAvailableAt !== action.date.slice(0, 10)))
-    )
+          action.cashAvailableAt !== action.date.slice(0, 10))
+      )
+        throw new Error("Invalid corporate action cash timing scenario");
+    } else if (broker) {
+      if (
+        action.cashAvailableAt !== undefined &&
+        (!Number.isFinite(Date.parse(action.cashAvailableAt)) ||
+          action.cashAvailableAt < action.date)
+      )
+        throw new Error("Invalid broker cash availability");
+    } else if (action.cashAvailableAt !== undefined) {
       throw new Error("Invalid corporate action cash timing scenario");
+    }
     const position = this.book.positions.get(symbol);
     if (!position) return null;
     const scale = this.precision;
     const before = formatDecimal(position.quantity, scale.quantity);
-    const cash = roundAtoms(
-      moneyMul(moneyMul(before, action.dividend), 1 - dividendTaxBps / 10000),
-      this.cashDecimals,
-    );
+    // Broker ledger without an evidenced pay date keeps the dividend unknown.
+    const entitledCash =
+      broker && action.cashAvailableAt === undefined
+        ? 0n
+        : roundAtoms(
+            moneyMul(
+              moneyMul(before, action.dividend),
+              1 - dividendTaxBps / 10000,
+            ),
+            this.cashDecimals,
+          );
+    const cashDate = broker ? action.cashAvailableAt : action.date;
+    const immediateCash =
+      !broker || (cashDate !== undefined && cashDate <= action.date);
+    const cash = immediateCash ? entitledCash : 0n;
+    if (!immediateCash && entitledCash > 0n)
+      this.pendingCash.push({
+        availableAt: cashDate!,
+        amount: entitledCash,
+      });
     const nextCash = this.balanceAfter(cash);
     if (nextCash < 0n) throw new Error("Invalid cash transfer");
 
@@ -370,17 +410,26 @@ export class ExecutionLedger {
     }));
     if (action.bonus > 0) {
       if (
-        !action.sharesSellableAt ||
-        !Number.isFinite(Date.parse(action.sharesSellableAt))
+        !broker &&
+        (!action.sharesSellableAt ||
+          !Number.isFinite(Date.parse(action.sharesSellableAt)))
       )
         throw new Error("Bonus shares require sharesSellableAt");
+      if (
+        broker &&
+        action.sharesSellableAt !== undefined &&
+        (!Number.isFinite(Date.parse(action.sharesSellableAt)) ||
+          action.sharesSellableAt < action.date)
+      )
+        throw new Error("Invalid broker share availability");
       lotRows.push({
         exact: bonus,
         lot: {
           quantity: 0n,
           price: 0n,
           acquiredAt: action.date,
-          sellableAt: action.sharesSellableAt,
+          // Unknown listing date: keep the lot locked rather than selling early.
+          sellableAt: action.sharesSellableAt ?? "9999-12-31",
         },
       });
     }
@@ -408,7 +457,7 @@ export class ExecutionLedger {
     const quantity = target * unit;
     this.book.postAction(symbol, position, nextCash, {
       quantity,
-      cost: quantity > 0n ? position.cost - cash : 0n,
+      cost: quantity > 0n ? position.cost - entitledCash : 0n,
       mark: roundAtoms(
         actionPrice(Number(formatDecimal(position.mark, scale.price)), action),
         scale.price,
@@ -416,7 +465,7 @@ export class ExecutionLedger {
       lots,
     });
     return {
-      cash,
+      cash: entitledCash,
       quantity,
       fractionalShares: wholeShares
         ? toNumber(theoretical) -

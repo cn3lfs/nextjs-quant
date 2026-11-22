@@ -4,10 +4,10 @@ import { mkdir, mkdtemp, stat, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 import {
-  PortfolioAccount,
   actionPrice,
   type PortfolioAction,
 } from "../../../packages/quant-backtest/src/portfolio-account";
+import { AtomsPortfolioAccount as PortfolioAccount } from "../../../packages/quant-backtest/src/portfolio/atoms-account";
 import { runPortfolio, type PortfolioRequest } from "quant-backtest";
 import { defaultExecutionCosts } from "trading-strategy-core/costs";
 import { researchCorporateActions } from "~/server/research/corporate-actions";
@@ -473,4 +473,50 @@ it("invalidates cached GBBQ actions when only the middle bytes change under the 
   } finally {
     fingerprint.mockRestore();
   }
+});
+
+it("separates broker pay and listing dates from the ex-date scenario", () => {
+  const account = new PortfolioAccount(10_000);
+  account.fill("sh600000", "2026-01-05", "buy", 100, 10, 0, 1);
+  const applied = account.corporateAction(
+    "sh600000",
+    {
+      date: "2026-01-06",
+      availableAt: "2026-01-06",
+      timingAssumption: "broker-ledger",
+      cashAvailableAt: "2026-01-08",
+      sharesSellableAt: "2026-01-08",
+      dividend: 0.5,
+      bonus: 0.5,
+      evidence: "fixture",
+    },
+    true,
+    0,
+  )!;
+  expect(applied.cash).toBe(50);
+  expect(account.cash).toBe(9_000);
+  expect(account.sellable("sh600000", "2026-01-07", 1)).toBe(100);
+  expect(account.settlePendingCash("2026-01-07")).toBe(0);
+  expect(account.settlePendingCash("2026-01-08")).toBe(50);
+  expect(account.cash).toBe(9_050);
+  expect(account.sellable("sh600000", "2026-01-08", 1)).toBe(150);
+
+  const unknown = new PortfolioAccount(10_000);
+  unknown.fill("sh600000", "2026-01-05", "buy", 100, 10, 0, 1);
+  unknown.corporateAction(
+    "sh600000",
+    {
+      date: "2026-01-06",
+      availableAt: "2026-01-06",
+      timingAssumption: "broker-ledger",
+      dividend: 0.5,
+      bonus: 0.5,
+      evidence: "fixture",
+    },
+    true,
+    0,
+  );
+  expect(unknown.cash).toBe(9_000);
+  expect(unknown.settlePendingCash("2026-12-31")).toBe(0);
+  expect(unknown.sellable("sh600000", "2026-12-31", 1)).toBe(100);
 });
