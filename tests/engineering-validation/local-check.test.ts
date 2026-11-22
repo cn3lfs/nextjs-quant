@@ -35,7 +35,7 @@ function fixture() {
   return { root, production };
 }
 
-it("uses fresh data and temp directories, preserves the caller's data, and includes the requested build", () => {
+it("uses fresh data and temp directories, preserves the caller's data, and includes the requested build", async () => {
   const { root, production } = fixture();
   vi.stubEnv("QUANT_RESEARCH_BAR_STORE_DIR", join(production, "shared-cache"));
   const steps: string[] = [];
@@ -56,7 +56,7 @@ it("uses fresh data and temp directories, preserves the caller's data, and inclu
       return { status: 0 };
     },
   };
-  const first = runLocalChecks(options);
+  const first = await runLocalChecks(options);
   expect(first.exitCode).toBe(0);
   expect(steps).toEqual([
     "format:check",
@@ -76,7 +76,9 @@ it("uses fresh data and temp directories, preserves the caller's data, and inclu
         env.TMPDIR === env.TEMP,
     ),
   ).toBe(true);
-  expect(runLocalChecks(options).dataDirectory).not.toBe(first.dataDirectory);
+  expect((await runLocalChecks(options)).dataDirectory).not.toBe(
+    first.dataDirectory,
+  );
   expect(
     envs.every((env) => env.QUANT_RESEARCH_BAR_STORE_DIR === undefined),
   ).toBe(true);
@@ -85,10 +87,10 @@ it("uses fresh data and temp directories, preserves the caller's data, and inclu
   expect(process.env.QUANT_DATA_DIR).toBe(production);
 });
 
-it("stops on nonzero exit or launch failure and writes a reviewable result", () => {
+it("stops on nonzero exit or launch failure and writes a reviewable result", async () => {
   const { root } = fixture();
   const commands: string[] = [];
-  const report = runLocalChecks({
+  const report = await runLocalChecks({
     workspaceRoot: root,
     pnpmCli: "fixture",
     checkRoot: join(root, ".test-data/checks"),
@@ -112,28 +114,143 @@ it("stops on nonzero exit or launch failure and writes a reviewable result", () 
     ).exitCode,
   ).toBe(23);
   expect(
+    (
+      await runLocalChecks({
+        workspaceRoot: root,
+        pnpmCli: "fixture",
+        checkRoot: join(root, ".test-data/checks"),
+        runCommand: () => {
+          throw new Error("Cannot launch");
+        },
+      })
+    ).exitCode,
+  ).toBe(1);
+});
+
+it("closes child stdin and bounds every stage with a timeout", async () => {
+  const { root } = fixture();
+  const inputs: { stdio?: unknown; timeout?: number; windowsHide?: boolean }[] =
+    [];
+  await runLocalChecks({
+    workspaceRoot: root,
+    pnpmCli: "fixture",
+    checkRoot: join(root, ".test-data/checks"),
+    stepTimeoutMs: 1234,
+    runCommand: (
+      _command: string,
+      _args: string[],
+      input: { stdio?: unknown; timeout?: number; windowsHide?: boolean },
+    ) => {
+      inputs.push(input);
+      return { status: 0 };
+    },
+  });
+  expect(inputs.length).toBe(6);
+  for (const input of inputs) {
+    expect(input.stdio).toEqual(["ignore", "inherit", "inherit"]);
+    expect(input.timeout).toBe(1234);
+    expect(input.windowsHide).toBe(true);
+  }
+});
+
+it("records a timed-out stage and does not start later stages", async () => {
+  const { root } = fixture();
+  const commands: string[] = [];
+  const report = await runLocalChecks({
+    workspaceRoot: root,
+    pnpmCli: "fixture",
+    checkRoot: join(root, ".test-data/checks"),
+    runCommand: (_command: string, args: string[]) => {
+      const name = args.at(-1)!;
+      commands.push(name);
+      return {
+        status: null,
+        signal: "SIGTERM",
+        error: Object.assign(new Error("spawnSync ETIMEDOUT"), {
+          code: "ETIMEDOUT",
+        }),
+      };
+    },
+  });
+  expect(commands).toEqual(["format:check"]);
+  expect(report.exitCode).toBe(1);
+  expect(report.steps).toEqual([
+    expect.objectContaining({
+      name: "format:check",
+      exitCode: 1,
+      timedOut: true,
+    }),
+  ]);
+  expect(
+    JSON.parse(
+      readFileSync(join(report.dataDirectory, "check-result.json"), "utf8"),
+    ).steps[0].timedOut,
+  ).toBe(true);
+});
+
+it.skipIf(process.platform !== "win32")(
+  "terminates the launcher's process tree when a stage times out",
+  async () => {
+    const { root } = fixture();
+    const pnpm = join(root, "hanging-pnpm.cjs");
+    const launcherMarker = join(root, "launcher.txt");
+    const startedMarker = join(root, "grandchild-started.txt");
+    const lateMarker = join(root, "grandchild-late.txt");
+    const childCode = `const fs = require("node:fs");
+fs.writeFileSync(${JSON.stringify(startedMarker)}, "started");
+setTimeout(() => fs.writeFileSync(${JSON.stringify(lateMarker)}, "late"), 1500)`;
+    writeFileSync(
+      pnpm,
+      `const { spawn } = require("node:child_process");
+const fs = require("node:fs");
+fs.writeFileSync(${JSON.stringify(launcherMarker)}, "launcher");
+spawn(process.execPath, ["-e", ${JSON.stringify(childCode)}], { stdio: "ignore" });
+setInterval(() => {}, 1000);`,
+    );
+    const report = await runLocalChecks({
+      workspaceRoot: root,
+      pnpmCli: pnpm,
+      checkRoot: join(root, ".test-data/checks"),
+      stepTimeoutMs: 400,
+    });
+    expect(report.steps[0]).toMatchObject({ timedOut: true, exitCode: 1 });
+    // Both processes must have started; otherwise the absence of the late
+    // marker proves nothing about the kill.
+    expect(existsSync(launcherMarker)).toBe(true);
+    expect(existsSync(startedMarker)).toBe(true);
+    // The grandchild would write at 1.5 s; a launcher-only kill leaves it alive.
+    await new Promise((resolve) => setTimeout(resolve, 2200));
+    expect(existsSync(lateMarker)).toBe(false);
+  },
+  15000,
+);
+
+it("rejects an invalid stage timeout before running any command", async () => {
+  const { root } = fixture();
+  const runCommand = vi.fn();
+  await expect(
     runLocalChecks({
       workspaceRoot: root,
       pnpmCli: "fixture",
       checkRoot: join(root, ".test-data/checks"),
-      runCommand: () => {
-        throw new Error("Cannot launch");
-      },
-    }).exitCode,
-  ).toBe(1);
+      stepTimeoutMs: "zero",
+      runCommand,
+    }),
+  ).rejects.toThrow("stepTimeoutMs");
+  expect(runCommand).not.toHaveBeenCalled();
 });
 
-it("rejects a requested data root outside the workspace test area before running any command", () => {
+it("rejects a requested data root outside the workspace test area before running any command", async () => {
   const { root, production } = fixture();
   const runCommand = vi.fn();
-  expect(() =>
+  await expect(
     runLocalChecks({
       workspaceRoot: root,
       pnpmCli: "fixture",
       checkRoot: production,
       runCommand,
     }),
-  ).toThrow(".test-data");
+  ).rejects.toThrow(".test-data");
   expect(runCommand).not.toHaveBeenCalled();
   expect(readdirSync(production)).toEqual(["sentinel"]);
 });

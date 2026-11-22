@@ -9,11 +9,12 @@ try {
   const args = process.argv.slice(2);
   if (args.some((arg) => arg !== "--build"))
     throw new Error("Usage: pnpm check [--build]");
-  const result = runLocalChecks({
+  const result = await runLocalChecks({
     workspaceRoot: fileURLToPath(new URL("..", import.meta.url)),
     pnpmCli: process.env.npm_execpath,
     checkRoot: process.env.QUANT_CHECK_ROOT,
     includeBuild: args.includes("--build"),
+    stepTimeoutMs: process.env.QUANT_CHECK_STEP_TIMEOUT_MS || undefined,
   });
   process.exitCode = result.exitCode;
 } catch (error) {
