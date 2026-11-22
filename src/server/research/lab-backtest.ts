@@ -15,6 +15,7 @@ import { researchExecutionCosts } from "trading-strategy-core/costs";
 import { createPerformanceReport } from "quant-performance";
 import { strategyBuildHash, usesStrategyBook } from "trading-strategies";
 import { labBacktestSchema } from "~/lib/research/lab-backtest";
+import type { Settings } from "~/lib/domain";
 import { researchStrategyVersion } from "~/lib/research/strategy-version";
 import { readBars } from "../market/bar-store/read-bars";
 import { BarResourceBudget } from "../market/bar-store/resource-budget";
@@ -108,18 +109,39 @@ export type LabBacktestWork = {
   input: z.input<typeof labBacktestSchema>;
 };
 type LabProgress = (n: number, phase: string) => void;
+export type LabBacktestPrepareOptions = {
+  /** Supplied by diagnostic CLIs so no production settings database is opened. */
+  config?: Settings;
+  /** Force the causal price basis even when the rule alone does not require it. */
+  forceCausalPrice?: boolean;
+  /** `record-only` keeps repaired bars visible instead of rejecting the run. */
+  dataQualityMode?: "strict" | "record-only";
+  /**
+   * Whole-file GBBQ parse issues and category 13/14 warrant entitlements are
+   * rejected by default. `record-only` skips those per symbol, passes the
+   * filtered events downstream and discloses the counts/dates in `sources`.
+   * It only takes effect together with `dataQualityMode: "record-only"`.
+   */
+  gbbqIssuePolicy?: "strict" | "record-only";
+};
 
 export async function prepareLabBacktest(
   work: LabBacktestWork,
   progress: LabProgress = () => {},
   read = readBars,
   signal?: AbortSignal,
+  options?: LabBacktestPrepareOptions,
 ) {
   signal?.throwIfAborted();
   const input = labBacktestSchema.parse(work.input),
     strategy = input.strategy,
-    config = settings();
-  const causal = requiresCausalPriceBasis(strategy);
+    config = options?.config ?? settings();
+  const causal =
+    requiresCausalPriceBasis(strategy) || options?.forceCausalPrice === true;
+  // Relaxed GBBQ handling is opt-in and only valid alongside record-only data.
+  const recordOnlyGbbq =
+    options?.dataQualityMode === "record-only" &&
+    options?.gbbqIssuePolicy === "record-only";
   if (strategy.universe.kind !== "symbols")
     throw new Error(
       "请提交已冻结明确证券名单的策略对象；RPS/时点成分须从研究任务冻结",
@@ -228,11 +250,13 @@ export async function prepareLabBacktest(
       archive ?? undefined,
     );
     signal?.throwIfAborted();
+    if (snapshot.barStore.formingDates.length)
+      throw new Error(`${symbol}包含未完成行情`);
     if (
-      snapshot.barStore.formingDates.length ||
-      snapshot.barStore.priceRepaired
+      snapshot.barStore.priceRepaired &&
+      options?.dataQualityMode !== "record-only"
     )
-      throw new Error(`${symbol}包含未完成或修复行情`);
+      throw new Error(`${symbol}包含修复行情`);
     if (input.source === "thsdk" && !snapshot.rawBars)
       throw new Error(`${symbol}缺少同花顺未复权成交原价`);
     const raw = snapshot.rawBars ?? snapshot.bars;
@@ -259,6 +283,23 @@ export async function prepareLabBacktest(
       )
     )
       throw new Error(`${symbol}区间行情缺失`);
+    const rawSymbolEvents = actionSource?.events.get(symbol) ?? [];
+    // Warrants (category 13/14) have no research action model; in record-only
+    // mode drop them before the strict converters and disclose the dates.
+    const skippedWarrants = recordOnlyGbbq
+      ? [
+          ...new Set(
+            rawSymbolEvents
+              .filter((event) => event.category === 13 || event.category === 14)
+              .map((event) => event.date),
+          ),
+        ].sort()
+      : [];
+    const symbolEvents = recordOnlyGbbq
+      ? rawSymbolEvents.filter(
+          (event) => event.category !== 13 && event.category !== 14,
+        )
+      : rawSymbolEvents;
     const actionFingerprint =
       actionSource &&
       ("fingerprint" in actionSource
@@ -267,12 +308,16 @@ export async function prepareLabBacktest(
     const actions =
       actionSource && actionFingerprint
         ? researchCorporateActions(
-            actionSource.events.get(symbol) ?? [],
+            symbolEvents,
             actionFingerprint,
             raw[0]!.date,
             input.end,
           )
         : [];
+    const gbbqIssueCount =
+      actionSource && "issues" in actionSource
+        ? actionSource.issues.length
+        : undefined;
     let signalBars = snapshot.bars;
     let causalPrice: CausalPriceProof | undefined;
     if (causal && actionSource && "issues" in actionSource) {
@@ -281,9 +326,9 @@ export async function prepareLabBacktest(
       try {
         const price = causalResearchPrices(
           [...raw],
-          actionSource.events.get(symbol) ?? [],
+          symbolEvents,
           actionSource.sourceSha256,
-          actionSource.issues,
+          recordOnlyGbbq ? [] : actionSource.issues,
         );
         signalBars = price.bars;
         causalPrice = price.proof;
@@ -327,6 +372,21 @@ export async function prepareLabBacktest(
             : "local-gbbq"),
       volumeUnit: snapshot.volumeUnit ?? null,
       dataAsOf: snapshot.barStore.coverage?.to ?? null,
+      priceRepaired: snapshot.barStore.priceRepaired ?? false,
+      sourceNote: snapshot.sourceNote ?? null,
+      // Only disclosed under the record-only GBBQ policy; strict runs that
+      // reach this point have no issues or warrants to report.
+      ...(recordOnlyGbbq
+        ? {
+            ...(gbbqIssueCount === undefined
+              ? {}
+              : {
+                  gbbqIssueCount,
+                  gbbqIssueNote: `整份 GBBQ 有 ${gbbqIssueCount} 条未解析记录（代码/市场/类别未识别等），属于全文件计数，不证明 ${symbol} 事件完整`,
+                }),
+            skippedWarrants,
+          }
+        : {}),
     });
     progress(
       Math.floor((instruments.length / symbols.length) * 70),
@@ -355,6 +415,16 @@ export async function prepareLabBacktest(
     ],
     costs: researchExecutionCosts(strategy.market, input.costScenario),
   };
+  // The diagnostic CLIs run without the packaged validation worker. A missing
+  // runtime identity only removes provenance there; production and paper paths
+  // pass no options and keep failing as before.
+  let executionBuildHash: string;
+  try {
+    executionBuildHash = forwardExecutionBuildHash();
+  } catch (error) {
+    if (!options) throw error;
+    executionBuildHash = "diagnostic-no-runtime-identity";
+  }
   const frozen = {
     timingContract: "p5" as const,
     request,
@@ -371,7 +441,7 @@ export async function prepareLabBacktest(
     ),
     strategyBuildHash,
     strategySemanticVersion: researchStrategyVersion(strategy),
-    executionBuildHash: forwardExecutionBuildHash(),
+    executionBuildHash,
     boundary:
       input.source === "thsdk"
         ? "规则自检；同花顺延迟行情，信号采用原生前复权 qfq，成交采用同源未复权原价；未计入公司行动分红送转，不可与本地源结果直接比较；历史ST/IPO/排队未认证；非可信策略业绩"

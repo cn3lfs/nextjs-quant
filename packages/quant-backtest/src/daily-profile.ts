@@ -4,6 +4,7 @@ import { z } from "zod";
 import { big, moneyMul, toNumber } from "trading-strategy-core/money";
 import { fillMarketOrder, affordableQuantity } from "./execution.js";
 import { defaultExecutionCosts } from "trading-strategy-core/costs";
+import { equityResearchRules } from "trading-strategy-core/market-rules";
 import type { Bar } from "./model.js";
 import {
   createStudyDecision,
@@ -48,6 +49,7 @@ export const classicStudyDatasetSchema = z.object({
 });
 export type StudyDividend = z.infer<typeof dividendSchema>;
 type StudyCommonOptions = {
+  symbol?: string;
   start: string;
   end: string;
   initial: number;
@@ -109,6 +111,13 @@ export function studySignalBars(
   });
 }
 
+export function studyLimitRate(
+  symbol: string | undefined,
+  date: string,
+): number {
+  return symbol === undefined ? 0.1 : equityResearchRules(symbol, date).limit;
+}
+
 export function replayDailyStudy(
   rawBars: readonly Bar[],
   rawDividends: readonly StudyDividend[],
@@ -116,6 +125,7 @@ export function replayDailyStudy(
 ) {
   const o = z
     .object({
+      symbol: z.string().optional(),
       start: date,
       end: date,
       initial: z.number().positive().finite(),
@@ -245,13 +255,14 @@ export function replayDailyStudy(
           );
         if (pending) {
           const reference = bars[i - 1]!.close - (perShare ?? 0);
+          const rate = studyLimitRate(o.symbol, b.date);
           const quote = fillMarketOrder(
             b,
             pending.side,
             {
               ...rules,
-              limitUp: Math.round(reference * 1.1 * 100) / 100,
-              limitDown: Math.round(reference * 0.9 * 100) / 100,
+              limitUp: Math.round(reference * (1 + rate) * 100) / 100,
+              limitDown: Math.round(reference * (1 - rate) * 100) / 100,
             },
             costs,
           );

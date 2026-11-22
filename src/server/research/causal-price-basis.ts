@@ -191,6 +191,27 @@ export function causalResearchPrices(
   return { bars, proof };
 }
 
+/**
+ * Re-bind a frozen proof to a filtered raw/signal pair. Only the series hash
+ * changes: the fixed first-raw anchor and its GBBQ source remain the evidence
+ * that makes every later ratio reproducible. Returns null when the anchor bar
+ * did not survive the filter, because a proof without its anchor cannot be
+ * recomputed and must not be kept stale.
+ */
+export function refreshCausalPriceProof(
+  proof: CausalPriceProof | undefined,
+  raw: readonly Bar[],
+  bars: readonly Bar[],
+): CausalPriceProof | null {
+  if (
+    proof?.kind !== "gbbq-first-raw-anchor-1" ||
+    !proof.actionsSource ||
+    proof.anchorDate !== raw[0]?.date
+  )
+    return null;
+  return { ...proof, seriesHash: hash([raw, bars]) };
+}
+
 export function hasCausalPriceProof(
   proof: CausalPriceProof | undefined,
   raw: readonly Bar[],
