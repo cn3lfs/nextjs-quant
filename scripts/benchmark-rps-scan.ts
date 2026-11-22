@@ -40,9 +40,13 @@ const securities = Array.from({ length: symbols }, (_, index) => {
 });
 
 async function load() {
-  if (values.impl === "old")
-    return import("../.test-data/bench-old/packages/quant-rps/src/index.js");
-  return import("../packages/quant-rps/src/index.js");
+  // The old tree is an optional local extraction; keep the specifier dynamic so
+  // production type-checking does not depend on benchmark artifacts.
+  const path =
+    values.impl === "old"
+      ? "../.test-data/bench-old/packages/quant-rps/src/index.js"
+      : "../packages/quant-rps/src/index.js";
+  return import(path);
 }
 
 async function main() {
