@@ -30,6 +30,22 @@ const expected = JSON.parse(
   daily: Record<string, unknown>;
   allocation: Record<string, unknown>;
 };
+// P3 moved portfolio settlement to bigint atoms. Cash/equity checkpoints can
+// differ from the number ledger by binary64 rounding far below one cent.
+function nearMoney(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(nearMoney);
+  if (value && typeof value === "object")
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [
+        key,
+        typeof entry === "number" &&
+        ["cash", "cashAfter", "value", "equity"].includes(key)
+          ? Number(entry.toFixed(9))
+          : nearMoney(entry),
+      ]),
+    );
+  return value;
+}
 function fiveFields(
   r:
     ReturnType<typeof replayFiveMinute> | ReturnType<typeof replaySignalSeries>,
@@ -44,31 +60,37 @@ function fiveFields(
 }
 it("runBacktest, runMaBaseline and runStrategyExperiment fills / orders / equity match the frozen pre-R1b engines", () => {
   const { input, bars } = parityFiveMinute();
-  expect(fiveFields(replayFiveMinute(input, bars))).toEqual(expected.five);
+  expect(nearMoney(fiveFields(replayFiveMinute(input, bars)))).toEqual(
+    nearMoney(expected.five),
+  );
   expect(
-    fiveFields(
-      replayFiveMinute(
-        {
-          ...input,
-          strategy: factorStrategySchema.parse(factorStrategyPresets[1]),
-        },
-        bars,
+    nearMoney(
+      fiveFields(
+        replayFiveMinute(
+          {
+            ...input,
+            strategy: factorStrategySchema.parse(factorStrategyPresets[1]),
+          },
+          bars,
+        ),
       ),
     ),
-  ).toEqual(expected.factor);
+  ).toEqual(nearMoney(expected.factor));
   expect(
-    fiveFields(
-      replaySignalSeries(input, bars, maCrossStrategy(bars), {
-        evidence: "fixture",
-        minimumBuy: 100,
-        buyStep: 100,
-        maximumOrder: 100000000,
-        limitUp: null,
-        limitDown: null,
-        tradable: true,
-      }),
+    nearMoney(
+      fiveFields(
+        replaySignalSeries(input, bars, maCrossStrategy(bars), {
+          evidence: "fixture",
+          minimumBuy: 100,
+          buyStep: 100,
+          maximumOrder: 100000000,
+          limitUp: null,
+          limitDown: null,
+          tradable: true,
+        }),
+      ),
     ),
-  ).toEqual(expected.signals);
+  ).toEqual(nearMoney(expected.signals));
 });
 // This fixture predates the theory proxies. Its keys are the historical
 // preservation contract; new rules have independent causal/geometry tests.
