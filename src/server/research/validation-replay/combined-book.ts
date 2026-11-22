@@ -16,6 +16,7 @@ export function combinedBook(
   signal?: AbortSignal,
 ) {
   signal?.throwIfAborted();
+  const benchmarkBasis = dataset.benchmarkBasis ?? null;
   const shares = frozen.input.market === "cn-equity" ? [1, 0.65] : [0.75, 0.8];
   const variants = shares.map((share, index) => {
     signal?.throwIfAborted();
@@ -163,6 +164,7 @@ export function combinedBook(
     };
   });
   const rows: ScoreboardRow[] = variants.map((v) => ({
+    benchmarkBasis,
     riskAdjusted: v.score.riskAdjusted,
     biasTags: validationBiasTags(frozen),
     id: `book-${frozen.input.market}-${dataset.period}-${v.name}`,
@@ -207,6 +209,7 @@ export function combinedBook(
   return {
     market: frozen.input.market,
     period: dataset.period,
+    benchmarkBasis,
     variants,
     rows,
     boundary:

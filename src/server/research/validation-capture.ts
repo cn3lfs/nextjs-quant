@@ -28,6 +28,7 @@ import {
 } from "./corporate-actions";
 import type { Bar } from "trading-strategy-core/bars";
 import type {
+  ValidationDataset,
   ValidationInput,
   ValidationTerminalCoverage,
 } from "./validation-model";
@@ -49,9 +50,8 @@ import {
 
 export const validationHash = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
-type Period = ReturnType<
-  typeof researchCandidates
->[number]["strategy"]["period"];
+export type { ValidationDataset } from "./validation-model";
+type Period = ValidationDataset["period"];
 /** Intraday labels are candle ends; daily labels are candle opens. */
 export function researchHistoryBefore(
   oldest: string,
@@ -65,22 +65,6 @@ export function researchHistoryBefore(
     ? null
     : new Date(opening - 1).toISOString();
 }
-export type ValidationDataset = {
-  period: Period;
-  instruments: PortfolioInstrument[];
-  benchmark: Bar[];
-  dates: string[];
-  benchmarkName: string;
-  sources: {
-    symbol: string;
-    hash: string;
-    adjustmentReference: string | null;
-    causalPrice?: CausalPriceProof;
-    causalPriceGap?: string;
-    terminalCoverage?: ValidationTerminalCoverage;
-  }[];
-};
-
 class CryptoHistoryPageLimitError extends Error {}
 
 function validationTerminal(
@@ -669,6 +653,8 @@ export async function captureValidationInput(
       benchmark: [...benchmark],
       dates,
       sources,
+      benchmarkBasis:
+        input.market === "cn-equity" ? "price-index-ex-dividends" : null,
       benchmarkName:
         input.market === "cn-equity"
           ? "沪深300价格指数（不含股息）；首日开盘持有"

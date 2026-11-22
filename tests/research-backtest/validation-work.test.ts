@@ -2,7 +2,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { researchCandidates, strategyBuildHash } from "trading-strategies";
+import superjson from "superjson";
+import { benchmarkBasisLabel } from "~/components/research/benchmark-basis";
 import { validationInputSchema } from "~/server/research/validation-model";
+import { strategyCenterRouter } from "~/server/api/routers/strategy-center";
+import { paperRouter } from "~/server/api/routers/paper";
+import { summarizePaper } from "~/server/paper/assessment";
+import type { FrozenCandidate, PaperAccount } from "~/server/paper/model";
+import { PaperRepository } from "~/server/db/paper-repository";
+import paperCandidates from "~/server/data/paper-candidates.json";
 import {
   replayValidationInput,
   projectToExecutionClock,
@@ -247,6 +255,10 @@ describe("research validation application boundary", () => {
     );
     expect(frozen.excluded).toEqual([]);
     const dataset = frozen.datasets[0]!;
+    expect(dataset).toMatchObject({
+      benchmarkBasis: "price-index-ex-dividends",
+      benchmarkName: expect.stringContaining("沪深300"),
+    });
     expect(dataset.benchmark.at(-1)?.date).toBe("2020-06-26");
     const [verified, missingClose, unknownDay, active] = dataset.instruments;
     expect(verified?.bars.map(({ date }) => date)).toEqual(observed);
@@ -375,6 +387,7 @@ describe("research validation application boundary", () => {
       requestFor(symbols[1]!),
       secondary,
     );
+    expect(book.benchmarkBasis).toBe("price-index-ex-dividends");
     for (const variant of book.variants) {
       expect(variant.score.valuation?.status).toBe("blocked");
       expect(variant.sleeveCurves).toBeNull();
@@ -390,6 +403,7 @@ describe("research validation application boundary", () => {
     }
     for (const row of book.rows) {
       expect(row).toMatchObject({
+        benchmarkBasis: "price-index-ex-dividends",
         status: "research",
         return: null,
         drawdown: null,
@@ -419,10 +433,11 @@ describe("research validation application boundary", () => {
       listingEnd: { date: "2020-06-25" },
     });
   });
-  it("retains financial timing quality on the combined equity book and the low-zone sleeve", () => {
+  it("retains financial timing quality and an unknown legacy basis on the combined equity book", async () => {
     const frozen = fixture();
     const symbols = ["sh600000", "sz000001"];
     frozen.input.market = "cn-equity";
+    frozen.datasets[0]!.benchmarkName = "沪深300价格指数（不含股息）";
     frozen.datasets[0]!.instruments = frozen.datasets[0]!.instruments.map(
       (i, index) => ({
         ...i,
@@ -453,10 +468,15 @@ describe("research validation application boundary", () => {
       (c) =>
         ["rps-multi", "historical-low", "double-breakout"].includes(c.family),
     );
-    const before = validationHash(frozen);
-    const { rows, missing, timingStatus } = replayValidationInput(frozen);
+    const before = await writeValidationArtifact("input", frozen);
+    const legacy = await readValidationInput(before);
+    const { rows, missing, timingStatus, benchmarkBasis, combinedBooks } =
+      replayValidationInput(legacy);
     expect(timingStatus).toBe("drift");
-    expect(validationHash(frozen)).toBe(before);
+    expect(benchmarkBasis).toBeNull();
+    expect(combinedBooks[0]?.benchmarkBasis).toBeNull();
+    expect(rows.every((row) => row.benchmarkBasis === null)).toBe(true);
+    expect(validationHash(legacy)).toBe(before);
     expect(rows.some((row) => row.id.includes("double-breakout"))).toBe(false);
     expect(missing).toContainEqual(
       expect.objectContaining({
@@ -616,6 +636,119 @@ describe("research validation application boundary", () => {
       message: expect.stringContaining("cancelled"),
     });
     expect(validationScoreboardPage({ market: "crypto" }).metadata).toBeNull();
+  });
+  it("preserves a declared total-return basis through the frozen report, CLI result and scoreboard API", async () => {
+    const frozen = fixture();
+    frozen.datasets[0]!.benchmarkBasis = "total-return";
+    frozen.candidateMenu = frozen.candidateMenu.filter(
+      (candidate) =>
+        candidate.family === "dual-ma-day" && candidate.variant === "atr",
+    );
+    const inputHash = await writeValidationArtifact("input", frozen);
+    expect(
+      (await readValidationInput(inputHash)).datasets[0]!.benchmarkBasis,
+    ).toBe("total-return");
+    const result = await executeValidationWork({
+      type: "strategy-validation",
+      root: "",
+      input: {},
+      frozenHash: inputHash,
+    });
+    const archive = JSON.parse(
+      await readFile(
+        join(
+          dataDirectory(),
+          "research-validation",
+          `report-${result.resultHash}.json`,
+        ),
+        "utf8",
+      ),
+    ) as { result: ReturnType<typeof replayValidationInput> };
+    expect(archive.result.benchmarkBasis).toBe("total-return");
+    expect(archive.result.suites[0]?.benchmarkBasis).toBe("total-return");
+    expect(JSON.parse(JSON.stringify(result)).rows[0].benchmarkBasis).toBe(
+      "total-return",
+    );
+
+    const caller = strategyCenterRouter.createCaller({
+      headers: new Headers(),
+    });
+    const page = await caller.strategyScoreboard({ market: "crypto" });
+    const uiRow = superjson.deserialize<typeof page>(superjson.serialize(page))
+      .rows[0];
+    expect(uiRow?.benchmarkBasis).toBe("total-return");
+    expect(benchmarkBasisLabel(uiRow?.benchmarkBasis)).toBe("total-return");
+    expect(benchmarkBasisLabel("price-index-ex-dividends")).toBe(
+      "价格指数（不含股息）",
+    );
+    expect(benchmarkBasisLabel(null)).toBe("未知口径");
+  });
+  it("preserves the paper benchmark basis and return through the account API", async () => {
+    const candidate = paperCandidates
+      .candidates[0] as unknown as FrozenCandidate;
+    const { strategy } = candidate;
+    const base = fixture().datasets[0]!.instruments[0]!;
+    const bars = base.bars.slice(60, 62);
+    const request: PortfolioRequest = {
+      market: "cn-equity",
+      initial: 1000,
+      start: bars[0]!.date,
+      end: bars[1]!.date,
+      calendar: bars.map((bar) => bar.date),
+      instruments: [
+        {
+          ...base,
+          market: "cn-equity",
+          symbol: "sh600000",
+          bars,
+          signalBars: bars,
+        },
+      ],
+      strategies: [strategy],
+      sleeves: [
+        { id: strategy.sleeve, share: 1, riskPerTrade: 1, maxPositions: 1 },
+      ],
+    };
+    const account: PaperAccount = {
+      id: "qa-paper-benchmark",
+      market: "cn-equity",
+      currency: "CNY",
+      sleeve: strategy.sleeve,
+      startedAt: Date.parse(request.start),
+      initial: request.initial,
+      candidates: [candidate],
+      mirror: { venue: "off" },
+      mirrorRevision: "qa",
+      revision: 0,
+      lastBar: null,
+      lastRun: null,
+      error: null,
+      summary: null,
+    };
+    const summary = summarizePaper(
+      account,
+      {
+        request,
+        result: runPortfolio(request),
+        benchmark: bars,
+        decisions: [],
+      },
+      Date.parse(request.end),
+    );
+    expect(summary.benchmarkName).toContain("中证800");
+    expect(summary.benchmarkReturn).toBeCloseTo(
+      bars[1]!.close / bars[0]!.open - 1,
+      12,
+    );
+    expect(new PaperRepository().create({ ...account, summary })).toBe(true);
+    const caller = paperRouter.createCaller({ headers: new Headers() });
+    const read = await caller.paperAccount(account.id);
+    expect(
+      superjson.deserialize<typeof read>(superjson.serialize(read)).summary,
+    ).toMatchObject({
+      benchmarkBasis: "price-index-ex-dividends",
+      benchmarkReturn: summary.benchmarkReturn,
+    });
   });
   it("stops pagination at candle opening without requesting an inverted interval", () => {
     expect(

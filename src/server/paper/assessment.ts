@@ -21,6 +21,7 @@ import { beijingClock } from "~/lib/market/market-session";
 import type { PaperAccount, PaperState, PaperSummary } from "./model";
 import { usesStrategyBook, type StrategyObjectInput } from "trading-strategies";
 import { eligibleStrategySymbol } from "../strategies/drivers/evaluation";
+import type { BenchmarkBasis } from "../research/validation-model";
 
 export type PaperConformanceContext = {
   reference: FrozenForwardReference | null;
@@ -84,7 +85,10 @@ export function summarizePaper(
     buildHash: null,
     calendar: [],
   },
-): PaperSummary & { benchmarkName: string } {
+): PaperSummary & {
+  benchmarkName: string;
+  benchmarkBasis: BenchmarkBasis | null;
+} {
   const evaluation = evaluatePerformance(
     account.initial,
     state.result.equity.map((p) => ({ date: p.date, value: p.equity })),
@@ -106,6 +110,8 @@ export function summarizePaper(
     drawdown: evaluation.maxDrawdown.value,
     trades: trades.closedTrades,
     winRate: trades.winRate.value,
+    benchmarkBasis:
+      account.market === "cn-equity" ? "price-index-ex-dividends" : null,
     benchmarkName:
       account.market === "cn-equity"
         ? "中证800价格指数（不含股息）"

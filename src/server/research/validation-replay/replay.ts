@@ -17,7 +17,11 @@ import {
   validationMethodEvidence,
 } from "../validation-method";
 import { type FrozenValidationInput } from "../validation-capture";
-import { type ScoreboardRow } from "../validation-model";
+import {
+  benchmarkBasisSchema,
+  type BenchmarkBasis,
+  type ScoreboardRow,
+} from "../validation-model";
 import { scoreValidationResult } from "./scoring";
 import { type DecisionCache, projectCandidate } from "./candidate-input";
 import { numericNeighbors } from "./parameter-neighbors";
@@ -54,9 +58,14 @@ export function replayValidationInput(
   if (frozen.universe)
     validateFrozenValidationUniverse(frozen.universe, frozen.input.end);
   const timingStatus = replayTimingStatus(frozen);
+  const storedBenchmarkBasis = benchmarkBasisSchema.nullable().default(null);
   const daily = frozen.datasets.find((dataset) => dataset.period === "day");
   frozen = {
     ...frozen,
+    datasets: frozen.datasets.map((dataset) => ({
+      ...dataset,
+      benchmarkBasis: storedBenchmarkBasis.parse(dataset.benchmarkBasis),
+    })),
     lowZones: frozen.lowZones.flatMap((row) => {
       if (
         !row.observations.some(
@@ -83,6 +92,7 @@ export function replayValidationInput(
   const boards: ScoreboardRow[] = [];
   const suites: {
     period: string;
+    benchmarkBasis: BenchmarkBasis | null;
     suite: ReturnType<typeof runValidationSuite>;
     diagnostics: unknown;
     regimes: unknown;
@@ -90,6 +100,7 @@ export function replayValidationInput(
   const combinedBooks: ReturnType<typeof combinedBook>[] = [];
   const cycleEvaluations: {
     id: string;
+    benchmarkBasis: BenchmarkBasis | null;
     cycles: {
       start: string;
       end: string;
@@ -105,6 +116,7 @@ export function replayValidationInput(
   const missing: { id: string; reason: string }[] = [];
   for (const [datasetIndex, dataset] of frozen.datasets.entries()) {
     signal?.throwIfAborted();
+    const benchmarkBasis = dataset.benchmarkBasis ?? null;
     const declared = candidates.filter(
       (c) => c.strategy.period === dataset.period,
     );
@@ -254,7 +266,13 @@ export function replayValidationInput(
         };
       }),
     }));
-    suites.push({ period: dataset.period, suite, diagnostics, regimes });
+    suites.push({
+      period: dataset.period,
+      benchmarkBasis,
+      suite,
+      diagnostics,
+      regimes,
+    });
     for (const row of suite.rows) {
       const candidate = declared.find((c) => c.strategy.id === row.id)!;
       const reasons = [...row.reasons];
@@ -280,7 +298,7 @@ export function replayValidationInput(
               ),
             };
           });
-        cycleEvaluations.push({ id: row.id, cycles });
+        cycleEvaluations.push({ id: row.id, benchmarkBasis, cycles });
         if (
           cycles.filter((c) => c.complete).length <
           frozen.input.policy.minimumMarketCycles
@@ -304,6 +322,7 @@ export function replayValidationInput(
       )
         reasons.push("low-zone-input-confidence");
       boards.push({
+        benchmarkBasis,
         riskAdjusted: row.holdout.base.riskAdjusted,
         biasTags: validationBiasTags(frozen),
         strategySemanticVersion: researchStrategyVersion(candidate.strategy),
@@ -427,11 +446,18 @@ export function replayValidationInput(
       };
   }
   for (const board of boards) board.timingStatus = timingStatus;
+  const firstBasis = frozen.datasets[0]?.benchmarkBasis ?? null;
+  const benchmarkBasis = frozen.datasets.every(
+    (dataset) => dataset.benchmarkBasis === firstBasis,
+  )
+    ? firstBasis
+    : null;
   return {
     ...(frozen.input.policy.method === "lifecycle-2"
       ? { method: "lifecycle-2" as const, purpose: frozen.input.policy.purpose }
       : {}),
     version: "research-validation-scoreboard-1" as const,
+    benchmarkBasis,
     timingStatus,
     rows: boards,
     suites,
