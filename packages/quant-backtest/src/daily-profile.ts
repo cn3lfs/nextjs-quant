@@ -1,7 +1,5 @@
-import {
-  PortfolioAccount,
-  replayPortfolioEvents,
-} from "./portfolio-account.js";
+import { AtomsPortfolioAccount as PortfolioAccount } from "./portfolio/atoms-account.js";
+import { replayPortfolioEvents } from "./portfolio-account.js";
 import { z } from "zod";
 import { big, moneyMul, toNumber } from "trading-strategy-core/money";
 import { fillMarketOrder, affordableQuantity } from "./execution.js";

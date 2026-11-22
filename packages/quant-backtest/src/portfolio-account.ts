@@ -1,5 +1,4 @@
 export {
-  ResearchExecutionLedger as PortfolioAccount,
   actionPrice,
   type PortfolioAction,
   type PortfolioLot,

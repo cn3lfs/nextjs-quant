@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { PortfolioAccount } from "../src/portfolio-account.js";
+import { AtomsPortfolioAccount as PortfolioAccount } from "../src/portfolio/atoms-account.js";
 
 function trajectory(account: PortfolioAccount) {
   const symbol = "sh600000";

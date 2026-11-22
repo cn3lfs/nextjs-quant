@@ -7,7 +7,7 @@ import {
   type CostRates,
   type ExecutionQuote,
 } from "quant-execution";
-import { PortfolioAccount } from "../src/portfolio-account.js";
+import { AtomsPortfolioAccount as PortfolioAccount } from "../src/portfolio/atoms-account.js";
 import { portfolioExecutionFee } from "../src/portfolio-sizing.js";
 import { defaultExecutionCosts } from "trading-strategy-core/costs";
 

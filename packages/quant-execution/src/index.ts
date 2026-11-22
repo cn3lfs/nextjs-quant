@@ -32,7 +32,6 @@ export type {
 } from "./types.js";
 export { lotAvailable } from "./settlement.js";
 export {
-  ResearchExecutionLedger,
   actionPrice,
   type PortfolioAction,
   type PortfolioLot,

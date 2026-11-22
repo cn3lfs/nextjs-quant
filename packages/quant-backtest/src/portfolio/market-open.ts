@@ -12,6 +12,7 @@ export function applyCorporateActions(state: PortfolioState, date: string) {
     corporateActions,
     actionsAt,
   } = state;
+  for (const account of accounts.values()) account.settlePendingCash(date);
   for (const { instrument, action } of actionsAt.get(date) ?? []) {
     for (const strategy of strategies) {
       const account = accounts.get(strategy.sleeve)!,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PortfolioAccount } from "../src/portfolio-account.js";
+import { AtomsPortfolioAccount as PortfolioAccount } from "../src/portfolio/atoms-account.js";
 
 describe("intraday settlement uses trading dates", () => {
   it("keeps same-day equity lots locked across bars and lunch", () => {
@@ -27,7 +27,22 @@ describe("intraday settlement uses trading dates", () => {
     const account = new PortfolioAccount(10000);
     account.fill("coin", "2026-11-16T00:05:00Z", "buy", 1, 100, 0, 0);
     expect(account.sellable("coin", "2026-11-16T00:10:00Z", 0)).toBe(1);
-    account.positions.get("coin")!.lots[0]!.availableOn = "2026-11-18";
-    expect(account.sellable("coin", "2026-11-17T00:10:00Z", 0)).toBe(0);
+    account.corporateAction(
+      "coin",
+      {
+        date: "2026-11-16",
+        availableAt: "2026-11-16",
+        cashAvailableAt: "2026-11-16",
+        timingAssumption: "ex-date-research-scenario",
+        sharesSellableAt: "2026-11-18",
+        dividend: 0,
+        bonus: 1,
+        evidence: "fixture",
+      },
+      false,
+      0,
+    );
+    expect(account.sellable("coin", "2026-11-17T00:10:00Z", 0)).toBe(1);
+    expect(account.sellable("coin", "2026-11-18T00:10:00Z", 0)).toBe(2);
   });
 });

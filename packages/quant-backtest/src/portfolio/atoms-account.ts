@@ -24,6 +24,13 @@ export class AtomsPortfolioAccount {
     return this.money(this.ledger.cash);
   }
 
+  set cash(value: number) {
+    if (!Number.isFinite(value)) throw new Error("Invalid cash transfer");
+    const decimals = this.ledger.cashDecimals;
+    const target = parseDecimal(big(value).toFixed(decimals), decimals);
+    this.ledger.transferCash(target - this.ledger.cash);
+  }
+
   get equity() {
     let value = big(formatDecimal(this.ledger.cash, this.ledger.cashDecimals));
     for (const position of this.positions.values())
@@ -116,6 +123,10 @@ export class AtomsPortfolioAccount {
     };
   }
 
+  settlePendingCash(date: string) {
+    return this.money(this.ledger.settlePendingCash(date));
+  }
+
   transfer(amount: number) {
     if (!Number.isFinite(amount)) throw new Error("Invalid cash transfer");
     const decimals = this.ledger.cashDecimals;
@@ -146,10 +157,14 @@ export class AtomsPortfolioAccount {
     bought: string,
   ) {
     if (!position) {
+      // Callers hold the projection object to detect a full close after the
+      // ledger removes the position; keep that reference truthful.
+      const existing = this.positions.get(key);
+      if (existing) existing.quantity = 0;
       this.positions.delete(key);
       return;
     }
-    this.positions.set(key, {
+    const next: PortfolioPosition = {
       quantity: this.quantity(position.quantity),
       cost,
       mark,
@@ -161,6 +176,9 @@ export class AtomsPortfolioAccount {
         // lots are the bonus entitlements with a separately evidenced unlock.
         ...(lot.price === 0n ? { availableOn: lot.sellableAt } : {}),
       })),
-    });
+    };
+    const existing = this.positions.get(key);
+    if (existing) Object.assign(existing, next);
+    else this.positions.set(key, next);
   }
 }
