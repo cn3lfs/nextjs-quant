@@ -25,9 +25,11 @@ import {
 } from "./strategy-specs";
 import {
   emptyCounts,
+  type CanslimPitDisclosure,
   type DiagnoseCell,
   type DiagnoseLayer,
   type DiagnoseStatus,
+  type NativeChanDisclosure,
 } from "./types";
 
 export type RunDiagnoseOptions = {
@@ -51,6 +53,8 @@ export type RunDiagnoseOptions = {
   executionProfile?: LabExecutionProfile;
   maxParticipation?: number;
   capacityPolicy?: "clip" | "reject";
+  /** Isolated directory for reusable native Chan prefix captures. */
+  nativeCacheDir?: string;
   log?: (line: string) => void;
 };
 
@@ -86,6 +90,22 @@ function classifyError(error: unknown): {
     return { status: "blocked", layer: "gbbq" };
   if (/因果|复权|价格基|price basis/i.test(message))
     return { status: "blocked", layer: "causal-price" };
+  // Native Chan warmup/portfolio shortages are input limits, not engine bugs.
+  if (/原生缠论需要至少|原生缠论组合模式/i.test(message))
+    return { status: "blocked", layer: "data" };
+  // Native evidence, DLL or causal integrity violations are engine failures.
+  // They must be classified before the generic data matcher, whose "超出"
+  // pattern would otherwise turn them into allowlisted blocked/data cells.
+  if (
+    /原生观察|原生DLL|原生信号重复|原生结构|回放期间原生|原生缠论策略缺少|Missing serial native observations/i.test(
+      message,
+    )
+  )
+    return { status: "failed", layer: "internal" };
+  // The growth PIT strategy is our own external-signal wiring; a missing daily
+  // signal series is an engine/wiring failure, not an allowlisted data limit.
+  if (/外部时点策略缺少逐日信号输入/.test(message))
+    return { status: "failed", layer: "internal" };
   if (
     /行情|数据|日历|缺少|缺失|无交易日|超出|未对齐|停牌|原价|Invalid portfolio|Invalid strategy bars|Raw \/ signal|基准日历/i.test(
       message,
@@ -187,10 +207,15 @@ type ArtifactContext = {
   riskPerTrade: number;
   maxPositions: number;
   costScenario: ResearchCostScenario;
+  nativeChan?: NativeChanDisclosure[];
+  canslimPit?: CanslimPitDisclosure[];
 };
 
 async function writeArtifacts(dir: string, context: ArtifactContext) {
   const { frozen, replay, strategyConfig } = context;
+  // The frozen request may have rewritten the strategy (for example an
+  // explicit --start updates firstIndex); record what was actually replayed.
+  const effectiveStrategy = frozen.request.strategies[0] ?? strategyConfig;
   const result = replay.result;
   const barCounts = Object.fromEntries(
     frozen.request.instruments.map((instrument) => [
@@ -201,8 +226,8 @@ async function writeArtifacts(dir: string, context: ArtifactContext) {
   await writeJson(join(dir, "run.json"), {
     generatedAt: new Date().toISOString(),
     mode: frozen.request.instruments.length > 1 ? "portfolio" : "per-symbol",
-    strategyKey: strategyConfig.id,
-    strategyConfig,
+    strategyKey: effectiveStrategy.id,
+    strategyConfig: effectiveStrategy,
     symbols: frozen.request.instruments.map((i) => i.symbol),
     start: context.start,
     end: context.end,
@@ -225,6 +250,8 @@ async function writeArtifacts(dir: string, context: ArtifactContext) {
     signalBasis: frozen.marketPolicy.signalBars,
     corporateActionCoverage: frozen.corporateActionCoverage,
     sources: context.dataQuality,
+    ...(context.nativeChan?.length ? { nativeChan: context.nativeChan } : {}),
+    ...(context.canslimPit?.length ? { canslimPit: context.canslimPit } : {}),
     timingStatus: replay.timingStatus,
     // Recorded metadata only; never compared or enforced in this path.
     inputHash: replay.inputHash,
@@ -420,6 +447,12 @@ function rejectionReasons(replay: ReplayReturn) {
 
 export async function runDiagnose(options: RunDiagnoseOptions) {
   const log = options.log ?? (() => {});
+  // Long native captures walk every causal prefix; heartbeat every 1,000
+  // prefixes and on completion so a silent run is distinguishable from a hang.
+  const nativeProgress = (symbol: string, done: number, total: number) => {
+    if (done >= total || done % 1000 === 0)
+      log(`    原生缠论 ${symbol} 前缀 ${done}/${total}`);
+  };
   if (!options.symbols.length) throw new Error("至少需要一个标的");
   if (new Set(options.symbols).size !== options.symbols.length)
     throw new Error("标的需要唯一");
@@ -488,20 +521,23 @@ export async function runDiagnose(options: RunDiagnoseOptions) {
       log(
         `[${index + 1}/${selected.length}] ${item.mode}/${item.strategy}/${item.symbols.join("+")} ${start}~${options.end}`,
       );
-      const { frozen, dataQuality } = await prepareDiagnoseRequest({
-        strategy: strategyConfig,
-        start,
-        end: options.end,
-        initial: options.initial,
-        riskPerTrade,
-        maxPositions,
-        costScenario: options.cost,
-        config,
-        forceCausalPrice: item.strategy !== "hold",
-        executionProfile,
-        ...(maxParticipation === null ? {} : { maxParticipation }),
-        ...(capacityPolicy === null ? {} : { capacityPolicy }),
-      });
+      const { frozen, dataQuality, nativeChan, canslimPit } =
+        await prepareDiagnoseRequest({
+          strategy: strategyConfig,
+          start,
+          end: options.end,
+          initial: options.initial,
+          riskPerTrade,
+          maxPositions,
+          costScenario: options.cost,
+          config,
+          forceCausalPrice: item.strategy !== "hold",
+          executionProfile,
+          ...(maxParticipation === null ? {} : { maxParticipation }),
+          ...(capacityPolicy === null ? {} : { capacityPolicy }),
+          nativeCacheDir: options.nativeCacheDir,
+          nativeProgress,
+        });
       const replay = replayLabBacktest(frozen);
       const diagnostics = runDiagnostics({
         request: frozen.request,
@@ -526,6 +562,8 @@ export async function runDiagnose(options: RunDiagnoseOptions) {
         riskPerTrade,
         maxPositions,
         costScenario: options.cost,
+        ...(nativeChan?.length ? { nativeChan } : {}),
+        ...(canslimPit?.length ? { canslimPit } : {}),
       });
       await writeJson(join(runPath, "diagnostics.json"), {
         ...diagnostics,
@@ -537,7 +575,11 @@ export async function runDiagnose(options: RunDiagnoseOptions) {
         counts,
         overview: replay.overview,
         findings: diagnostics.findings,
+        ...(nativeChan?.length ? { nativeChan } : {}),
+        ...(canslimPit?.length ? { canslimPit } : {}),
       });
+      if (nativeChan?.length) cell.nativeChan = nativeChan;
+      if (canslimPit?.length) cell.canslimPit = canslimPit;
       cell.status = diagnostics.status;
       cell.layer = diagnostics.layer;
       cell.counts = counts;

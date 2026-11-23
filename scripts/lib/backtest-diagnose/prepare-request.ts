@@ -1,4 +1,24 @@
-import type { StrategyObjectInput } from "trading-strategies";
+import { createHash, randomUUID } from "node:crypto";
+import {
+  lstat,
+  mkdir,
+  readFile,
+  realpath,
+  rename,
+  writeFile,
+} from "node:fs/promises";
+import { dirname, join, relative } from "node:path";
+import { isDeepStrictEqual } from "node:util";
+import {
+  createNativeStudyRule,
+  nativeStudyDefinition,
+  studyWarmup,
+  type FrozenChanObservation,
+  type NativeStudyIdentity,
+  type StrategyObjectInput,
+} from "trading-strategies";
+import { researchCanslimHighSeries } from "trading-strategies/research/canslim/research-canslim-high";
+import type { PortfolioInstrument } from "quant-backtest";
 import type { ResearchCostScenario } from "trading-strategy-core/costs";
 import type { Settings } from "../../../src/lib/domain";
 import {
@@ -8,10 +28,15 @@ import {
 } from "../../../src/server/research/causal-price-basis";
 import {
   prepareLabBacktest,
+  usesNativeChan,
   type FrozenLabBacktest,
   type LabExecutionProfile,
 } from "../../../src/server/research/lab-backtest";
 import { readBars } from "../../../src/server/market/bar-store/read-bars";
+import { readLocalFinancialHistory } from "../../../src/server/data-sources/tdx/local-financial-files";
+import { buildCanslimPitSeries } from "../../../src/server/financial/canslim-pit-series";
+import { captureNativeChanObservations } from "../../../src/server/strategies/strategy-center-native";
+import type { CanslimPitDisclosure, NativeChanDisclosure } from "./types";
 
 export const BENCHMARK_CALENDAR_SYMBOL = "sh000001";
 
@@ -28,6 +53,10 @@ export type PrepareDiagnoseRequestInput = {
   executionProfile?: LabExecutionProfile;
   maxParticipation?: number;
   capacityPolicy?: "clip" | "reject";
+  captureNative?: typeof captureNativeChanObservations;
+  readFinancialHistory?: typeof readLocalFinancialHistory;
+  nativeCacheDir?: string;
+  nativeProgress?: (symbol: string, done: number, total: number) => void;
 };
 
 export type DiagnoseSourceQuality = {
@@ -53,7 +82,297 @@ export type PreparedDiagnoseRequest = {
   frozen: FrozenLabBacktest;
   calendar: string[];
   dataQuality: DiagnoseSourceQuality[];
+  nativeChan?: NativeChanDisclosure[];
+  canslimPit?: CanslimPitDisclosure[];
 };
+
+const nativeCacheVersion = "chan-native-cache-1";
+type NativeCacheEntry = {
+  version: typeof nativeCacheVersion;
+  symbol: string;
+  firstIndex: number;
+  identity: NativeStudyIdentity;
+  originDate: string;
+  baselineDate: string;
+  auditCount: number;
+  pendingCount: number;
+  barsDigest: string;
+  captureElapsedMs: number;
+  observations: FrozenChanObservation[];
+};
+
+const barsDigest = (bars: PortfolioInstrument["signalBars"]) =>
+  createHash("sha256").update(JSON.stringify(bars)).digest("hex");
+
+// Cache entries are direct children of the resolved cache directory.
+async function cacheFileExists(cacheDir: string, cachePath: string) {
+  if (
+    relative(cacheDir, dirname(cachePath)) !== "" ||
+    relative(cacheDir, await realpath(cacheDir)) !== ""
+  )
+    throw new Error(
+      `Native Chan cache path escapes its directory: ${cachePath}`,
+    );
+  let st;
+  try {
+    st = await lstat(cachePath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw error;
+  }
+  if (st.isSymbolicLink() || !st.isFile())
+    throw new Error(
+      `Native Chan cache requires a regular, non-symlink file: ${cachePath}`,
+    );
+  if (relative(cacheDir, dirname(await realpath(cachePath))) !== "")
+    throw new Error(
+      `Native Chan cache path escapes its directory: ${cachePath}`,
+    );
+  return true;
+}
+
+async function loadNativeObservations(
+  { symbol, signalBars }: PortfolioInstrument,
+  firstIndex: number,
+  input: PrepareDiagnoseRequestInput,
+) {
+  const tLoad = Date.now();
+  const expectedBarsDigest = barsDigest(signalBars);
+  let cacheDir: string | undefined;
+  let cachePath: string | undefined;
+  if (input.nativeCacheDir) {
+    try {
+      const dirStat = await lstat(input.nativeCacheDir);
+      if (dirStat.isSymbolicLink() || !dirStat.isDirectory())
+        throw new Error(
+          `Native Chan cache directory must be a real, non-symlink directory: ${input.nativeCacheDir}`,
+        );
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    await mkdir(input.nativeCacheDir, { recursive: true });
+    const dirStatAfter = await lstat(input.nativeCacheDir);
+    if (dirStatAfter.isSymbolicLink() || !dirStatAfter.isDirectory())
+      throw new Error(
+        `Native Chan cache directory must be a real, non-symlink directory: ${input.nativeCacheDir}`,
+      );
+    cacheDir = await realpath(input.nativeCacheDir);
+    const hash = createHash("sha256")
+      .update(
+        JSON.stringify({
+          version: nativeCacheVersion,
+          symbol,
+          firstIndex,
+          bars: signalBars.map((b) => [
+            b.date,
+            b.open,
+            b.high,
+            b.low,
+            b.close,
+            b.volume,
+          ]),
+        }),
+      )
+      .digest("hex");
+    cachePath = join(cacheDir, `chan-${symbol}-${hash.slice(0, 16)}.json`);
+    if (await cacheFileExists(cacheDir, cachePath)) {
+      try {
+        const entry: NativeCacheEntry = JSON.parse(
+          await readFile(cachePath, "utf8"),
+        );
+        if (
+          entry.version === nativeCacheVersion &&
+          entry.symbol === symbol &&
+          entry.firstIndex === firstIndex &&
+          entry.originDate === signalBars[0]!.date &&
+          entry.baselineDate === signalBars[firstIndex - 1]!.date &&
+          entry.barsDigest === expectedBarsDigest &&
+          Number.isSafeInteger(entry.auditCount) &&
+          entry.auditCount >= 0 &&
+          Number.isSafeInteger(entry.pendingCount) &&
+          entry.pendingCount >= 0 &&
+          typeof entry.captureElapsedMs === "number" &&
+          Number.isFinite(entry.captureElapsedMs) &&
+          entry.captureElapsedMs >= 0 &&
+          Array.isArray(entry.observations) &&
+          entry.observations[0]?.prefixHash ===
+            barsDigest(signalBars.slice(0, firstIndex)) &&
+          entry.observations.at(-1)?.prefixHash === expectedBarsDigest &&
+          isDeepStrictEqual(entry.identity, entry.observations[0]?.identity)
+        ) {
+          createNativeStudyRule(signalBars, firstIndex, entry.observations);
+          return {
+            entry,
+            cached: true,
+            captureElapsedMs: entry.captureElapsedMs,
+            cacheLoadMs: Date.now() - tLoad,
+          };
+        }
+      } catch {
+        // Unreadable or invalid evidence is recaptured from the final bars.
+      }
+    }
+  }
+
+  const t0 = Date.now();
+  const capture = await (input.captureNative ?? captureNativeChanObservations)(
+    signalBars,
+    firstIndex,
+    undefined,
+    undefined,
+    (done, total) => input.nativeProgress?.(symbol, done, total),
+  );
+  const captureElapsedMs = Date.now() - t0;
+  const entry: NativeCacheEntry = {
+    version: nativeCacheVersion,
+    symbol,
+    firstIndex,
+    identity: capture.identity,
+    originDate: capture.originDate,
+    baselineDate: capture.baselineDate,
+    auditCount: capture.audit.length,
+    pendingCount: capture.pending.length,
+    barsDigest: expectedBarsDigest,
+    captureElapsedMs,
+    observations: capture.observations,
+  };
+  if (cacheDir && cachePath) {
+    await cacheFileExists(cacheDir, cachePath);
+    const tempPath = `${cachePath}.${randomUUID()}.tmp.${process.pid}`;
+    await writeFile(tempPath, JSON.stringify(entry), { flag: "wx" });
+    await rename(tempPath, cachePath);
+  }
+  return { entry, cached: false, captureElapsedMs, cacheLoadMs: null };
+}
+
+async function attachNativeChan(
+  frozen: FrozenLabBacktest,
+  input: PrepareDiagnoseRequestInput,
+) {
+  const { instruments, start } = frozen.request;
+  const indices = instruments.map((instrument) => {
+    const first = instrument.signalBars.findIndex(
+      (bar) => bar.date.slice(0, 10) >= start,
+    );
+    if (first < nativeStudyDefinition.warmupBars)
+      throw new Error(
+        `${instrument.symbol}：原生缠论需要至少 ${nativeStudyDefinition.warmupBars} 根预热行情（当前仅 ${Math.max(0, first)} 根）`,
+      );
+    return first;
+  });
+  const firstIndex = indices[0]!;
+  if (indices.some((index) => index !== firstIndex))
+    throw new Error(
+      "原生缠论组合模式要求各标的预热起点索引一致；请使用 per-symbol 模式",
+    );
+  frozen.request.strategies = frozen.request.strategies.map((strategy) => ({
+    ...strategy,
+    entry:
+      strategy.entry.kind === "chan-third-buy"
+        ? { ...strategy.entry, firstIndex }
+        : strategy.entry,
+    exit:
+      strategy.exit.rule?.kind === "chan-third-buy"
+        ? { ...strategy.exit, rule: { ...strategy.exit.rule, firstIndex } }
+        : strategy.exit,
+  }));
+
+  const nativeChan: NativeChanDisclosure[] = [];
+  for (const instrument of instruments) {
+    const { entry, cached, captureElapsedMs, cacheLoadMs } =
+      await loadNativeObservations(instrument, firstIndex, input);
+    instrument.external = { ...instrument.external, chan: entry.observations };
+    const source = frozen.sources.find(
+      (row) => row.symbol === instrument.symbol,
+    );
+    const proof = source?.causalPrice as CausalPriceProof | undefined;
+    const disclosure: NativeChanDisclosure = {
+      symbol: instrument.symbol,
+      identity: entry.identity,
+      originDate: entry.originDate,
+      baselineDate: entry.baselineDate,
+      firstIndex,
+      prefixCount: entry.observations.length,
+      captureElapsedMs,
+      cacheLoadMs,
+      auditCount: entry.auditCount,
+      pendingCount: entry.pendingCount,
+      signalPriceBasis:
+        proof?.kind ??
+        (typeof source?.adjustment === "string" ? source.adjustment : null),
+      cached,
+    };
+    nativeChan.push(disclosure);
+    if (source) source.nativeChan = disclosure;
+    else
+      frozen.sources.push({
+        symbol: instrument.symbol,
+        nativeChan: disclosure,
+      });
+  }
+  return nativeChan;
+}
+
+async function attachCanslimPit(
+  frozen: FrozenLabBacktest,
+  input: PrepareDiagnoseRequestInput,
+) {
+  const { instruments, start, end } = frozen.request;
+  const readHistory = input.readFinancialHistory ?? readLocalFinancialHistory;
+  const id = "research-canslim-pit";
+  const warmup = studyWarmup("research-growth");
+  const disclosures: CanslimPitDisclosure[] = [];
+  for (const instrument of instruments) {
+    const { symbol, signalBars } = instrument;
+    const history = await readHistory(input.config.tdxRoot, symbol, {
+      asOf: end,
+      strict: true,
+      limit: 200,
+    });
+    const priceSeries = researchCanslimHighSeries(
+      "canslim-high-98",
+      signalBars,
+    );
+    const pit = buildCanslimPitSeries(history.reports, signalBars);
+    let priceSignalCount = 0;
+    let pitFilteredSignalCount = 0;
+    let qualifiedDays = 0;
+    let missingDays = 0;
+    let conflictDays = 0;
+    const signals = signalBars.map(({ date }, i) => {
+      const priceEntry = priceSeries[i]!.entry;
+      const day = pit.days[i]!;
+      const entry = i < warmup ? null : priceEntry && day.qualified;
+      if (date >= start && date <= end && i >= warmup) {
+        if (day.qualified) qualifiedDays++;
+        const statuses = [day.c1.status, day.a1.status, day.a2.status];
+        if (statuses.includes("missing")) missingDays++;
+        if (statuses.includes("conflict")) conflictDays++;
+        if (priceEntry) priceSignalCount++;
+        if (entry) pitFilteredSignalCount++;
+      }
+      return { id, date, availableAt: date, entry, exit: false };
+    });
+    instrument.external = { ...instrument.external, signals };
+    const disclosure: CanslimPitDisclosure = {
+      symbol,
+      strictReportCount: pit.strictReportCount,
+      reportDateRange: pit.reportDateRange,
+      qualifiedDays,
+      missingDays,
+      conflictDays,
+      priceSignalCount,
+      pitFilteredSignalCount,
+      sourceIssuesCount: history.issues.length,
+      boundary: pit.boundary,
+    };
+    const source = frozen.sources.find((row) => row.symbol === symbol);
+    if (source) source.canslimPit = disclosure;
+    else frozen.sources.push({ symbol, canslimPit: disclosure });
+    disclosures.push(disclosure);
+  }
+  return disclosures;
+}
 
 function sourceQuality(sources: readonly Record<string, unknown>[]) {
   return sources.map((source) => ({
@@ -98,6 +417,10 @@ function sourceQuality(sources: readonly Record<string, unknown>[]) {
 export async function prepareDiagnoseRequest(
   input: PrepareDiagnoseRequestInput,
 ): Promise<PreparedDiagnoseRequest> {
+  const isNativeChan = usesNativeChan(input.strategy);
+  const isCanslimPit =
+    input.strategy.entry.kind === "external" &&
+    input.strategy.entry.id === "research-canslim-pit";
   const frozen = await prepareLabBacktest(
     {
       type: "lab-backtest",
@@ -117,6 +440,8 @@ export async function prepareDiagnoseRequest(
     undefined,
     {
       config: input.config,
+      allowNativeChan: isNativeChan,
+      allowExternalSignals: isCanslimPit,
       forceCausalPrice: input.forceCausalPrice,
       dataQualityMode: "record-only",
       gbbqIssuePolicy: "record-only",
@@ -219,9 +544,17 @@ export async function prepareDiagnoseRequest(
   }
   frozen.request.calendar = calendar;
   frozen.request.observationDetail = "full";
+  const nativeChan = isNativeChan
+    ? await attachNativeChan(frozen, input)
+    : undefined;
+  const canslimPit = isCanslimPit
+    ? await attachCanslimPit(frozen, input)
+    : undefined;
   return {
     frozen,
     calendar,
     dataQuality: sourceQuality(frozen.sources),
+    ...(nativeChan && { nativeChan }),
+    ...(canslimPit && { canslimPit }),
   };
 }

@@ -1,4 +1,5 @@
 import type { PortfolioRequest } from "quant-backtest";
+import type { NativeStudyIdentity } from "trading-strategies";
 import type {
   FrozenLabBacktest,
   replayLabBacktest,
@@ -47,6 +48,34 @@ export type DiagnosticReport = {
 
 export type RejectionReason = { reason: string; count: number };
 
+export type NativeChanDisclosure = {
+  symbol: string;
+  identity: NativeStudyIdentity;
+  originDate: string;
+  baselineDate: string;
+  firstIndex: number;
+  prefixCount: number;
+  captureElapsedMs: number;
+  cacheLoadMs?: number | null;
+  auditCount: number;
+  pendingCount: number;
+  signalPriceBasis: string | null;
+  cached: boolean;
+};
+
+export type CanslimPitDisclosure = {
+  symbol: string;
+  strictReportCount: number;
+  reportDateRange: [string, string] | null;
+  qualifiedDays: number;
+  missingDays: number;
+  conflictDays: number;
+  priceSignalCount: number;
+  pitFilteredSignalCount: number;
+  sourceIssuesCount: number;
+  boundary: string;
+};
+
 export type DiagnoseCell = {
   strategy: string;
   symbols: string[];
@@ -61,6 +90,8 @@ export type DiagnoseCell = {
   overview?: unknown;
   findings: string[];
   rejectionReasons?: RejectionReason[];
+  nativeChan?: NativeChanDisclosure[];
+  canslimPit?: CanslimPitDisclosure[];
   checks?: DiagnosticCheck[];
 };
 

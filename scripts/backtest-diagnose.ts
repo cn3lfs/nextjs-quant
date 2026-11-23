@@ -50,6 +50,7 @@ type Args = {
   mode: "per-symbol" | "portfolio" | "both";
   outDir: string;
   dataDir: string;
+  nativeCacheDir?: string;
   limit?: number;
   executionProfile: (typeof executionProfiles)[number];
   maxParticipation?: number;
@@ -69,6 +70,7 @@ function usage() {
     "  --mode        per-symbol | portfolio | both（默认 both）",
     "  --out         输出目录（默认 .test-data/backtest-diagnose/out）",
     "  --data-dir    隔离 QUANT_DATA_DIR，必须在 <repo>/.test-data 下",
+    "  --native-cache-dir  原生缠论前缀缓存目录，必须在 <repo>/.test-data 下",
     "  --limit       只跑前 N 个单元（冒烟）",
     "  --execution-profile strict | clamp | no-slippage（默认 strict）",
     "  --max-participation  成交额参与率上限 (0,1]；不设置则不启用容量约束",
@@ -119,6 +121,7 @@ function parseArgs(argv: readonly string[]): Args {
         "--mode",
         "--out",
         "--data-dir",
+        "--native-cache-dir",
         "--limit",
         "--execution-profile",
         "--max-participation",
@@ -203,6 +206,10 @@ function parseArgs(argv: readonly string[]): Args {
       const raw = values.get("--data-dir") ?? process.env.QUANT_DATA_DIR ?? "";
       return raw ? resolve(raw) : "";
     })(),
+    nativeCacheDir: (() => {
+      const raw = values.get("--native-cache-dir");
+      return raw ? resolve(raw) : undefined;
+    })(),
     limit,
     executionProfile,
     maxParticipation,
@@ -255,6 +262,17 @@ async function main() {
   if (requestedOut && !requestedOut.isDirectory())
     throw new Error(`--out 须为真实目录：${args.outDir}`);
   const out = isolatedPath("--out", args.outDir);
+  if (args.nativeCacheDir !== undefined) {
+    const existing = lstatSync(args.nativeCacheDir, { throwIfNoEntry: false });
+    if (existing && !existing.isDirectory())
+      throw new Error(
+        `--native-cache-dir 须为真实目录：${args.nativeCacheDir}`,
+      );
+  }
+  const nativeCacheDir =
+    args.nativeCacheDir === undefined
+      ? undefined
+      : isolatedPath("--native-cache-dir", args.nativeCacheDir);
   // Applied before every dynamic app import below.
   process.env.QUANT_DATA_DIR = dataDir;
 
@@ -318,23 +336,40 @@ async function main() {
   console.log(`运行输出目录：${runRoot}`);
 
   const { runDiagnose } = await import("./lib/backtest-diagnose/run");
-  const { cells, reportPath } = await runDiagnose({
-    symbols: args.symbols,
-    strategies: args.strategies,
-    controls: args.controls,
-    mode: args.mode,
-    start: args.start,
-    end: args.end,
-    tdxRoot: args.tdxRoot,
-    initial: args.initial,
-    cost: args.cost,
-    outDir: runRoot,
-    limit: args.limit,
-    executionProfile: args.executionProfile,
-    maxParticipation: args.maxParticipation,
-    capacityPolicy: args.capacityPolicy,
-    log: (line) => console.log(line),
-  });
+  const execute = () =>
+    runDiagnose({
+      symbols: args.symbols,
+      strategies: args.strategies,
+      controls: args.controls,
+      mode: args.mode,
+      start: args.start,
+      end: args.end,
+      tdxRoot: args.tdxRoot,
+      initial: args.initial,
+      cost: args.cost,
+      outDir: runRoot,
+      limit: args.limit,
+      executionProfile: args.executionProfile,
+      maxParticipation: args.maxParticipation,
+      capacityPolicy: args.capacityPolicy,
+      nativeCacheDir,
+      log: (line) => console.log(line),
+    });
+  // The native path forks a singleton czsc worker; always terminate it before
+  // the CLI exits, even when a cell throws. `--plan` already returned above.
+  const needsCzscShutdown =
+    args.strategies.includes("research-chan") && !args.plan;
+  const { cells, reportPath } = needsCzscShutdown
+    ? await (async () => {
+        try {
+          return await execute();
+        } finally {
+          const { closeCzsc } =
+            await import("../src/server/strategies/chan/czsc");
+          await closeCzsc();
+        }
+      })()
+    : await execute();
   const counts = {
     ok: cells.filter((cell) => cell.status === "ok").length,
     blocked: cells.filter((cell) => cell.status === "blocked").length,

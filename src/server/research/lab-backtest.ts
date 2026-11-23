@@ -38,6 +38,17 @@ import {
   type CausalPriceProof,
 } from "./causal-price-basis";
 
+export const usesNativeChan = (
+  strategy: PortfolioRequest["strategies"][number],
+) =>
+  strategy.entry.kind === "chan-third-buy" ||
+  strategy.exit.rule?.kind === "chan-third-buy";
+
+const usesExternalSignals = (
+  strategy: PortfolioRequest["strategies"][number],
+) =>
+  strategy.entry.kind === "external" || strategy.exit.rule?.kind === "external";
+
 function isExecutionFact(
   value: PortfolioInstrument["execution"],
 ): value is PortfolioExecution {
@@ -114,6 +125,10 @@ export type LabExecutionProfile = "strict" | "clamp" | "no-slippage";
 export type LabBacktestPrepareOptions = {
   /** Supplied by diagnostic CLIs so no production settings database is opened. */
   config?: Settings;
+  /** Diagnostic preparation attaches serial native Chan evidence. Production leaves this unset. */
+  allowNativeChan?: boolean;
+  /** Diagnostic preparation freezes dated external signals before replay. */
+  allowExternalSignals?: boolean;
   /**
    * `strict` rejects a slipped price outside the observable bar, `clamp` keeps
    * it inside the bar, and `no-slippage` fills at the open. Defaults to strict.
@@ -164,8 +179,13 @@ export async function prepareLabBacktest(
     config = options?.config ?? settings();
   const executionProfile = options?.executionProfile ?? "strict";
   const slippagePolicy = slippagePolicyFor(executionProfile);
+  const nativeChan = usesNativeChan(strategy);
+  const externalSignals = usesExternalSignals(strategy);
   const causal =
-    requiresCausalPriceBasis(strategy) || options?.forceCausalPrice === true;
+    requiresCausalPriceBasis(strategy) ||
+    nativeChan ||
+    externalSignals ||
+    options?.forceCausalPrice === true;
   // Relaxed GBBQ handling is opt-in and only valid alongside record-only data.
   const recordOnlyGbbq =
     options?.dataQualityMode === "record-only" &&
@@ -200,10 +220,11 @@ export async function prepareLabBacktest(
     symbols.some((s) => !["cxBTCUSDT", "cxETHUSDT"].includes(s))
   )
     throw new Error("实验室数字货币范围为BTC/ETH");
+  const serializedStrategy = JSON.stringify(strategy);
   if (
-    JSON.stringify(strategy).match(
-      /"kind":"(?:external|chan-third-buy|czsc-monitor|historical-low|rps)"/,
-    )
+    /"kind":"(?:czsc-monitor|historical-low|rps)"/.test(serializedStrategy) ||
+    (externalSignals && options?.allowExternalSignals !== true) ||
+    (options?.allowNativeChan !== true && nativeChan)
   )
     throw new Error(
       "该策略需要原生/时点外部证据；请使用冻结研究任务及其报告，不能以缺失输入回测",
@@ -516,7 +537,42 @@ export function replayLabBacktest(
 ) {
   signal?.throwIfAborted();
   const { request } = frozen;
-  if (request.strategies.some(requiresCausalPriceBasis)) {
+  if (request.strategies.some(usesNativeChan)) {
+    for (const instrument of request.instruments) {
+      const chan = instrument.external?.chan;
+      if (!Array.isArray(chan) || chan.length === 0)
+        throw new Error(
+          `${instrument.symbol}：原生缠论策略缺少逐前缀观察输入（external.chan）`,
+        );
+    }
+  }
+  if (request.strategies.some(usesExternalSignals)) {
+    const requiredIds = new Set<string>();
+    for (const s of request.strategies) {
+      if (s.entry.kind === "external") requiredIds.add(s.entry.id);
+      if (s.exit.rule?.kind === "external") requiredIds.add(s.exit.rule.id);
+    }
+    for (const instrument of request.instruments) {
+      const signals = instrument.external?.signals;
+      if (!Array.isArray(signals) || signals.length === 0)
+        throw new Error(
+          `${instrument.symbol}：外部时点策略缺少逐日信号输入（external.signals）`,
+        );
+      for (const id of requiredIds) {
+        if (!signals.some((row) => row.id === id))
+          throw new Error(
+            `${instrument.symbol}：外部时点策略缺少规则 ${id} 的逐日信号输入（external.signals）`,
+          );
+      }
+    }
+  }
+  const needsCausal = request.strategies.some(
+    (s) =>
+      requiresCausalPriceBasis(s) ||
+      usesNativeChan(s) ||
+      usesExternalSignals(s),
+  );
+  if (needsCausal) {
     const proofs = new Map(
       frozen.sources.map((source) => [
         source.symbol,

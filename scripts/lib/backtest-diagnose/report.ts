@@ -80,6 +80,108 @@ function issueSection(cells: readonly DiagnoseCell[]) {
   ].join("\n\n");
 }
 
+/**
+ * Native Chan rows carry the DLL/api identity and capture scale each cell ran
+ * against. The full DLL hash is printed so an auditor can match the artifact
+ * build exactly rather than trusting a shortened prefix.
+ */
+function nativeSection(cells: readonly DiagnoseCell[]) {
+  const rows = cells.flatMap((cell) =>
+    (cell.nativeChan ?? []).map((row) => ({ cell, row })),
+  );
+  if (!rows.length) return "";
+  const header = [
+    "单元",
+    "标的",
+    "dllHash",
+    "apiVersion",
+    "buildCommit",
+    "configId",
+    "config / anchor",
+    "起点/基线",
+    "前缀数",
+    "耗时",
+    "审计/待确认",
+    "信号价基",
+  ];
+  const body = rows.map(({ cell, row }) => [
+    cellLabel(cell),
+    row.symbol,
+    row.identity.dllHash,
+    String(row.identity.apiVersion),
+    row.identity.buildCommit,
+    row.identity.configId,
+    `${row.identity.config} / ${row.identity.anchor}`,
+    `${row.originDate} / ${row.baselineDate}`,
+    String(row.prefixCount),
+    row.cached
+      ? `${(row.captureElapsedMs / 1000).toFixed(1)}s（缓存读取 ${row.cacheLoadMs ?? 0}ms）`
+      : `${(row.captureElapsedMs / 1000).toFixed(1)}s`,
+    `${row.auditCount} / ${row.pendingCount}`,
+    row.signalPriceBasis ?? "",
+  ]);
+  return [
+    "## 原生引擎披露",
+    "",
+    "> 原生缠论结构由本机 DLL 生成；下表固定来源指纹、起点与前缀规模，供复核与复现。",
+    "",
+    `| ${header.join(" | ")} |`,
+    `| ${header.map(() => "---").join(" | ")} |`,
+    ...body.map(
+      (row) => `| ${row.map((value) => escapeCell(value)).join(" | ")} |`,
+    ),
+  ].join("\n");
+}
+
+/**
+ * Growth PIT rows expose how strict disclosure gating reduced the raw price
+ * signals. The boundary quote comes from the disclosure itself so the report
+ * cannot drift from the series semantics.
+ */
+function canslimPitSection(cells: readonly DiagnoseCell[]) {
+  const rows = cells.flatMap((cell) =>
+    (cell.canslimPit ?? []).map((row) => ({ cell, row })),
+  );
+  if (!rows.length) return "";
+  const header = [
+    "单元",
+    "标的",
+    "strict 报告数",
+    "报告期范围",
+    "合格交易日",
+    "缺失日",
+    "负基数/冲突日",
+    "价格触发数",
+    "PIT 过滤后信号",
+    "财务包问题数",
+  ];
+  const body = rows.map(({ cell, row }) => [
+    cellLabel(cell),
+    row.symbol,
+    String(row.strictReportCount),
+    row.reportDateRange
+      ? `${row.reportDateRange[0]} ~ ${row.reportDateRange[1]}`
+      : "",
+    String(row.qualifiedDays),
+    String(row.missingDays),
+    String(row.conflictDays),
+    String(row.priceSignalCount),
+    String(row.pitFilteredSignalCount),
+    String(row.sourceIssuesCount),
+  ]);
+  return [
+    "## 成长 PIT 财务披露",
+    "",
+    `> ${rows[0]!.row.boundary}`,
+    "",
+    `| ${header.join(" | ")} |`,
+    `| ${header.map(() => "---").join(" | ")} |`,
+    ...body.map(
+      (row) => `| ${row.map((value) => escapeCell(value)).join(" | ")} |`,
+    ),
+  ].join("\n");
+}
+
 export function renderReport(cells: readonly DiagnoseCell[]): string {
   const perSymbol = cells.filter((cell) => cell.mode === "per-symbol");
   const portfolio = cells.filter((cell) => cell.mode === "portfolio");
@@ -88,6 +190,8 @@ export function renderReport(cells: readonly DiagnoseCell[]): string {
     blocked: cells.filter((cell) => cell.status === "blocked").length,
     failed: cells.filter((cell) => cell.status === "failed").length,
   };
+  const native = nativeSection(cells);
+  const canslimPit = canslimPitSection(cells);
   return [
     "# 回测诊断报告",
     "",
@@ -104,6 +208,8 @@ export function renderReport(cells: readonly DiagnoseCell[]): string {
     "",
     portfolio.length ? table(portfolio) : "（无）",
     "",
+    ...(native ? [native, ""] : []),
+    ...(canslimPit ? [canslimPit, ""] : []),
     "## 问题分级",
     "",
     issueSection(cells),

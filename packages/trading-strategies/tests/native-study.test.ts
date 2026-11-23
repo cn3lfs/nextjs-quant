@@ -1,10 +1,14 @@
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import {
   nativeChanSignals,
   createNativeStudyRule,
   type FrozenChanObservation,
 } from "../src/native-study.js";
 import type { CzscResult } from "../src/research/chan/czsc.js";
+import {
+  prepareStrategy,
+  type StrategyObjectInput,
+} from "../src/strategy-object.js";
 
 const bars = Array.from({ length: 160 }, (_, i) => ({
   date: new Date(Date.UTC(2024, 0, i + 1)).toISOString().slice(0, 10),
@@ -76,6 +80,70 @@ function feed(): FrozenChanObservation[] {
     gaps: [],
   }));
 }
+
+const chanStrategy = {
+  id: "native-chan-test",
+  version: 1,
+  market: "cn-equity",
+  period: "day",
+  universe: { kind: "symbols", symbols: ["sh600000"] },
+  entry: { kind: "chan-third-buy", firstIndex: 140 },
+  exit: { maxBars: 5 },
+  sizing: { kind: "weight", weight: 1 },
+  sleeve: "test",
+} satisfies StrategyObjectInput;
+
+it("prepares an empty native strategy without requiring observations", () => {
+  expect(() => prepareStrategy(chanStrategy, [])).not.toThrow();
+});
+
+it("requires serial native observations only from the first executable bar", () => {
+  const prepared = prepareStrategy(chanStrategy, bars);
+  expect(prepared.evaluate(138).entry).toBeNull();
+  expect(prepared.evaluate(139).entry).toBe(false);
+  expect(() => prepared.evaluate(140)).toThrow(
+    "Missing serial native observations",
+  );
+});
+
+it("matches the native rule and validates the observation feed only once", () => {
+  const observations = feed();
+  const nativeRule = createNativeStudyRule(bars, 140, observations);
+  const readBaseline = vi.fn(() => observations[0]!);
+  const trackedFeed = [...observations];
+  Object.defineProperty(trackedFeed, 0, { get: readBaseline });
+  const prepared = prepareStrategy(chanStrategy, bars, { chan: trackedFeed });
+
+  expect(prepared.evaluate(138).entry).toBeNull();
+  expect(prepared.evaluate(139).entry).toBe(false);
+  expect(readBaseline).not.toHaveBeenCalled();
+
+  for (let i = 139; i < bars.length; i++) {
+    const expected = i === 140;
+    expect(nativeRule(i, { entry: 0, entryIndex: i }).enter).toBe(expected);
+    expect(prepared.evaluate(i).entry).toBe(expected);
+  }
+  expect(readBaseline).toHaveBeenCalledTimes(1);
+});
+
+it("rejects a DLL hash change even in the last observation on first evaluation", () => {
+  const chan = feed();
+  chan.at(-1)!.identity.dllHash = "c".repeat(64);
+  const prepared = prepareStrategy(chanStrategy, bars, { chan });
+  expect(() => prepared.evaluate(140)).toThrow("回放期间原生DLL或配置变化");
+});
+
+it("rejects a signal referring to a future bar during native evaluation", () => {
+  const chan = feed();
+  chan[1]!.signals = chan[1]!.signals.map((signal) => ({
+    ...signal,
+    confirmedAt: 141,
+    confirmedDate: bars[141]!.date,
+  }));
+  const prepared = prepareStrategy(chanStrategy, bars, { chan });
+  expect(() => prepared.evaluate(140)).toThrow("引用超出当前已知前缀");
+});
+
 it("does not backdate an endpoint and waits for current-prefix confirmation", () => {
   const earlier = result();
   earlier.families[0]!.signals[0]!.confirmedAt = -1;

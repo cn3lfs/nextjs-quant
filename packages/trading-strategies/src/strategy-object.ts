@@ -1036,21 +1036,23 @@ export function prepareStrategy(
           const value = point?.values[point.periods.indexOf(rule.period)]?.rps;
           return value == null ? null : value >= rule.minimum;
         };
-      case "chan-third-buy":
+      case "chan-third-buy": {
+        let validated: ReturnType<typeof createNativeStudyRule> | undefined;
         return (i) => {
           if (i < rule.firstIndex - 1) return null;
           if (i === rule.firstIndex - 1) return false;
-          const observations = external.chan?.filter(
-            (row) => row.date <= bars[i]!.date,
-          );
-          if (!observations)
-            throw new Error("Missing serial native observations");
-          return createNativeStudyRule(
-            bars.slice(0, i + 1),
-            rule.firstIndex,
-            observations,
-          )(i, { entry: 0, entryIndex: 0 }).enter;
+          if (!validated) {
+            if (!external.chan)
+              throw new Error("Missing serial native observations");
+            validated = createNativeStudyRule(
+              bars,
+              rule.firstIndex,
+              external.chan,
+            );
+          }
+          return validated(i, { entry: 0, entryIndex: 0 }).enter;
         };
+      }
     }
   };
   const enter = compile(strategy.entry, "entry"),

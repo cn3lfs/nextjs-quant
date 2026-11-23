@@ -1,5 +1,6 @@
 import {
   createExtendedStudyRule,
+  nativeStudyDefinition,
   studyStrategies,
   studyWarmup,
   strategyObjectSchema,
@@ -73,14 +74,31 @@ export const STUDY_STRATEGY_KEYS: readonly StudyStrategyKey[] =
     (id): id is StudyStrategyKey => id !== "hold" && hasExecutableStudyRule(id),
   );
 
+export const NATIVE_STRATEGY_KEYS = ["research-chan"] as const;
+export type NativeStrategyKey = (typeof NATIVE_STRATEGY_KEYS)[number];
+export const isNativeStrategyKey = (
+  key: StrategyKey,
+): key is NativeStrategyKey =>
+  (NATIVE_STRATEGY_KEYS as readonly string[]).includes(key);
+
+export const PIT_STRATEGY_KEYS = ["research-canslim-pit"] as const;
+export type PitStrategyKey = (typeof PIT_STRATEGY_KEYS)[number];
+export const isPitStrategyKey = (key: string): key is PitStrategyKey =>
+  (PIT_STRATEGY_KEYS as readonly string[]).includes(key);
+
 export type SignalStrategyKey =
-  (typeof ADAPTER_STRATEGY_KEYS)[number] | StudyStrategyKey;
+  | (typeof ADAPTER_STRATEGY_KEYS)[number]
+  | StudyStrategyKey
+  | NativeStrategyKey
+  | PitStrategyKey;
 
 /** Adapter keys stay first; ids shared with the study catalog appear once. */
 export const SIGNAL_STRATEGY_KEYS: readonly SignalStrategyKey[] = Array.from(
   new Set<SignalStrategyKey>([
     ...ADAPTER_STRATEGY_KEYS,
     ...STUDY_STRATEGY_KEYS,
+    ...NATIVE_STRATEGY_KEYS,
+    ...PIT_STRATEGY_KEYS,
   ]),
 );
 
@@ -109,6 +127,8 @@ const isStudyStrategyKey = (key: StrategyKey): key is StudyStrategyKey =>
  * the symbol's own daily series.
  */
 export function warmupBarsFor(key: StrategyKey): number {
+  if (isPitStrategyKey(key)) return studyWarmup("research-growth");
+  if (isNativeStrategyKey(key)) return nativeStudyDefinition.warmupBars;
   if (key === "hold") return 0;
   if (key === "turtle" || key === "rsi2") return studyWarmup(key);
   if (isStudyStrategyKey(key)) return studyWarmup(key);
@@ -122,6 +142,23 @@ const FORMULA_EXIT = "选股:C<MA(C,20);";
 function rulesFor(
   key: StrategyKey,
 ): Pick<StrategyObjectInput, "entry" | "exit"> {
+  if (isPitStrategyKey(key))
+    return {
+      entry: { kind: "external", id: key, side: "entry" },
+      // Reuse the exact research-growth exit rule so PIT vs price-only A/B runs
+      // share identical holding-period timing after any common fill.
+      exit: {
+        rule: { kind: "study-rule", strategy: "research-growth", side: "exit" },
+      },
+    };
+  if (key === "research-chan")
+    return {
+      entry: {
+        kind: "chan-third-buy",
+        firstIndex: nativeStudyDefinition.warmupBars,
+      },
+      exit: { maxBars: 5 },
+    };
   if (isStudyStrategyKey(key))
     return {
       entry: { kind: "study-rule", strategy: key, side: "entry" },

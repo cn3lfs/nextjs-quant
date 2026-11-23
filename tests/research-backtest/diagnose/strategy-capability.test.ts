@@ -9,6 +9,9 @@ import {
 } from "trading-strategies";
 import type { Bar } from "trading-strategy-core/bars";
 import {
+  NATIVE_STRATEGY_KEYS,
+  PIT_STRATEGY_KEYS,
+  SIGNAL_STRATEGY_KEYS,
   STUDY_STRATEGY_KEYS,
   buildStrategy,
   isStrategyKey,
@@ -154,7 +157,7 @@ describe.each(["single", "portfolio"] as const)(
 
 it("accepts exactly the executable catalog studies as signal keys", () => {
   expect(probeErrors).toEqual([]);
-  expect(acceptedStudyKeys.length).toBeGreaterThan(0);
+  expect(acceptedStudyKeys).toHaveLength(94);
   expect([...STUDY_STRATEGY_KEYS]).toEqual(acceptedStudyKeys);
   expect(new Set(STUDY_STRATEGY_KEYS).size).toBe(STUDY_STRATEGY_KEYS.length);
   expect([...acceptedStudyKeys]).toEqual(
@@ -163,6 +166,49 @@ it("accepts exactly the executable catalog studies as signal keys", () => {
       ...Object.keys(wyckoffStudyBindings),
     ]),
   );
+});
+
+it("registers strict PIT CANSLIM separately from the price-only growth study", () => {
+  const key = "research-canslim-pit";
+  expect(PIT_STRATEGY_KEYS).toContain(key);
+  expect(SIGNAL_STRATEGY_KEYS).toContain(key);
+  expect(isStrategyKey(key)).toBe(true);
+  expect(STUDY_STRATEGY_KEYS).not.toContain(key);
+  expect(STUDY_STRATEGY_KEYS).toContain("research-growth");
+  expect(warmupBarsFor(key)).toBe(300);
+
+  const strategy = buildStrategy(key, [symbol], "single");
+  expect(strategy.entry).toEqual({
+    kind: "external",
+    id: key,
+    side: "entry",
+  });
+  expect(strategy.exit).toEqual({
+    rule: { kind: "study-rule", strategy: "research-growth", side: "exit" },
+  });
+});
+
+it("plans research-chan as a native signal strategy outside the study catalog", () => {
+  expect(NATIVE_STRATEGY_KEYS).toContain("research-chan");
+  expect(SIGNAL_STRATEGY_KEYS).toContain("research-chan");
+  expect(isStrategyKey("research-chan")).toBe(true);
+  expect(STUDY_STRATEGY_KEYS).not.toContain("research-chan");
+  expect(warmupBarsFor("research-chan")).toBe(140);
+  const strategy = strategyObjectSchema.parse(
+    buildStrategy("research-chan", [symbol], "single"),
+  );
+  expect(strategy.entry).toEqual({ kind: "chan-third-buy", firstIndex: 140 });
+  expect(strategy.exit).toEqual({ maxBars: 5 });
+  expect(
+    planDiagnoseCells({
+      symbols: [symbol],
+      strategies: ["research-chan"],
+      controls: [],
+      mode: "per-symbol",
+    }),
+  ).toEqual([
+    { mode: "per-symbol", strategy: "research-chan", symbols: [symbol] },
+  ]);
 });
 
 describe.each(["single", "portfolio"] as const)(
