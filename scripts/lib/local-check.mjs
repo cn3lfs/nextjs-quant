@@ -1,5 +1,6 @@
 import { lstatSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
-import { spawn, spawnSync } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
+import { createRequire } from "node:module";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 /** @param {string} workspaceRoot @param {string} directory */
@@ -30,46 +31,195 @@ const DEFAULT_STEP_TIMEOUT_MS = 15 * 60_000;
  * @typedef {{workspaceRoot: string, pnpmCli?: string, checkRoot?: string,
  * includeBuild?: boolean, stepTimeoutMs?: number | string,
  * runCommand?: CheckRunCommand}} CheckOptions
+ * @typedef {{ok: true, detail?: string} | {ok: false, error: string}} CleanupResult
  */
 
 /**
- * The launcher may have spawned the real runner; kill its whole tree.
- * @param {number} pid
- * @returns {boolean} whether the tree kill was attempted successfully
+ * @param {string} command
+ * @param {string[]} args
+ * @returns {Promise<CleanupResult>}
  */
-function killProcessTree(pid) {
-  if (process.platform === "win32") {
-    const result = spawnSync("taskkill", ["/pid", String(pid), "/t", "/f"], {
-      stdio: "ignore",
-      windowsHide: true,
-    });
-    return result.status === 0;
-  }
-  try {
-    process.kill(pid, "SIGKILL");
-    return true;
-  } catch {
-    // Already exited.
-    return false;
-  }
+function runCleanupCommand(command, args) {
+  return new Promise((resolveResult) => {
+    execFile(
+      command,
+      args,
+      { windowsHide: true, timeout: 5_000 },
+      (error, stdout, stderr) => {
+        if (!error) {
+          resolveResult({ ok: true });
+          return;
+        }
+        const detail =
+          stderr.trim() ||
+          stdout.trim() ||
+          (error.killed ? "timed out" : String(error.code ?? error.signal));
+        resolveResult({ ok: false, error: `${command}: ${detail}` });
+      },
+    );
+  });
 }
+
+function loadWindowsJobs() {
+  /** @type {typeof import("koffi").default} */
+  const koffi = createRequire(import.meta.url)("koffi");
+  const kernel = koffi.load("kernel32.dll");
+  const create = kernel.func(
+    "void * __stdcall CreateJobObjectW(void *, str16)",
+  );
+  const setLimits = kernel.func(
+    "int __stdcall SetInformationJobObject(void *, int, void *, uint32)",
+  );
+  const open = kernel.func("void * __stdcall OpenProcess(uint32, int, uint32)");
+  const assign = kernel.func(
+    "int __stdcall AssignProcessToJobObject(void *, void *)",
+  );
+  const terminate = kernel.func(
+    "int __stdcall TerminateJobObject(void *, uint32)",
+  );
+  const close = kernel.func("int __stdcall CloseHandle(void *)");
+  const wait = kernel.func(
+    "uint32 __stdcall WaitForSingleObject(void *, uint32)",
+  );
+  const lastError = kernel.func("uint32 __stdcall GetLastError()");
+
+  const basicLimits = koffi.struct({
+    PerProcessUserTimeLimit: "int64_t",
+    PerJobUserTimeLimit: "int64_t",
+    LimitFlags: "uint32_t",
+    MinimumWorkingSetSize: "size_t",
+    MaximumWorkingSetSize: "size_t",
+    ActiveProcessLimit: "uint32_t",
+    Affinity: "uintptr_t",
+    PriorityClass: "uint32_t",
+    SchedulingClass: "uint32_t",
+  });
+  const extendedLimits = koffi.struct({
+    BasicLimitInformation: basicLimits,
+    IoInfo: koffi.array("uint64_t", 6),
+    ProcessMemoryLimit: "size_t",
+    JobMemoryLimit: "size_t",
+    PeakProcessMemoryUsed: "size_t",
+    PeakJobMemoryUsed: "size_t",
+  });
+  const limits = Buffer.alloc(koffi.sizeof(extendedLimits));
+  // KILL_ON_JOB_CLOSE only. Node's detached children do not request breakaway.
+  limits.writeUInt32LE(0x00002000, koffi.offsetof(basicLimits, "LimitFlags"));
+  const jobObjectExtendedLimitInformation = 9;
+
+  /** @param {number} pid */
+  return function assignWindowsJob(pid) {
+    const job = create(null, null);
+    let jobAssigned = false;
+    /** @type {string} */
+    let failure;
+    try {
+      if (!job) {
+        failure = `CreateJobObjectW failed (Win32 ${lastError()})`;
+      } else if (
+        !setLimits(
+          job,
+          jobObjectExtendedLimitInformation,
+          limits,
+          limits.length,
+        )
+      ) {
+        failure = `SetInformationJobObject failed (Win32 ${lastError()})`;
+      } else {
+        const launcher = open(0x0101, 0, pid); // PROCESS_SET_QUOTA | PROCESS_TERMINATE
+        if (!launcher) {
+          failure = `OpenProcess failed (Win32 ${lastError()})`;
+        } else {
+          try {
+            jobAssigned = assign(job, launcher) !== 0;
+            if (!jobAssigned) {
+              failure = `AssignProcessToJobObject failed (Win32 ${lastError()})`;
+            }
+          } finally {
+            close(launcher);
+          }
+        }
+      }
+    } finally {
+      if (job && !jobAssigned) close(job);
+    }
+    if (jobAssigned) {
+      return {
+        /** @returns {CleanupResult} */
+        killTree() {
+          return terminate(job, 1)
+            ? { ok: true }
+            : {
+                ok: false,
+                error: `TerminateJobObject failed (Win32 ${lastError()})`,
+              };
+        },
+        close: () => close(job),
+      };
+    }
+
+    // libuv still owns the original process handle in this spawn turn. Keep
+    // that process's PID reserved until the fallback has finished.
+    const pinnedLauncher = open(0x00100000, 0, pid); // SYNCHRONIZE
+    return {
+      /** @returns {Promise<CleanupResult>} */
+      async killTree() {
+        const WAIT_TIMEOUT = 258;
+        if (!pinnedLauncher || wait(pinnedLauncher, 0) !== WAIT_TIMEOUT) {
+          return {
+            ok: false,
+            error: `${failure}; no confirmed live launcher for taskkill`,
+          };
+        }
+        const result = await runCleanupCommand("taskkill", [
+          "/pid",
+          String(pid),
+          "/t",
+          "/f",
+        ]);
+        return result.ok
+          ? { ok: true, detail: `${failure}; used taskkill fallback` }
+          : { ok: false, error: `${failure}; ${result.error}` };
+      },
+      close: () => {
+        if (pinnedLauncher) close(pinnedLauncher);
+      },
+    };
+  };
+}
+
+const assignWindowsJob =
+  process.platform === "win32" ? loadWindowsJobs() : undefined;
 
 /**
  * Async so a timeout can terminate the process tree, not just the launcher.
  * @param {string} command
  * @param {string[]} args
- * @param {CheckSpawnOptions & {timeout?: number}} options
+ * @param {Pick<CheckSpawnOptions, "cwd" | "env"> & {timeout?: number, captureOutput?: boolean}} options
+ * @returns {Promise<CheckSpawnResult & {stdout: string, stderr: string}>}
  */
-function spawnCommand(command, args, options) {
+export function spawnCommand(command, args, options) {
   return new Promise((resolveResult) => {
     const child = spawn(command, args, {
       cwd: options.cwd,
       env: options.env,
-      stdio: ["ignore", "inherit", "inherit"],
+      stdio: options.captureOutput
+        ? ["ignore", "pipe", "pipe"]
+        : ["ignore", "inherit", "inherit"],
       windowsHide: true,
     });
+    let job = child.pid ? assignWindowsJob?.(child.pid) : undefined;
+    const closeJob = () => {
+      job?.close();
+      job = undefined;
+    };
+    let stdout = "";
+    let stderr = "";
+    child.stdout?.setEncoding("utf8").on("data", (chunk) => (stdout += chunk));
+    child.stderr?.setEncoding("utf8").on("data", (chunk) => (stderr += chunk));
     let settled = false;
-    let timedOut = false;
+    /** @type {Promise<{code: string, message: string}> | undefined} */
+    let timeoutCleanup;
     /** @type {ReturnType<typeof setTimeout> | undefined} */
     let timer;
     /** @type {ReturnType<typeof setTimeout> | undefined} */
@@ -80,46 +230,70 @@ function spawnCommand(command, args, options) {
       settled = true;
       clearTimeout(timer);
       clearTimeout(fallback);
-      resolveResult(result);
+      closeJob();
+      resolveResult({ ...result, stdout, stderr });
+    };
+    const cleanUpTimeout = async () => {
+      /** @type {CleanupResult | undefined} */
+      let killResult;
+      try {
+        killResult = await job?.killTree();
+      } catch (error) {
+        killResult = {
+          ok: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      } finally {
+        closeJob();
+      }
+      let message = `${command} ETIMEDOUT`;
+      if (killResult && !killResult.ok)
+        message += `; process tree cleanup failed: ${killResult.error}`;
+      else if (killResult?.detail) message += `; ${killResult.detail}`;
+      // ChildProcess.kill uses libuv's own handle on Windows.
+      if (
+        !killResult?.ok &&
+        child.exitCode === null &&
+        child.signalCode === null
+      )
+        child.kill("SIGKILL");
+      // A launcher that survives both attempts must not hang the whole gate.
+      fallback = setTimeout(() => {
+        child.stdout?.destroy();
+        child.stderr?.destroy();
+        child.unref();
+        finish({
+          status: null,
+          signal: null,
+          pid: child.pid,
+          timedOut: true,
+          error: {
+            code: "ETIMEDOUT",
+            message: `${message}; child or output pipes did not close`,
+          },
+        });
+      }, 5000);
+      fallback.unref?.();
+      return { code: "ETIMEDOUT", message };
     };
     timer = setTimeout(() => {
-      timedOut = true;
-      if (typeof child.pid === "number") killProcessTree(child.pid);
-      // taskkill may be missing or fail; still try the direct launcher.
-      child.kill();
-      // A launcher that survives both attempts must not hang the whole gate.
-      fallback = setTimeout(
-        () =>
-          finish({
-            status: null,
-            signal: null,
-            pid: child.pid,
-            timedOut: true,
-            error: {
-              code: "ETIMEDOUT",
-              message: `${command} ETIMEDOUT; launcher did not exit`,
-            },
-          }),
-        5000,
-      );
-      fallback.unref?.();
+      timeoutCleanup = cleanUpTimeout();
     }, options.timeout ?? DEFAULT_STEP_TIMEOUT_MS);
-    child.on("error", (error) => finish({ status: null, error }));
-    child.on("exit", (status, signal) =>
+
+    /** @param {CheckSpawnResult} result */
+    const finishAfterCleanup = async (result) => {
+      const timeoutError = await timeoutCleanup;
       finish({
-        status,
-        signal,
-        pid: child.pid,
-        ...(timedOut
-          ? {
-              timedOut: true,
-              error: {
-                code: "ETIMEDOUT",
-                message: `${command} ETIMEDOUT`,
-              },
-            }
-          : {}),
-      }),
+        ...result,
+        ...(timeoutError ? { timedOut: true, error: timeoutError } : {}),
+      });
+    };
+    child.on("error", (error) => {
+      // A failed kill can emit an error without closing the captured pipes.
+      if (!timeoutCleanup) finish({ status: null, error });
+    });
+    child.on(options.captureOutput ? "close" : "exit", (status, signal) =>
+      finishAfterCleanup({ status, signal, pid: child.pid }),
     );
   });
 }
@@ -177,10 +351,11 @@ export async function runLocalChecks({
     TMP: temporaryDirectory,
     TMPDIR: temporaryDirectory,
   };
-  /** @type {{startedAt: number, finishedAt: number|null, dataDirectory: string, stepTimeoutMs: number, exitCode: number, steps: {name:string,exitCode:number,elapsedMs:number,timedOut?:true}[]}} */
+  /** @type {{startedAt: number, finishedAt: number|null, totalElapsedMs: number, dataDirectory: string, stepTimeoutMs: number, exitCode: number, steps: {name:string,exitCode:number,elapsedMs:number,timedOut?:true}[]}} */
   const report = {
     startedAt: Date.now(),
     finishedAt: null,
+    totalElapsedMs: 0,
     dataDirectory,
     stepTimeoutMs: timeout,
     exitCode: 0,
@@ -219,7 +394,7 @@ export async function runLocalChecks({
       result.timedOut === true || result.error?.code === "ETIMEDOUT";
     if (timedOut)
       console.error(
-        `[check] ${name} timed out after ${timeout}ms; later stages were not started`,
+        `[check] ${name} timed out after ${timeout}ms; later stages were not started${result.error?.message ? `: ${result.error.message}` : ""}`,
       );
     else if (
       typeof result.status !== "number" ||
@@ -252,10 +427,20 @@ export async function runLocalChecks({
     }
   }
   report.finishedAt = Date.now();
+  report.totalElapsedMs = report.finishedAt - report.startedAt;
   writeFileSync(
     join(dataDirectory, "check-result.json"),
     JSON.stringify(report, null, 2),
   );
+  console.table(
+    report.steps.map(({ name, elapsedMs, exitCode, timedOut }) => ({
+      Step: name,
+      "Elapsed (ms)": elapsedMs,
+      Exit: exitCode,
+      Timeout: timedOut === true,
+    })),
+  );
+  console.log(`[check] total ${report.totalElapsedMs}ms`);
   console.log(
     `[check] ${report.exitCode === 0 ? "passed" : "failed"}; isolated data: ${dataDirectory}`,
   );

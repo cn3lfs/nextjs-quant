@@ -1,12 +1,20 @@
 import { it, expect } from "vitest";
 import koffi from "koffi";
-import { resolve } from "node:path";
-import { join } from "node:path";
-import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
+import { join, resolve } from "node:path";
+import {
+  mkdtemp,
+  mkdir,
+  writeFile,
+  readFile,
+  rm,
+  symlink,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { execFileSync } from "node:child_process";
 import { readWdzLc5 } from "tstdx/native";
 import { encodeFiveMinuteBar } from "tstdx/local";
+import { runAuditTdxFiveMinute } from "../../scripts/audit-tdx-five-minute";
+import { runRepairTdxZeroVolume } from "../../scripts/repair-tdx-zero-volume";
+import { spawnCommand } from "../../scripts/lib/local-check.mjs";
 
 const audit = koffi
   .load(resolve("runtime/tdx-import/audit.dll"))
@@ -95,13 +103,6 @@ it("history repair CLIs recover matched zero volumes, remove only confirmed empt
         details: [{ path: target, counts: [48, 0, 0, 0, 0, 1] }],
       }),
     );
-    function cli(script: string, args: string[]) {
-      execFileSync(
-        process.execPath,
-        ["node_modules/tsx/dist/cli.mjs", `scripts/${script}.ts`, ...args],
-        { windowsHide: true, stdio: "pipe" },
-      );
-    }
     const args = [
       "--source",
       fixture,
@@ -112,10 +113,10 @@ it("history repair CLIs recover matched zero volumes, remove only confirmed empt
       "--out",
       output,
     ];
-    cli("repair-tdx-zero-volume", args);
+    expect(await runRepairTdxZeroVolume(args)).toBe(0);
     expect(JSON.parse(await readFile(output, "utf8")).repaired).toBe(1);
     expect(await readFile(target)).toEqual(expected);
-    cli("repair-tdx-zero-volume", args);
+    expect(await runRepairTdxZeroVolume(args)).toBe(0);
     expect(JSON.parse(await readFile(output, "utf8")).repaired).toBe(0);
     const empty = valid();
     empty.fill(0, 4);
@@ -141,12 +142,12 @@ it("history repair CLIs recover matched zero volumes, remove only confirmed empt
       "--source-issues",
       issues,
     ];
-    cli("audit-tdx-five-minute", cleanArgs);
+    expect(await runAuditTdxFiveMinute(cleanArgs)).toBe(0);
     const result = JSON.parse(await readFile(output, "utf8"));
     expect(result.removedZeroPrices).toBe(1);
     expect(result.badPrices).toBe(0);
     expect(await readFile(other)).toEqual(valid());
-    cli("audit-tdx-five-minute", cleanArgs);
+    expect(await runAuditTdxFiveMinute(cleanArgs)).toBe(0);
     expect(JSON.parse(await readFile(output, "utf8")).removedZeroPrices).toBe(
       0,
     );
@@ -154,3 +155,85 @@ it("history repair CLIs recover matched zero volumes, remove only confirmed empt
     await rm(root, { recursive: true, force: true });
   }
 });
+
+it.each(["repair-tdx-zero-volume", "audit-tdx-five-minute"])(
+  "runs the %s CLI entrypoint and updates a one-bar file",
+  async (name) => {
+    const root = await mkdtemp(join(tmpdir(), "quant-history-smoke-"));
+    try {
+      for (const market of ["sh", "sz"])
+        await mkdir(join(root, "vipdoc", market, "fzline"), {
+          recursive: true,
+        });
+      const target = join(root, "vipdoc/sh/fzline/sh000001.lc5");
+      const original = valid();
+      const expected = valid();
+      const out = join(root, "result.json");
+      const args = ["--tdx-root", root, "--out", out];
+      const repair = name === "repair-tdx-zero-volume";
+      let entrypoint = `scripts/${name}.ts`;
+      if (repair) {
+        const source = join(root, "one-bar.wdz");
+        // Synthetic WDZ archive containing the single SH000001 bar from valid().
+        await writeFile(
+          source,
+          Buffer.from(
+            "IAAAAEQAAABLrPnL3shOYABDJKM1h2ypXVxGkirKNTl3R0RQLQAAAD0AAAA8rT/BATk2AjAfcVK+r2TIivkmJFJDIVkRMVJGEGSh96JlpjJG/d8/ZRoAAAAgAAAAS6o6xgdCRXcwZSExVFFCYTM2ANE4o1UAAAA=",
+            "base64",
+          ),
+        );
+        const report = join(root, "audit.json");
+        await writeFile(
+          report,
+          JSON.stringify({
+            root,
+            details: [{ path: target, counts: [1, 0, 0, 0, 0, 1] }],
+          }),
+        );
+        original.writeUInt32LE(0, 24);
+        args.push("--source", source, "--audit-report", report);
+      } else {
+        const issues = join(root, "issues.ndjson");
+        await writeFile(
+          issues,
+          JSON.stringify({
+            symbol: "SH000001",
+            skipped: "invalid source",
+            records: 1,
+            times: ["2026-11-04 09:35:00"],
+          }) + "\n",
+        );
+        original.fill(0, 4);
+        args.push("--remove-zero-prices", "--source-issues", issues);
+        const scriptsLink = join(root, "linked-scripts");
+        await symlink(resolve("scripts"), scriptsLink, "junction");
+        entrypoint = join(scriptsLink, `${name}.ts`);
+      }
+      await writeFile(target, original);
+
+      const result = await spawnCommand(
+        process.execPath,
+        ["--import", "tsx", entrypoint, ...args],
+        { env: process.env, captureOutput: true, timeout: 30_000 },
+      );
+
+      expect(result.error, result.stderr).toBeUndefined();
+      expect(result.status, result.stderr).toBe(0);
+      const summary = JSON.parse(await readFile(out, "utf8"));
+      const updated = await readFile(target);
+      if (repair) {
+        expect(summary).toMatchObject({ archives: 1, repaired: 1, errors: 0 });
+        expect(updated).toEqual(expected);
+      } else {
+        expect(summary).toMatchObject({
+          root,
+          removedZeroPrices: 1,
+          errors: 0,
+        });
+        expect(updated).toHaveLength(0);
+      }
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  },
+);

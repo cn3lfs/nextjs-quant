@@ -8,7 +8,8 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { execFileSync } from "node:child_process";
+import { runEstimateTdxZeroVolume } from "../../scripts/estimate-tdx-zero-volume";
+import { spawnCommand } from "../../scripts/lib/local-check.mjs";
 import { encodeFiveMinuteBar } from "tstdx/local";
 import {
   estimateChartVolume,
@@ -67,7 +68,7 @@ it("visual estimates require an exact zero-volume snapshot and explicit referenc
   ).toBeNull();
 });
 
-it("visual CLI fills a historical index alias, preserves other bytes and skips stale snapshots", () => {
+it("visual CLI fills a historical index alias, preserves other bytes and skips stale snapshots", async () => {
   const root = mkdtempSync(join(tmpdir(), "quant-visual-"));
   try {
     for (const market of ["sh", "sz"])
@@ -90,21 +91,16 @@ it("visual CLI fills a historical index alias, preserves other bytes and skips s
     );
     for (const attempt of [1, 2]) {
       const out = join(root, `out-${attempt}`);
-      execFileSync(
-        process.execPath,
-        [
-          "--import",
-          "tsx",
-          "scripts/estimate-tdx-zero-volume.ts",
+      expect(
+        await runEstimateTdxZeroVolume([
           "--tdx-root",
           root,
           "--visual-plan",
           report,
           "--out",
           out,
-        ],
-        { stdio: "pipe", windowsHide: true },
-      );
+        ]),
+      ).toBe(0);
       const expected = Buffer.from(original);
       expected.writeUInt32LE(4321, 24);
       expect(readFileSync(target)).toEqual(expected);
@@ -163,7 +159,7 @@ it("uses calibrated bond factors and repo divisors without dividing by repo inte
   ).toBeNull();
 });
 
-it("applies a calibrated plan with byte preservation, rejects weak evidence and repeats safely", () => {
+it("applies a calibrated plan with byte preservation, rejects weak evidence and repeats safely", async () => {
   const root = mkdtempSync(join(tmpdir(), "quant-calibrated-"));
   try {
     for (const market of ["sh", "sz"])
@@ -178,28 +174,21 @@ it("applies a calibrated plan with byte preservation, rejects weak evidence and 
     const line =
       "sh201001,2002-12-02 09:35:00,historical-repo,candidate-chart-estimate,100,100,100,100,0.99,10000,10\n";
     const run = (out: string) =>
-      execFileSync(
-        process.execPath,
-        [
-          "--import",
-          "tsx",
-          "scripts/estimate-tdx-zero-volume.ts",
-          "--tdx-root",
-          root,
-          "--calculation-plan",
-          report,
-          "--out",
-          out,
-        ],
-        { stdio: "pipe", windowsHide: true },
-      );
+      runEstimateTdxZeroVolume([
+        "--tdx-root",
+        root,
+        "--calculation-plan",
+        report,
+        "--out",
+        out,
+      ]);
     writeFileSync(report, header + line.replace("0.99", "0.94"));
-    expect(() => run(join(root, "bad"))).toThrow();
+    await expect(run(join(root, "bad"))).rejects.toThrow();
     expect(readFileSync(target)).toEqual(original);
     writeFileSync(report, header + line);
     for (const attempt of [1, 2]) {
       const out = join(root, `out-${attempt}`);
-      run(out);
+      expect(await run(out)).toBe(0);
       const expected = Buffer.from(original);
       expected.writeUInt32LE(100, 24);
       expect(readFileSync(target)).toEqual(expected);
@@ -223,7 +212,7 @@ it("leaves tiny placeholder amounts, invalid prices and uint32 overflow unresolv
   b.writeFloatLE(0, 12);
   expect(estimateChartVolume("sh600000", b)).toBeNull();
 });
-it("CLI patches only eligible zero-volume bytes, records provenance and repeats safely", () => {
+it("CLI patches only eligible zero-volume bytes, records provenance and repeats safely", async () => {
   const root = mkdtempSync(join(tmpdir(), "quant-estimate-"));
   try {
     for (const market of ["sh", "sz"])
@@ -240,21 +229,16 @@ it("CLI patches only eligible zero-volume bytes, records provenance and repeats 
     );
     for (const attempt of [1, 2]) {
       const out = join(root, `out-${attempt}`);
-      execFileSync(
-        process.execPath,
-        [
-          "--import",
-          "tsx",
-          "scripts/estimate-tdx-zero-volume.ts",
+      expect(
+        await runEstimateTdxZeroVolume([
           "--tdx-root",
           root,
           "--remaining-report",
           report,
           "--out",
           out,
-        ],
-        { stdio: "pipe", windowsHide: true },
-      );
+        ]),
+      ).toBe(0);
       const expected = Buffer.from(original);
       expected.writeUInt32LE(1000, 24);
       expect(readFileSync(target)).toEqual(expected);
@@ -275,6 +259,96 @@ it("CLI patches only eligible zero-volume bytes, records provenance and repeats 
         expect(journal[1].state).toBe("verified");
       }
     }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+it("runs the estimate CLI entrypoint and patches a one-bar file", async () => {
+  const root = mkdtempSync(join(tmpdir(), "quant-estimate-smoke-"));
+  try {
+    for (const market of ["sh", "sz"])
+      mkdirSync(join(root, "vipdoc", market, "fzline"), { recursive: true });
+    const target = join(root, "vipdoc/sh/fzline/sh600000.lc5");
+    const original = bar();
+    original.writeUInt32LE(12345, 28);
+    writeFileSync(target, original);
+    const report = join(root, "remaining.csv");
+    const out = join(root, "out");
+    writeFileSync(
+      report,
+      "symbol,time,category,amount,low,high\n" +
+        "sh600000,2002-12-02 09:35:00,security-estimate,10000,8,12\n",
+    );
+
+    const result = await spawnCommand(
+      process.execPath,
+      [
+        "--import",
+        "tsx",
+        "scripts/estimate-tdx-zero-volume.ts",
+        "--tdx-root",
+        root,
+        "--remaining-report",
+        report,
+        "--out",
+        out,
+      ],
+      { env: process.env, captureOutput: true, timeout: 30_000 },
+    );
+
+    expect(result.error, result.stderr).toBeUndefined();
+    expect(result.status, result.stderr).toBe(0);
+    expect(
+      JSON.parse(readFileSync(join(out, "summary.json"), "utf8")),
+    ).toMatchObject({
+      root,
+      repaired: 1,
+      errors: 0,
+    });
+    const expected = Buffer.from(original);
+    expected.writeUInt32LE(1000, 24);
+    expect(readFileSync(target)).toEqual(expected);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+it("exits nonzero on weak calibration evidence without changing the target", async () => {
+  const root = mkdtempSync(join(tmpdir(), "quant-estimate-weak-"));
+  try {
+    for (const market of ["sh", "sz"])
+      mkdirSync(join(root, "vipdoc", market, "fzline"), { recursive: true });
+    const target = join(root, "vipdoc/sh/fzline/sh201001.lc5");
+    const original = bar();
+    writeFileSync(target, original);
+    const report = join(root, "plan.csv");
+    writeFileSync(
+      report,
+      "symbol,time,kind,status,estimate,factor,previousSamples,followingSamples,agreement,snapshotAmount,snapshotPrice\n" +
+        "sh201001,2002-12-02 09:35:00,historical-repo,candidate-chart-estimate,100,100,100,100,0.94,10000,10\n",
+    );
+
+    const result = await spawnCommand(
+      process.execPath,
+      [
+        "--import",
+        "tsx",
+        "scripts/estimate-tdx-zero-volume.ts",
+        "--tdx-root",
+        root,
+        "--calculation-plan",
+        report,
+        "--out",
+        join(root, "out"),
+      ],
+      { env: process.env, captureOutput: true, timeout: 30_000 },
+    );
+
+    expect(result.error, result.stderr).toBeUndefined();
+    expect(result.status, result.stderr).toBeGreaterThan(0);
+    expect(result.stderr).toContain("Invalid calibration evidence");
+    expect(readFileSync(target)).toEqual(original);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

@@ -1,5 +1,11 @@
 import { expect, it } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  readdirSync,
+  writeFileSync,
+  rmSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { classifyTestFiles } from "../../scripts/lib/test-projects";
@@ -41,4 +47,27 @@ it("follows runtime dependencies and fails closed for opaque IO, dynamic imports
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+it("partitions all root tests among heavy, io and pure without overlaps", () => {
+  const { heavy, serial, parallel, reasons } = classifyTestFiles();
+  const files = readdirSync("tests", { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".test.ts"))
+    .map((entry) => join(entry.parentPath, entry.name).replaceAll("\\", "/"))
+    .sort();
+
+  expect([...heavy, ...serial, ...parallel].sort()).toEqual(files);
+  expect(heavy).toEqual(
+    expect.arrayContaining([
+      "tests/engineering-validation/formula-worker-termination.test.ts",
+      "tests/engineering-validation/lint-rules.test.ts",
+      "tests/engineering-validation/local-check.test.ts",
+      "tests/engineering-validation/quant-team-process.test.ts",
+      "tests/market-chart/five-minute-audit.test.ts",
+      "tests/market-chart/five-minute-estimate.test.ts",
+      "tests/research-backtest/backtest/financial-replay-cli.test.ts",
+    ]),
+  );
+  expect(serial.every((file) => file in reasons)).toBe(true);
+  expect(parallel.every((file) => !(file in reasons))).toBe(true);
 });

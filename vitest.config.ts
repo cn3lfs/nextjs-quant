@@ -3,38 +3,51 @@ import { resolve } from "node:path";
 import { classifyTestFiles } from "./scripts/lib/test-projects";
 
 const groups = classifyTestFiles();
+const isolated = {
+  setupFiles: ["tests/setup-data-dir.ts"],
+  testTimeout: 60000,
+};
+const parallel = {
+  ...isolated,
+  // Forks, not threads: the server code asserts main-thread-only ownership for
+  // research run locks, and worker_threads pools make isMainThread false.
+  pool: "forks" as const,
+  fileParallelism: true,
+  maxWorkers: 5,
+  sequence: { groupOrder: 1 },
+};
+
 export default defineConfig({
+  // A shared alias lets all three projects reuse one Vite server.
+  resolve: { alias: { "~": resolve("src") } },
   test: {
     globalSetup: ["tests/global-setup.ts"],
     projects: [
       {
-        resolve: { alias: { "~": resolve("src") } },
-        // Files that reach writable IO, SQLite, workers or child processes.
-        // They run in parallel because tests/setup-data-dir.ts gives every
-        // file its own QUANT_DATA_DIR (database, caches, schedules); three
-        // consecutive parallel full runs had no cross-file failures. The
-        // 60 s limit absorbs CPU contention on the heaviest method sweeps
-        // (about 2x slower in parallel) while still stopping a hung test.
+        // Separate group orders keep the heavy project from competing with
+        // either parallel project for CPU.
         test: {
-          name: "io",
-          include: groups.serial,
-          setupFiles: ["tests/setup-data-dir.ts"],
-          fileParallelism: true,
-          maxWorkers: 4,
-          testTimeout: 60000,
+          ...isolated,
+          name: "heavy",
+          include: groups.heavy,
+          pool: "forks",
+          fileParallelism: false,
+          maxWorkers: 1,
           sequence: { groupOrder: 0 },
         },
       },
       {
-        resolve: { alias: { "~": resolve("src") } },
         test: {
+          ...parallel,
+          name: "io",
+          include: groups.serial,
+        },
+      },
+      {
+        test: {
+          ...parallel,
           name: "pure",
           include: groups.parallel,
-          setupFiles: ["tests/setup-data-dir.ts"],
-          fileParallelism: true,
-          maxWorkers: 4,
-          testTimeout: 60000,
-          sequence: { groupOrder: 1 },
         },
       },
     ],

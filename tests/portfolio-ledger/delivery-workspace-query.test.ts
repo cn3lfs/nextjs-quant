@@ -1,4 +1,8 @@
 import Database from "better-sqlite3";
+import { createHash } from "node:crypto";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { beforeEach, afterEach, expect, it } from "vitest";
 import { migrate } from "../../src/server/db/migrations";
 import {
@@ -12,8 +16,10 @@ import {
 } from "../../src/server/db/delivery-workspace-query";
 
 let db: Database.Database;
+let trace: string[] | undefined;
 beforeEach(() => {
-  db = new Database(":memory:");
+  trace = undefined;
+  db = new Database(":memory:", { verbose: (sql) => trace?.push(String(sql)) });
   migrate(db);
   const insert = db.prepare(
     "INSERT INTO import_batches VALUES (?,?,?,?,?,?,?)",
@@ -56,20 +62,56 @@ it("traverses ten thousand batches without gaps or duplicates", () => {
   })();
   let cursor: string | undefined;
   const ids: string[] = [];
+  const latencies: number[] = [];
+  const warmStatements: string[] = [];
+  const started = performance.now();
   do {
+    if (ids.length === 20) trace = warmStatements;
+    const pageStart = performance.now();
     const page = deliveryBatchPage(db, { account: "万批完整性", cursor });
+    latencies.push(performance.now() - pageStart);
+    trace = undefined;
     expect(page.count).toBe(10000);
     expect(page.offset).toBe(ids.length);
     expect(page.items).toHaveLength(20);
     ids.push(...page.items.map((item) => item.id));
     cursor = page.nextCursor ?? undefined;
   } while (cursor);
+  const elapsed = performance.now() - started;
+  const p95 = latencies.sort((a, b) => a - b)[
+    Math.ceil(latencies.length * 0.95) - 1
+  ]!;
+  console.log(
+    `10000 batches / ${latencies.length} pages: total ${elapsed.toFixed(2)} ms, P95 ${p95.toFixed(2)} ms`,
+  );
+  expect(latencies).toHaveLength(500);
   expect(ids).toEqual(
     Array.from(
       { length: 10000 },
       (_, i) => `bulk-${String(9999 - i).padStart(5, "0")}`,
     ),
   );
+  expect(db.pragma("user_version", { simple: true })).toBe(23);
+  for (const sql of warmStatements) {
+    const plan = db.prepare("EXPLAIN QUERY PLAN " + sql).all() as {
+      detail: string;
+    }[];
+    console.log(
+      sql.trim().split("\n")[0],
+      "\n" + (plan.map((row) => row.detail).join("\n") || "(no plan rows)"),
+    );
+    if (sql.includes("FROM import_batches b")) {
+      expect(sql).toMatch(/WHERE b\.id IN \(/);
+      expect(plan[0]?.detail).toContain(
+        "sqlite_autoindex_delivery_batches_1 (id=?)",
+      );
+    }
+  }
+  expect(
+    warmStatements.filter((sql) => sql.includes("FROM import_batches")),
+  ).toHaveLength(1);
+  expect(elapsed).toBeLessThanOrEqual(5000);
+  expect(p95).toBeLessThanOrEqual(100);
 }, 30000);
 it("preserves an offset after revoke and clamps an emptied last page", () => {
   const first = deliveryBatchPage(db, {});
@@ -243,3 +285,267 @@ it("separates recognized counts from actual ownership and looks up receipts with
   db.prepare("DELETE FROM import_batches WHERE id='id-000'").run();
   expect(deliveryBatchReceipt(db, "乙", "hash-0")).toBeNull();
 });
+
+function insertBatch(connection: Database.Database, id: string, name = id) {
+  connection
+    .prepare(
+      "INSERT INTO import_batches VALUES (?, 'audit', 'ths', ?, ?, 99, '{}')",
+    )
+    .run(id, id, name);
+}
+const auditPage = (connection: Database.Database) =>
+  deliveryBatchPage(connection, { account: "audit" });
+const totalChanges = (connection: Database.Database) =>
+  connection.prepare("SELECT total_changes()").pluck().get() as number;
+const dataVersion = (connection: Database.Database) =>
+  connection.pragma("main.data_version", { simple: true }) as number;
+
+it("invalidates a warm memory index on view triggers, physical batch writes and both ownership views", () => {
+  const empty = auditPage(db);
+  const write = (action: () => void) => {
+    const before = totalChanges(db);
+    action();
+    expect(totalChanges(db)).toBeGreaterThan(before);
+    return auditPage(db);
+  };
+  const added = write(() => insertBatch(db, "batch"));
+  expect(added.version).not.toBe(empty.version);
+  expect(added.items).toMatchObject([
+    { id: "batch", ownedFills: 0, ownedCashFlows: 0 },
+  ]);
+  const updated = write(() =>
+    db.exec("UPDATE import_batches SET file_name='EDIT' WHERE id='batch'"),
+  );
+  expect(updated.items[0]?.fileName).toBe("EDIT");
+  expect(deliveryBatchPage(db, { keyword: "edit" }).count).toBe(1);
+  const direct = write(() =>
+    db.exec(
+      "UPDATE delivery_batches SET file_hash='direct',file_name='direct' WHERE id='batch'",
+    ),
+  );
+  expect(direct.version).not.toBe(updated.version);
+  expect(deliveryBatchPage(db, { keyword: "edit" }).count).toBe(0);
+  const filled = write(() =>
+    db.exec(
+      "INSERT INTO trade_fills VALUES ('fill','audit','sh600000','600000','2024-03-01','batch','{}')",
+    ),
+  );
+  expect(filled.items[0]?.ownedFills).toBe(1);
+  const cash = write(() =>
+    db.exec(
+      "INSERT INTO cash_flows VALUES ('cash','audit','2024-03-01','batch','{}')",
+    ),
+  );
+  expect(cash.items[0]).toMatchObject({ ownedFills: 1, ownedCashFlows: 1 });
+  expect(cash.version).toBe(direct.version);
+  const revoked = write(() =>
+    db.exec("DELETE FROM import_batches WHERE id='batch'"),
+  );
+  expect(revoked).toEqual(empty);
+});
+
+it.each(["DELETE", "WAL"])(
+  "observes external commits and same-count replacement in %s journal mode",
+  (mode) => {
+    const dir = mkdtempSync(join(tmpdir(), "delivery-paging-"));
+    const file = join(dir, "ledger.sqlite");
+    let duringTokenRead: (() => void) | undefined;
+    const reader = new Database(file, {
+      verbose: (sql) => {
+        if (/^PRAGMA main\.data_version/i.test(String(sql))) {
+          const write = duringTokenRead;
+          duringTokenRead = undefined;
+          write?.();
+        }
+      },
+    });
+    const writer = new Database(file);
+    try {
+      expect(reader.pragma("journal_mode = " + mode, { simple: true })).toBe(
+        mode.toLowerCase(),
+      );
+      migrate(reader);
+      const changes = totalChanges(reader);
+      const write = (action: () => void) => {
+        const before = dataVersion(reader);
+        action();
+        expect(dataVersion(reader)).toBeGreaterThan(before);
+        expect(totalChanges(reader)).toBe(changes);
+        return auditPage(reader);
+      };
+      const empty = auditPage(reader);
+      const added = write(() => insertBatch(writer, "old"));
+      expect(added.version).not.toBe(empty.version);
+      expect(added.items.map((item) => item.id)).toEqual(["old"]);
+      const direct = write(() =>
+        writer.exec(
+          "UPDATE delivery_batches SET imported_at=100 WHERE id='old'",
+        ),
+      );
+      expect(direct.version).not.toBe(added.version);
+      const filled = write(() =>
+        writer.exec(
+          "INSERT INTO trade_fills VALUES ('f','audit',NULL,'600000','2024-03-01','old','{}')",
+        ),
+      );
+      expect(filled.items[0]?.ownedFills).toBe(1);
+      const cash = write(() =>
+        writer.exec(
+          "INSERT INTO cash_flows VALUES ('c','audit','2024-03-01','old','{}')",
+        ),
+      );
+      expect(cash.items[0]?.ownedCashFlows).toBe(1);
+      const replacement = write(
+        writer.transaction(() => {
+          writer.exec("DELETE FROM import_batches WHERE id='old'");
+          insertBatch(writer, "new");
+        }),
+      );
+      expect(replacement.count).toBe(cash.count);
+      expect(replacement.items.map((item) => item.id)).toEqual(["new"]);
+      expect(replacement.version).not.toBe(cash.version);
+      expect(deliveryAccountVersion(reader, "audit")).toBe(replacement.version);
+      expect(() =>
+        deliveryBatchPage(reader, { account: "audit", version: cash.version }),
+      ).toThrow("批次已变化");
+      if (mode === "WAL") {
+        // Commit between pinning the read snapshot and reading its data_version.
+        duringTokenRead = () => insertBatch(writer, "concurrent");
+        expect(auditPage(reader)).toEqual(replacement);
+        expect(auditPage(reader).items.map((item) => item.id)).toEqual([
+          "new",
+          "concurrent",
+        ]);
+      }
+      expect(reader.pragma("user_version", { simple: true })).toBe(23);
+    } finally {
+      writer.close();
+      reader.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+it("never publishes outer transaction or savepoint rows on rollback even when total_changes is unchanged", () => {
+  const committed = auditPage(db);
+  db.exec("BEGIN");
+  insertBatch(db, "outer");
+  const outer = auditPage(db);
+  expect(outer.items.map((row) => row.id)).toEqual(["outer"]);
+  db.exec("SAVEPOINT nested");
+  insertBatch(db, "inner");
+  expect(auditPage(db).count).toBe(2);
+  const changes = totalChanges(db);
+  db.exec("ROLLBACK TO nested");
+  expect(totalChanges(db)).toBe(changes);
+  expect(auditPage(db)).toEqual(outer);
+  expect(deliveryAccountVersion(db, "audit")).toBe(outer.version);
+  db.exec("ROLLBACK");
+  expect(totalChanges(db)).toBe(changes);
+  expect(auditPage(db)).toEqual(committed);
+  expect(deliveryAccountVersion(db, "audit")).toBe(committed.version);
+});
+
+it("matches SQLite literal substring filters, binary id ordering and the original SHA-256 input", () => {
+  insertBatch(db, "😀", "MiX_中%Ä.csv");
+  insertBatch(db, "\uE000", "mix中文ä.csv");
+  insertBatch(db, "甲", "MiX%中.csv");
+  for (const keyword of ["", "%", "_", "mIx", "_中%", "中文", "ä", "Ä"]) {
+    const expected = db
+      .prepare(
+        `SELECT id FROM import_batches WHERE account='audit'
+      AND instr(lower(file_name), lower(?))>0 ORDER BY imported_at DESC,id DESC`,
+      )
+      .pluck()
+      .all(keyword);
+    const actual = deliveryBatchPage(db, { account: "audit", keyword });
+    expect(actual.count).toBe(expected.length);
+    expect(actual.items.map((row) => row.id)).toEqual(expected);
+  }
+  for (const account of [undefined, "audit", "", "missing"]) {
+    const identities = db
+      .prepare(
+        `SELECT id,file_hash,imported_at FROM import_batches
+      WHERE (? IS NULL OR account=?) ORDER BY id`,
+      )
+      .all(account ?? null, account ?? null);
+    expect(deliveryAccountVersion(db, account)).toBe(
+      createHash("sha256").update(JSON.stringify(identities)).digest("hex"),
+    );
+  }
+});
+
+it("matches bound lone surrogates in account versions and filename searches", () => {
+  insertBatch(db, "replacement", "mix\uFFFD.csv");
+  db.prepare("UPDATE import_batches SET account=? WHERE id='replacement'").run(
+    "acct\uFFFD",
+  );
+  const expected = deliveryBatchPage(db, {
+    account: "acct\uFFFD",
+    keyword: "X\uFFFD",
+  });
+  expect(expected.items.map((row) => row.id)).toEqual(["replacement"]);
+  for (const surrogate of ["\uD800", "\uDC00"]) {
+    const account = "acct" + surrogate;
+    const boundVersion = db.transaction(() =>
+      deliveryAccountVersion(db, account),
+    )();
+    expect(deliveryAccountVersion(db, account)).toBe(boundVersion);
+    expect(
+      deliveryBatchPage(db, { account, keyword: "X" + surrogate }),
+    ).toEqual(expected);
+  }
+});
+
+it.each([
+  ["NULL id", null, 100, 101, 1],
+  ["text timestamp", "odd", "later", "zzz", 1],
+  [
+    "unsafe integer timestamp",
+    "odd",
+    9007199254740993n,
+    9007199254740994n,
+    9007199254740992n,
+  ],
+] as const)(
+  "pages across a %s boundary in SQLite order",
+  (_, id, at, before, after) => {
+    const insert = db.prepare(
+      "INSERT INTO import_batches VALUES (?, 'audit', 'ths', ?, ?, ?, '{}')",
+    );
+    for (let i = 0; i < 19; i++) {
+      insert.run(`first-${i}`, `first-${i}`, "match", before);
+    }
+    insert.run(id, "odd", "match", at);
+    insert.run("z-last", "z-last", "match", after);
+    const expected = db
+      .prepare(
+        "SELECT id FROM import_batches WHERE account='audit' ORDER BY imported_at DESC, id DESC",
+      )
+      .pluck()
+      .all();
+    const first = auditPage(db);
+    expect(first.items.map((row) => row.id)).toEqual(expected.slice(0, 20));
+    expect(first.count).toBe(21);
+    expect(first.nextCursor).toBeTruthy();
+    const second = deliveryBatchPage(db, {
+      account: "audit",
+      cursor: first.nextCursor,
+    });
+    expect(second.items.map((row) => row.id)).toEqual(expected.slice(20));
+    expect(second).toMatchObject({ count: 21, offset: 20, nextCursor: null });
+    const bounded = deliveryBatchPage(db, {
+      account: "audit",
+      keyword: "MATCH",
+      to: 100,
+    });
+    expect(bounded.items.map((row) => row.id)).toEqual(
+      db
+        .prepare(
+          "SELECT id FROM import_batches WHERE account='audit' AND imported_at<=100 ORDER BY imported_at DESC,id DESC",
+        )
+        .pluck()
+        .all(),
+    );
+  },
+);

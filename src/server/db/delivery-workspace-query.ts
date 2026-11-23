@@ -33,13 +33,116 @@ export const deliveryBatchPageSchema = z
   );
 const digest = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
+const sqliteText = (value: string) =>
+  Buffer.from(value, "utf8").toString("utf8");
 
-// All current fact writes belong to immutable batches. Include every identity,
-// rather than count/max, so revoke-and-replace invalidates the old snapshot.
+type BatchIndexRow = {
+  id: string;
+  account: string;
+  source: string;
+  file_hash: string;
+  foldedName: string;
+  imported_at: number;
+};
+type BatchScope = {
+  rows: BatchIndexRow[];
+  version?: string;
+  pageOrder?: BatchIndexRow[];
+  filtered?: { key: string; rows: BatchIndexRow[] };
+};
+type BatchIndex =
+  | { sqlFallback: true }
+  | { sqlFallback: false; all: BatchScope; accounts: Map<string, BatchScope> };
+function readBatchIndex(db: Database.Database): BatchIndex {
+  const rows = db
+    .prepare(
+      `SELECT id,account,source,file_hash,file_name,
+    lower(file_name) foldedName,imported_at FROM import_batches ORDER BY id`,
+    )
+    .all() as (BatchIndexRow & { file_name: unknown })[];
+  const accounts = new Map<string, BatchScope>();
+  for (const row of rows) {
+    if (
+      typeof row.id !== "string" ||
+      typeof row.imported_at !== "number" ||
+      !Number.isSafeInteger(row.imported_at) ||
+      typeof row.account !== "string" ||
+      typeof row.file_name !== "string" ||
+      typeof row.source !== "string"
+    )
+      return { sqlFallback: true };
+    let scope = accounts.get(row.account);
+    if (!scope) {
+      scope = { rows: [] };
+      accounts.set(row.account, scope);
+    }
+    scope.rows.push(row);
+  }
+  return { sqlFallback: false, all: { rows }, accounts };
+}
+const batchCache = new WeakMap<
+  Database.Database,
+  {
+    dataVersion: number;
+    changes: number;
+    index: BatchIndex;
+  }
+>();
+
+// Called inside the read transaction. A caller-owned transaction may roll back
+// (including to a savepoint) without changing either counter.
+function committedBatchIndex(db: Database.Database) {
+  // Reading a main database b-tree pins the snapshot before sampling data_version.
+  const changes = db
+    .prepare("SELECT total_changes() FROM main.sqlite_schema LIMIT 1")
+    .pluck()
+    .get() as number;
+  const dataVersion = db.pragma("main.data_version", {
+    simple: true,
+  }) as number;
+  const cached = batchCache.get(db);
+  if (
+    cached &&
+    cached.changes === changes &&
+    cached.dataVersion === dataVersion
+  )
+    return cached.index;
+  const index = readBatchIndex(db);
+  batchCache.set(db, { changes, dataVersion, index });
+  return index;
+}
+function batchScope(
+  index: BatchIndex,
+  account?: string,
+): BatchScope | undefined {
+  if (index.sqlFallback) return undefined;
+  return account === undefined
+    ? index.all
+    : (index.accounts.get(sqliteText(account)) ?? { rows: [] });
+}
+function scopeVersion(scope: BatchScope) {
+  // rows retain SQLite's BINARY id order, including non-ASCII identifiers.
+  return (scope.version ??= digest(
+    scope.rows.map(({ id, file_hash, imported_at }) => ({
+      id,
+      file_hash,
+      imported_at,
+    })),
+  ));
+}
 export function deliveryAccountVersion(
   db: Database.Database,
   account?: string,
 ) {
+  if (!db.inTransaction)
+    return db.transaction(() => {
+      const scope = batchScope(committedBatchIndex(db), account);
+      return scope ? scopeVersion(scope) : sqlAccountVersion(db, account);
+    })();
+  // Detail and revoke already have a transaction and only need the identities.
+  return sqlAccountVersion(db, account);
+}
+function sqlAccountVersion(db: Database.Database, account?: string) {
   return digest(
     db
       .prepare(
@@ -79,77 +182,182 @@ function summary(row: SummaryRow) {
   };
 }
 
+type BatchFilters = Pick<
+  z.infer<typeof deliveryBatchPageSchema>,
+  "source" | "from" | "to" | "keyword"
+>;
+function matchingRows(
+  db: Database.Database,
+  scope: BatchScope,
+  filters: BatchFilters,
+  key: string,
+) {
+  // Reverse id order first. Stable time sorting preserves SQLite's tie-break.
+  const ordered = (scope.pageOrder ??= scope.rows
+    .slice()
+    .reverse()
+    .sort((a, b) => b.imported_at - a.imported_at));
+  const { source, from, to, keyword } = filters;
+  if (!keyword && !source && from === undefined && to === undefined)
+    return ordered;
+  if (scope.filtered?.key === key) return scope.filtered.rows;
+  const needle =
+    keyword &&
+    (db.prepare("SELECT lower(?)").pluck().get(sqliteText(keyword)) as string);
+  const rows = ordered.filter(
+    (row) =>
+      (!source || row.source === source) &&
+      (from === undefined || row.imported_at >= from) &&
+      (to === undefined || row.imported_at <= to) &&
+      (!needle || row.foldedName.includes(needle)),
+  );
+  scope.filtered = { key, rows };
+  return rows;
+}
+
+function afterCursor(
+  rows: BatchIndexRow[],
+  cursor: { at: number; id: string },
+) {
+  const id = Buffer.from(cursor.id);
+  let low = 0,
+    high = rows.length;
+  while (low < high) {
+    const mid = Math.floor((low + high) / 2);
+    const row = rows[mid]!;
+    if (
+      row.imported_at > cursor.at ||
+      (row.imported_at === cursor.at && Buffer.from(row.id).compare(id) >= 0)
+    )
+      low = mid + 1;
+    else high = mid;
+  }
+  return low;
+}
+
+const cursorFields = z.object({
+  filter: z.string(),
+  version: z.string(),
+  position: z.number().int().nonnegative().default(0),
+});
+const cursorSchema = z.union([
+  cursorFields.extend({ id: z.string(), at: z.number().int() }),
+  cursorFields.extend({
+    sqlOffset: z.literal(true),
+    position: z.number().int().nonnegative(),
+  }),
+]);
+type PageCursor = z.infer<typeof cursorSchema>;
+
+function pageOffset(
+  count: number,
+  requested: number,
+  cursor: PageCursor | null,
+) {
+  return (
+    cursor?.position ??
+    Math.min(requested, Math.max(0, Math.floor((count - 1) / 20) * 20))
+  );
+}
+
+function sqlBatchPage(
+  db: Database.Database,
+  input: z.infer<typeof deliveryBatchPageSchema>,
+  cursor: PageCursor | null,
+) {
+  const where = `(@account IS NULL OR b.account=@account) AND (@source IS NULL OR b.source=@source)
+    AND (@keyword='' OR instr(lower(b.file_name),lower(@keyword))>0)
+    AND (@from IS NULL OR b.imported_at>=@from) AND (@to IS NULL OR b.imported_at<=@to)`;
+  const parameters = {
+    account: input.account || null,
+    source: input.source ?? null,
+    keyword: input.keyword,
+    from: input.from ?? null,
+    to: input.to ?? null,
+  };
+  const count = db
+    .prepare(`SELECT count(*) FROM import_batches b WHERE ${where}`)
+    .pluck()
+    .get(parameters) as number;
+  const offset = pageOffset(count, input.offset, cursor);
+  const boundary = cursor && "id" in cursor ? cursor : null;
+  const rows = db
+    .prepare(
+      `SELECT ${projection} FROM import_batches b WHERE ${where}
+    AND (@at IS NULL OR b.imported_at<@at OR (b.imported_at=@at AND b.id<@id))
+    ORDER BY b.imported_at DESC,b.id DESC LIMIT 21 OFFSET @offset`,
+    )
+    .all({
+      ...parameters,
+      at: boundary?.at ?? null,
+      id: boundary?.id ?? null,
+      offset: boundary ? 0 : offset,
+    }) as SummaryRow[];
+  return { count, offset, rows: rows.slice(0, 20), hasMore: rows.length > 20 };
+}
+
+function indexedBatchPage(
+  db: Database.Database,
+  scope: BatchScope,
+  input: z.infer<typeof deliveryBatchPageSchema>,
+  filter: string,
+  cursor: PageCursor | null,
+) {
+  const matches = matchingRows(db, scope, input, filter);
+  const count = matches.length;
+  const offset = pageOffset(count, input.offset, cursor);
+  const start =
+    cursor && "id" in cursor ? afterCursor(matches, cursor) : offset;
+  const ids = matches.slice(start, start + 20).map((row) => row.id);
+  const rows = ids.length
+    ? (db
+        .prepare(
+          `SELECT ${projection} FROM import_batches b
+      WHERE b.id IN (${ids.map(() => "?").join(",")})
+      ORDER BY b.imported_at DESC,b.id DESC`,
+        )
+        .all(...ids) as SummaryRow[])
+    : [];
+  return { count, offset, rows, hasMore: start + 20 < count };
+}
+
 export function deliveryBatchPage(db: Database.Database, raw: unknown) {
   const input = deliveryBatchPageSchema.parse(raw);
   const {
+    account,
+    source,
+    keyword,
+    from,
+    to,
     cursor: encoded,
-    offset: requestedOffset,
     version: expectedVersion,
-    ...filters
   } = input;
-  const filter = digest(filters);
+  const filter = digest({ account, source, keyword, from, to });
+  const cacheable = !db.inTransaction;
   return db.transaction(() => {
-    const version = deliveryAccountVersion(db, input.account || undefined);
+    const index = cacheable ? committedBatchIndex(db) : readBatchIndex(db);
+    const scope = batchScope(index, account || undefined);
+    const version = scope
+      ? scopeVersion(scope)
+      : sqlAccountVersion(db, account || undefined);
     if (expectedVersion && expectedVersion !== version)
       throw new Error("批次已变化，请重新检索");
-    let cursor: {
-      id: string;
-      at: number;
-      filter: string;
-      version: string;
-      position: number;
-    } | null = null;
+    let cursor: PageCursor | null = null;
     if (encoded) {
       try {
-        cursor = z
-          .object({
-            id: z.string(),
-            at: z.number().int(),
-            filter: z.string(),
-            version: z.string(),
-            position: z.number().int().nonnegative().default(0),
-          })
-          .parse(
-            JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")),
-          );
+        cursor = cursorSchema.parse(
+          JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")),
+        );
       } catch {
         throw new Error("批次分页位置无效，请重新检索");
       }
       if (cursor.filter !== filter) throw new Error("筛选已变化，请重新检索");
       if (cursor.version !== version) throw new Error("批次已变化，请重新检索");
     }
-    const where = `(@account IS NULL OR b.account=@account) AND (@source IS NULL OR b.source=@source)
-      AND instr(lower(b.file_name),lower(@keyword))>0
-      AND (@from IS NULL OR b.imported_at>=@from) AND (@to IS NULL OR b.imported_at<=@to)`;
-    const parameters = {
-      account: input.account || null,
-      source: input.source ?? null,
-      keyword: input.keyword,
-      from: input.from ?? null,
-      to: input.to ?? null,
-    };
-    const count = (
-      db
-        .prepare(`SELECT count(*) count FROM import_batches b WHERE ${where}`)
-        .get(parameters) as { count: number }
-    ).count;
-    const offset =
-      cursor?.position ??
-      Math.min(requestedOffset, Math.max(0, Math.floor((count - 1) / 20) * 20));
-    const rows = db
-      .prepare(
-        `SELECT ${projection} FROM import_batches b
-      WHERE ${where}
-      AND (@at IS NULL OR b.imported_at<@at OR (b.imported_at=@at AND b.id<@id))
-      ORDER BY b.imported_at DESC,b.id DESC LIMIT 21 OFFSET @offset`,
-      )
-      .all({
-        ...parameters,
-        offset: cursor ? 0 : offset,
-        at: cursor?.at ?? null,
-        id: cursor?.id ?? null,
-      }) as SummaryRow[];
-    const items = rows.slice(0, 20).map(summary),
+    const { count, offset, rows, hasMore } = scope
+      ? indexedBatchPage(db, scope, input, filter, cursor)
+      : sqlBatchPage(db, input, cursor);
+    const items = rows.map(summary),
       last = items.at(-1);
     return {
       items,
@@ -157,11 +365,13 @@ export function deliveryBatchPage(db: Database.Database, raw: unknown) {
       count,
       offset,
       nextCursor:
-        rows.length > 20 && last
+        hasMore && last
           ? Buffer.from(
               JSON.stringify({
-                id: last.id,
-                at: last.importedAt,
+                // A non-standard SQL sort key may not survive a JSON round trip.
+                ...(scope
+                  ? { id: last.id, at: last.importedAt }
+                  : { sqlOffset: true }),
                 filter,
                 version,
                 position: offset + 20,

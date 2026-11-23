@@ -10,11 +10,15 @@ import {
   writeFileSync,
 } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
-import { runLocalChecks } from "../../scripts/lib/local-check.mjs";
+import {
+  runLocalChecks,
+  spawnCommand,
+} from "../../scripts/lib/local-check.mjs";
 
 const roots: string[] = [];
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.restoreAllMocks();
   for (const root of roots.splice(0)) rmSync(root, { recursive: true });
 });
 function fixture() {
@@ -89,6 +93,9 @@ it("uses fresh data and temp directories, preserves the caller's data, and inclu
 
 it("stops on nonzero exit or launch failure and writes a reviewable result", async () => {
   const { root } = fixture();
+  const summary = vi.spyOn(console, "table").mockImplementation(() => {});
+  let now = 100;
+  vi.spyOn(Date, "now").mockImplementation(() => now);
   const commands: string[] = [];
   const report = await runLocalChecks({
     workspaceRoot: root,
@@ -97,6 +104,7 @@ it("stops on nonzero exit or launch failure and writes a reviewable result", asy
     runCommand: (_command: string, args: string[]) => {
       const name = args.at(-1)!;
       commands.push(name);
+      now += 17;
       return { status: name === "lint" ? 23 : 0 };
     },
   });
@@ -111,8 +119,24 @@ it("stops on nonzero exit or launch failure and writes a reviewable result", asy
   expect(
     JSON.parse(
       readFileSync(join(report.dataDirectory, "check-result.json"), "utf8"),
-    ).exitCode,
-  ).toBe(23);
+    ),
+  ).toEqual(report);
+  expect(report.totalElapsedMs).toBe(85);
+  expect(report.totalElapsedMs).toBe(report.finishedAt! - report.startedAt);
+  expect(summary).toHaveBeenCalledWith([
+    ...commands.slice(0, -1).map((name) => ({
+      Step: name,
+      "Elapsed (ms)": 17,
+      Exit: 0,
+      Timeout: false,
+    })),
+    {
+      Step: "lint",
+      "Elapsed (ms)": 17,
+      Exit: 23,
+      Timeout: false,
+    },
+  ]);
   expect(
     (
       await runLocalChecks({
@@ -155,6 +179,8 @@ it("closes child stdin and bounds every stage with a timeout", async () => {
 
 it("records a timed-out stage and does not start later stages", async () => {
   const { root } = fixture();
+  const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+  const cleanupError = "TerminateJobObject failed (Win32 5)";
   const commands: string[] = [];
   const report = await runLocalChecks({
     workspaceRoot: root,
@@ -166,13 +192,14 @@ it("records a timed-out stage and does not start later stages", async () => {
       return {
         status: null,
         signal: "SIGTERM",
-        error: Object.assign(new Error("spawnSync ETIMEDOUT"), {
+        error: Object.assign(new Error(cleanupError), {
           code: "ETIMEDOUT",
         }),
       };
     },
   });
   expect(commands).toEqual(["format:check"]);
+  expect(errors).toHaveBeenCalledWith(expect.stringContaining(cleanupError));
   expect(report.exitCode).toBe(1);
   expect(report.steps).toEqual([
     expect.objectContaining({
@@ -188,39 +215,112 @@ it("records a timed-out stage and does not start later stages", async () => {
   ).toBe(true);
 });
 
+function persistentDescendant(pidFile: string) {
+  return `const fs = require("node:fs");
+const marker = ${JSON.stringify(pidFile)};
+fs.writeFileSync(marker, String(process.pid));
+// A failed assertion still removes the fixture and lets a leaked process exit.
+setInterval(() => { if (!fs.existsSync(marker)) process.exit(0); }, 1000);`;
+}
+
+async function expectDescendantDead(pidFile: string) {
+  const marker = readFileSync(pidFile, "utf8");
+  expect(marker).toMatch(/^[1-9]\d*$/);
+  const pid = Number(marker);
+  expect(Number.isSafeInteger(pid)).toBe(true);
+  await expect
+    .poll(
+      () => {
+        try {
+          process.kill(pid, 0);
+          return "running";
+        } catch (error) {
+          return (error as NodeJS.ErrnoException).code;
+        }
+      },
+      { timeout: 500, interval: 20 },
+    )
+    .toBe("ESRCH");
+}
+
 it.skipIf(process.platform !== "win32")(
   "terminates the launcher's process tree when a stage times out",
   async () => {
     const { root } = fixture();
     const pnpm = join(root, "hanging-pnpm.cjs");
-    const launcherMarker = join(root, "launcher.txt");
-    const startedMarker = join(root, "grandchild-started.txt");
-    const lateMarker = join(root, "grandchild-late.txt");
-    const childCode = `const fs = require("node:fs");
-fs.writeFileSync(${JSON.stringify(startedMarker)}, "started");
-setTimeout(() => fs.writeFileSync(${JSON.stringify(lateMarker)}, "late"), 1500)`;
+    const pidFile = join(root, "grandchild.pid");
     writeFileSync(
       pnpm,
       `const { spawn } = require("node:child_process");
-const fs = require("node:fs");
-fs.writeFileSync(${JSON.stringify(launcherMarker)}, "launcher");
-spawn(process.execPath, ["-e", ${JSON.stringify(childCode)}], { stdio: "ignore" });
+spawn(process.execPath, ["-e", ${JSON.stringify(persistentDescendant(pidFile))}], { stdio: "ignore" });
 setInterval(() => {}, 1000);`,
     );
     const report = await runLocalChecks({
       workspaceRoot: root,
       pnpmCli: pnpm,
       checkRoot: join(root, ".test-data/checks"),
-      stepTimeoutMs: 400,
+      stepTimeoutMs: 1500,
     });
     expect(report.steps[0]).toMatchObject({ timedOut: true, exitCode: 1 });
-    // Both processes must have started; otherwise the absence of the late
-    // marker proves nothing about the kill.
-    expect(existsSync(launcherMarker)).toBe(true);
-    expect(existsSync(startedMarker)).toBe(true);
-    // The grandchild would write at 1.5 s; a launcher-only kill leaves it alive.
-    await new Promise((resolve) => setTimeout(resolve, 2200));
-    expect(existsSync(lateMarker)).toBe(false);
+    await expectDescendantDead(pidFile);
+  },
+  15000,
+);
+
+it.skipIf(process.platform !== "win32")(
+  "terminates a detached grandchild holding the pipes after both ancestors exit",
+  async () => {
+    const { root } = fixture();
+    const pidFile = join(root, "orphan.pid");
+    const spawnAndExit = (code: string) =>
+      `const { spawn } = require("node:child_process");
+spawn(process.execPath, ["-e", ${JSON.stringify(code)}], {
+  detached: true,
+  stdio: ["ignore", "inherit", "inherit"],
+});
+process.exit(0);`;
+    const middle = spawnAndExit(persistentDescendant(pidFile));
+    const launcher = spawnAndExit(middle);
+
+    const result = await spawnCommand(process.execPath, ["-e", launcher], {
+      env: process.env,
+      captureOutput: true,
+      timeout: 1500,
+    });
+
+    expect(result).toMatchObject({
+      status: 0,
+      timedOut: true,
+      error: { code: "ETIMEDOUT", message: `${process.execPath} ETIMEDOUT` },
+    });
+    await expectDescendantDead(pidFile);
+  },
+  15000,
+);
+
+it.skipIf(process.platform !== "win32")(
+  "closes the job and terminates a detached descendant after a successful exit",
+  async () => {
+    const { root } = fixture();
+    const pidFile = join(root, "descendant.pid");
+    const launcher = `const { spawn } = require("node:child_process");
+const { statSync } = require("node:fs");
+spawn(process.execPath, ["-e", ${JSON.stringify(persistentDescendant(pidFile))}], {
+  detached: true,
+  stdio: "ignore",
+});
+setInterval(() => {
+  if (statSync(${JSON.stringify(pidFile)}, { throwIfNoEntry: false })?.size) process.exit(0);
+}, 20);`;
+
+    const result = await spawnCommand(process.execPath, ["-e", launcher], {
+      env: process.env,
+      timeout: 5000,
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.timedOut).toBeUndefined();
+    await expectDescendantDead(pidFile);
   },
   15000,
 );

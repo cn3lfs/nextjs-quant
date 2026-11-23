@@ -2,6 +2,19 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 import ts from "typescript";
 
+// Keep subprocess startup, typed linting, and contention-sensitive workloads
+// out of the parallel IO batch. Smaller IO tests still use isolated fixtures.
+const heavyTestFiles = new Set([
+  "tests/engineering-validation/formula-worker-termination.test.ts",
+  "tests/engineering-validation/lint-rules.test.ts",
+  "tests/engineering-validation/local-check.test.ts",
+  "tests/engineering-validation/quant-team-process.test.ts",
+  "tests/market-chart/five-minute-audit.test.ts",
+  "tests/market-chart/five-minute-estimate.test.ts",
+  "tests/portfolio-ledger/delivery-workspace-query.test.ts",
+  "tests/research-backtest/backtest/financial-replay-cli.test.ts",
+]);
+
 /** Follow runtime imports, not test names. Unknown dynamic imports are serial.
  * Read-only fixture access is safe; writable IO and external runtimes are not.
  */
@@ -139,8 +152,13 @@ export function classifyTestFiles(root = process.cwd()) {
     if (found.size) reasons[file] = [...found].sort();
   }
   return {
-    serial: files.filter((file) => file in reasons),
-    parallel: files.filter((file) => !(file in reasons)),
+    heavy: files.filter((file) => heavyTestFiles.has(file)),
+    serial: files.filter(
+      (file) => !heavyTestFiles.has(file) && file in reasons,
+    ),
+    parallel: files.filter(
+      (file) => !heavyTestFiles.has(file) && !(file in reasons),
+    ),
     reasons,
   };
 }

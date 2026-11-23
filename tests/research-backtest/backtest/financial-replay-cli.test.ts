@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import {
   copyFile,
@@ -10,44 +9,60 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { runFinancialReplayCli } from "../../../scripts/b2-financial-replay";
+import { runFinancialStudy } from "../../../scripts/b2-financial-study";
+import { spawnCommand } from "../../../scripts/lib/local-check.mjs";
 
 const roots: string[] = [];
-// Rely on the parent TEMP/TMP/TMPDIR supplied by the current isolated run;
-// a permanent test must not create a dated task directory.
-const taskTmp = tmpdir();
-const tsxCli = join(process.cwd(), "node_modules/tsx/dist/cli.mjs");
-const script = (name: string) => join(process.cwd(), "scripts", name);
 afterEach(async () => {
   for (const root of roots.splice(0))
     await rm(root, { recursive: true, force: true });
 });
 
-function envWith(dataDirectory?: string) {
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
-    TEMP: taskTmp,
-    TMP: taskTmp,
-    TMPDIR: taskTmp,
-  };
-  if (dataDirectory) env.QUANT_DATA_DIR = dataDirectory;
-  else delete env.QUANT_DATA_DIR;
-  return env;
-}
-function run(name: string, args: readonly string[], dataDirectory?: string) {
-  const result = spawnSync(process.execPath, [tsxCli, script(name), ...args], {
-    cwd: process.cwd(),
-    env: envWith(dataDirectory),
-    encoding: "utf8",
-    timeout: 120000,
+async function run(
+  runner: (args: readonly string[]) => Promise<number>,
+  args: readonly string[],
+  dataDirectory?: string,
+) {
+  const previousDirectory = process.env.QUANT_DATA_DIR;
+  const previousExitCode = process.exitCode;
+  let stdout = "";
+  let stderr = "";
+  const out = vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
+    stdout += chunk.toString();
+    return true;
   });
-  return {
-    status: result.status,
-    stdout: result.stdout ?? "",
-    stderr: result.stderr ?? "",
-    error: result.error,
-  };
+  const err = vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+    stderr += chunk.toString();
+    return true;
+  });
+
+  try {
+    if (dataDirectory === undefined) delete process.env.QUANT_DATA_DIR;
+    else process.env.QUANT_DATA_DIR = dataDirectory;
+    const status = await runner(args);
+    return { status, stdout, stderr };
+  } finally {
+    out.mockRestore();
+    err.mockRestore();
+    process.exitCode = previousExitCode;
+    if (previousDirectory === undefined) delete process.env.QUANT_DATA_DIR;
+    else process.env.QUANT_DATA_DIR = previousDirectory;
+  }
 }
+
+function runCli(name: string, args: readonly string[], dataDirectory?: string) {
+  const env = { ...process.env };
+  if (dataDirectory === undefined) delete env.QUANT_DATA_DIR;
+  else env.QUANT_DATA_DIR = dataDirectory;
+  return spawnCommand(
+    process.execPath,
+    ["node_modules/tsx/dist/cli.mjs", `scripts/${name}`, ...args],
+    { env, captureOutput: true, timeout: 30_000 },
+  );
+}
+
 async function setup() {
   const root = await mkdtemp(join(tmpdir(), "quant-financial-cli-root-")),
     data = await mkdtemp(join(tmpdir(), "quant-financial-cli-data-")),
@@ -92,8 +107,8 @@ describe("financial CLI contract", () => {
   it("prints help without requiring the data directory or opening the database", async () => {
     const data = await mkdtemp(join(tmpdir(), "quant-financial-cli-help-"));
     roots.push(data);
-    for (const name of ["b2-financial-study.ts", "b2-financial-replay.ts"]) {
-      const result = run(name, ["--help"], data);
+    for (const runner of [runFinancialStudy, runFinancialReplayCli]) {
+      const result = await run(runner, ["--help"], data);
       expect(result.status).toBe(0);
       expect(result.stdout).toContain("用法");
       expect(result.stdout).toContain("--input");
@@ -104,17 +119,13 @@ describe("financial CLI contract", () => {
 
   it("rejects a missing or relative QUANT_DATA_DIR instead of using the production default", async () => {
     const { inputPath, root } = await setup();
-    const missing = run("b2-financial-study.ts", ["--input", inputPath]);
+    const missing = await run(runFinancialStudy, ["--input", inputPath]);
     expect(missing.status).toBe(64);
     expect(missing.stderr).toContain("QUANT_DATA_DIR");
-    const relative = spawnSync(
-      process.execPath,
-      [tsxCli, script("b2-financial-study.ts"), "--input", inputPath],
-      {
-        cwd: process.cwd(),
-        env: { ...envWith(), QUANT_DATA_DIR: "relative-data" },
-        encoding: "utf8",
-      },
+    const relative = await run(
+      runFinancialStudy,
+      ["--input", inputPath],
+      "relative-data",
     );
     expect(relative.status).toBe(64);
     expect(relative.stderr).toContain("绝对路径");
@@ -122,8 +133,8 @@ describe("financial CLI contract", () => {
 
   it("rejects missing or invalid input JSON", async () => {
     const { data, work, root } = await setup();
-    const missing = run(
-      "b2-financial-study.ts",
+    const missing = await run(
+      runFinancialStudy,
       ["--input", join(work, "missing.json")],
       data,
     );
@@ -133,8 +144,8 @@ describe("financial CLI contract", () => {
       invalidPath,
       JSON.stringify({ root, input: { symbols: [], firstYear: 2026 } }),
     );
-    const invalid = run(
-      "b2-financial-study.ts",
+    const invalid = await run(
+      runFinancialStudy,
       ["--input", invalidPath],
       data,
     );
@@ -144,7 +155,7 @@ describe("financial CLI contract", () => {
 
   it("runs the shared study path; missing annual facts are blocked, not failure", async () => {
     const { data, inputPath } = await setup();
-    const study = run("b2-financial-study.ts", ["--input", inputPath], data);
+    const study = await run(runFinancialStudy, ["--input", inputPath], data);
     expect(study.status).toBe(2);
     const studyJson = JSON.parse(study.stdout) as {
       status: string;
@@ -157,11 +168,49 @@ describe("financial CLI contract", () => {
     expect(existsSync(studyJson.runDirectory)).toBe(true);
   });
 
-  // Enabled for root's frozen runtime validation. The source-only command in
-  // this task filters it by title; it is not a permanent skip.
+  it("runs the study CLI help entrypoint without a data directory", async () => {
+    const result = await runCli("b2-financial-study.ts", ["--help"]);
+    expect(result.error, result.stderr).toBeUndefined();
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toContain("用法");
+  });
+
+  it("exits 64 from the study CLI when QUANT_DATA_DIR is missing", async () => {
+    const { inputPath } = await setup();
+    const result = await runCli("b2-financial-study.ts", [
+      "--input",
+      inputPath,
+    ]);
+
+    expect(result.error, result.stderr).toBeUndefined();
+    expect(result.status, result.stderr).toBe(64);
+    expect(result.stderr).toContain("QUANT_DATA_DIR");
+  });
+
+  it("exits 2 from the study CLI and prints the blocked study as JSON", async () => {
+    const { data, inputPath } = await setup();
+    const result = await runCli(
+      "b2-financial-study.ts",
+      ["--input", inputPath],
+      data,
+    );
+
+    expect(result.error, result.stderr).toBeUndefined();
+    expect(result.status, result.stderr).toBe(2);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      status: "blocked",
+      years: [expect.objectContaining({ status: "blocked" })],
+    });
+  });
+
   it("runtime worker: runs the shared replay worker path and reports blocked, not failure", async () => {
     const { data, inputPath } = await setup();
-    const replay = run("b2-financial-replay.ts", ["--input", inputPath], data);
+    const replay = await runCli(
+      "b2-financial-replay.ts",
+      ["--input", inputPath],
+      data,
+    );
+    expect(replay.error, replay.stderr).toBeUndefined();
     expect(replay.status, replay.stderr).toBe(2);
     const replayJson = JSON.parse(replay.stdout) as {
       status: string;
@@ -175,9 +224,9 @@ describe("financial CLI contract", () => {
 
   it("restores completed annual checkpoints on a second study run", async () => {
     const { data, inputPath } = await setup();
-    const first = run("b2-financial-study.ts", ["--input", inputPath], data);
+    const first = await run(runFinancialStudy, ["--input", inputPath], data);
     expect(first.status).toBe(2);
-    const second = run("b2-financial-study.ts", ["--input", inputPath], data);
+    const second = await run(runFinancialStudy, ["--input", inputPath], data);
     expect(second.status).toBe(2);
     expect(JSON.parse(second.stdout)).toMatchObject({
       identity: JSON.parse(first.stdout).identity,
@@ -188,13 +237,13 @@ describe("financial CLI contract", () => {
 
   it("creates a new run identity after financial source bytes change", async () => {
     const { root, data, inputPath } = await setup();
-    const first = run("b2-financial-study.ts", ["--input", inputPath], data);
+    const first = await run(runFinancialStudy, ["--input", inputPath], data);
     expect(first.status).toBe(2);
     await copyFile(
       join(root, "vipdoc/cw/gpcw20260930.dat"),
       join(root, "vipdoc/cw/gpcw20250101.dat"),
     );
-    const changed = run("b2-financial-study.ts", ["--input", inputPath], data);
+    const changed = await run(runFinancialStudy, ["--input", inputPath], data);
     expect(changed.status).toBe(2);
     const before = JSON.parse(first.stdout) as {
       identity: string;
