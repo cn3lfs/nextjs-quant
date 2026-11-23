@@ -1,6 +1,10 @@
 import { expect, it, vi } from "vitest";
 import {
   nativeChanSignals,
+  nativeChanSharedPoints,
+  createNativeChanProfileRule,
+  resolveNativeChanFirstIndex,
+  nativeChanProfiles,
   createNativeStudyRule,
   type FrozenChanObservation,
 } from "../src/native-study.js";
@@ -226,4 +230,168 @@ it("rejects missing dates, changed DLL/configuration, duplicate entries, gaps an
   const future = feed();
   future[1]!.signals[0]!.center.confirmedAt = 159;
   expect(() => createNativeStudyRule(bars, 140, future)).toThrow("超出");
+});
+
+function signedFeed() {
+  const snapshot = result();
+  const family = snapshot.families[0]!;
+  const template = family.signals[0]!;
+  const center = family.centers[0]!;
+  family.centers.push({ ...center, ZD: 12, ZG: 13 });
+  family.signals = ([1, 2, 3, -1, -2, -3] as const).map((kind, j) => ({
+    ...template,
+    kind,
+    index: 130 + j,
+    date: bars[130 + j]!.date,
+    centerId: kind === 1 || kind === -3 ? 2 : 1,
+    divergence: {
+      semantic: 1,
+      flags: 17,
+      areaRatio: 1,
+      speedRatio: 1,
+      priceRatio: 1,
+    },
+  }));
+  const decoded = nativeChanSharedPoints(bars.slice(0, 141), snapshot);
+  expect(decoded.gaps).toEqual([]);
+  expect(decoded.signals).toEqual(
+    nativeChanSignals(bars.slice(0, 141), snapshot).signals,
+  );
+  expect(decoded.points.map((p) => p.kind)).toEqual([1, 2, 3, -1, -2, -3]);
+  const rows = feed();
+  for (const [i, row] of rows.entries()) {
+    row.projectionVersion = 2;
+    row.points = decoded.points
+      .slice(i - 1, i)
+      .map((p) => ({ ...p, confirmedAt: 139 + i, confirmedDate: row.date }));
+    row.signals = row.points
+      .filter((p) => p.kind === 3)
+      .map((p) => ({
+        ...decoded.signals[0]!,
+        confirmedAt: p.confirmedAt,
+        confirmedDate: p.confirmedDate,
+      }));
+  }
+  return rows;
+}
+
+it("uses each signed kind on its observation date and preserves legacy third-buy decisions", () => {
+  const rows = signedFeed();
+  const legacy = createNativeStudyRule(bars, 140, rows);
+  const flat = { entry: 0, entryIndex: 140 };
+  const held = { entry: 10, entryIndex: 140 };
+  for (const [n, profile] of nativeChanProfiles.entries()) {
+    const rule = createNativeChanProfileRule(profile, bars, rows);
+    for (let i = 139; i < bars.length; i++) {
+      expect(rule(i, flat).enter).toBe(
+        n === 3 ? i >= 140 && i <= 142 : i === 140 + n,
+      );
+      expect(rule(i, held).exit).toBe(
+        n === 3 ? i >= 143 && i <= 145 : i >= 145,
+      );
+      if (n === 2) expect(rule(i, held)).toEqual(legacy(i, held));
+    }
+  }
+  const v1 = feed();
+  for (let i = 139; i < bars.length; i++)
+    expect(
+      createNativeChanProfileRule("chan-third-native", bars, v1)(i, held),
+    ).toEqual(createNativeStudyRule(bars, 140, v1)(i, held));
+  expect(() =>
+    createNativeChanProfileRule("chan-first-native", bars, v1),
+  ).toThrow("v2");
+});
+
+it("keeps a simultaneous CH14 buy eligible while flat and honors the next sell while holding", () => {
+  const rows = signedFeed();
+  const buyRow = rows[1]!;
+  const sellRow = rows[5]!;
+  buyRow.points = [
+    ...buyRow.points!,
+    {
+      ...sellRow.points![0]!,
+      confirmedAt: 140,
+      confirmedDate: buyRow.date,
+    },
+  ];
+  sellRow.points = [];
+  const profile = "chan-hold-cash-native";
+  const rule = createNativeChanProfileRule(profile, bars, rows);
+  const entry = { kind: "chan-native", profile, side: "entry" } as const;
+  const prepared = prepareStrategy(
+    { ...chanStrategy, entry, exit: { rule: { ...entry, side: "exit" } } },
+    bars,
+    { chan: rows },
+  );
+  for (const flat of [undefined, { entry: 0, entryIndex: 140 }]) {
+    expect(rule(140, flat)).toEqual({ enter: true, exit: false });
+    expect(prepared.evaluate(140, flat)).toMatchObject({
+      entry: true,
+      exit: false,
+    });
+  }
+  const held = { entry: 10, entryIndex: 141 };
+  expect(rule(143, held).exit).toBe(true);
+  expect(prepared.evaluate(143, held)).toMatchObject({
+    entry: false,
+    exit: true,
+  });
+});
+
+it("rejects future sell confirmation, unproven divergence, inconsistent third buys and duplicate signed keys", () => {
+  const rule = (rows: FrozenChanObservation[]) =>
+    createNativeChanProfileRule("chan-hold-cash-native", bars, rows);
+  const future = signedFeed();
+  future[4]!.points![0]!.confirmedAt++;
+  expect(() => rule(future)).toThrow("超出");
+  const invalid = signedFeed();
+  invalid[1]!.points![0]!.divergence!.flags = 16;
+  expect(() => rule(invalid)).toThrow("原生信号");
+  const inconsistent = signedFeed();
+  inconsistent[3]!.signals = [];
+  expect(() => rule(inconsistent)).toThrow("不一致");
+  const duplicate = signedFeed();
+  duplicate[8]!.points = duplicate[4]!.points;
+  expect(() => rule(duplicate)).toThrow("重复");
+});
+
+it("infers each symbol's baseline, suppresses baseline buys and sells, and validates new rules at baseline", () => {
+  for (const first of [140, 145]) {
+    const rows = signedFeed().slice(first - 140);
+    rows[0]!.baseline = true;
+    expect(resolveNativeChanFirstIndex(bars, rows)).toBe(first);
+    const rule = createNativeChanProfileRule(
+      "chan-hold-cash-native",
+      bars,
+      rows,
+    );
+    expect(rule(first - 1, { entry: 10, entryIndex: 0 })).toEqual({
+      enter: false,
+      exit: false,
+    });
+    const entry = {
+      kind: "chan-native",
+      profile: "chan-hold-cash-native",
+      side: "entry",
+    } as const;
+    const prepared = prepareStrategy({ ...chanStrategy, entry }, bars, {
+      chan: rows,
+    });
+    expect(prepared.evaluate(first - 2).entry).toBeNull();
+    expect(prepared.evaluate(first - 1).entry).toBe(false);
+    const legacy = prepareStrategy(
+      { ...chanStrategy, entry: { kind: "chan-third-buy" } },
+      bars,
+      { chan: rows },
+    );
+    expect(legacy.evaluate(first).entry).toBe(rows[1]!.signals.length > 0);
+    expect(() => resolveNativeChanFirstIndex(bars, rows, first + 1)).toThrow(
+      "基线",
+    );
+    rows.at(-1)!.identity.apiVersion = 21;
+    const malformed = prepareStrategy({ ...chanStrategy, entry }, bars, {
+      chan: rows,
+    });
+    expect(() => malformed.evaluate(first - 1)).toThrow("身份");
+  }
 });

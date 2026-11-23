@@ -1,21 +1,29 @@
 import { createHash } from "node:crypto";
 import type { Bar } from "~/lib/domain";
 import {
-  nativeChanSignals,
+  nativeChanSharedPoints,
   nativeStudyDefinition,
   type FrozenChanObservation,
+  type FrozenChanPoint,
   type FrozenChanSignal,
   type NativeStudyIdentity,
 } from "trading-strategies";
-import { analyzeCzsc, analyzeNativeThirdBuy, projectCzsc } from "./chan/czsc";
+import {
+  analyzeCzsc,
+  analyzeNativeThirdBuy,
+  nativeIdentityFromSnapshot,
+  projectCzsc,
+} from "./chan/czsc";
 
+type AuditPoint = FrozenChanSignal &
+  Partial<Pick<FrozenChanPoint, "kind" | "divergence">>;
 type NativeAudit = {
   date: string;
   key: string;
   event: "baseline" | "first-seen" | "revised" | "withdrawn" | "reappeared";
   reason?: string;
-  before?: FrozenChanSignal;
-  after?: FrozenChanSignal;
+  before?: AuditPoint;
+  after?: AuditPoint;
 };
 const digest = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -23,7 +31,7 @@ const digest = (value: unknown) =>
 /** The existing projectCzsc queue owns all DLL calls; this loop never opens another worker. */
 export async function captureNativeChanObservations(
   bars: readonly Bar[],
-  first: number,
+  first: number = nativeStudyDefinition.warmupBars,
   signal?: AbortSignal,
   project: typeof projectCzsc = projectCzsc,
   progress?: (done: number, total: number) => void,
@@ -39,7 +47,7 @@ export async function captureNativeChanObservations(
     audit: NativeAudit[] = [];
   const pending: { date: string; details: string[] }[] = [];
   const seen = new Set<string>();
-  let active = new Map<string, FrozenChanSignal>();
+  let active = new Map<string, FrozenChanPoint>();
   let identity: NativeStudyIdentity | undefined;
   for (let index = first - 1; index < bars.length; index++) {
     signal?.throwIfAborted();
@@ -50,23 +58,7 @@ export async function captureNativeChanObservations(
       signal?.throwIfAborted();
       const raw = await project(input, request);
       signal?.throwIfAborted();
-      if (
-        !/^[a-f0-9]{64}$/.test(raw.hash) ||
-        raw.apiVersion !== 22 ||
-        typeof raw.buildCommit !== "string" ||
-        !raw.buildCommit.trim() ||
-        typeof raw.configId !== "string" ||
-        !raw.configId.trim()
-      )
-        throw new Error("原生DLL身份元数据缺失或无效");
-      captured = {
-        dllHash: raw.hash,
-        apiVersion: raw.apiVersion,
-        buildCommit: raw.buildCommit,
-        configId: raw.configId,
-        config: 0,
-        anchor: 1,
-      };
+      captured = nativeIdentityFromSnapshot(raw);
       if (identity && JSON.stringify(captured) !== JSON.stringify(identity))
         throw new Error("回放期间原生DLL或配置变化");
       return raw;
@@ -78,22 +70,26 @@ export async function captureNativeChanObservations(
     signal?.throwIfAborted();
     if (!captured) throw new Error("原生观察未捕获DLL身份");
     identity ??= captured;
-    const decoded = nativeChanSignals(prefix, result);
+    const decoded = nativeChanSharedPoints(prefix, result);
     if (decoded.gaps.length)
       throw new Error(`原生结构元数据缺口：${decoded.gaps.join("；")}`);
     const baseline = index === first - 1,
       date = bars[index]!.date;
     if (decoded.pending.length)
       pending.push({ date, details: decoded.pending });
-    const current = new Map<string, FrozenChanSignal>();
-    const signals: FrozenChanSignal[] = [];
-    for (const point of decoded.signals) {
-      if (current.has(point.key)) throw new Error("原生同一前缀信号身份重复");
+    const current = new Map<string, FrozenChanPoint>();
+    const points: FrozenChanPoint[] = [];
+    for (const point of decoded.points) {
+      if (current.has(point.key)) {
+        if (point.kind === 3) throw new Error("原生同一前缀信号身份重复");
+        decoded.pointGaps.push(`${point.key}：原生同一前缀信号身份重复`);
+        continue;
+      }
       current.set(point.key, point);
       const previous = active.get(point.key);
       if (!seen.has(point.key)) {
         seen.add(point.key);
-        signals.push(point);
+        points.push(point);
         audit.push({
           date,
           key: point.key,
@@ -120,22 +116,26 @@ export async function captureNativeChanObservations(
           event: "withdrawn",
           before: previous,
           reason:
-            "当前前缀已撤销、移除或不再满足原生三买资格；不改写此前首次观察事实",
+            "当前前缀已撤销、移除或不再满足原生买卖点资格；不改写此前首次观察事实",
         });
     }
+    const freshKeys = new Set(points.map((p) => p.key));
     active = current;
     observations.push({
       date,
       prefixHash: digest(prefix),
       identity: captured,
       baseline,
-      signals,
+      projectionVersion: 2,
+      points,
+      signals: decoded.signals.filter((signal) => freshKeys.has(signal.key)),
       gaps: decoded.gaps,
+      ...(decoded.pointGaps.length ? { pointGaps: decoded.pointGaps } : {}),
     });
     progress?.(observations.length, bars.length - first + 1);
   }
   return {
-    version: "strategy-center-native-1",
+    version: "strategy-center-native-2",
     identity: identity!,
     originDate: bars[0]!.date,
     baselineDate: bars[first - 1]!.date,
@@ -144,6 +144,6 @@ export async function captureNativeChanObservations(
     audit,
     pending,
     boundary:
-      "固定开始日前140根起点；每收盘只使用该起点以来完整前缀，非全源历史。基线已有点不买；后续首次合格点收盘确认、下一开盘执行。撤销、修订和再现只追加审计，不回写原始观察或重复入场。",
+      "固定输入起点，保留至少140根预热。每个收盘只投影当时完整前缀。基线已有点仅作记录，后续首次确认的买卖点供下一合法开盘执行。撤销、修订和再现只追加审计。",
   };
 }

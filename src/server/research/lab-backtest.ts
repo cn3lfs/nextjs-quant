@@ -41,10 +41,11 @@ import {
 export const usesNativeChan = (
   strategy: PortfolioRequest["strategies"][number],
 ) =>
-  strategy.entry.kind === "chan-third-buy" ||
-  strategy.exit.rule?.kind === "chan-third-buy";
+  [strategy.entry, strategy.exit.rule].some(
+    (rule) => rule?.kind === "chan-third-buy" || rule?.kind === "chan-native",
+  );
 
-const usesExternalSignals = (
+export const usesExternalSignals = (
   strategy: PortfolioRequest["strategies"][number],
 ) =>
   strategy.entry.kind === "external" || strategy.exit.rule?.kind === "external";

@@ -42,29 +42,69 @@ export type FrozenChanSignal = {
     established: number;
   };
 };
+export const nativeChanProfiles = [
+  "chan-first-native",
+  "chan-second-native",
+  "chan-third-native",
+  "chan-hold-cash-native",
+] as const;
+export type NativeChanProfile = (typeof nativeChanProfiles)[number];
+export type NativeChanPointKind = 1 | 2 | 3 | -1 | -2 | -3;
+export type FrozenChanPoint = FrozenChanSignal & {
+  kind: NativeChanPointKind;
+  divergence?: { semantic: number; flags: number };
+};
 export type FrozenChanObservation = {
+  projectionVersion?: 2;
+  points?: readonly FrozenChanPoint[];
   date: string;
   prefixHash: string;
   identity: NativeStudyIdentity;
   baseline: boolean;
   signals: readonly FrozenChanSignal[];
   gaps: readonly string[];
+  pointGaps?: readonly string[];
 };
 
 /** Decode only the currently supplied complete prefix. No observation date is backdated. */
-export function nativeChanSignals(bars: readonly Bar[], result: CzscResult) {
+function decodePoints(
+  bars: readonly Bar[],
+  result: CzscResult,
+  profile: "chan-third-native" | "chan-hold-cash-native",
+) {
   if (result.sourceCommit !== czscSourceCommit)
     throw new Error("原生结构传输版本不符");
-  const found = chanNativeCandidates("chan-third-native", result, bars, 0);
   const last = bars.length - 1,
     family = result.families.find((row) => row.config === 0);
-  const gaps = [...found.gaps],
+  const third = chanNativeCandidates("chan-third-native", result, bars, 0);
+  const gaps = third.gaps,
+    pointGaps: string[] = [],
     pending: string[] = [],
-    signals: FrozenChanSignal[] = [];
-  for (const point of found.signals) {
+    signals: FrozenChanSignal[] = [],
+    points: FrozenChanPoint[] = [];
+  let candidates = third.signals;
+  if (profile === "chan-hold-cash-native" && family) {
+    const other = chanNativeCandidates(
+      profile,
+      {
+        ...result,
+        families: [
+          { ...family, signals: family.signals.filter((p) => p.kind !== 3) },
+        ],
+      },
+      bars,
+      0,
+    );
+    pointGaps.push(...other.gaps);
+    const eligible = new Set([...third.signals, ...other.signals]);
+    candidates = family.signals.filter((p) => eligible.has(p));
+  }
+  for (const point of candidates) {
     const center = family?.centers[(point.centerId ?? 0) - 1];
     if (
       !center ||
+      !Number.isInteger(center.start) ||
+      !Number.isInteger(center.end) ||
       !Number.isInteger(point.confirmedAt) ||
       point.confirmedAt! < -1 ||
       point.confirmedAt! > last ||
@@ -83,7 +123,9 @@ export function nativeChanSignals(bars: readonly Bar[], result: CzscResult) {
       (point.confirmedAt! >= 0 && point.confirmedAt! < point.index) ||
       bars[point.index]?.date !== point.date
     ) {
-      gaps.push(`${point.date}：原生确认、撤销或中枢时点不属于当前前缀`);
+      (point.kind === 3 ? gaps : pointGaps).push(
+        `${point.date}：原生确认、撤销或中枢时点不属于当前前缀`,
+      );
       continue;
     }
     if (point.revokedAt! >= 0) continue;
@@ -91,8 +133,8 @@ export function nativeChanSignals(bars: readonly Bar[], result: CzscResult) {
       pending.push(`${point.date}：原生端点尚未确认`);
       continue;
     }
-    signals.push({
-      key: `${point.date}:3`,
+    const signal: FrozenChanSignal = {
+      key: `${point.date}:${point.kind}`,
       endpointIndex: point.index,
       endpointDate: point.date,
       confirmedAt: point.confirmedAt!,
@@ -108,16 +150,63 @@ export function nativeChanSignals(bars: readonly Bar[], result: CzscResult) {
         confirmedAt: center.confirmedAt!,
         established: center.established!,
       },
+    };
+    if (point.kind === 3) signals.push(signal);
+    points.push({
+      ...signal,
+      kind: point.kind as NativeChanPointKind,
+      ...(Math.abs(point.kind) === 1 && point.divergence
+        ? {
+            divergence: {
+              semantic: point.divergence.semantic,
+              flags: point.divergence.flags,
+            },
+          }
+        : {}),
     });
   }
+  return { points, signals, gaps, pointGaps, pending };
+}
+
+export function nativeChanSignals(bars: readonly Bar[], result: CzscResult) {
+  const { signals, gaps, pending } = decodePoints(
+    bars,
+    result,
+    "chan-third-native",
+  );
   return { signals, gaps, pending };
 }
 
+export function nativeChanSharedPoints(
+  bars: readonly Bar[],
+  result: CzscResult,
+) {
+  return decodePoints(bars, result, "chan-hold-cash-native");
+}
+
+export function resolveNativeChanFirstIndex(
+  bars: readonly Bar[],
+  observations: readonly FrozenChanObservation[],
+  explicitFirst?: number,
+) {
+  const baseline = observations[0];
+  const first = bars.findIndex((bar) => bar.date === baseline?.date) + 1;
+  if (
+    baseline?.baseline !== true ||
+    first < nativeStudyDefinition.warmupBars ||
+    first >= bars.length ||
+    (explicitFirst !== undefined && first !== explicitFirst)
+  )
+    throw new Error("原生观察基线与执行起点不一致或预热不足");
+  return first;
+}
+
 /** Validate the frozen feed once, before it can affect cash or orders. */
-export function createNativeStudyRule(
+function validateObservations(
   bars: readonly Bar[],
   first: number,
   observations: readonly FrozenChanObservation[],
+  profile?: NativeChanProfile,
 ) {
   if (
     !Number.isInteger(first) ||
@@ -162,7 +251,27 @@ export function createNativeStudyRule(
     if (identity !== undefined && identity !== currentIdentity)
       throw new Error("回放期间原生DLL或配置变化");
     identity = currentIdentity;
-    for (const signal of row.signals) {
+    if (
+      profile &&
+      profile !== "chan-third-native" &&
+      row.pointGaps !== undefined &&
+      (!Array.isArray(row.pointGaps) || row.pointGaps.length > 0)
+    )
+      throw new Error("原生买卖点投影存在结构缺口");
+    const projected =
+      profile !== undefined &&
+      (row.points !== undefined ||
+        row.projectionVersion !== undefined ||
+        profile !== "chan-third-native");
+    if (
+      projected &&
+      (row.projectionVersion !== 2 || !Array.isArray(row.points))
+    )
+      throw new Error("原生策略需要完整的 v2 买卖点投影");
+    let thirdIndex = 0;
+    for (const signal of projected ? row.points! : row.signals) {
+      const point = projected ? (signal as FrozenChanPoint) : undefined;
+      const kind = point ? point.kind : 3;
       const c = signal.center;
       if (
         seen.has(signal.key) ||
@@ -195,19 +304,81 @@ export function createNativeStudyRule(
         !Number.isFinite(c.ZG) ||
         c.ZD <= 0 ||
         c.ZG < c.ZD ||
-        signal.key !== `${signal.endpointDate}:3`
+        ![1, 2, 3, -1, -2, -3].includes(kind) ||
+        (Math.abs(kind) === 1 &&
+          (!point?.divergence ||
+            point.divergence.semantic !== 1 ||
+            !Number.isInteger(point.divergence.flags) ||
+            (point.divergence.flags & 17) !== 17)) ||
+        signal.key !== `${signal.endpointDate}:${kind}`
       )
         throw new Error("原生信号重复或引用超出当前已知前缀");
+      if (point && kind === 3) {
+        const legacy = row.signals[thirdIndex++];
+        if (!legacy || !sameSignal(legacy, point))
+          throw new Error("原生三买信号与共享投影不一致");
+      }
       seen.add(signal.key);
     }
+    if (projected && thirdIndex !== row.signals.length)
+      throw new Error("原生三买信号与共享投影不一致");
   }
-  return (i: number, position: { entry: number; entryIndex: number }) => {
+  return (i: number, position?: { entry: number; entryIndex: number }) => {
     const row = observations[i - first + 1];
     if (!row || row.date !== bars[i]?.date)
       throw new Error("缺少原生决策日期观察");
+    if (profile && row.baseline) return { enter: false, exit: false };
+    const points = profile ? row.points : undefined;
+    const hold = profile === "chan-hold-cash-native";
+    const kind =
+      profile === "chan-first-native"
+        ? 1
+        : profile === "chan-second-native"
+          ? 2
+          : 3;
     return {
-      enter: !row.baseline && row.signals.length > 0,
-      exit: position.entry > 0 && i - position.entryIndex >= 5,
+      enter:
+        !row.baseline &&
+        (points
+          ? points.some((p) => (hold ? p.kind > 0 : p.kind === kind))
+          : row.signals.length > 0),
+      exit:
+        !!position &&
+        position.entry > 0 &&
+        (hold ? points!.some((p) => p.kind < 0) : i - position.entryIndex >= 5),
     };
   };
+}
+
+function sameSignal(a: FrozenChanSignal, b: FrozenChanSignal) {
+  return (
+    a.key === b.key &&
+    a.endpointIndex === b.endpointIndex &&
+    a.endpointDate === b.endpointDate &&
+    a.confirmedAt === b.confirmedAt &&
+    a.confirmedDate === b.confirmedDate &&
+    a.centerId === b.centerId &&
+    a.center &&
+    (Object.keys(b.center) as (keyof typeof b.center)[]).every(
+      (key) => a.center[key] === b.center[key],
+    )
+  );
+}
+
+export function createNativeStudyRule(
+  bars: readonly Bar[],
+  first: number,
+  observations: readonly FrozenChanObservation[],
+) {
+  return validateObservations(bars, first, observations);
+}
+
+export function createNativeChanProfileRule(
+  profile: NativeChanProfile,
+  bars: readonly Bar[],
+  observations: readonly FrozenChanObservation[],
+  explicitFirst?: number,
+) {
+  const first = resolveNativeChanFirstIndex(bars, observations, explicitFirst);
+  return validateObservations(bars, first, observations, profile);
 }

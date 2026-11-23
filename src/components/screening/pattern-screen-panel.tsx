@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { formatNumber } from "trading-strategy-core/format-number";
 import {
   chanSignalCodes,
@@ -23,6 +24,8 @@ import {
 } from "~/components/ui/select";
 import { useMarketSession } from "~/lib/stores/market-session";
 import { cn } from "~/lib/common/classnames";
+import { patternCandidateToLabHref } from "~/lib/screening/screen-candidate-navigation";
+import { usePanelVisible } from "~/components/workbench/keep-alive";
 
 type Candidate = RouterOutputs["patternScreenRun"]["candidates"][number];
 type Direction = "both" | "long" | "short";
@@ -200,6 +203,9 @@ function matchColor(match: Candidate["matches"][number]) {
  */
 export function PatternScreenPanel() {
   const router = useRouter();
+  const visible = usePanelVisible();
+  const search = useSearchParams();
+  const returnTo = `/scan?${search.toString()}`;
   const run = api.patternScreenRun.useMutation();
   const [message, setMessage] = useState("");
 
@@ -783,6 +789,7 @@ export function PatternScreenPanel() {
                     <th className="px-1.5 py-1 text-right">量比</th>
                     <th className="px-1.5 py-1 text-right">RPS20/50/120</th>
                     <th className="px-1.5 py-1 text-right">风控仓位/共振</th>
+                    <th className="px-1.5 py-1 text-right">操作</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -794,6 +801,24 @@ export function PatternScreenPanel() {
                       row.matches.find((m) => m.volumeRatio != null)
                         ?.volumeRatio ??
                       null;
+                    const labHref =
+                      visible && run.isSuccess
+                        ? patternCandidateToLabHref({
+                            symbol: row.symbol,
+                            frozenDate: row.date,
+                            chanCodes: row.matches.flatMap((m) => m.code ?? []),
+                            patternKinds: row.matches.flatMap((m) =>
+                              m.family === "doubleBreakout"
+                                ? "double-breakout"
+                                : (m.kind ?? []),
+                            ),
+                            theoryFamilies: row.matches.flatMap(
+                              (m) => m.theoryFamily ?? [],
+                            ),
+                            label: primary ? matchLabel(primary) : undefined,
+                            returnTo,
+                          })
+                        : null;
                     return (
                       <tr
                         key={`${row.symbol}-${row.date}-${index}`}
@@ -803,7 +828,10 @@ export function PatternScreenPanel() {
                         className="cursor-pointer border-b border-border/60 hover:bg-muted"
                         onClick={() => open(row, index)}
                         onKeyDown={(event) => {
-                          if (event.key === "Enter" || event.key === " ") {
+                          if (
+                            event.target === event.currentTarget &&
+                            (event.key === "Enter" || event.key === " ")
+                          ) {
                             event.preventDefault();
                             open(row, index);
                           }
@@ -875,6 +903,20 @@ export function PatternScreenPanel() {
                           {row.positionPlan
                             ? `${row.positionPlan.confluenceGrade}级 · ${row.positionPlan.recommendedShares}股 (${(row.positionPlan.recommendedWeightPct * 100).toFixed(1)}%)`
                             : "—"}
+                        </td>
+                        <td className="px-1.5 py-1 text-right">
+                          {labHref && (
+                            <Button asChild size="sm" variant="ghost">
+                              <Link
+                                href={labHref}
+                                prefetch={false}
+                                scroll={false}
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                带入回测
+                              </Link>
+                            </Button>
+                          )}
                         </td>
                       </tr>
                     );

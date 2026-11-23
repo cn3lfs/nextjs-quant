@@ -15,6 +15,20 @@ import { labValidationReport } from "../../research/lab-report";
 import { researchCommandSchema } from "~/lib/research/research-command";
 import { background, runWorker, updateJob } from "../../jobs/jobs";
 import { prepareLabBacktest } from "../../research/lab-backtest";
+import { readJobResultSnapshot } from "../../db/job-results";
+import { readJob } from "../../db/jobs";
+import {
+  diagnoseArchiveDetailInputSchema,
+  diagnoseArchivesInputSchema,
+  diagnoseResultInputSchema,
+  labDiagnoseRunInputSchema,
+} from "~/lib/research/diagnose-contract";
+import {
+  listDiagnoseArchives,
+  readDiagnoseArchive,
+  removeUnpublishedDiagnoseArchive,
+} from "../../research/diagnose/archive";
+import { runGroupedDiagnoseScenarios } from "../../research/diagnose/grouped-run";
 import { labBacktestSchema } from "~/lib/research/lab-backtest";
 import {
   labPortfolioEvidenceHashSchema,
@@ -36,6 +50,71 @@ import {
 } from "../../paper/shadow-scanning";
 
 export const strategyLabRouter = createTRPCRouter({
+  strategyLabDiagnoseArchives: p("backtest", "read")
+    .input(diagnoseArchivesInputSchema)
+    .query(({ input }) => listDiagnoseArchives(input)),
+  strategyLabDiagnoseArchiveDetail: p("backtest", "read")
+    .input(diagnoseArchiveDetailInputSchema)
+    .query(({ input: { id, ...page } }) => readDiagnoseArchive(id, page)),
+  strategyLabDiagnoseRun: p("backtest", "compute")
+    .input(labDiagnoseRunInputSchema)
+    .mutation(({ input }) =>
+      background(
+        "backtest",
+        { type: "lab-diagnose", ...input },
+        async (job, signal) => {
+          const cancelled = () =>
+            signal.aborted || readJob(job.id)?.status === "cancelled";
+          const detail = await runGroupedDiagnoseScenarios(input, {
+            config: settings(),
+            signal,
+            jobId: job.id,
+            beforePublish() {
+              if (cancelled()) throw new Error("任务已取消");
+            },
+            onProgress(progress, phase) {
+              signal.throwIfAborted();
+              if (
+                updateJob(job.id, { progress, phase })?.status === "cancelled"
+              )
+                throw new Error("任务已取消");
+            },
+          });
+          if (cancelled()) {
+            await removeUnpublishedDiagnoseArchive(detail.summary.id).catch(
+              () => {},
+            );
+            throw new Error("任务已取消");
+          }
+          return { archiveId: detail.summary.id };
+        },
+      ),
+    ),
+  strategyLabDiagnoseResult: p("backtest", "read")
+    .input(diagnoseResultInputSchema)
+    .query(async ({ input }) => {
+      const result = readJobResultSnapshot(input.jobId, ({ job, json }) => {
+        if (job.type !== "backtest" || json("$.input.type") !== "lab-diagnose")
+          return null;
+        return {
+          jobId: job.id,
+          status: job.status,
+          progress: json<number>("$.progress"),
+          phase: json<string | null>("$.phase"),
+          error: json<string | null>("$.error"),
+          archiveId:
+            job.status === "completed"
+              ? z.string().parse(json("$.result.archiveId"))
+              : null,
+        };
+      });
+      if (!result) throw new Error("诊断任务不存在");
+      const { archiveId, ...job } = result;
+      return {
+        ...job,
+        detail: archiveId ? await readDiagnoseArchive(archiveId) : null,
+      };
+    }),
   paperShadowScanning: p("strategyCenter", "read").query(() =>
     paperShadowScanning(),
   ),

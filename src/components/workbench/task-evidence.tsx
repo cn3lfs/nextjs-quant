@@ -1,6 +1,12 @@
 "use client";
 import { api } from "~/trpc/react";
+import { Pill } from "../panels";
 import { Button } from "../ui/button";
+
+export function DiagnosticTaskIndicator() {
+  return <Pill tone="accent">成组情景诊断</Pill>;
+}
+
 export function TaskEvidence({ id }: { id: string }) {
   const query = api.taskEvidence.useQuery(id);
   const exportEvidence = api.exportTaskEvidence.useMutation({
@@ -20,9 +26,13 @@ export function TaskEvidence({ id }: { id: string }) {
   if (query.error)
     return <p role="alert">结果摘要读取失败：{query.error.message}</p>;
   if (!query.data) return null;
+  const diagnostic = query.data.kind === "lab-diagnose";
   return (
     <section aria-label="任务结果摘要" className="space-y-2 rounded border p-3">
-      <h3>任务结果摘要</h3>
+      <div className="flex flex-wrap items-center gap-2">
+        <h3>任务结果摘要</h3>
+        {diagnostic && <DiagnosticTaskIndicator />}
+      </div>
       <dl>
         {query.data.fields.map((f) => (
           <div key={f.label} className="flex flex-wrap gap-3 text-sm">

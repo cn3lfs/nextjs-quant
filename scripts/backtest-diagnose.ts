@@ -9,7 +9,12 @@ import {
   resolve,
   sep,
 } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import type { UniversePoolDisclosure } from "./lib/backtest-diagnose/types";
+import {
+  CORE_5_SYMBOLS,
+  resolveUniversePreset,
+} from "./lib/backtest-diagnose/universe-presets";
 
 /**
  * Diagnostic backtest CLI. Isolation is resolved and applied to the process
@@ -19,13 +24,6 @@ import { fileURLToPath } from "node:url";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 const dataRoot = join(repoRoot, ".test-data");
-const defaultSymbols = [
-  "sh600519",
-  "sz000001",
-  "sh601318",
-  "sz000333",
-  "sz300750",
-];
 const defaultStrategies = [
   "dual-ma",
   "turtle",
@@ -40,6 +38,7 @@ const capacityPolicies = ["clip", "reject"] as const;
 type Args = {
   plan: boolean;
   symbols: string[];
+  pool?: UniversePoolDisclosure;
   strategies: string[];
   controls: string[];
   start: string;
@@ -60,6 +59,7 @@ type Args = {
 function usage() {
   return [
     "用法：pnpm exec tsx scripts/backtest-diagnose.ts --tdx-root <绝对路径> [选项]",
+    "  --pool        core-5 | core-12 | chan-core-7（与 --symbols 互斥）",
     "  --symbols     逗号分隔标的（默认 sh600519,sz000001,sh601318,sz000333,sz300750）",
     "  --strategies  信号策略（默认 dual-ma,turtle,rsi2,double-breakout,formula）",
     "  --controls    对照（默认 hold）",
@@ -80,10 +80,8 @@ function usage() {
 }
 
 function parseList(value: string, name: string) {
-  const rows = value
-    .split(",")
-    .map((row) => row.trim())
-    .filter(Boolean);
+  // The Windows pnpm PowerShell shim joins unquoted comma-separated arguments with spaces.
+  const rows = value.split(/[,\s]+/).filter(Boolean);
   if (!rows.length) throw new Error(`${name} 不能为空`);
   if (new Set(rows).size !== rows.length) throw new Error(`${name} 不能重复`);
   return rows;
@@ -95,7 +93,7 @@ function parseDate(value: string, name: string) {
   return value;
 }
 
-function parseArgs(argv: readonly string[]): Args {
+export function parseArgs(argv: readonly string[]): Args {
   const values = new Map<string, string>();
   let plan = false;
   for (let index = 0; index < argv.length; index++) {
@@ -110,6 +108,7 @@ function parseArgs(argv: readonly string[]): Args {
       throw new Error(`参数 ${arg} 缺少取值\n${usage()}`);
     if (
       ![
+        "--pool",
         "--symbols",
         "--strategies",
         "--controls",
@@ -131,6 +130,8 @@ function parseArgs(argv: readonly string[]): Args {
       throw new Error(`未知参数：${arg}\n${usage()}`);
     values.set(arg, value);
   }
+  if (values.has("--pool") && values.has("--symbols"))
+    throw new Error("--pool 与 --symbols 不能同时使用，请选择一种证券池输入");
   const tdxRoot = values.get("--tdx-root");
   if (!tdxRoot) throw new Error("必须提供 --tdx-root（通达信根目录绝对路径）");
   if (!isAbsolute(tdxRoot))
@@ -181,12 +182,28 @@ function parseArgs(argv: readonly string[]): Args {
     !capacityPolicies.includes(capacityPolicy)
   )
     throw new Error(`--capacity-policy 须为 ${capacityPolicies.join(" | ")}`);
+  const poolName = values.get("--pool");
+  const preset =
+    poolName === undefined ? undefined : resolveUniversePreset(poolName);
+  let pool: UniversePoolDisclosure | undefined;
+  if (preset) {
+    pool = {
+      id: preset.id,
+      label: preset.label,
+      symbolCount: preset.symbols.length,
+      survivorBiasDisclosure: `${preset.survivorBiasDisclosure} 首次披露财报版本仍有缺口。`,
+      members: Object.entries(preset.metadata).map(([symbol, metadata]) => ({
+        symbol,
+        ...metadata,
+      })),
+    };
+  }
   return {
     plan,
-    symbols: parseList(
-      values.get("--symbols") ?? defaultSymbols.join(","),
-      "--symbols",
-    ),
+    symbols: values.has("--symbols")
+      ? parseList(values.get("--symbols")!, "--symbols")
+      : [...(preset?.symbols ?? CORE_5_SYMBOLS)],
+    pool,
     strategies: parseList(
       values.get("--strategies") ?? defaultStrategies.join(","),
       "--strategies",
@@ -336,40 +353,26 @@ async function main() {
   console.log(`运行输出目录：${runRoot}`);
 
   const { runDiagnose } = await import("./lib/backtest-diagnose/run");
-  const execute = () =>
-    runDiagnose({
-      symbols: args.symbols,
-      strategies: args.strategies,
-      controls: args.controls,
-      mode: args.mode,
-      start: args.start,
-      end: args.end,
-      tdxRoot: args.tdxRoot,
-      initial: args.initial,
-      cost: args.cost,
-      outDir: runRoot,
-      limit: args.limit,
-      executionProfile: args.executionProfile,
-      maxParticipation: args.maxParticipation,
-      capacityPolicy: args.capacityPolicy,
-      nativeCacheDir,
-      log: (line) => console.log(line),
-    });
-  // The native path forks a singleton czsc worker; always terminate it before
-  // the CLI exits, even when a cell throws. `--plan` already returned above.
-  const needsCzscShutdown =
-    args.strategies.includes("research-chan") && !args.plan;
-  const { cells, reportPath } = needsCzscShutdown
-    ? await (async () => {
-        try {
-          return await execute();
-        } finally {
-          const { closeCzsc } =
-            await import("../src/server/strategies/chan/czsc");
-          await closeCzsc();
-        }
-      })()
-    : await execute();
+  const { closeCzsc } = await import("../src/server/strategies/chan/czsc");
+  const { cells, reportPath } = await runDiagnose({
+    symbols: args.symbols,
+    pool: args.pool,
+    strategies: args.strategies,
+    controls: args.controls,
+    mode: args.mode,
+    start: args.start,
+    end: args.end,
+    tdxRoot: args.tdxRoot,
+    initial: args.initial,
+    cost: args.cost,
+    outDir: runRoot,
+    limit: args.limit,
+    executionProfile: args.executionProfile,
+    maxParticipation: args.maxParticipation,
+    capacityPolicy: args.capacityPolicy,
+    nativeCacheDir,
+    log: (line) => console.log(line),
+  }).finally(closeCzsc);
   const counts = {
     ok: cells.filter((cell) => cell.status === "ok").length,
     blocked: cells.filter((cell) => cell.status === "blocked").length,
@@ -382,11 +385,15 @@ async function main() {
   if (counts.failed) process.exitCode = 1;
 }
 
-try {
-  await main();
-} catch (error) {
-  console.error(
-    `回测诊断失败：${error instanceof Error ? error.message : String(error)}`,
-  );
-  process.exitCode = 1;
-}
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(resolve(process.argv[1])).href
+)
+  try {
+    await main();
+  } catch (error) {
+    console.error(
+      `回测诊断失败：${error instanceof Error ? error.message : String(error)}`,
+    );
+    process.exitCode = 1;
+  }

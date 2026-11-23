@@ -4,16 +4,42 @@ import {
 } from "tstdx/financial-model";
 import { canslimEarnings } from "trading-strategies/research/canslim/canslim-earnings";
 import type { Bar } from "trading-strategy-core/bars";
+import {
+  pitDuplicateIssues,
+  strictPitReports,
+  type PitDuplicateIssue,
+} from "./pit-report-input";
 
-type GateCheck = { status: string; value: number | null; points: number };
+type GateCheck = Pick<
+  ReturnType<typeof canslimEarnings>["checks"][number],
+  "status" | "value" | "points"
+>;
+export const CANSLIM_PIT_CHECK_POINTS = Object.freeze({
+  C1: 6, // ≥25% EPS growth
+  C2: 5, // acceleration with latest growth ≥20%
+  C3: 4, // ≥20% revenue tier after the profit penalty
+  A1: 6, // ≥25% annual EPS CAGR
+  A2: 5, // ≥17% annual ordinary ROE
+  A3: 4, // operating cash flow covers EPS
+});
+type CheckId = keyof typeof CANSLIM_PIT_CHECK_POINTS;
+const checkIds = Object.keys(CANSLIM_PIT_CHECK_POINTS) as CheckId[];
+type CheckCoverage = Record<GateCheck["status"], number> & {
+  passed: number;
+  /** Passed / computed, independent of the other C/A checks. */
+  marginalPassRate: number | null;
+};
 export type CanslimPitDay = {
   date: string;
   qualified: boolean;
   latestReportDate: string | null;
   latestAvailableFrom: string | null;
   c1: GateCheck;
+  c2: GateCheck;
+  c3: GateCheck;
   a1: GateCheck;
   a2: GateCheck;
+  a3: GateCheck;
   totalPoints: number;
 };
 
@@ -26,11 +52,14 @@ export type CanslimPitEvaluation = {
   conflictDays: number;
   firstVisibleReportDate: string | null;
   latestVisibleReportDate: string | null;
+  checkCoverage: Record<CheckId, CheckCoverage>;
+  duplicateIssues: PitDuplicateIssue[];
   boundary: string;
 };
 
 const boundary =
-  "strict PIT 仅按 availableFrom <= date 生效，公告日当天不可见；仅使用本地通达信单快照财务包，不含首次披露与重述版本历史，未与交易所公告原文交叉核对；仅反映存续标的规则自检，不外推全市场。";
+  "strict PIT 仅按 availableFrom <= date 生效，公告日当天不可见；仅使用本地通达信单快照财务包，不含首次披露与重述版本历史，未与交易所公告原文交叉核对；仅反映存续标的规则自检，不外推全市场。" +
+  " 原始输入含同报告期多记录时沿用最后可见记录并披露重复；边际通过率为单项通过日数除以可计算日数，入场仍只取 C1/A1/A2。";
 
 const periodOf = (reportDate: string) => reportDate.replaceAll("-", "");
 const priorYear = (date: string) =>
@@ -99,7 +128,7 @@ function evaluateVisible(
     annualRoe: annual.map((r) => point(r, 6)),
     annualCashPerShare: annual.map((r) => point(r, 7)),
   });
-  const gate = (id: string): GateCheck => {
+  const gate = (id: CheckId): GateCheck => {
     const { status, value, points } = checks.find((check) => check.id === id)!;
     return { status, value, points };
   };
@@ -110,15 +139,18 @@ function evaluateVisible(
     latestReportDate: latest ?? null,
     latestAvailableFrom: latest ? visible.get(latest)!.availableFrom! : null,
     c1,
+    c2: gate("C2"),
+    c3: gate("C3"),
     a1,
     a2,
+    a3: gate("A3"),
     qualified:
       c1.status === "computed" &&
-      c1.points >= 6 &&
+      c1.points >= CANSLIM_PIT_CHECK_POINTS.C1 &&
       a1.status === "computed" &&
-      a1.points >= 6 &&
+      a1.points >= CANSLIM_PIT_CHECK_POINTS.A1 &&
       a2.status === "computed" &&
-      a2.points >= 5,
+      a2.points >= CANSLIM_PIT_CHECK_POINTS.A2,
     totalPoints: checks.reduce((sum, check) => sum + check.points, 0),
   };
 }
@@ -126,16 +158,9 @@ function evaluateVisible(
 export function buildCanslimPitSeries(
   reports: readonly FinancialReportSnapshot[],
   bars: readonly Bar[],
+  options?: { issues?: readonly unknown[] },
 ): CanslimPitEvaluation {
-  const strict = reports
-    .filter(
-      (r): r is FinancialReportSnapshot & { availableFrom: string } =>
-        typeof r.announcementDate === "string" &&
-        r.announcementDate > r.reportDate &&
-        typeof r.availableFrom === "string" &&
-        r.availableFrom > r.announcementDate,
-    )
-    .sort((a, b) => a.availableFrom.localeCompare(b.availableFrom));
+  const strict = strictPitReports(reports);
   const periods = strict.map((r) => r.reportDate).sort();
   const result: CanslimPitEvaluation = {
     days: [],
@@ -146,6 +171,19 @@ export function buildCanslimPitSeries(
     conflictDays: 0,
     firstVisibleReportDate: null,
     latestVisibleReportDate: null,
+    checkCoverage: Object.fromEntries(
+      checkIds.map((id) => [
+        id,
+        {
+          computed: 0,
+          missing: 0,
+          conflict: 0,
+          passed: 0,
+          marginalPassRate: null,
+        },
+      ]),
+    ) as CanslimPitEvaluation["checkCoverage"],
+    duplicateIssues: pitDuplicateIssues(reports, options?.issues),
     boundary,
   };
   const visible = new Map<string, FinancialReportSnapshot>();
@@ -176,6 +214,19 @@ export function buildCanslimPitSeries(
     const gates = [state.c1, state.a1, state.a2];
     if (gates.some((c) => c.status === "missing")) result.missingDays++;
     if (gates.some((c) => c.status === "conflict")) result.conflictDays++;
+    for (const id of checkIds) {
+      const check = state[id.toLowerCase() as Lowercase<CheckId>];
+      const coverage = result.checkCoverage[id];
+      coverage[check.status]++;
+      if (
+        check.status === "computed" &&
+        check.points >= CANSLIM_PIT_CHECK_POINTS[id]
+      )
+        coverage.passed++;
+    }
   }
+  for (const coverage of Object.values(result.checkCoverage))
+    if (coverage.computed)
+      coverage.marginalPassRate = coverage.passed / coverage.computed;
   return result;
 }

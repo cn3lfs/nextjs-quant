@@ -7,6 +7,11 @@ import {
   volumeStudyBindings,
   wyckoffStudyBindings,
 } from "trading-strategies";
+import { resolve } from "node:path";
+import { parseArgs } from "../../../scripts/backtest-diagnose";
+import { CORE_12_SYMBOLS } from "../../../scripts/lib/backtest-diagnose/universe-presets";
+import { GROWTH_PIT_STRATEGY_KEYS } from "../../../scripts/lib/backtest-diagnose/growth-pit";
+import { usesNativeChan } from "~/server/research/lab-backtest";
 import type { Bar } from "trading-strategy-core/bars";
 import {
   NATIVE_STRATEGY_KEYS,
@@ -546,3 +551,78 @@ it.each(["ma", "breakout"] as const)(
     );
   },
 );
+
+it.each([
+  ["research-chan-first", "chan-first-native"],
+  ["research-chan-second", "chan-second-native"],
+  ["research-chan-third", "chan-third-native"],
+  ["research-chan-hold-cash", "chan-hold-cash-native"],
+] as const)(
+  "%s uses its native profile and the designated exit",
+  (key, profile) => {
+    expect(SIGNAL_STRATEGY_KEYS).toContain(key);
+    expect(warmupBarsFor(key)).toBe(140);
+    const s = buildStrategy(key, [symbol], "single");
+    expect(usesNativeChan(s)).toBe(true);
+    expect(s.entry).toEqual({ kind: "chan-native", profile, side: "entry" });
+    if (key === "research-chan-hold-cash") {
+      expect(s.exit).toEqual({
+        rule: { kind: "chan-native", profile, side: "exit" },
+      });
+      expect(
+        usesNativeChan({ ...s, entry: { kind: "constant", value: true } }),
+      ).toBe(true);
+    } else expect(s.exit).toEqual({ maxBars: 5 });
+  },
+);
+
+it.each(GROWTH_PIT_STRATEGY_KEYS)(
+  "%s registers the PIT entry and its exact exit",
+  (key) => {
+    expect(SIGNAL_STRATEGY_KEYS).toContain(key);
+    expect(warmupBarsFor(key)).toBe(300);
+    const strategy = buildStrategy(key, [symbol], "single");
+    expect(strategy.entry).toEqual({
+      kind: "external",
+      id: key,
+      side: "entry",
+    });
+    if (key.endsWith("stop8") || key.endsWith("stop7"))
+      expect(strategy.exit).toEqual({
+        stop: { kind: "fixed", fraction: key.endsWith("stop8") ? 0.08 : 0.07 },
+      });
+    else if (key.endsWith("ma20") || key.endsWith("ma50"))
+      expect(strategy.exit).toEqual({
+        rule: { kind: "external", id: key, side: "exit" },
+      });
+    else if (key.startsWith("research-sepa"))
+      expect(strategy.exit).toEqual({ maxBars: 6 });
+    else
+      expect(strategy.exit).toEqual({
+        rule: { kind: "study-rule", strategy: "research-growth", side: "exit" },
+      });
+  },
+);
+
+it("plans core-12 and rejects competing symbol inputs in either order", () => {
+  const base = ["--tdx-root", resolve("fixture")];
+  const plan = parseArgs([
+    ...base,
+    "--pool",
+    "core-12",
+    "--strategies",
+    "research-sepa-pit,research-canslim-pit-m,research-chan-hold-cash",
+    "--plan",
+  ]);
+  expect(plan.symbols).toEqual(CORE_12_SYMBOLS);
+  expect(planDiagnoseCells(plan)).toHaveLength(52);
+  expect(parseArgs([...base, "--pool", "chan-core-7"]).symbols).toHaveLength(7);
+  expect(parseArgs([...base, "--pool", "core-5"]).symbols).toEqual(
+    parseArgs(base).symbols,
+  );
+  for (const args of [
+    ["--pool", "core-12", "--symbols", symbol],
+    ["--symbols", symbol, "--pool", "core-5"],
+  ])
+    expect(() => parseArgs([...base, ...args])).toThrow(/--pool.*--symbols/);
+});

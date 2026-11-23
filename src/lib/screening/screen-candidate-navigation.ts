@@ -1,4 +1,10 @@
+import { patternBreakoutKinds } from "trading-strategies";
 import type { Candidate, Snapshot } from "~/lib/domain";
+import {
+  buildScanToLabHandoffHref,
+  ScanToLabHandoffSchema,
+  type ScanToLabHandoff,
+} from "~/lib/research/diagnose-contract";
 
 /** A candidate's identity inside one confirmed result page. */
 export type ScreenCandidateIdentity = Pick<Candidate, "symbol" | "snapshotId">;
@@ -110,4 +116,92 @@ export async function openScreenCandidate(input: {
     };
   input.navigate(href);
   return { status: "opened" };
+}
+
+type LabCandidate = Pick<ScanToLabHandoff, "symbol" | "returnTo"> & {
+  frozenDate?: string | null;
+};
+
+function candidateToLabHref(input: ScanToLabHandoff): string | null {
+  const { returnTo, ...candidate } = input;
+  const safeReturnTo =
+    ScanToLabHandoffSchema.shape.returnTo.safeParse(returnTo);
+  const result = ScanToLabHandoffSchema.safeParse({
+    ...candidate,
+    ...(safeReturnTo.success ? { returnTo: safeReturnTo.data } : {}),
+  });
+  return result.success ? buildScanToLabHandoffHref(result.data) : null;
+}
+
+export function formulaCandidateToLabHref({
+  formulaLabel,
+  frozenDate,
+  ...candidate
+}: LabCandidate & { formulaLabel?: string }) {
+  return candidateToLabHref({
+    ...candidate,
+    frozenDate: frozenDate ?? undefined,
+    label: formulaLabel,
+    handoffSource: "formula",
+    strategyHint: "formula",
+    scope: "single-symbol-diagnose",
+  });
+}
+
+type PatternMatches = {
+  chanCodes?: readonly string[];
+  patternKinds?: readonly string[];
+  theoryFamilies?: readonly string[];
+};
+
+function patternStrategyHint({
+  chanCodes,
+  patternKinds,
+  theoryFamilies,
+}: PatternMatches) {
+  if (chanCodes?.includes("3B")) return "research-chan";
+  if (chanCodes?.includes("1B")) return "research-chan-first";
+  if (chanCodes?.includes("2B")) return "research-chan-second";
+  if (theoryFamilies?.includes("growth-oneil")) return "research-sepa-pit";
+  if (
+    patternKinds?.includes("double-breakout") ||
+    patternBreakoutKinds.some((kind) => patternKinds?.includes(kind))
+  )
+    return "double-breakout";
+  return "dual-ma";
+}
+
+export function patternCandidateToLabHref({
+  symbol,
+  frozenDate,
+  label,
+  returnTo,
+  ...matches
+}: LabCandidate & PatternMatches & { label?: string }) {
+  return candidateToLabHref({
+    symbol,
+    frozenDate: frozenDate ?? undefined,
+    label,
+    returnTo,
+    handoffSource: "pattern",
+    strategyHint: patternStrategyHint(matches),
+    scope: "single-symbol-diagnose",
+  });
+}
+
+export function rpsCandidateToLabHref({
+  frozenDate,
+  period,
+  rpsValue,
+  ...candidate
+}: LabCandidate & { period: number; rpsValue?: number | null }) {
+  const value = rpsValue != null && Number.isFinite(rpsValue) ? rpsValue : "—";
+  return candidateToLabHref({
+    ...candidate,
+    frozenDate: frozenDate ?? undefined,
+    label: `RPS${period}=${value}`,
+    handoffSource: "rps",
+    strategyHint: "dual-ma",
+    scope: "single-symbol-diagnose",
+  });
 }

@@ -1,3 +1,6 @@
+import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import type { NativeStudyIdentity } from "trading-strategies";
 import { fork, type ChildProcess } from "node:child_process";
 import { recordRuntimeError } from "../../infra/runtime-errors";
 import { resolve } from "node:path";
@@ -58,6 +61,68 @@ export function projectCzsc(
     input: structuredClone(input),
     request: structuredClone(request),
   });
+}
+
+export function nativeIdentityFromSnapshot(
+  raw: Pick<CzscSnapshot, "hash" | "apiVersion" | "buildCommit" | "configId">,
+): NativeStudyIdentity {
+  if (
+    !/^[a-f0-9]{64}$/.test(raw.hash) ||
+    raw.apiVersion !== 22 ||
+    typeof raw.buildCommit !== "string" ||
+    !raw.buildCommit.trim() ||
+    typeof raw.configId !== "string" ||
+    !raw.configId.trim()
+  )
+    throw new Error("原生DLL身份元数据缺失或无效");
+  return {
+    dllHash: raw.hash,
+    apiVersion: raw.apiVersion,
+    buildCommit: raw.buildCommit,
+    configId: raw.configId,
+    config: 0,
+    anchor: 1,
+  };
+}
+
+// Default config metadata is a function of these two exact binaries.
+export async function czscRuntimeFingerprint() {
+  const [dllHash, workerHash] = await Promise.all(
+    ["runtime/czsc/CZSC64.dll", "runtime/czsc-worker.cjs"].map(async (path) =>
+      createHash("sha256")
+        .update(await readFile(resolve(path)))
+        .digest("hex"),
+    ),
+  );
+  return { dllHash: dllHash!, workerHash: workerHash! };
+}
+
+let lastDefaults:
+  { fingerprint: string; identity: NativeStudyIdentity } | undefined;
+
+/** On a cold process the caller can supply its first real prefix as the probe,
+ * then consume that same snapshot in capture. No independent projection pool. */
+export async function getCurrentCzscIdentity(
+  project: typeof projectCzsc = projectCzsc,
+  runtime?: Awaited<ReturnType<typeof czscRuntimeFingerprint>>,
+  probe?: () => Promise<CzscSnapshot>,
+): Promise<NativeStudyIdentity> {
+  const local =
+    runtime ??
+    (project === projectCzsc ? await czscRuntimeFingerprint() : undefined);
+  const fingerprint = local && JSON.stringify(local);
+  if (fingerprint && lastDefaults?.fingerprint === fingerprint)
+    return { ...lastDefaults.identity };
+  const raw = await (probe?.() ??
+    project(
+      { high: [1], low: [1], close: [1], volume: [1] },
+      { levels: [0], bars: false },
+    ));
+  const identity = nativeIdentityFromSnapshot(raw);
+  if (local && identity.dllHash !== local.dllHash)
+    throw new Error("运行中的原生DLL与当前文件身份不符");
+  if (fingerprint) lastDefaults = { fingerprint, identity };
+  return { ...identity };
 }
 
 /** v22 configuration schema, read once per worker lifetime. */

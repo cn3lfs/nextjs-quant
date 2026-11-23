@@ -3,6 +3,7 @@ import { formatNumber } from "trading-strategy-core/format-number";
 import { PanelVisibility, usePanelVisible } from "./keep-alive";
 import { ResearchUsageContainer } from "~/components/research/research-usage-container";
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DataTable } from "~/components/ui/data-table";
 import { useAccumulatedPages } from "~/components/ui/use-infinite-table";
@@ -27,6 +28,7 @@ import {
 import { screenSortLabels, type ScreenSort } from "~/lib/screening/screen-sort";
 import {
   currentScreenCandidateIndex,
+  formulaCandidateToLabHref,
   openScreenCandidate,
   screenCandidateUrlKey,
   type ScreenCandidateIdentity,
@@ -117,6 +119,11 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
     pageQuery.isFetching ||
     screened.isPlaceholderData ||
     pageQuery.isError;
+  const returnSearch = new URLSearchParams(search);
+  const requestedJob = returnSearch.get("job");
+  // The implicit latest result can change while the user is in the Lab.
+  if (!requestedJob && screenJob) returnSearch.set("job", screenJob.id);
+  const returnTo = `/scan?${returnSearch}`;
   const urlCandidate = {
     symbol: search.get("symbol"),
     snapshotId: search.get("screenSnapshot"),
@@ -973,6 +980,17 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
                         const inWatchlist =
                           targetGroup?.symbols.includes(c.symbol) ?? false;
                         const client = groupUtils?.client;
+                        const labHref =
+                          !pageUnavailable &&
+                          !pageQuery.isPlaceholderData &&
+                          (!requestedJob || requestedJob === screenJob?.id)
+                            ? formulaCandidateToLabHref({
+                                symbol: c.symbol,
+                                frozenDate: c.metrics.date,
+                                formulaLabel: screenResult.formula?.name,
+                                returnTo,
+                              })
+                            : null;
                         return (
                           <div className="flex items-center justify-end gap-1">
                             {targetGroup && client && (
@@ -1014,6 +1032,17 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
                             >
                               个股研究 <ArrowUpRight size={13} />
                             </Button>
+                            {labHref && (
+                              <Button asChild size="sm" variant="ghost">
+                                <Link
+                                  href={labHref}
+                                  prefetch={false}
+                                  scroll={false}
+                                >
+                                  带入回测
+                                </Link>
+                              </Button>
+                            )}
                           </div>
                         );
                       },

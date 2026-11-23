@@ -1,10 +1,17 @@
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { join } from "node:path";
+import * as preparation from "../../../scripts/lib/backtest-diagnose/prepare-request";
 import type { PortfolioRequest } from "quant-backtest";
 import type { Bar } from "trading-strategy-core/bars";
 import {
   replayLabBacktest,
   type FrozenLabBacktest,
 } from "~/server/research/lab-backtest";
+import {
+  resolveAutoStart,
+  runDiagnose,
+} from "../../../scripts/lib/backtest-diagnose/run";
 import { runDiagnostics } from "../../../scripts/lib/backtest-diagnose/diagnostics";
 import { reconcileFills } from "../../../scripts/lib/backtest-diagnose/reconcile";
 import { buildStrategy } from "../../../scripts/lib/backtest-diagnose/strategy-specs";
@@ -59,8 +66,8 @@ function fixture(
   };
 }
 
-function diagnose(request: PortfolioRequest) {
-  const frozen: FrozenLabBacktest = {
+function freezeFixture(request: PortfolioRequest): FrozenLabBacktest {
+  return {
     request,
     sources: [],
     dataSource: "local",
@@ -80,6 +87,10 @@ function diagnose(request: PortfolioRequest) {
       },
     },
   };
+}
+
+function diagnose(request: PortfolioRequest) {
+  const frozen = freezeFixture(request);
   const replay = replayLabBacktest(frozen);
   return {
     result: replay.result,
@@ -195,4 +206,109 @@ it("does not report false equity failure when a dividend re-marks a suspended po
     "pass",
   );
   expect(report.status).toBe("ok");
+});
+
+it("aligns the latest member's warmup-ready date to the next benchmark session only for native portfolios", async () => {
+  const bars = flatBars(240);
+  const late = bars.slice(55);
+  const ready = late[140]!.date;
+  const cache = new Map([
+    ["sh600519", bars],
+    ["sh688981", late],
+    ["sh000001", bars.filter((b) => b.date !== ready)],
+  ]);
+  const symbols = ["sh600519", "sh688981"];
+  const end = bars.at(-1)!.date;
+  for (const key of ["research-chan", "research-chan-hold-cash"] as const)
+    expect(
+      await resolveAutoStart(key, symbols, "portfolio", "", end, cache),
+    ).toBe(late[141]!.date);
+  expect(
+    await resolveAutoStart(
+      "research-growth",
+      symbols,
+      "portfolio",
+      "",
+      end,
+      cache,
+    ),
+  ).toBe(late[0]!.date);
+  cache.set("sh688981", late.slice(0, 140));
+  await expect(
+    resolveAutoStart(
+      "research-chan-second",
+      symbols,
+      "portfolio",
+      "",
+      end,
+      cache,
+    ),
+  ).rejects.toThrow(/sh688981.*140/);
+});
+
+it("writes each Wyckoff profile's scored funnel to the cell, run.json and Markdown for preset and catalog keys", async () => {
+  const bars = flatBars(180).map((bar, i) => ({
+    ...bar,
+    open: 10 + i,
+    close: 10 + i,
+    high: 10.5 + i,
+    low: 9.5 + i,
+  }));
+  const start = bars[140]!.date;
+  const end = bars.at(-1)!.date;
+  const outDir = await mkdtemp(join(process.env.QUANT_DATA_DIR!, "wyckoff-"));
+  const prepare = vi
+    .spyOn(preparation, "prepareDiagnoseRequest")
+    .mockImplementation(async ({ strategy }) => {
+      const request = { ...fixture(bars), strategies: [strategy], start, end };
+      return {
+        frozen: freezeFixture(request),
+        calendar: bars.map((b) => b.date),
+        dataQuality: [],
+      };
+    });
+  try {
+    const strategies = [
+      "wy-lps-daily",
+      "wy-reaccumulation-daily",
+      "wy-trend-pullback-daily",
+      "research-wy-trend-pullback-protected",
+    ];
+    const { cells, reportPath } = await runDiagnose({
+      strategies,
+      controls: [],
+      symbols: [symbol],
+      mode: "per-symbol",
+      start,
+      end,
+      cost: "fixed",
+      initial: 2500,
+      tdxRoot: outDir,
+      outDir,
+    });
+    expect(cells).toHaveLength(4);
+    const report = await readFile(reportPath, "utf8");
+    expect(report).toContain("威科夫入场漏斗");
+    for (const cell of cells) {
+      const run = JSON.parse(
+        await readFile(join(cell.runPath, "run.json"), "utf8"),
+      );
+      expect(cell.wyckoffFunnel).toMatchObject([
+        {
+          symbol,
+          parentEvents: cell.strategy.includes("trend") ? 40 : 0,
+          entrySignals: 0,
+          buyOrders: 0,
+          buyFills: 0,
+        },
+      ]);
+      expect(run.wyckoffFunnel).toEqual(cell.wyckoffFunnel);
+      expect(report).toContain(
+        `per-symbol/${cell.strategy}/${symbol} | ${symbol} | ${cell.wyckoffFunnel![0]!.parentEvents} |`,
+      );
+    }
+  } finally {
+    prepare.mockRestore();
+    await rm(outDir, { force: true, recursive: true });
+  }
 });

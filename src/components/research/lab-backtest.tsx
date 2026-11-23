@@ -1,6 +1,15 @@
 "use client";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
 import { useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { api } from "~/trpc/react";
 import { labBacktestSchema } from "~/lib/research/lab-backtest";
@@ -23,6 +32,16 @@ import {
 } from "../ui/select";
 import { usePanelVisible } from "../workbench/keep-alive";
 import { MethodologyPopover } from "../panels";
+import { ScanHandoffBanner } from "./diagnose/scan-handoff-banner";
+import type { DiagnoseRunPrefill } from "./diagnose/diagnose-workspace-panel";
+
+const DiagnoseWorkspacePanel = dynamic(
+  () =>
+    import("./diagnose/diagnose-workspace-panel").then(
+      (module) => module.DiagnoseWorkspacePanel,
+    ),
+  { ssr: false },
+);
 
 const initialStrategy = {
   id: "my-lab-ma",
@@ -62,7 +81,6 @@ const dataSourceOptions = [
 ] as const;
 type DataSource = (typeof dataSourceOptions)[number]["value"];
 type LabIdentity = { id: string; version: number };
-type LoadedStrategy = ReturnType<typeof strategyObjectSchema.parse>;
 type LabBacktestRequest = ReturnType<typeof labBacktestSchema.parse>;
 type LabBacktestFormFields = {
   start: string;
@@ -71,6 +89,30 @@ type LabBacktestFormFields = {
   costScenario: CostScenario;
   source?: DataSource;
 };
+type LabEditorDraft = Required<LabBacktestFormFields> & {
+  object: string;
+  loadedIdentity: { key: string; label: string } | null;
+  dirty: boolean;
+  error: string;
+};
+
+function newDraft(
+  strategy: unknown,
+  loadedIdentity: LabEditorDraft["loadedIdentity"] = null,
+): LabEditorDraft {
+  return {
+    object: JSON.stringify(strategy, null, 2),
+    loadedIdentity,
+    dirty: false,
+    start: "",
+    end: "",
+    initial: 1000000,
+    costScenario: "fixed",
+    source: "local",
+    error: "",
+  };
+}
+
 export type LabBacktestReceipt = {
   jobId: string;
   strategyId: string;
@@ -165,19 +207,20 @@ function presetStrategy(preset: string | null) {
   return null;
 }
 function LabFrame({
-  defaultOpen,
-  collapsible = false,
+  open,
+  onToggle,
+  collapsible,
   children,
 }: {
-  defaultOpen: boolean;
-  collapsible?: boolean;
+  open: boolean;
+  onToggle: (open: boolean) => void;
+  collapsible: boolean;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
   return (
     <details
       open={open}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
+      onToggle={(event) => onToggle(event.currentTarget.open)}
       className="mb-4 rounded-lg border border-nc-border bg-nc-card"
     >
       <summary className="flex cursor-pointer flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-nc-border-soft px-4 py-2.5">
@@ -202,39 +245,33 @@ function LabReturnLink() {
   );
 }
 export function LabBacktest() {
-  const search = useSearchParams(),
-    visible = usePanelVisible(),
-    source = labIdentityFromSearch(search);
-  if (source.kind === "invalid")
-    return (
-      <LabFrame defaultOpen>
-        <div role="alert" className="space-y-2 text-sm text-nc-warn">
-          <p>
-            链接中的策略身份无效：id 不能为空，version 必须是正整数（缺省为
-            v1）。本次未发起读取请求。
-          </p>
-          <LabReturnLink />
-        </div>
-      </LabFrame>
-    );
-  if (source.kind === "valid")
-    return (
-      <LabFrame defaultOpen>
-        <LabStrategySource identity={source.identity} enabled={visible} />
-      </LabFrame>
-    );
+  const currentSearch = useSearchParams().toString();
+  const visible = usePanelVisible();
+  const [retainedSearch, setRetainedSearch] = useState(currentSearch);
+  if (visible && currentSearch !== retainedSearch)
+    setRetainedSearch(currentSearch);
   return (
-    <LabFrame defaultOpen={search.get("mode") === "object"} collapsible>
-      <LabEditor preset={search.get("preset")} />
-    </LabFrame>
+    <LabEditor
+      search={visible ? currentSearch : retainedSearch}
+      visible={visible}
+    />
   );
+}
+function labIdentityKey(identity: LabIdentity) {
+  return `${identity.id}\u0000${identity.version}`;
 }
 function LabStrategySource({
   identity,
   enabled,
+  draft,
+  setDraft,
+  renderForm,
 }: {
   identity: LabIdentity;
   enabled: boolean;
+  draft: LabEditorDraft;
+  setDraft: Dispatch<SetStateAction<LabEditorDraft>>;
+  renderForm: (draft: LabEditorDraft, refreshError?: string) => ReactNode;
 }) {
   const detail = api.strategyLabDetail.useQuery(identity, { enabled });
   const strategy = detail.data?.strategy ?? null;
@@ -245,18 +282,25 @@ function LabStrategySource({
       ? strategy
       : null;
   const label = `${identity.id} v${identity.version}`;
-  if (matched)
-    return (
-      <LabEditor
-        key={`${identity.id}\u0000${identity.version}`}
-        source={{
-          identity,
-          strategy: matched,
-          refreshError: detail.isError
-            ? (detail.error?.message ?? "未知错误")
-            : null,
-        }}
-      />
+  const identityKey = labIdentityKey(identity);
+  const loadedIdentityKey = draft.loadedIdentity?.key;
+  const nextDraft = useMemo(
+    () =>
+      matched && loadedIdentityKey !== identityKey
+        ? newDraft(matched, { key: identityKey, label })
+        : null,
+    [matched, loadedIdentityKey, identityKey, label],
+  );
+  useEffect(() => {
+    if (nextDraft)
+      setDraft((current) =>
+        current.loadedIdentity?.key === identityKey ? current : nextDraft,
+      );
+  }, [identityKey, nextDraft, setDraft]);
+  if (nextDraft || loadedIdentityKey === identityKey)
+    return renderForm(
+      nextDraft ?? draft,
+      detail.isError ? (detail.error?.message ?? "未知错误") : undefined,
     );
   if (detail.isError && !detail.isFetching)
     return (
@@ -300,332 +344,404 @@ function LabStrategySource({
     </p>
   );
 }
-function LabEditor({
-  preset = null,
-  source,
-}: {
-  preset?: string | null;
-  source?: {
-    identity: LabIdentity;
-    strategy: LoadedStrategy;
-    refreshError: string | null;
-  };
-}) {
-  const [object, setObject] = useState(() =>
-      JSON.stringify(
-        source?.strategy ?? presetStrategy(preset) ?? initialStrategy,
-        null,
-        2,
-      ),
-    ),
-    [start, setStart] = useState(""),
-    [end, setEnd] = useState(""),
-    [initial, setInitial] = useState(1000000),
-    [costScenario, setCostScenario] = useState<CostScenario>("fixed"),
-    [dataSource, setDataSource] = useState<DataSource>("local"),
-    [error, setError] = useState(""),
-    [receipt, setReceipt] = useState<LabBacktestReceipt | null>(null),
-    submitting = useRef(false);
-  useEffect(() => {
-    if (source) return;
-    const next = presetStrategy(preset);
-    if (next) setObject(JSON.stringify(next, null, 2));
-  }, [preset, source]);
+function LabEditor({ search, visible }: { search: string; visible: boolean }) {
+  const params = new URLSearchParams(search);
+  const source = labIdentityFromSearch(params);
+  const preset =
+    source.kind === "none" && !params.has("handoff")
+      ? params.get("preset")
+      : null;
+  const openRequest =
+    source.kind === "valid"
+      ? labIdentityKey(source.identity)
+      : source.kind === "invalid" || params.get("mode") === "object"
+        ? source.kind
+        : null;
+  const [draft, setDraft] = useState(() =>
+    newDraft(presetStrategy(preset) ?? initialStrategy),
+  );
+  const [open, setOpen] = useState(openRequest !== null);
+  const [lastOpenRequest, setLastOpenRequest] = useState(openRequest);
+  const [lastPreset, setLastPreset] = useState(preset);
+  const [receipt, setReceipt] = useState<LabBacktestReceipt | null>(null);
+  const [handoffPrefill, setHandoffPrefill] =
+    useState<DiagnoseRunPrefill | null>(null);
+  const submitting = useRef(false);
+  if (openRequest !== lastOpenRequest) {
+    setLastOpenRequest(openRequest);
+    if (openRequest !== null) setOpen(true);
+  }
+  if (preset !== lastPreset) {
+    setLastPreset(preset);
+    const next =
+      !draft.dirty && !draft.loadedIdentity && presetStrategy(preset);
+    if (next) setDraft({ ...draft, object: JSON.stringify(next, null, 2) });
+  }
   const run = api.strategyLabBacktest.useMutation();
   const register = api.strategyLabRegister.useMutation();
-  return (
-    <form
-      className="mt-3 space-y-3"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (submitting.current) return;
-        setError("");
-        const result = readLabBacktestForm(object, {
-          start,
-          end,
-          initial,
-          costScenario,
-          source: dataSource,
-        });
-        if (!result.ok) {
-          setError(result.message);
-          return;
-        }
-        submitting.current = true;
-        try {
-          run.mutate(result.input, {
-            onSuccess: (job) => {
-              // `result.input` is the exact validated payload this call sent.
-              setReceipt(labBacktestReceipt(result.input, job.id));
-            },
-            onSettled: () => {
-              submitting.current = false;
-            },
-          });
-        } catch (e) {
-          submitting.current = false;
-          setError(e instanceof Error ? e.message : "无法创建回测任务");
-        }
-      }}
-    >
-      <p className="text-sm text-nc-text-3">
-        提交同一策略对象，经 BarStore 冻结完成行情，调用
-        runPortfolio。行情默认读取本地数据，也可切换同花顺数据源；多周期研究另核对官方交易日历及币种当前价格步长，并保存来源。
-        缺少时点外部证据的规则须走冻结研究任务。结果为规则自检，公司行动与数量网格沿用研究情景。
-        fixed 等同本入口原默认费用且不启用历史印花税切换；base 与 double-cost
-        使用 2023-08-28 前后的历史印花税情景，double-cost
-        同时放大佣金、最低佣金与滑点。
-      </p>
-      {source && (
-        <p className="text-sm text-nc-text-3">
-          {`从 ${source.identity.id} v${source.identity.version} 载入；当前表单以其为初值，修改后需显式提交或登记，不会自动运行。`}
-        </p>
-      )}
-      {source?.refreshError && (
-        <p role="status" className="text-sm text-nc-warn">
-          {`再次读取策略定义失败：${source.refreshError}；继续使用已确认的 ${source.identity.id} v${source.identity.version} 定义。`}
-        </p>
-      )}
-      {!source && (
-        <div className="block text-sm">
-          <span className="mb-2 block">研究预设（仅填入配置，不自动运行）</span>
-          <Select
-            onValueChange={(value) => {
-              const [market, variant] = value.split("/");
-              if (
-                (market !== "cn-equity" && market !== "crypto") ||
-                (variant !== "week-day" &&
-                  variant !== "day-hour-five" &&
-                  variant !== "utc-orb")
-              )
-                return;
-              setObject(
-                JSON.stringify(
-                  variant === "utc-orb"
-                    ? utcOrbStrategy()
-                    : tripleScreenStrategy(
-                        variant,
-                        market,
-                        market === "cn-equity"
-                          ? ["sh600000"]
-                          : ["cxBTCUSDT", "cxETHUSDT"],
-                      ),
-                  null,
-                  2,
-                ),
-              );
-              setError("");
-            }}
-          >
-            <SelectTrigger
-              aria-label="多周期研究预设"
-              className="mb-3 max-w-full"
-            >
-              <SelectValue placeholder="选择预设" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="cn-equity/week-day">
-                A股 · 周线方向 / 日线收盘触发
-              </SelectItem>
-              <SelectItem value="cn-equity/day-hour-five">
-                A股 · 日线方向 / 60分钟回调 / 5分钟触发
-              </SelectItem>
-              <SelectItem value="crypto/week-day">
-                BTC/ETH · 周线方向 / 日线收盘触发
-              </SelectItem>
-              <SelectItem value="crypto/day-hour-five">
-                BTC/ETH · 日线方向 / 60分钟回调 / 5分钟触发
-              </SelectItem>
-              <SelectItem value="crypto/utc-orb">
-                BTC/ETH · UTC 5分钟收盘代理 ORB
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <span className="mb-3 block text-nc-text-3">
-            仅使用已完成周期；收盘触发后最早下一合法开盘成交，A股保持T+1。
-            缺失周期标记未知，禁用依赖该输入的信号；来源不一致则停止。预设为本地代理，非原法或收益认证。
-          </span>
-          <span className="mb-3 block text-nc-text-3">
-            ORB：仅 BTC/ETH
-            现货、5分钟。每个UTC日首根已完成5分钟线的低点记为OL、高点记为OH。
-            前10个完整UTC日分别取“日高−日开”与“日开−日低”的较小值，再求均值作为stretch；入场上界U=OH+stretch，退出下界S=OL−stretch。
-            当日首个完成收盘越U触发一次进入尝试；收盘跌破信号日冻结S或23:55完成bar产生退出意图，下一5分钟开盘执行。
-            这是“UTC
-            5分钟收盘代理”，不是严格日内执行或盘中硬止损；前10日或开盘槽缺失返回未知。
-          </span>
-        </div>
-      )}
-      <label className="block text-sm">
-        策略对象
-        <Textarea
-          aria-label="回测策略对象"
-          value={object}
-          onChange={(e) => setObject(e.target.value)}
-          className="min-h-64 font-mono text-xs"
-        />
-      </label>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <label className="block text-sm">
-          开始日期
-          <Input
-            aria-label="对象回测开始日期"
-            type="date"
-            className="mt-1"
-            value={start}
-            onChange={(e) => setStart(e.target.value)}
-            required
-          />
-        </label>
-        <label className="block text-sm">
-          结束日期
-          <Input
-            aria-label="对象回测结束日期"
-            type="date"
-            className="mt-1"
-            value={end}
-            onChange={(e) => setEnd(e.target.value)}
-            required
-          />
-        </label>
-        <label className="block text-sm">
-          独立本金
-          <Input
-            aria-label="对象回测本金"
-            type="number"
-            min={1}
-            max={1e9}
-            className="mt-1"
-            value={initial}
-            onChange={(e) => setInitial(Number(e.target.value))}
-            required
-          />
-        </label>
-        <label className="block text-sm">
-          交易成本情景
-          <Select
-            value={costScenario}
-            onValueChange={(value) => {
-              if (
-                value === "fixed" ||
-                value === "base" ||
-                value === "double-cost"
-              )
-                setCostScenario(value);
-            }}
-          >
-            <SelectTrigger
-              aria-label="交易成本情景"
-              className="mt-1 max-w-full"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {costScenarioOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </label>
-        <label className="block text-sm">
-          数据源
-          <Select
-            value={dataSource}
-            onValueChange={(value) => {
-              if (value === "local" || value === "thsdk") setDataSource(value);
-            }}
-          >
-            <SelectTrigger aria-label="行情数据源" className="mt-1 max-w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {dataSourceOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </label>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <MethodologyPopover
-          title="回测数据源与复权口径"
-          buttonLabel="数据源口径"
-          items={[
-            {
-              label: "本地通达信（默认）",
-              detail: "本地全量行情 + 本地 GBBQ 复权与公司行动情景。",
-            },
-            {
-              label: "同花顺 (THSDK)",
-              detail:
-                "仅支持 A 股策略；信号价采用同花顺原生前复权、成交价采用未复权原价，不叠加本地 GBBQ 复权，不含本地公司行动分红送转台账，盘中未收盘的日线自动拒绝。",
-            },
-          ]}
-        />
-        <span className="text-sub text-nc-text-3">
-          切换数据源会改变复权与公司行动口径，结果不可直接互比。
-        </span>
-      </div>
-      <p className="text-sub text-nc-text-3">
-        仅影响费用假设，不改变信号、复权、数量网格或成交顺序；默认 fixed
-        保持原实验室行为。
-      </p>
-      <Button disabled={run.isPending} aria-busy={run.isPending}>
-        {run.isPending ? "正在创建回测任务…" : "提交策略对象回测"}
-      </Button>
-      {run.isPending && (
-        <p role="status" className="text-sm text-nc-text-3">
-          已通过表单校验，正在创建回测任务…
-        </p>
-      )}
-      <Button
-        type="button"
-        variant="outline"
-        disabled={register.isPending}
-        onClick={() => {
+  function renderForm(activeDraft: LabEditorDraft, refreshError?: string) {
+    const {
+      object,
+      start,
+      end,
+      initial,
+      costScenario,
+      source: dataSource,
+      error,
+      loadedIdentity,
+    } = activeDraft;
+    const edit = (
+      fields: Partial<
+        LabBacktestFormFields & { object: string; error: string }
+      >,
+    ) => setDraft({ ...activeDraft, ...fields, dirty: true });
+    const setError = (error: string) => setDraft({ ...activeDraft, error });
+    return (
+      <form
+        className="mt-3 space-y-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (submitting.current) return;
           setError("");
+          const result = readLabBacktestForm(object, {
+            start,
+            end,
+            initial,
+            costScenario,
+            source: dataSource,
+          });
+          if (!result.ok) {
+            setError(result.message);
+            return;
+          }
+          submitting.current = true;
           try {
-            register.mutate(strategyObjectSchema.parse(JSON.parse(object)));
+            run.mutate(result.input, {
+              onSuccess: (job) => {
+                // `result.input` is the exact validated payload this call sent.
+                setReceipt(labBacktestReceipt(result.input, job.id));
+              },
+              onSettled: () => {
+                submitting.current = false;
+              },
+            });
           } catch (e) {
-            setError(e instanceof Error ? e.message : "策略对象无效");
+            submitting.current = false;
+            setError(e instanceof Error ? e.message : "无法创建回测任务");
           }
         }}
       >
-        登记此版本到策略列表
-      </Button>
-      {register.data && (
-        <p role="status">
-          策略对象已登记，尚未开启影子或提醒。
-          <Link
-            className="underline"
-            href={`/lab?strategy=${encodeURIComponent(register.data.id)}&version=${register.data.version}`}
-          >
-            查看登记策略
-          </Link>
+        <p className="text-sm text-nc-text-3">
+          提交同一策略对象，经 BarStore 冻结完成行情，调用
+          runPortfolio。行情默认读取本地数据，也可切换同花顺数据源；多周期研究另核对官方交易日历及币种当前价格步长，并保存来源。
+          缺少时点外部证据的规则须走冻结研究任务。结果为规则自检，公司行动与数量网格沿用研究情景。
+          fixed 等同本入口原默认费用且不启用历史印花税切换；base 与 double-cost
+          使用 2023-08-28 前后的历史印花税情景，double-cost
+          同时放大佣金、最低佣金与滑点。
         </p>
-      )}
-      {(error || run.error || register.error) && (
-        <p role="alert">
-          {error || run.error?.message || register.error?.message}
-        </p>
-      )}
-      {receipt && (
-        <div role="status" className="space-y-1 text-sm">
-          <p>最近一次已创建的回测任务</p>
-          <p className="text-nc-text-3">
-            {`${receipt.strategyId} v${receipt.strategyVersion} · ${marketLabels[receipt.market]} · ${receipt.start} 至 ${receipt.end} · 本金 ${String(receipt.initial)} · 交易成本 ${costScenarioLabel(receipt.costScenario)} · 数据源：${dataSourceLabel(receipt)}`}
+        {loadedIdentity && (
+          <p className="text-sm text-nc-text-3">
+            {`从 ${loadedIdentity.label} 载入；当前表单以其为初值，修改后需显式提交或登记，不会自动运行。`}
           </p>
-          <Link
-            href={taskHistoryHref({ id: receipt.jobId })}
-            className="underline"
-          >
-            查看进度、结果与取消
-          </Link>
+        )}
+        {refreshError && loadedIdentity && (
+          <p role="status" className="text-sm text-nc-warn">
+            {`再次读取策略定义失败：${refreshError}；继续使用已确认的 ${loadedIdentity.label} 草稿。`}
+          </p>
+        )}
+        {!loadedIdentity && (
+          <div className="block text-sm">
+            <span className="mb-2 block">
+              研究预设（仅填入配置，不自动运行）
+            </span>
+            <Select
+              onValueChange={(value) => {
+                const [market, variant] = value.split("/");
+                if (
+                  (market !== "cn-equity" && market !== "crypto") ||
+                  (variant !== "week-day" &&
+                    variant !== "day-hour-five" &&
+                    variant !== "utc-orb")
+                )
+                  return;
+                edit({
+                  object: JSON.stringify(
+                    variant === "utc-orb"
+                      ? utcOrbStrategy()
+                      : tripleScreenStrategy(
+                          variant,
+                          market,
+                          market === "cn-equity"
+                            ? ["sh600000"]
+                            : ["cxBTCUSDT", "cxETHUSDT"],
+                        ),
+                    null,
+                    2,
+                  ),
+                  error: "",
+                });
+              }}
+            >
+              <SelectTrigger
+                aria-label="多周期研究预设"
+                className="mb-3 max-w-full"
+              >
+                <SelectValue placeholder="选择预设" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cn-equity/week-day">
+                  A股 · 周线方向 / 日线收盘触发
+                </SelectItem>
+                <SelectItem value="cn-equity/day-hour-five">
+                  A股 · 日线方向 / 60分钟回调 / 5分钟触发
+                </SelectItem>
+                <SelectItem value="crypto/week-day">
+                  BTC/ETH · 周线方向 / 日线收盘触发
+                </SelectItem>
+                <SelectItem value="crypto/day-hour-five">
+                  BTC/ETH · 日线方向 / 60分钟回调 / 5分钟触发
+                </SelectItem>
+                <SelectItem value="crypto/utc-orb">
+                  BTC/ETH · UTC 5分钟收盘代理 ORB
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <span className="mb-3 block text-nc-text-3">
+              仅使用已完成周期；收盘触发后最早下一合法开盘成交，A股保持T+1。
+              缺失周期标记未知，禁用依赖该输入的信号；来源不一致则停止。预设为本地代理，非原法或收益认证。
+            </span>
+            <span className="mb-3 block text-nc-text-3">
+              ORB：仅 BTC/ETH
+              现货、5分钟。每个UTC日首根已完成5分钟线的低点记为OL、高点记为OH。
+              前10个完整UTC日分别取“日高−日开”与“日开−日低”的较小值，再求均值作为stretch；入场上界U=OH+stretch，退出下界S=OL−stretch。
+              当日首个完成收盘越U触发一次进入尝试；收盘跌破信号日冻结S或23:55完成bar产生退出意图，下一5分钟开盘执行。
+              这是“UTC
+              5分钟收盘代理”，不是严格日内执行或盘中硬止损；前10日或开盘槽缺失返回未知。
+            </span>
+          </div>
+        )}
+        <label className="block text-sm">
+          策略对象
+          <Textarea
+            aria-label="回测策略对象"
+            value={object}
+            onChange={(e) => edit({ object: e.target.value })}
+            className="min-h-64 font-mono text-xs"
+          />
+        </label>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <label className="block text-sm">
+            开始日期
+            <Input
+              aria-label="对象回测开始日期"
+              type="date"
+              className="mt-1"
+              value={start}
+              onChange={(e) => edit({ start: e.target.value })}
+              required
+            />
+          </label>
+          <label className="block text-sm">
+            结束日期
+            <Input
+              aria-label="对象回测结束日期"
+              type="date"
+              className="mt-1"
+              value={end}
+              onChange={(e) => edit({ end: e.target.value })}
+              required
+            />
+          </label>
+          <label className="block text-sm">
+            独立本金
+            <Input
+              aria-label="对象回测本金"
+              type="number"
+              min={1}
+              max={1e9}
+              className="mt-1"
+              value={initial}
+              onChange={(e) => edit({ initial: Number(e.target.value) })}
+              required
+            />
+          </label>
+          <label className="block text-sm">
+            交易成本情景
+            <Select
+              value={costScenario}
+              onValueChange={(value) => {
+                if (
+                  value === "fixed" ||
+                  value === "base" ||
+                  value === "double-cost"
+                )
+                  edit({ costScenario: value });
+              }}
+            >
+              <SelectTrigger
+                aria-label="交易成本情景"
+                className="mt-1 max-w-full"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {costScenarioOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
+          <label className="block text-sm">
+            数据源
+            <Select
+              value={dataSource}
+              onValueChange={(value) => {
+                if (value === "local" || value === "thsdk")
+                  edit({ source: value });
+              }}
+            >
+              <SelectTrigger
+                aria-label="行情数据源"
+                className="mt-1 max-w-full"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {dataSourceOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
         </div>
-      )}
-    </form>
+        <div className="flex flex-wrap items-center gap-2">
+          <MethodologyPopover
+            title="回测数据源与复权口径"
+            buttonLabel="数据源口径"
+            items={[
+              {
+                label: "本地通达信（默认）",
+                detail: "本地全量行情 + 本地 GBBQ 复权与公司行动情景。",
+              },
+              {
+                label: "同花顺 (THSDK)",
+                detail:
+                  "仅支持 A 股策略；信号价采用同花顺原生前复权、成交价采用未复权原价，不叠加本地 GBBQ 复权，不含本地公司行动分红送转台账，盘中未收盘的日线自动拒绝。",
+              },
+            ]}
+          />
+          <span className="text-sub text-nc-text-3">
+            切换数据源会改变复权与公司行动口径，结果不可直接互比。
+          </span>
+        </div>
+        <p className="text-sub text-nc-text-3">
+          仅影响费用假设，不改变信号、复权、数量网格或成交顺序；默认 fixed
+          保持原实验室行为。
+        </p>
+        <Button disabled={run.isPending} aria-busy={run.isPending}>
+          {run.isPending ? "正在创建回测任务…" : "提交策略对象回测"}
+        </Button>
+        {run.isPending && (
+          <p role="status" className="text-sm text-nc-text-3">
+            已通过表单校验，正在创建回测任务…
+          </p>
+        )}
+        <Button
+          type="button"
+          variant="outline"
+          disabled={register.isPending}
+          onClick={() => {
+            setError("");
+            try {
+              register.mutate(strategyObjectSchema.parse(JSON.parse(object)));
+            } catch (e) {
+              setError(e instanceof Error ? e.message : "策略对象无效");
+            }
+          }}
+        >
+          登记此版本到策略列表
+        </Button>
+        {register.data && (
+          <p role="status">
+            策略对象已登记，尚未开启影子或提醒。
+            <Link
+              className="underline"
+              href={`/lab?strategy=${encodeURIComponent(register.data.id)}&version=${register.data.version}`}
+            >
+              查看登记策略
+            </Link>
+          </p>
+        )}
+        {(error || run.error || register.error) && (
+          <p role="alert">
+            {error || run.error?.message || register.error?.message}
+          </p>
+        )}
+        {receipt && (
+          <div role="status" className="space-y-1 text-sm">
+            <p>最近一次已创建的回测任务</p>
+            <p className="text-nc-text-3">
+              {`${receipt.strategyId} v${receipt.strategyVersion} · ${marketLabels[receipt.market]} · ${receipt.start} 至 ${receipt.end} · 本金 ${String(receipt.initial)} · 交易成本 ${costScenarioLabel(receipt.costScenario)} · 数据源：${dataSourceLabel(receipt)}`}
+            </p>
+            <Link
+              href={taskHistoryHref({ id: receipt.jobId })}
+              className="underline"
+            >
+              查看进度、结果与取消
+            </Link>
+          </div>
+        )}
+      </form>
+    );
+  }
+  return (
+    <>
+      <ScanHandoffBanner
+        search={source.kind === "none" ? search : ""}
+        onApply={(handoff) => {
+          setDraft({
+            ...draft,
+            object: handoff.strategyJson,
+            loadedIdentity: null,
+            start: handoff.start,
+            end: handoff.end,
+            dirty: true,
+            error: "",
+          });
+          setOpen(true);
+        }}
+        onDiagnose={setHandoffPrefill}
+      />
+      <LabFrame
+        open={open}
+        onToggle={setOpen}
+        collapsible={source.kind === "none"}
+      >
+        {source.kind === "valid" ? (
+          <LabStrategySource
+            identity={source.identity}
+            enabled={visible}
+            draft={draft}
+            setDraft={setDraft}
+            renderForm={renderForm}
+          />
+        ) : source.kind === "invalid" ? (
+          <div role="alert" className="space-y-2 text-sm text-nc-warn">
+            <p>
+              链接中的策略身份无效：id 不能为空，version 必须是正整数（缺省为
+              v1）。本次未发起读取请求。
+            </p>
+            <LabReturnLink />
+          </div>
+        ) : (
+          renderForm(draft)
+        )}
+      </LabFrame>
+      <DiagnoseWorkspacePanel prefill={handoffPrefill} />
+    </>
   );
 }

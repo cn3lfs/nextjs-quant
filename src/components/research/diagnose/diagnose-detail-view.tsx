@@ -1,0 +1,244 @@
+"use client";
+
+import { useState } from "react";
+import {
+  DIAGNOSE_SCENARIO_PRESETS,
+  type DiagnoseArchiveDetail,
+} from "~/lib/research/diagnose-contract";
+import { Pill } from "../../panels";
+import { Button } from "../../ui/button";
+import { DiagnosticChecksDrawer } from "./diagnostic-checks-drawer";
+import { EvidenceSamples } from "./evidence-samples";
+import { ExecutionScenarioCard } from "./execution-scenario-card";
+import {
+  boundaryLabels,
+  formatCount,
+  type DiagnosticFocusTarget,
+} from "./format";
+import { TheoryDisclosurePanel } from "./theory-disclosure-panel";
+
+const sourceLabels = {
+  "lab-archive": "Lab 诊断运行",
+  "cli-report": "CLI 诊断报告",
+} as const;
+const scenarioPriority = Object.keys(DIAGNOSE_SCENARIO_PRESETS);
+const scenarioOrder = (id: string) => {
+  const index = scenarioPriority.indexOf(id);
+  return index === -1 ? scenarioPriority.length : index;
+};
+
+export function DiagnosePagination({
+  page,
+  hasNext,
+  onPageChange,
+  label,
+}: {
+  page: number;
+  hasNext: boolean;
+  onPageChange: (page: number) => void;
+  label?: string;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={page <= 1}
+        onClick={() => onPageChange(page - 1)}
+      >
+        上一页
+      </Button>
+      <span className="text-nc-text-3 tabular-nums">
+        {label ?? `第 ${page} 页`}
+      </span>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={!hasNext || page >= 1_000_000}
+        onClick={() => onPageChange(page + 1)}
+      >
+        下一页
+      </Button>
+    </div>
+  );
+}
+
+/** Shared renderer for one archive page: comparison, checks and disclosures. */
+export function DiagnoseDetailView({
+  detail,
+  active,
+  onPageChange,
+}: {
+  detail: DiagnoseArchiveDetail;
+  active: boolean;
+  onPageChange?: (page: number) => void;
+}) {
+  const [cellIndex, setCellIndex] = useState(0);
+  const [scenarioId, setScenarioId] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [focus, setFocus] = useState<DiagnosticFocusTarget | null>(null);
+
+  const cells = detail.cells;
+  const cell =
+    cells[Math.min(cellIndex, Math.max(cells.length - 1, 0))] ?? null;
+  const scenarios = [...(cell?.scenarios ?? [])].sort(
+    (a, b) => scenarioOrder(a.scenarioId) - scenarioOrder(b.scenarioId),
+  );
+  const scenario =
+    scenarios.find((row) => row.scenarioId === scenarioId) ??
+    scenarios[0] ??
+    null;
+  const boundary = detail.boundaryState;
+  const cellBoundary =
+    boundary === "missing-files" || !cell
+      ? boundary
+      : scenarios.some((row) => row.status !== "ok")
+        ? "blocked"
+        : scenarios.length > 0 &&
+            scenarios.every((row) => row.counts.signals === 0)
+          ? "zero-signal"
+          : "ok";
+  const statusCounts = detail.summary.statusCounts;
+  const page = detail.pagination.page;
+  const pageSize = detail.pagination.pageSize;
+  const totalCells = detail.pagination.totalCells;
+  const lastPage = Math.max(1, Math.ceil(totalCells / pageSize));
+  return (
+    <div className="space-y-3">
+      <header className="space-y-1">
+        <div className="flex flex-wrap items-baseline gap-2">
+          <h4 className="text-sm font-semibold text-nc-text">
+            {detail.summary.title}
+          </h4>
+          <Pill
+            tone={
+              boundary === "ok"
+                ? "ok"
+                : boundary === "zero-signal"
+                  ? "warn"
+                  : "bad"
+            }
+          >
+            {boundaryLabels[boundary]}
+          </Pill>
+          <Pill tone="neutral">{sourceLabels[detail.summary.source]}</Pill>
+          <span className="text-sub text-nc-text-3">
+            {detail.summary.generatedAt}
+          </span>
+        </div>
+        <p className="text-sub text-nc-text-3">
+          策略 {detail.summary.strategyKeys.join("、") || "—"} · 标的{" "}
+          {detail.summary.symbols.join("、") || "—"} · 正常{" "}
+          {formatCount(statusCounts.ok)} · 阻断{" "}
+          {formatCount(statusCounts.blocked)} · 失败{" "}
+          {formatCount(statusCounts.failed)} · 零信号{" "}
+          {formatCount(statusCounts.zeroSignal)}
+        </p>
+        {detail.summary.driftWarnings.length > 0 && (
+          <div role="alert" className="text-sm text-nc-warn">
+            <p className="font-medium">漂移告警</p>
+            <ul className="space-y-0.5">
+              {detail.summary.driftWarnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </header>
+
+      {cells.length > 1 && (
+        <div className="flex flex-wrap gap-1.5">
+          {cells.map((row, index) => (
+            <Button
+              key={`${row.strategyKey}-${row.symbols.join("-")}-${index}`}
+              type="button"
+              size="sm"
+              variant={index === cellIndex ? "default" : "outline"}
+              aria-pressed={index === cellIndex}
+              onClick={() => {
+                setCellIndex(index);
+                setScenarioId(null);
+                setFocus(null);
+              }}
+            >
+              {row.strategyKey} · {row.symbols.join("、")} · {row.mode}
+            </Button>
+          ))}
+        </div>
+      )}
+
+      {cell && (
+        <p className="text-sub text-nc-text-3">
+          {cell.strategyKey} · {cell.symbols.join("、")} ·{" "}
+          {cell.mode === "portfolio" ? "组合" : "单标的"} ·{" "}
+          {cell.start ?? "起始未记录"} 至 {cell.end ?? "结束未记录"}
+        </p>
+      )}
+      <ExecutionScenarioCard
+        scenarios={scenarios}
+        boundaryState={cellBoundary}
+        missingFiles={detail.summary.missingFiles}
+      />
+
+      {scenarios.length > 1 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-sub text-nc-text-3">检查情景</span>
+          {scenarios.map((row) => (
+            <Button
+              key={row.scenarioId}
+              type="button"
+              size="sm"
+              variant={
+                row.scenarioId === scenario?.scenarioId ? "default" : "outline"
+              }
+              aria-pressed={row.scenarioId === scenario?.scenarioId}
+              onClick={() => {
+                setScenarioId(row.scenarioId);
+                setFocus(null);
+              }}
+            >
+              {row.label}
+            </Button>
+          ))}
+        </div>
+      )}
+
+      {scenario && (
+        <DiagnosticChecksDrawer
+          open={active && drawerOpen}
+          onOpenChange={setDrawerOpen}
+          checks={scenario.checks}
+          subtitle={`${detail.summary.title} · ${scenario.label}`}
+          onFocusEvidence={setFocus}
+        />
+      )}
+      {scenario && (
+        <EvidenceSamples
+          key={`${cellIndex}:${scenario.scenarioId}`}
+          scenario={scenario}
+          focus={focus}
+        />
+      )}
+      <TheoryDisclosurePanel
+        nativeChan={scenario?.nativeChan}
+        canslimPit={scenario?.canslimPit}
+        growthPit={scenario?.growthPit}
+        wyckoffFunnel={scenario?.wyckoffFunnel}
+        pool={detail.summary.pool}
+        counts={scenario?.counts}
+        mode={cell?.mode}
+      />
+
+      {onPageChange && totalCells > pageSize && (
+        <DiagnosePagination
+          page={page}
+          hasNext={page < lastPage}
+          onPageChange={onPageChange}
+          label={`第 ${page} / ${lastPage} 页 · 共 ${formatCount(totalCells)} 个单元`}
+        />
+      )}
+    </div>
+  );
+}

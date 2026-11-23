@@ -142,6 +142,117 @@ const pitBoundaryBars = [
   availableFrom,
 ].map(stockBar);
 
+it("reports each C/A check and its independent pass rate without changing the entry gate", () => {
+  const reports = financialReports();
+  const latest = reports.at(-1)!;
+  for (const [year, eps] of [
+    [2019, 1],
+    [2020, 1.2],
+  ] as const) {
+    reports.push({
+      ...latest,
+      reportDate: `${year}-09-30`,
+      announcementDate: `${year}-10-26`,
+      availableFrom: `${year}-10-27`,
+      fields: [financialCell(311, eps)],
+    });
+  }
+  const result = buildCanslimPitSeries(reports, pitBoundaryBars);
+  expect(result.days[2]).toMatchObject({
+    qualified: true,
+    c2: { status: "computed", points: 5 },
+    c3: { status: "computed", points: 5 },
+    a3: { status: "computed", points: 5, value: 1.25 },
+  });
+  expect(result.checkCoverage).toEqual({
+    C1: {
+      computed: 3,
+      missing: 0,
+      conflict: 0,
+      passed: 1,
+      marginalPassRate: 1 / 3,
+    },
+    C2: {
+      computed: 1,
+      missing: 2,
+      conflict: 0,
+      passed: 1,
+      marginalPassRate: 1,
+    },
+    C3: {
+      computed: 1,
+      missing: 2,
+      conflict: 0,
+      passed: 1,
+      marginalPassRate: 1,
+    },
+    A1: {
+      computed: 3,
+      missing: 0,
+      conflict: 0,
+      passed: 3,
+      marginalPassRate: 1,
+    },
+    A2: {
+      computed: 3,
+      missing: 0,
+      conflict: 0,
+      passed: 3,
+      marginalPassRate: 1,
+    },
+    A3: {
+      computed: 3,
+      missing: 0,
+      conflict: 0,
+      passed: 3,
+      marginalPassRate: 1,
+    },
+  });
+});
+
+it("discloses duplicate periods even when PIT dates are invalid and passes through source duplicate evidence", () => {
+  const raw = {
+    ...financialReports()[0]!,
+    reportDate: "2025-12-31",
+    symbol: "sz300750",
+    sourceFilename: "gpcw20251231.dat",
+  };
+  const result = buildCanslimPitSeries(
+    [raw, { ...raw, recordOffset: 20 }],
+    [],
+    {
+      issues: [
+        {
+          filename: "gpcw20251231.dat",
+          reason: "同一财报存在重复证券记录：300750",
+        },
+        {
+          file: "gpcw20250930.dat",
+          code: "duplicate-record",
+          message: "duplicated 300750",
+        },
+        { filename: "gpcw19990331.dat", reason: "空占位包" },
+      ],
+    },
+  );
+  expect(result.strictReportCount).toBe(0);
+  expect(result.duplicateIssues).toEqual([
+    expect.objectContaining({
+      file: "gpcw20251231.dat",
+      symbol: "sz300750",
+      reportDate: "2025-12-31",
+      recordOffsets: [0, 20],
+    }),
+    { file: "gpcw20251231.dat", message: "同一财报存在重复证券记录：300750" },
+    {
+      file: "gpcw20250930.dat",
+      code: "duplicate-record",
+      message: "duplicated 300750",
+    },
+  ]);
+  expect(result.checkCoverage.C1.marginalPassRate).toBeNull();
+});
+
 describe("strict PIT earnings visibility", () => {
   it("first sees the 2020 report on availableFrom and qualifies on the same bar", () => {
     const result = buildCanslimPitSeries(financialReports(), pitBoundaryBars);

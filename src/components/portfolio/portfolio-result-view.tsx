@@ -153,6 +153,29 @@ const fillColumns: DataTableColumn<PortfolioResultFill>[] = [
     cell: ({ row }) => money(row.original.cashAfter),
   },
 ];
+/** Leading marker column used only when a caller supplies a focus target. */
+function focusColumn<T extends object>(
+  match: (row: T) => boolean,
+): DataTableColumn<T> {
+  return {
+    id: "focus",
+    header: "定位",
+    cell: ({ row }) =>
+      match(row.original) ? (
+        <span
+          data-result-focus
+          className="inline-flex items-center gap-1 whitespace-nowrap text-nc-accent"
+        >
+          <span aria-hidden="true" className="h-3.5 w-1 rounded bg-nc-accent" />
+          定位
+        </span>
+      ) : null,
+  };
+}
+const sameDate = (left: string, right: string | null | undefined) =>
+  right !== null &&
+  right !== undefined &&
+  left.slice(0, 10) === right.slice(0, 10);
 const rejectionColumns: DataTableColumn<PortfolioResultRejection>[] = [
   { id: "date", header: "日期", cell: ({ row }) => row.original.date },
   {
@@ -184,6 +207,8 @@ export function PortfolioResultView({
   pageSize,
   onFillPage,
   onRejectionPage,
+  highlightedDate = null,
+  highlightedOrderId = null,
 }: {
   equity: { date: string; value: number }[];
   initial: number;
@@ -195,10 +220,23 @@ export function PortfolioResultView({
   pageSize: number;
   onFillPage: (page: number) => void;
   onRejectionPage: (page: number) => void;
+  /** Focus target from the diagnostic checks drawer; markers only, no reorder. */
+  highlightedDate?: string | null;
+  highlightedOrderId?: number | null;
 }) {
   const [tab, setTab] = useState("fills"),
     [sorting, setSorting] = useState<{ id: string; desc: boolean }[]>([]);
   const pagination = (page: number) => ({ pageIndex: page, pageSize });
+  const focusing = highlightedDate !== null || highlightedOrderId !== null;
+  const matches = (row: { date: string; orderId: number }) =>
+    (highlightedDate === null || sameDate(row.date, highlightedDate)) &&
+    (highlightedOrderId === null || row.orderId === highlightedOrderId);
+  const fillCols = focusing
+    ? [focusColumn<PortfolioResultFill>(matches), ...fillColumns]
+    : fillColumns;
+  const rejectionCols = focusing
+    ? [focusColumn<PortfolioResultRejection>(matches), ...rejectionColumns]
+    : rejectionColumns;
   return (
     <div className="space-y-3">
       {summary && <SummaryKpis summary={summary} />}
@@ -206,14 +244,27 @@ export function PortfolioResultView({
       {equity.length > 0 && (
         <MonthlyReturnsHeatmap equity={equity} initial={initial} />
       )}
+      {focusing && (
+        <p role="status" className="text-sub text-nc-text-3">
+          {(tab === "rejections" ? rejections.rows : fills.rows).some(matches)
+            ? "已定位 "
+            : "当前页未找到 "}
+          {highlightedOrderId !== null ? `订单 #${highlightedOrderId}` : ""}
+          {highlightedOrderId !== null && highlightedDate ? " · " : ""}
+          {highlightedDate ?? ""}
+        </p>
+      )}
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="fills">成交 {fills.total}</TabsTrigger>
           <TabsTrigger value="rejections">拒绝 {rejections.total}</TabsTrigger>
         </TabsList>
-        <TabsContent value="fills">
+        <TabsContent
+          value="fills"
+          className="[&_tr:has([data-result-focus])]:bg-nc-inset"
+        >
           <DataTable
-            columns={fillColumns}
+            columns={fillCols}
             data={fills.rows}
             rowCount={fills.total}
             pagination={pagination(fillPage)}
@@ -233,9 +284,12 @@ export function PortfolioResultView({
             emptyMessage="没有成交。"
           />
         </TabsContent>
-        <TabsContent value="rejections">
+        <TabsContent
+          value="rejections"
+          className="[&_tr:has([data-result-focus])]:bg-nc-inset"
+        >
           <DataTable
-            columns={rejectionColumns}
+            columns={rejectionCols}
             data={rejections.rows}
             rowCount={rejections.total}
             pagination={pagination(rejectionPage)}

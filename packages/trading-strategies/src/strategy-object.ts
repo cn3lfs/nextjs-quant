@@ -56,6 +56,11 @@ import {
 } from "./strategy-book-model.js";
 import {
   createNativeStudyRule,
+  createNativeChanProfileRule,
+  nativeChanProfiles,
+  nativeStudyDefinition,
+  resolveNativeChanFirstIndex,
+  type NativeChanProfile,
   type FrozenChanObservation,
 } from "./native-study.js";
 
@@ -149,7 +154,15 @@ export const strategyRuleSchema = z.discriminatedUnion("kind", [
   z
     .object({
       kind: z.literal("chan-third-buy"),
-      firstIndex: z.number().int().min(140),
+      firstIndex: z.number().int().min(140).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("chan-native"),
+      profile: z.enum(nativeChanProfiles),
+      side: z.enum(["entry", "exit"]),
+      firstIndex: z.number().int().min(140).optional(),
     })
     .strict(),
   z.object({ kind: z.literal("constant"), value: z.boolean() }).strict(),
@@ -836,6 +849,18 @@ export function prepareStrategy(
     StrategyRule,
     (index: number, position?: TripleScreenPosition) => UtcOrbDecision
   >();
+  const nativeRules = new Map<
+    NativeChanProfile,
+    { first: number; evaluate: ReturnType<typeof createNativeChanProfileRule> }
+  >();
+  let inferredFirst: number | undefined;
+  const nativeFeed = () => {
+    if (!external.chan?.length)
+      throw new Error("Missing serial native observations");
+    return external.chan;
+  };
+  const firstNativeBar = () =>
+    (inferredFirst ??= resolveNativeChanFirstIndex(bars, nativeFeed()));
   const compile = (
     rule: StrategyRule,
     executionSide: "entry" | "exit" = "entry",
@@ -1039,20 +1064,39 @@ export function prepareStrategy(
       case "chan-third-buy": {
         let validated: ReturnType<typeof createNativeStudyRule> | undefined;
         return (i) => {
-          if (i < rule.firstIndex - 1) return null;
-          if (i === rule.firstIndex - 1) return false;
+          if (i < nativeStudyDefinition.warmupBars - 1) return null;
+          const first = rule.firstIndex ?? firstNativeBar();
+          if (i < first - 1) return null;
+          if (i === first - 1) return false;
           if (!validated) {
             if (!external.chan)
               throw new Error("Missing serial native observations");
-            validated = createNativeStudyRule(
-              bars,
-              rule.firstIndex,
-              external.chan,
-            );
+            validated = createNativeStudyRule(bars, first, external.chan);
           }
           return validated(i, { entry: 0, entryIndex: 0 }).enter;
         };
       }
+      case "chan-native":
+        return (i, position) => {
+          if (i < nativeStudyDefinition.warmupBars - 1) return null;
+          const first = rule.firstIndex ?? firstNativeBar();
+          if (i < first - 1) return null;
+          let cached = nativeRules.get(rule.profile);
+          if (!cached || cached.first !== first) {
+            cached = {
+              first,
+              evaluate: createNativeChanProfileRule(
+                rule.profile,
+                bars,
+                nativeFeed(),
+                first,
+              ),
+            };
+            nativeRules.set(rule.profile, cached);
+          }
+          const decision = cached.evaluate(i, position);
+          return rule.side === "entry" ? decision.enter : decision.exit;
+        };
     }
   };
   const enter = compile(strategy.entry, "entry"),

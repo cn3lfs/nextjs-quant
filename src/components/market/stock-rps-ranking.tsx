@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 
 import { rpsPeriods } from "quant-rps";
@@ -11,6 +12,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import { rpsPeriodLabel } from "~/lib/screening/rps";
+import { rpsCandidateToLabHref } from "~/lib/screening/screen-candidate-navigation";
 import type { RpsCondition } from "~/lib/screening/rps-conditions";
 import {
   defaultRpsTablePeriods,
@@ -65,6 +67,27 @@ const rpsRankingMethodology = [
       "批次、基数与命中数只来自当前条件的成功查询结果；草稿修改不会改变上表。",
   },
 ];
+
+/** 「带入回测」 may only be emitted from a settled, current page. A refetch or a
+ *  placeholder page still carries rows from an earlier query key or an earlier
+ *  batch, so its frozen date must not become an actionable handoff. */
+export function rpsHandoffRowAvailable(state: {
+  visible: boolean;
+  rankingReady: boolean;
+  isFetching: boolean;
+  isPlaceholderData: boolean;
+  isError: boolean;
+  conditionUnavailable: boolean;
+}): boolean {
+  return (
+    state.visible &&
+    state.rankingReady &&
+    !state.isFetching &&
+    !state.isPlaceholderData &&
+    !state.isError &&
+    !state.conditionUnavailable
+  );
+}
 
 /** A close observation is only a confirmed persistent close when the same day
  *  also exists in the RPS store; otherwise it is still a close-time snapshot. */
@@ -194,6 +217,16 @@ export function StockRpsRanking() {
       : [];
   const conditionUnavailable = unavailablePeriods.length > 0;
   const conditionCounts = confirmed?.rps?.conditions ?? [];
+  const handoffBatch = rpsHandoffRowAvailable({
+    visible,
+    rankingReady,
+    isFetching: page.isFetching,
+    isPlaceholderData: page.isPlaceholderData,
+    isError: page.isError,
+    conditionUnavailable,
+  })
+    ? confirmed
+    : undefined;
   const columns: DataTableColumn<MarketPoolRow>[] = [
     {
       id: "symbol",
@@ -237,6 +270,28 @@ export function StockRpsRanking() {
         row.original.value
           ? `${displayNumber(row.original.value.return * 100, 2)}%`
           : "—",
+    },
+    {
+      id: "lab",
+      enableSorting: false,
+      header: "操作",
+      cell: ({ row }) => {
+        if (!handoffBatch?.rps?.date) return null;
+        const href = rpsCandidateToLabHref({
+          symbol: row.original.symbol,
+          frozenDate: handoffBatch.rps.date,
+          period: handoffBatch.period,
+          rpsValue: row.original.value?.rps,
+          returnTo: "/scan?tab=rps",
+        });
+        return href ? (
+          <Button asChild size="sm" variant="ghost">
+            <Link href={href} prefetch={false} scroll={false}>
+              带入回测
+            </Link>
+          </Button>
+        ) : null;
+      },
     },
     ...(conditions.length
       ? [

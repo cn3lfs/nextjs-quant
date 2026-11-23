@@ -14,9 +14,10 @@ import {
 import { join } from "node:path";
 import { beforeEach, expect, it, vi } from "vitest";
 import type { Bar } from "trading-strategy-core/bars";
-import type {
-  FrozenChanObservation,
-  NativeStudyIdentity,
+import {
+  createNativeStudyRule,
+  type FrozenChanObservation,
+  type NativeStudyIdentity,
 } from "trading-strategies";
 import { settingsSchema } from "~/lib/domain";
 import { readBars, type BarSeries } from "~/server/market/bar-store/read-bars";
@@ -30,6 +31,7 @@ import {
   type LabBacktestWork,
 } from "~/server/research/lab-backtest";
 import { runDiagnostics } from "../../../scripts/lib/backtest-diagnose/diagnostics";
+import { attachNativeChanMulti } from "../../../scripts/lib/backtest-diagnose/chan-native";
 import {
   prepareDiagnoseRequest,
   type PrepareDiagnoseRequestInput,
@@ -94,6 +96,11 @@ const identity = {
   config: 0,
   anchor: 1,
 } satisfies NativeStudyIdentity;
+const diagnoseInput = {
+  ...input,
+  config,
+  resolveIdentity: async () => identity,
+};
 
 function stubBars(includeOffCalendar: boolean) {
   vi.mocked(readBars).mockImplementation(async ({ instrument, period }) => {
@@ -151,7 +158,7 @@ function stubBars(includeOffCalendar: boolean) {
 
 function captureFixture() {
   return vi.fn<NonNullable<PrepareDiagnoseRequestInput["captureNative"]>>(
-    async (bars, first) => {
+    async (bars, first = firstIndex) => {
       const endpointDate = bars[first - 3]!.date;
       const confirmedDate = bars[first]!.date;
       const baselineDate = bars[first - 1]!.date;
@@ -182,11 +189,13 @@ function captureFixture() {
             .digest("hex"),
           identity,
           baseline: offset === 0,
+          projectionVersion: 2,
+          points: offset === 1 ? [{ ...signal, kind: 3 }] : [],
           signals: offset === 1 ? [signal] : [],
           gaps: [],
         }));
       return {
-        version: "strategy-center-native-1",
+        version: "strategy-center-native-2",
         identity,
         originDate: bars[0]!.date,
         baselineDate,
@@ -252,8 +261,7 @@ it.each([
     stubBars(includeOffCalendar);
     const captureNative = captureFixture();
     const prepared = await prepareDiagnoseRequest({
-      ...input,
-      config,
+      ...diagnoseInput,
       forceCausalPrice: true,
       captureNative,
     });
@@ -273,6 +281,10 @@ it.each([
       {
         symbol,
         identity,
+        dllHash: identity.dllHash,
+        mode: "current-dll-compute",
+        projectionVersion: 2,
+        captureMetricsAvailable: true,
         originDate: benchmarkDates[0],
         baselineDate: benchmarkDates[139],
         firstIndex,
@@ -343,6 +355,52 @@ it.each([
   },
 );
 
+it("replays historical v1 signals with the recorded identity and rejects invalid v1 evidence before execution", async () => {
+  stubBars(false);
+  const frozen = await prepareLabBacktest(
+    work,
+    undefined,
+    undefined,
+    undefined,
+    {
+      config,
+      allowNativeChan: true,
+      forceCausalPrice: true,
+    },
+  );
+  const stock = frozen.request.instruments[0]!;
+  const { observations } = await captureFixture()(stock.signalBars, firstIndex);
+  const v1 = observations.map(
+    ({ points: _points, projectionVersion: _version, ...row }) => row,
+  );
+  stock.external = { chan: v1 };
+  const neverLive = vi.fn(() => {
+    throw new Error("Frozen replay requested live evidence");
+  });
+  const options = {
+    mode: "frozen-replay" as const,
+    resolveIdentity: neverLive,
+    captureNative: neverLive,
+  };
+  expect(await attachNativeChanMulti(frozen, options)).toMatchObject([
+    {
+      mode: "frozen-replay",
+      projectionVersion: 1,
+      identity,
+      captureMetricsAvailable: false,
+    },
+  ]);
+  const rule = createNativeStudyRule(stock.signalBars, firstIndex, v1);
+  expect(rule(firstIndex).enter).toBe(true);
+  expect(replayLabBacktest(frozen).result.fills).toMatchObject([
+    { side: "buy", date: buyDate },
+    { side: "sell", date: sellDate },
+  ]);
+  v1[1]!.gaps = ["missing third-buy center"];
+  await expect(attachNativeChanMulti(frozen, options)).rejects.toThrow("无效");
+  expect(neverLive).not.toHaveBeenCalled();
+});
+
 it("uses causal signal prices with forceCausalPrice disabled and rejects replay without their proof", async () => {
   stubBars(true);
   vi.mocked(readResearchPriceActions).mockResolvedValueOnce({
@@ -354,8 +412,7 @@ it("uses causal signal prices with forceCausalPrice disabled and rejects replay 
     sourceSha256: "synthetic GBBQ",
   });
   const { frozen } = await prepareDiagnoseRequest({
-    ...input,
-    config,
+    ...diagnoseInput,
     captureNative: captureFixture(),
     forceCausalPrice: false,
   });
@@ -383,10 +440,9 @@ it("prepares an exit-only Chan rule and requires its observations before the fir
     exit: { rule: { kind: "chan-third-buy" as const, firstIndex } },
   };
   const { frozen } = await prepareDiagnoseRequest({
-    ...input,
+    ...diagnoseInput,
     strategy,
     start: benchmarkDates[firstIndex + 1]!,
-    config,
     captureNative: captureFixture(),
     forceCausalPrice: false,
   });
@@ -429,8 +485,7 @@ it.each([
       });
       const prepare = () =>
         prepareDiagnoseRequest({
-          ...input,
-          config,
+          ...diagnoseInput,
           forceCausalPrice: true,
           nativeCacheDir,
           captureNative,
@@ -443,9 +498,24 @@ it.each([
       });
       expect(captureNative).toHaveBeenCalledTimes(1);
       const entries = await readdir(nativeCacheDir);
-      expect(entries).toEqual([
-        expect.stringMatching(/^chan-sh600000-[a-f0-9]{16}\.json$/),
+      const bars = first.frozen.request.instruments[0]!.signalBars;
+      const sha256 = (value: unknown) =>
+        createHash("sha256").update(JSON.stringify(value)).digest("hex");
+      const barsDigest = sha256(bars);
+      const cacheKey = sha256([
+        "chan-native-cache-2",
+        symbol,
+        firstIndex,
+        barsDigest,
+        identity.dllHash,
+        identity.apiVersion,
+        identity.buildCommit,
+        identity.configId,
+        identity.config,
+        identity.anchor,
+        2,
       ]);
+      expect(entries).toEqual([`chan-${cacheKey}.json`]);
       const cachePath = join(nativeCacheDir, entries[0]!);
       const original = await readFile(cachePath, "utf8");
       const oldTime = new Date("2020-01-01T00:00:00Z");
@@ -471,10 +541,11 @@ it.each([
         barsDigest: string;
         observations: FrozenChanObservation[];
       };
-      const bars = first.frozen.request.instruments[0]!.signalBars;
-      expect(invalid.barsDigest).toBe(
-        createHash("sha256").update(JSON.stringify(bars)).digest("hex"),
-      );
+      expect(invalid).toMatchObject({
+        version: "chan-native-cache-2",
+        projectionVersion: 2,
+        barsDigest,
+      });
       switch (corruption) {
         case "DLL hash":
           invalid.identity.dllHash = "b".repeat(64);
@@ -535,8 +606,7 @@ it.each([
     await mkdir(target);
     const captureNative = captureFixture();
     const options = {
-      ...input,
-      config,
+      ...diagnoseInput,
       forceCausalPrice: false,
       nativeCacheDir,
       captureNative,
