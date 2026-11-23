@@ -21,6 +21,15 @@
 | **M3** | 威科夫口径对齐 + 94-key 真实健康基线                   | 完成 | 对齐 `WY08` `MA60 上升`文字（未改阈值）；`sh600519` `strict` 摸底全部 94 个 catalog key **95/95 ok、0 P0**（88 正常成交 / 6 稀有结构零入场），见[94-key 健康基线](research-backtest/2026-11-23-catalog-94-health.md)                                     |
 | **M4** | 历史成分/退市/ST、周末 bar 第二源、桌面发版与实盘样本  | 挂起 | 依赖外部数据或显式授权；无本地证据前不做横截面外推                                                                                                                                                                                                       |
 
+## 当前阶段（2026-11-23 完成）：底座提速、投资理论闭环与 `/lab` 产品化（Wave 0–3 已交付，待授权提交）
+
+完整规划、12 只精简分层验证池、零迁移优化策略与 Wave 0–3 多 Agent 编排见 [下一阶段主实施计划](project/2026-11-23-next-phase-plan.md)，真实 12 股与原生缠论全谱验证证据见 [Wave 1–3 真实数据验证矩阵](research-backtest/2026-11-23-wave1-theories-matrix.md)：
+
+- **Wave 0（已完成）**：`deliveryBatchPage` 以 `(PRAGMA data_version, total_changes())` 连接级缓存 + 轻量元数据索引实现**零迁移**降阶（保持 `user_version = 23`，万批 500 页 434.57 ms / 单页 P95 1.19 ms）；门禁拆 `heavy`/`io`/`pure` 三组、4 个热点测试进程内化 + 代表性子进程契约断言、Windows Job Object 两跳孤儿回收、统一 `test` 补齐 `tstdx`/`quant-execution`/`quant-rps` 共 7 个包，全量 `pnpm check` 零超时通过。
+- **Wave 1（已完成）**：`FrozenChanObservation` 升级 v2 共享投影（一/二/三买 + `CH14` 真实卖点退出，同股 0 新增 DLL build）、缓存键绑定当前 DLL SHA/ABI/配置、按标的解除多标的 `firstIndex` 限制（`sh600519 + sh688981` 跨上市日组合全通过，旧三买 5,908 前缀逐字节一致）；接通 CANSLIM C1–A3 覆盖、SEPA PIT（`FN230/232/281`）、`sh000300` `M` 大盘制度（缺口日 fail-closed）、8%/7%/MA20/MA50 退出消融、`--pool core-12` 幸存者偏差披露、`gpcw20251231.dat` `300750` 重复记录披露与威科夫逐层漏斗。
+- **Wave 2（已完成）**：抽离共享诊断服务 `src/server/research/diagnose/` 与共享契约 `src/lib/research/diagnose-contract.ts`（CLI 瘦身为薄封装，3 策略 × 3 档 9 组 CLI/Lab 对拍 100% 一致，常规生产回测 strict 零渗漏，取消任务隐藏未完成归档）；`/lab/backtest` 落地三档执行情景对比卡、15 项体检抽屉与缠论/PIT/威科夫披露面板；`/scan` 公式/形态/RPS 候选一键「带入回测」且绝不静默覆盖保活草稿（原生缠论/PIT 候选直达诊断运行表单）。
+- **Wave 3（已完成）**：基于只读 `E:/new_tdx64` 完成 288/288 单元真实矩阵（0 阻断、0 P0、0 残留 `czsc-worker`）、落盘研究矩阵报告、通过最终完整 `pnpm check` 并清理 `.test-data/fleet/` 与任务临时产物；提交、推送与桌面打包分别待授权。
+
 ### 前置探针已完成项（2026-11-22）
 
 | 事项             | 状态     | 口径                                                                                                                                             |
