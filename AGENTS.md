@@ -29,7 +29,7 @@
 
 ## 协作与提交
 
-- 多 Agent 工程协作按五角色路由（指挥官统筹、Codex `gpt-6.2-astra` 复杂攻坚、Codex `gpt-6.2-sol` 专职 Review、本机 Claude Code `claude-deepseek` 默认模型与 Antigravity `gemini-4-hydrogen-high`（`high` 思考强度）双轨日常并行，支持重试与 Fallback），规范与统一调度器见全局技能 `multi-agent-commander` 及本仓 `.agents/fleet.profile.json`；量化研究只读团队的约定继续见 `.agents/skills/quant-team/SKILL.md`。
+- 多 Agent 工程协作按五角色路由（当前会话模型作指挥官统筹、Codex `gpt-6.2-astra`（`high`）复杂攻坚、Codex `gpt-6.2-sol`（`high`）专职 Review、本机 Claude Code `claude-deepseek` 默认模型与 Codex `gpt-6.2-sol`（`high`）双轨日常并行，默认降级仅在 GPT 与 Claude 间切换，`agy-gemini` 仅显式指定时启用），规范与统一调度器见全局技能 `multi-agent-commander` 及本仓 `.agents/fleet.profile.json`；量化研究只读团队的约定继续见 `.agents/skills/quant-team/SKILL.md`。
 - 本仓库调用 Claude CLI 一律使用默认模型与默认思考强度：不传 `--model`、`--effort` 或 fallback model，不设置 `ANTHROPIC_MODEL`，不覆盖模型、思考强度与认证配置；权限显式指定 `--permission-mode bypassPermissions`，不另加或替换其他权限参数。
 - 派单写明文件归属、输入、验收和行为边界，复核深度按风险确定；协调保持简短，只报新结果或阻断。
 - 开始前检查 git 状态，保留用户和其他任务的修改，不因无关 diff 回退、暂存或覆盖。撤销不明来源改动前核对修改时间、进程和归属。
