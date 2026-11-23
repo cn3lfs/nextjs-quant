@@ -17,8 +17,9 @@ import {
 } from "~/server/research/lab-backtest";
 import { buildStrategy } from "../../../scripts/lib/backtest-diagnose/strategy-specs";
 
-const { symbol, dividend, issues } = vi.hoisted(() => ({
+const { symbol, dividend, issues, warrants } = vi.hoisted(() => ({
   issues: [] as { offset: number; reason: string; symbol?: string }[],
+  warrants: [] as TdxXdxr[],
   symbol: "sh600000",
   dividend: {
     date: "2025-01-08",
@@ -33,7 +34,7 @@ vi.mock("~/server/research/causal-price-basis", async (importOriginal) => ({
     typeof import("~/server/research/causal-price-basis")
   >()),
   readResearchPriceActions: async () => ({
-    events: new Map([[symbol, [dividend]]]),
+    events: new Map([[symbol, [dividend, ...warrants]]]),
     issues,
     sourceSha256: "synthetic GBBQ",
   }),
@@ -277,5 +278,34 @@ it("blocks strict causal prices only for own or unattributable GBBQ issues", asy
     }
   } finally {
     issues.length = 0;
+  }
+});
+
+it("drops warrant entitlements only under the record-only GBBQ policy", async () => {
+  const prepare = (policy: "strict" | "record-only") =>
+    prepareLabBacktest(work, undefined, fixture().read, undefined, {
+      ...options,
+      gbbqIssuePolicy: policy,
+    });
+  warrants.push({
+    date: end,
+    category: 13,
+    name: "warrant entitlement",
+    strikePrice: 10,
+    warrantShares: 1,
+  });
+  try {
+    await expect(prepare("strict")).rejects.toThrow(
+      /Unsupported warrant entitlement/,
+    );
+    const frozen = await prepare("record-only");
+    expect(frozen.sources[0]).toMatchObject({ skippedWarrants: [end] });
+    expect(
+      frozen.request.instruments[0]?.actions?.some(
+        (action) => action.date === end,
+      ),
+    ).toBeFalsy();
+  } finally {
+    warrants.length = 0;
   }
 });

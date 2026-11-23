@@ -1,10 +1,12 @@
 import {
-  strategyObjectSchema,
+  createExtendedStudyRule,
+  studyStrategies,
   studyWarmup,
-  volumeStudyBindings,
-  wyckoffStudyBindings,
+  strategyObjectSchema,
   type StrategyObjectInput,
+  type StudyStrategy,
 } from "trading-strategies";
+import type { Bar } from "trading-strategy-core/bars";
 import type { DiagnoseMode } from "./types";
 
 /** The five adapter families approved for the first diagnostic batch. */
@@ -17,46 +19,74 @@ const ADAPTER_STRATEGY_KEYS = [
 ] as const;
 
 /**
- * Research volume-price studies accepted as signal keys. The literal list is
- * checked against the catalog binding record, so a typo or a removed study id
- * fails type checking instead of surfacing as an unknown-key runtime error.
+ * Deterministic, causally valid daily probe. A catalog id is accepted as a
+ * diagnostic signal only when its study rule can be built from this series;
+ * account-state rules (`ma`, `breakout`, ...) return null. The probe is fixed
+ * so the accepted set does not depend on run order or live data.
  */
-const VOLUME_STUDY_STRATEGY_KEYS = [
-  "research-volume-price-protected",
-  "research-volume-flat-expanded",
-  "research-volume-up-contracted",
-  "research-volume-down-contracted",
-  "research-volume-up-normal",
-  "research-volume-flat-contracted",
-  "research-volume-breakout-15",
-  "research-volume-breakout-20",
-  "research-volume-average-cross",
-] as const satisfies readonly (keyof typeof volumeStudyBindings)[];
+const STUDY_PROBE_BARS: readonly Bar[] = (() => {
+  let state = 20240101;
+  const random = () =>
+    (state = (state * 1103515245 + 12345) % 2147483648) / 2147483648;
+  let close = 30;
+  return Array.from({ length: 400 }, (_, index) => {
+    const open = close;
+    close = Math.max(1, open * (1 + (random() - 0.5) * 0.06));
+    const high = Math.max(open, close) * (1 + random() * 0.02);
+    const low = Math.min(open, close) * (1 - random() * 0.02);
+    const volume = Math.round(1000 * (0.6 + random() * 1.8));
+    return {
+      date: new Date(Date.UTC(2016, 0, 1 + index)).toISOString().slice(0, 10),
+      open,
+      high,
+      low,
+      close,
+      volume,
+      amount: close * volume,
+    };
+  });
+})();
 
-/** Research Wyckoff studies accepted as signal keys, checked against the catalog. */
-const WYCKOFF_STUDY_STRATEGY_KEYS = [
-  "research-wy-spring-protected",
-  "research-wy-sos-protected",
-  "research-wy-jac-protected",
-  "research-wy-lps-protected",
-  "research-wy-reaccumulation-protected",
-  "research-wy-trend-pullback-protected",
-] as const satisfies readonly (keyof typeof wyckoffStudyBindings)[];
+/** Memoized probe result so module load builds each catalog rule at most once. */
+const studyRuleAvailability = new Map<string, boolean>();
+function hasExecutableStudyRule(id: StudyStrategy): boolean {
+  const cached = studyRuleAvailability.get(id);
+  if (cached !== undefined) return cached;
+  let available = false;
+  try {
+    available = createExtendedStudyRule(id, STUDY_PROBE_BARS) !== null;
+  } catch {
+    available = false;
+  }
+  studyRuleAvailability.set(id, available);
+  return available;
+}
 
-export const STUDY_STRATEGY_KEYS = [
-  ...VOLUME_STUDY_STRATEGY_KEYS,
-  ...WYCKOFF_STUDY_STRATEGY_KEYS,
-] as const;
+/**
+ * Every fixed catalog study whose rule `createExtendedStudyRule` can run is a
+ * diagnostic signal key. `hold` is catalogued too, but it stays the ledger
+ * control and must never be routed through a study rule.
+ */
+export type StudyStrategyKey = Exclude<StudyStrategy, "hold">;
+export const STUDY_STRATEGY_KEYS: readonly StudyStrategyKey[] =
+  studyStrategies.filter(
+    (id): id is StudyStrategyKey => id !== "hold" && hasExecutableStudyRule(id),
+  );
 
-export const SIGNAL_STRATEGY_KEYS = [
-  ...ADAPTER_STRATEGY_KEYS,
-  ...STUDY_STRATEGY_KEYS,
-] as const;
+export type SignalStrategyKey =
+  (typeof ADAPTER_STRATEGY_KEYS)[number] | StudyStrategyKey;
+
+/** Adapter keys stay first; ids shared with the study catalog appear once. */
+export const SIGNAL_STRATEGY_KEYS: readonly SignalStrategyKey[] = Array.from(
+  new Set<SignalStrategyKey>([
+    ...ADAPTER_STRATEGY_KEYS,
+    ...STUDY_STRATEGY_KEYS,
+  ]),
+);
+
 /** `hold` is the ledger/accounting control, not a strategy. */
 export const CONTROL_KEYS = ["hold"] as const;
 
-export type StudyStrategyKey = (typeof STUDY_STRATEGY_KEYS)[number];
-export type SignalStrategyKey = (typeof SIGNAL_STRATEGY_KEYS)[number];
 export type ControlKey = (typeof CONTROL_KEYS)[number];
 export type StrategyKey = SignalStrategyKey | ControlKey;
 export const STRATEGY_KEYS: readonly StrategyKey[] = [
@@ -67,20 +97,21 @@ export const STRATEGY_KEYS: readonly StrategyKey[] = [
 export const isStrategyKey = (value: string): value is StrategyKey =>
   (STRATEGY_KEYS as readonly string[]).includes(value);
 
+const STUDY_KEY_SET = new Set<string>(STUDY_STRATEGY_KEYS);
 const isStudyStrategyKey = (key: StrategyKey): key is StudyStrategyKey =>
-  (STUDY_STRATEGY_KEYS as readonly StrategyKey[]).includes(key);
+  STUDY_KEY_SET.has(key);
 
 /**
- * Bars that must precede the scored window. The study rules use their catalog
- * warmup; the remaining absolute-price rules settle on 250 trading days (the
- * plan's one-year approximation). The returned bar count is converted to a
- * concrete date by run.ts from the symbol's own daily series.
+ * Bars that must precede the scored window. Accepted study rules use their
+ * catalog warmup; the adapter rules keep their approved values (`turtle` and
+ * `rsi2` are catalog studies too, the remaining three settle on 250 trading
+ * days). The returned bar count is converted to a concrete date by run.ts from
+ * the symbol's own daily series.
  */
 export function warmupBarsFor(key: StrategyKey): number {
   if (key === "hold") return 0;
+  if (key === "turtle" || key === "rsi2") return studyWarmup(key);
   if (isStudyStrategyKey(key)) return studyWarmup(key);
-  if (key === "turtle" || key === "rsi2")
-    return studyWarmup(key as "turtle" | "rsi2");
   return 250;
 }
 
@@ -103,18 +134,6 @@ function rulesFor(
         exit: {
           rule: { kind: "dual-ma", fast: 5, slow: 20, side: "exit" },
         },
-      };
-    case "turtle":
-      return {
-        entry: { kind: "study-rule", strategy: "turtle", side: "entry" },
-        exit: {
-          rule: { kind: "study-rule", strategy: "turtle", side: "exit" },
-        },
-      };
-    case "rsi2":
-      return {
-        entry: { kind: "study-rule", strategy: "rsi2", side: "entry" },
-        exit: { rule: { kind: "study-rule", strategy: "rsi2", side: "exit" } },
       };
     case "double-breakout":
       return {

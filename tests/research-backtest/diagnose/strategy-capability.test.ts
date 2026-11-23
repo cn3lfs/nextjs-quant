@@ -3,6 +3,7 @@ import {
   createExtendedStudyRule,
   prepareStrategy,
   strategyObjectSchema,
+  studyStrategies,
   volumeStudyBindings,
   wyckoffStudyBindings,
 } from "trading-strategies";
@@ -10,8 +11,12 @@ import type { Bar } from "trading-strategy-core/bars";
 import {
   STUDY_STRATEGY_KEYS,
   buildStrategy,
+  isStrategyKey,
+  planDiagnoseCells,
   warmupBarsFor,
 } from "../../../scripts/lib/backtest-diagnose/strategy-specs";
+
+type CatalogStudy = (typeof studyStrategies)[number];
 
 const symbol = "sh600000";
 const bars: Bar[] = Array.from({ length: 320 }, (_, index) => {
@@ -27,6 +32,54 @@ const bars: Bar[] = Array.from({ length: 320 }, (_, index) => {
     amount: close * volume,
   };
 });
+
+/**
+ * Independent copy of the execution probe: a catalog id is a diagnostic signal
+ * key only when its rule can be built from a valid synthetic series. Rule
+ * construction failures are collected so a probe regression fails loudly
+ * instead of silently shrinking the accepted set.
+ */
+const studyProbe: Bar[] = (() => {
+  let state = 20240101;
+  const random = () =>
+    (state = (state * 1103515245 + 12345) % 2147483648) / 2147483648;
+  let close = 30;
+  return Array.from({ length: 400 }, (_, index) => {
+    const open = close;
+    close = Math.max(1, open * (1 + (random() - 0.5) * 0.06));
+    const high = Math.max(open, close) * (1 + random() * 0.02);
+    const low = Math.min(open, close) * (1 - random() * 0.02);
+    const volume = Math.round(1000 * (0.6 + random() * 1.8));
+    return {
+      date: new Date(Date.UTC(2016, 0, 1 + index)).toISOString().slice(0, 10),
+      open,
+      high,
+      low,
+      close,
+      volume,
+      amount: close * volume,
+    };
+  });
+})();
+
+const probeErrors: string[] = [];
+const acceptedStudyKeys: CatalogStudy[] = studyStrategies
+  .map((id) => {
+    try {
+      return { id, rule: createExtendedStudyRule(id, studyProbe) };
+    } catch {
+      probeErrors.push(id);
+      return { id, rule: null };
+    }
+  })
+  .filter(({ id, rule }) => id !== "hold" && rule !== null)
+  .map(({ id }) => id);
+
+/** The 9 volume + 6 Wyckoff ids that predate the catalog-driven expansion. */
+const researchStudyKeys = [
+  ...Object.keys(volumeStudyBindings),
+  ...Object.keys(wyckoffStudyBindings),
+] as CatalogStudy[];
 
 const cases = [
   { key: "dual-ma", entryKind: "dual-ma", entry: true },
@@ -63,7 +116,7 @@ describe.each(["single", "portfolio"] as const)(
       },
     );
 
-    it.each(STUDY_STRATEGY_KEYS)(
+    it.each(researchStudyKeys)(
       "%s research study parses and evaluates as a signal strategy",
       (key) => {
         const symbols = mode === "single" ? [symbol] : [symbol, "sz000001"];
@@ -99,22 +152,96 @@ describe.each(["single", "portfolio"] as const)(
   },
 );
 
-it("accepts exactly the catalog research studies as signal keys", () => {
-  expect([...STUDY_STRATEGY_KEYS].sort()).toEqual(
-    [
+it("accepts exactly the executable catalog studies as signal keys", () => {
+  expect(probeErrors).toEqual([]);
+  expect(acceptedStudyKeys.length).toBeGreaterThan(0);
+  expect([...STUDY_STRATEGY_KEYS]).toEqual(acceptedStudyKeys);
+  expect(new Set(STUDY_STRATEGY_KEYS).size).toBe(STUDY_STRATEGY_KEYS.length);
+  expect([...acceptedStudyKeys]).toEqual(
+    expect.arrayContaining([
       ...Object.keys(volumeStudyBindings),
       ...Object.keys(wyckoffStudyBindings),
-    ].sort(),
+    ]),
   );
-  expect(new Set(STUDY_STRATEGY_KEYS).size).toBe(STUDY_STRATEGY_KEYS.length);
 });
 
-it.each(STUDY_STRATEGY_KEYS)("%s warms up 140 bars", (key) => {
+describe.each(["single", "portfolio"] as const)(
+  "%s accepted study capability",
+  (mode) => {
+    it.each(STUDY_STRATEGY_KEYS)(
+      "%s builds as a study signal and prepares without throwing",
+      (key) => {
+        const symbols = mode === "single" ? [symbol] : [symbol, "sz000001"];
+        const strategy = strategyObjectSchema.parse(
+          buildStrategy(key, symbols, mode),
+        );
+        expect(strategy.id).toBe(`diag-${key}`);
+        expect(strategy.entry).toMatchObject({
+          kind: "study-rule",
+          strategy: key,
+          side: "entry",
+        });
+        expect(strategy.exit).toMatchObject({
+          rule: { kind: "study-rule", strategy: key, side: "exit" },
+        });
+        expect(strategy.universe).toMatchObject({ kind: "symbols", symbols });
+        expect(strategy.sizing).toMatchObject(
+          mode === "single"
+            ? { kind: "weight", weight: 1 }
+            : { kind: "equal", positions: 2 },
+        );
+        expect(() =>
+          prepareStrategy(strategy, bars).evaluate(bars.length - 1),
+        ).not.toThrow();
+      },
+    );
+  },
+);
+
+it.each(researchStudyKeys)("%s warms up 140 bars", (key) => {
   expect(warmupBarsFor(key)).toBe(140);
 });
 
-it("keeps the hold control at zero warmup", () => {
+it("keeps hold as the ledger control rather than a study signal", () => {
   expect(warmupBarsFor("hold")).toBe(0);
+  expect(STUDY_STRATEGY_KEYS).not.toContain("hold");
+  expect(buildStrategy("hold", [symbol], "single").entry).toMatchObject({
+    kind: "constant",
+    value: true,
+  });
+});
+
+it("keeps strategy key planning stable for the expanded catalog", () => {
+  expect(isStrategyKey("hold")).toBe(true);
+  expect(isStrategyKey("theory-squeeze")).toBe(true);
+  expect(isStrategyKey("ma")).toBe(false);
+  expect(() =>
+    planDiagnoseCells({
+      symbols: [symbol],
+      strategies: ["not-a-strategy"],
+      controls: [],
+      mode: "per-symbol",
+    }),
+  ).toThrow("未知诊断策略：not-a-strategy");
+  expect(
+    planDiagnoseCells({
+      symbols: [symbol],
+      strategies: ["theory-squeeze"],
+      controls: ["hold"],
+      mode: "portfolio",
+    }),
+  ).toEqual([
+    { mode: "portfolio", strategy: "theory-squeeze", symbols: [symbol] },
+    { mode: "portfolio", strategy: "hold", symbols: [symbol] },
+  ]);
+  expect(() =>
+    planDiagnoseCells({
+      symbols: [symbol],
+      strategies: ["theory-squeeze", "theory-squeeze"],
+      controls: [],
+      mode: "per-symbol",
+    }),
+  ).toThrow("诊断策略重复");
 });
 
 /**
@@ -334,7 +461,7 @@ const triggerPool: Bar[][] = [
   regime(101, [60, 40, 30, 40, 25, 30]),
 ];
 
-it.each(STUDY_STRATEGY_KEYS)(
+it.each(researchStudyKeys)(
   "%s enters on at least one structural fixture and keeps the rule wired",
   (key) => {
     let hit: { bars: Bar[]; index: number } | null = null;
