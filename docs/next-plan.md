@@ -10,6 +10,18 @@
 - 数据：[GBBQ 按标的归因](research-backtest/2026-11-22-data-hardening.md)，无法归属的记录仍阻断 strict；主板 ST 自 2026-07-06 起按 10% 研究口径。
 - 下一阶段可行性：[缠论/成长/RPS](research-backtest/2026-11-22-batch5-feasibility.md)。
 
+## 下一阶段：策略可用性与数据能力（已启动）
+
+| 事项             | 状态       | 口径                                                                                                                                             |
+| ---------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 通用 study key   | 完成       | 诊断器接受 94 个可构造的 catalog study ID（新增 77），账户型 11 个仍拒绝；见[记录](research-backtest/2026-11-22-generic-study-keys.md)           |
+| 威科夫零入场排查 | 判定完成   | [逐条件计数](research-backtest/2026-11-22-wyckoff-zero-entry.md)：当前参数下属稀有结构，量能/价格带/次日确认未同时满足；不改规则，保留零信号记录 |
+| 成长 PIT         | 审计完成   | [财务 PIT 审计](research-backtest/2026-11-22-growth-pit-audit.md)；下一步做公告日前后小样本对照，再决定 CANSLIM 适配                             |
+| 缠论原生         | 捕获完成   | [spike](research-backtest/2026-11-22-chan-native-spike.md)：`sh600519` 5,908 前缀/87 秒，DLL 身份可冻结；下一步接诊断回放                        |
+| 历史成分/退市    | 待外部数据 | 无本地证据前不做横截面外推                                                                                                                       |
+
+Batch 4 收口项：权证 `skippedWarrants` 路径已补测试；`sz000001` 39 个日历外日期已列入[数据硬化记录](research-backtest/2026-11-22-data-hardening.md)。
+
 ## 2026-11-21：回测与交易基础设施优化已交付
 
 回测引擎与交易基础设施完成一轮结构性优化：去治理化（源锁/深度指纹/构建硬门禁/固定窗口/死板测试）、`AccountBook` 统一账本与 `quant-execution` 包、交割单软删除 v22、PIT/因果复权、窗口读取与按任务预算；后续收口把 sim 账本并入 `AccountBook`、补 `sim_fills.transfer_atoms`（v23）、THS 委托号对账、RPS/chan 热路径索引化，并修复提醒键、加密漏单/拒单重试、真实 NAV 期初现金、观察明细默认值、取消信号、可配置预算与公司行动时点披露。全量根测试 7,769 项零失败（收口前基线）。详见[交付记录](project/2026-11-21-backtest-infra-optimization.md)。生产回测仍使用 number 适配器，bigint 适配器用于行情原子、sim 与外部成交；完整历史指数成分、首次披露财务版本、真实场所历史委托查询仍依赖外部数据或联调。
