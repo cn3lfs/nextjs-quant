@@ -1,10 +1,80 @@
+import { useState } from "react";
 import { patternBreakoutKinds } from "trading-strategies";
 import type { Candidate, Snapshot } from "~/lib/domain";
 import {
   buildScanToLabHandoffHref,
+  normalizePortfolioHandoffSymbols,
   ScanToLabHandoffSchema,
   type ScanToLabHandoff,
 } from "~/lib/research/diagnose-contract";
+
+export const portfolioHandoffLimit = 12;
+export const portfolioHandoffLimitMessage = "组合诊断单次最多选择 12 只标的";
+
+export function batchCandidatesToLabHref({
+  symbols: candidates,
+  handoffSource,
+  label,
+  frozenDate,
+  returnTo,
+}: {
+  symbols: readonly string[];
+  handoffSource: "formula" | "pattern" | "rps";
+  label?: string;
+  frozenDate?: string | null;
+  returnTo?: string;
+}): { href: string; symbols: string[]; truncatedCount: number } | null {
+  const { symbols, truncatedCount } = normalizePortfolioHandoffSymbols(
+    candidates,
+    portfolioHandoffLimit,
+  );
+  if (symbols.length === 0) return null;
+  const fields = ScanToLabHandoffSchema.shape;
+  const href = buildScanToLabHandoffHref({
+    scope: "portfolio-diagnose",
+    handoffSource,
+    symbol: symbols[0],
+    symbols,
+    label: fields.label.safeParse(label).data,
+    frozenDate: fields.frozenDate.safeParse(frozenDate ?? undefined).data,
+    returnTo: fields.returnTo.safeParse(returnTo).data,
+  });
+  return { href, symbols, truncatedCount };
+}
+
+/** A selection only lives as long as its confirmed page. Null means the
+ * observer is loading, unavailable or hidden. Reset before rendering children. */
+export function useCandidateBatchSelection(batchKey: string | null) {
+  const [selection, setSelection] = useState<{
+    key: string | null;
+    symbols: string[];
+  }>({
+    key: batchKey,
+    symbols: [],
+  });
+  const sameBatch = selection.key === batchKey;
+  if (!sameBatch) setSelection({ key: batchKey, symbols: [] });
+  return {
+    symbols: sameBatch ? selection.symbols : [],
+    clear: () => setSelection({ key: batchKey, symbols: [] }),
+    toggle: (symbol: string) => {
+      if (batchKey === null) return;
+      setSelection((current) => {
+        if (current.key !== batchKey) return current;
+        if (current.symbols.includes(symbol))
+          return {
+            key: batchKey,
+            symbols: current.symbols.filter((item) => item !== symbol),
+          };
+        if (current.symbols.length >= portfolioHandoffLimit) return current;
+        const { symbols } = normalizePortfolioHandoffSymbols([symbol]);
+        return symbols.length
+          ? { key: batchKey, symbols: [...current.symbols, symbol] }
+          : current;
+      });
+    },
+  };
+}
 
 /** A candidate's identity inside one confirmed result page. */
 export type ScreenCandidateIdentity = Pick<Candidate, "symbol" | "snapshotId">;

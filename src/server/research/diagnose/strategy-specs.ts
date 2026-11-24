@@ -18,6 +18,8 @@ import {
   type GrowthPitStrategyKey,
 } from "./growth-pit";
 import type { DiagnoseMode } from "./types";
+import { coreBookCapacity } from "./sleeve-attribution";
+import { NATIVE_CHAN_ZD_STOP_KEY, nativeChanZdStopRules } from "./chan-native";
 
 /** The five adapter families approved for the first diagnostic batch. */
 const ADAPTER_STRATEGY_KEYS = [
@@ -101,6 +103,7 @@ export const NATIVE_STRATEGY_KEYS = [
   "research-chan-second",
   "research-chan-third",
   "research-chan-hold-cash",
+  NATIVE_CHAN_ZD_STOP_KEY,
 ] as const;
 export type NativeStrategyKey = (typeof NATIVE_STRATEGY_KEYS)[number];
 export const isNativeStrategyKey = (
@@ -168,6 +171,7 @@ function rulesFor(
   key: StrategyKey,
 ): Pick<StrategyObjectInput, "entry" | "exit"> {
   if (isWyckoffFunnelKey(key)) key = wyckoffFunnelStudies[key];
+  if (key === NATIVE_CHAN_ZD_STOP_KEY) return nativeChanZdStopRules();
   const handoffRules = scanHandoffStrategyRules(key);
   if (handoffRules) return handoffRules;
   if (isPitStrategyKey(key)) return growthPitRulesFor(key);
@@ -208,23 +212,61 @@ export function buildStrategy(
 }
 
 export type DiagnosePlanOptions = {
+  book?: DiagnoseBookKey;
   symbols: readonly string[];
   strategies: readonly string[];
   controls: readonly string[];
   mode: DiagnoseMode | "both";
 };
 
+export const DIAGNOSE_BOOK_PRESETS = {
+  "core-4": {
+    ...coreBookCapacity,
+    sleeves: [
+      { strategyKey: "research-chan-hold-cash", id: "chan", share: 0.25 },
+      { strategyKey: "research-canslim-pit-ma50", id: "canslim", share: 0.25 },
+      { strategyKey: "theory-vcp-close", id: "vcp", share: 0.25 },
+      { strategyKey: "classic-ibs", id: "ibs", share: 0.25 },
+    ],
+    accountMaxUniqueSymbols: 10,
+    accountMaxSymbolWeight: 0.1,
+  },
+} as const;
+export type DiagnoseBookKey = keyof typeof DIAGNOSE_BOOK_PRESETS;
+
 export type PlannedDiagnoseCell = {
   mode: DiagnoseMode;
-  strategy: StrategyKey;
+  strategy: StrategyKey | DiagnoseBookKey;
   symbols: string[];
 };
+
+export function buildDiagnoseCellStrategies(item: PlannedDiagnoseCell) {
+  if (item.strategy === "core-4")
+    return DIAGNOSE_BOOK_PRESETS[item.strategy].sleeves.map(
+      ({ strategyKey, id }) => ({
+        ...buildStrategy(strategyKey, item.symbols, "portfolio"),
+        sleeve: id,
+      }),
+    );
+  return [
+    buildStrategy(
+      item.strategy,
+      item.symbols,
+      item.mode === "portfolio" ? "portfolio" : "single",
+    ),
+  ];
+}
 
 /** Pure cell planning: used by `--plan` and by the runner, never reads data. */
 export function planDiagnoseCells(
   options: DiagnosePlanOptions,
 ): PlannedDiagnoseCell[] {
   if (!options.symbols.length) throw new Error("至少需要一个标的");
+  if (
+    options.book &&
+    (options.strategies.length || options.mode !== "portfolio")
+  )
+    throw new Error("--book 需要 portfolio 模式，且与 --strategies 互斥");
   const unknown = [...options.strategies, ...options.controls].filter(
     (key) => !isStrategyKey(key),
   );
@@ -232,11 +274,17 @@ export function planDiagnoseCells(
     throw new Error(`未知诊断策略：${[...new Set(unknown)].join(", ")}`);
   const signalKeys = options.strategies as SignalStrategyKey[];
   const controlKeys = options.controls as ControlKey[];
-  if (!signalKeys.length && !controlKeys.length)
+  if (!options.book && !signalKeys.length && !controlKeys.length)
     throw new Error("至少需要一条策略或对照");
   const keys: StrategyKey[] = [...signalKeys, ...controlKeys];
   if (new Set(keys).size !== keys.length) throw new Error("诊断策略重复");
   const cells: PlannedDiagnoseCell[] = [];
+  if (options.book)
+    cells.push({
+      mode: "portfolio",
+      strategy: options.book,
+      symbols: [...options.symbols],
+    });
   if (options.mode !== "portfolio")
     for (const strategy of keys)
       for (const symbol of options.symbols)

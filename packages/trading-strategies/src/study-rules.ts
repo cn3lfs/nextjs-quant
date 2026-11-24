@@ -26,12 +26,19 @@ import { calculateFactor } from "trading-strategy-core/factors";
 import type { Bar } from "trading-strategy-core/bars";
 import {
   isVolumeStudy,
+  isWyckoffExitStudy,
   isWyckoffStudy,
+  wyckoffExitStudyBindings,
   wyckoffStudyBindings,
+  wyckoffTrendVol10Diagnostic,
   volumeStudyBindings,
   type StudyStrategy,
 } from "./study-catalog.js";
-import { researchWyckoffSeries } from "./research/wyckoff/research-wyckoff.js";
+import {
+  researchWyckoffSeries,
+  type WyckoffFacts,
+  type WyckoffPoint,
+} from "./research/wyckoff/research-wyckoff.js";
 import { researchVolumeSeries } from "./research/volume/research-volume.js";
 import {
   isLegacySignalStrategy,
@@ -51,6 +58,7 @@ type Rule = (
   enter: boolean;
   exit: boolean;
   entryFraction?: number;
+  exitFraction?: number;
   reason?: string | null;
 };
 
@@ -90,6 +98,51 @@ function frozenCloseProtection(
   };
 }
 
+export function wyckoffTrendNextDayConditions(
+  candidate: Pick<WyckoffFacts, "low" | "high" | "meanVolume">,
+  nextBar: Bar,
+  nextPoint: Pick<WyckoffPoint, "reason">,
+) {
+  return {
+    holdCandidateLow: nextBar.low >= candidate.low,
+    closeAboveCandidateHigh: nextBar.close > candidate.high,
+    volumeGe15xMean20: nextBar.volume >= candidate.meanVolume * 1.5,
+    volumeGe10xMean20: nextBar.volume >= candidate.meanVolume,
+    validNextBarNoReason: !nextPoint.reason,
+  };
+}
+
+function trendVol10Series(bars: readonly Bar[]) {
+  const series = researchWyckoffSeries("wy-trend-pullback-daily", bars);
+  return series.map((row, index) => {
+    const candidate = series[index - 1]?.events.find(
+      (event) => event.kind === "trend" && event.state === "candidate",
+    );
+    if (!candidate || row.ruleStop) return row;
+    const checks = wyckoffTrendNextDayConditions(
+      candidate.facts,
+      bars[index]!,
+      row,
+    );
+    if (
+      !checks.holdCandidateLow ||
+      !checks.closeAboveCandidateHigh ||
+      !checks.validNextBarNoReason ||
+      !checks.volumeGe10xMean20
+    )
+      return row;
+    return {
+      ...row,
+      entry: !row.exit,
+      ruleStop: {
+        price: candidate.facts.low,
+        days: 3,
+        reason: "威科夫冻结候选低点",
+      },
+    };
+  });
+}
+
 /** Signals see completed, causally normalized prices only. Execution stays in the study runner. */
 export function createExtendedStudyRule(
   strategy: StudyStrategy,
@@ -106,6 +159,43 @@ export function createExtendedStudyRule(
     return frozenCloseProtection(
       bars,
       researchWyckoffSeries(wyckoffStudyBindings[strategy], bars),
+      1,
+      "威科夫冻结低点收盘失守",
+    );
+  if (isWyckoffExitStudy(strategy)) {
+    // These JAC controls have a zero-day close guard and use their own exit events.
+    const series = researchWyckoffSeries(
+      wyckoffExitStudyBindings[strategy],
+      bars,
+    );
+    return (index) => {
+      const row = series[index];
+      if (strategy === "research-wy-sow-lpsy") {
+        const fullExit = row?.events.find(
+          (event) =>
+            event.state === "confirmed" &&
+            (event.kind === "ut" || event.kind === "ice"),
+        );
+        if (fullExit)
+          return {
+            enter: false,
+            exit: true,
+            reason: fullExit.kind === "ut" ? "UT 确认全平" : "破冰确认全平",
+          };
+      }
+      const reduction = row?.exit ? undefined : row?.reduction;
+      return {
+        enter: row?.entry ?? false,
+        exit: (row?.exit ?? false) || Boolean(reduction),
+        ...(reduction && { exitFraction: reduction.fraction }),
+        reason: row?.reason ?? reduction?.reason ?? null,
+      };
+    };
+  }
+  if (strategy === wyckoffTrendVol10Diagnostic)
+    return frozenCloseProtection(
+      bars,
+      trendVol10Series(bars),
       1,
       "威科夫冻结低点收盘失守",
     );

@@ -16,7 +16,9 @@ import {
   createNativeStudyRule,
   nativeStudyDefinition,
   type FrozenChanObservation,
+  type FrozenChanPoint,
   type NativeStudyIdentity,
+  type StrategyExternalInputs,
   type StrategyObjectInput,
 } from "trading-strategies";
 import type { CausalPriceProof } from "../causal-price-basis";
@@ -32,6 +34,55 @@ import {
 import type { NativeChanDisclosure } from "./types";
 
 export const NATIVE_CHAN_CACHE_VERSION = "chan-native-cache-2";
+export const NATIVE_CHAN_ZD_STOP_KEY = "research-chan-hold-cash-zd-stop";
+const zdStopField = "chan-zd";
+
+export function nativeChanZdStopRules(): Pick<
+  StrategyObjectInput,
+  "entry" | "exit"
+> {
+  const entry = {
+    kind: "chan-native",
+    profile: "chan-hold-cash-native",
+    side: "entry",
+  } as const;
+  return {
+    entry,
+    exit: {
+      rule: { ...entry, side: "exit" },
+      stop: { kind: "structure", field: zdStopField },
+    },
+  };
+}
+
+export function buildNativeChanZdLevels(
+  observations: readonly FrozenChanObservation[],
+): NonNullable<StrategyExternalInputs["levels"]> {
+  return observations.flatMap((row) => {
+    if (row.projectionVersion !== 2) return [];
+    // CH14 enters on any fresh buy point. Prefer its center on an entry day;
+    // among simultaneous points of the preferred side, use the latest endpoint.
+    let point: FrozenChanPoint | undefined;
+    for (const current of row.points ?? []) {
+      if (!point) {
+        point = current;
+        continue;
+      }
+      const currentIsBuy = current.kind > 0;
+      const selectedIsBuy = point.kind > 0;
+      if (currentIsBuy !== selectedIsBuy) {
+        if (currentIsBuy) point = current;
+      } else if (current.endpointIndex > point.endpointIndex) {
+        point = current;
+      }
+    }
+    const value = point?.center.ZD;
+    return value !== undefined && Number.isFinite(value) && value > 0
+      ? [{ date: row.date, availableAt: row.date, field: zdStopField, value }]
+      : [];
+  });
+}
+
 const digest = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 
@@ -405,6 +456,11 @@ export type NativeChanMultiDisclosure = NativeChanDisclosure & {
   dllHash: string;
   mode: "frozen-replay" | "current-dll-compute";
   captureMetricsAvailable: boolean;
+  zdStop?: {
+    levelCount: number;
+    entrySignalsMissingZd: number;
+    boundary: string;
+  };
 };
 
 export async function attachNativeChanMulti(
@@ -443,16 +499,50 @@ export async function attachNativeChanMulti(
     entry: bind(s.entry),
     exit: s.exit.rule ? { ...s.exit, rule: bind(s.exit.rule) } : s.exit,
   }));
+  const usesZdStop = strategies.some(
+    ({ exit }) =>
+      exit.stop?.kind === "structure" && exit.stop.field === zdStopField,
+  );
   const results = [];
   for (const [i, instrument] of instruments.entries()) {
-    results.push(
-      await loadNativeObservations(instrument, indices[i]!, options),
+    const result = await loadNativeObservations(
+      instrument,
+      indices[i]!,
+      options,
     );
+    if (usesZdStop && result.entry.projectionVersion !== 2)
+      throw new Error(
+        `${instrument.symbol}：CH14 结构止损需要 v2 冻结买卖点观察`,
+      );
+    results.push(result);
   }
   frozen.request.strategies = strategies;
   return results.map(({ entry, cached, captureElapsedMs, cacheLoadMs }, i) => {
     const instrument = instruments[i]!;
     instrument.external = { ...instrument.external, chan: entry.observations };
+    let zdStop: NativeChanMultiDisclosure["zdStop"];
+    if (usesZdStop) {
+      const levels = buildNativeChanZdLevels(entry.observations);
+      const dates = new Set(levels.map(({ date }) => date));
+      instrument.external.levels = [
+        ...(instrument.external.levels ?? []).filter(
+          ({ field }) => field !== zdStopField,
+        ),
+        ...levels,
+      ];
+      zdStop = {
+        levelCount: levels.length,
+        entrySignalsMissingZd: entry.observations.filter(
+          (row) =>
+            !row.baseline &&
+            row.points?.some((point) => point.kind > 0) &&
+            !dates.has(row.date),
+        ).length,
+        boundary:
+          "只使用该收盘观察的原生买卖点所属中枢 ZD，空观察日不沿用旧位。" +
+          "初始止损缺失或换算后不低于实际入场价，由引擎按「缺失或无效初始止损」拒单并记录。",
+      };
+    }
     const source = frozen.sources.find((s) => s.symbol === instrument.symbol);
     const proof = source?.causalPrice as CausalPriceProof | undefined;
     const previous = source?.nativeChan as
@@ -490,6 +580,7 @@ export async function attachNativeChanMulti(
       captureMetricsAvailable: options.mode !== "frozen-replay" || !!recorded,
       auditCount: recorded?.auditCount ?? entry.auditCount,
       pendingCount: recorded?.pendingCount ?? entry.pendingCount,
+      ...(zdStop && { zdStop }),
       signalPriceBasis:
         proof?.kind ??
         (typeof source?.adjustment === "string" ? source.adjustment : null),

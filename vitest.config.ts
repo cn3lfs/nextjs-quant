@@ -4,6 +4,7 @@ import { classifyTestFiles } from "./scripts/lib/test-projects";
 
 const groups = classifyTestFiles();
 const isolated = {
+  fsModuleCache: true,
   setupFiles: ["tests/setup-data-dir.ts"],
   testTimeout: 60000,
 };

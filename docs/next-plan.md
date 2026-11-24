@@ -21,14 +21,23 @@
 | **M3** | 威科夫口径对齐 + 94-key 真实健康基线                   | 完成 | 对齐 `WY08` `MA60 上升`文字（未改阈值）；`sh600519` `strict` 摸底全部 94 个 catalog key **95/95 ok、0 P0**（88 正常成交 / 6 稀有结构零入场），见[94-key 健康基线](research-backtest/2026-11-23-catalog-94-health.md)                                     |
 | **M4** | 历史成分/退市/ST、周末 bar 第二源、桌面发版与实盘样本  | 挂起 | 依赖外部数据或显式授权；无本地证据前不做横截面外推                                                                                                                                                                                                       |
 
-## 当前阶段（2026-11-23 完成）：底座提速、投资理论闭环与 `/lab` 产品化（Wave 0–3 已交付，待授权提交）
+## 下一大迭代（2026-11-24 Wave 0–3 已完成并打包，待授权提交）：计算隔离、样本外验证、四策略组合闭环与工作台 E2E 守护
 
-完整规划、12 只精简分层验证池、零迁移优化策略与 Wave 0–3 多 Agent 编排见 [下一阶段主实施计划](project/2026-11-23-next-phase-plan.md)，真实 12 股与原生缠论全谱验证证据见 [Wave 1–3 真实数据验证矩阵](research-backtest/2026-11-23-wave1-theories-matrix.md)：
+基线提交：`master@abecc47d`。完整实施蓝图见 [下一大迭代主实施计划](project/2026-11-23-iter2-worker-holdout-multibook-plan.md)，基于只读 `E:/new_tdx64`（截至 `2026-11-20`）的 128/128 真实矩阵实证见 [时间留出与四策略组合实证报告](research-backtest/2026-11-24-holdout-and-multibook.md)：
+
+- **Wave 0（已完成并复审通过）**：消除 `pnpm build` 全部 8 条 Turbopack 动态路径告警（0 告警）并修复 `next.config.js` `outputFileTracingExcludes` 与 `instrumentation` 清单排除（`.next/server/instrumentation.js.nft.json` 从 148 降至 **61 文件**，13 个旧 `release/` DLL 归零）；`strategyLabDiagnoseRun` 迁入 `runWorker` 并经主线程唯一 `projectCzsc` / `getCurrentCzscIdentity` 串行代理（`czsc.ts` 增 `isMainThread` 断言）；主线程 SQLite `atomic()` 写锁内校验 `running` → 写回执 → 原子发布；`taskEvidence`/`task-history` 接入 `lab-diagnose` 同步 SQL 投影与 `archiveId === lab-<jobId>` 深链校验；Vitest 5 开启 `fsModuleCache: true`（热跑 transform 占比降至 1%）；保持 SQLite `user_version = 23` 零迁移。
+- **Wave 1（已完成并复审通过）**：提取 `scaleResearchCosts` 修复 `validation-suite.ts` 滚动窗侵入留出期与 `transferSchedule.multiplier` 漏翻两处缺陷，接入默认 `2023-01-01` 历史留出复核（`time-holdout.ts`，含三腿与 DSR/PBO）；`quant-backtest` 落地跨分仓 10 持仓上限、10% 单票权重上限、同日同票 0.5% 共享容量池、`exitFraction`/`targetRemainingQuantity` 防重减半（覆盖单手不误全平、送股余数结单、延迟升级遵守 `signalDelayBars` 及盘中保护抢占）与 N 分仓相关性/峰谷回撤归因（`sleeve-attribution.ts`）；零篡改原规则新增 SEPA A/B（`research-sepa-vcp-close-price/pit/pit-strict-finance`）、威科夫退出闭环（`UT`/`LPSY`/`破冰`）及 99→0 四条件拆解、暖缓存 0 新增 DLL build 的 `research-chan-hold-cash-zd-stop`，并接线 `--book core-4`。
+- **Wave 2（已完成并复审通过）**：扩展 `ScanToLabHandoffSchema` / `labDiagnoseRunInputSchema` 与 `strategyLabDiagnoseCompare` 双归档对比（含缺件/单元完整性与 Windows 大小写路径去重防护）；`/lab/backtest` 落地 `?archive=` 深链、完成回执、双归档并排对比、历史留出卡与四分仓归因卡（脏草稿覆盖需二次确认、组合带入零覆盖保活草稿）；`/scan` 公式/形态/RPS 三视图落地已确认行 1–12 股批量带入；`/accounts` 月度复盘按沪深 A 股分类过滤预填组合诊断；新增 6 条 Playwright E2E（`tests/e2e/lab-diagnose.spec.ts` **6/6 通过**）与确定性 `scripts/desktop-smoke.mjs --diagnose-smoke`。
+- **Wave 3（已完成，待授权提交）**：只读 `E:/new_tdx64` 完成 4 批 **128/128** 真实矩阵（0 阻断、0 失败、0 残留 `czsc-worker`、`CH14+ZD` 暖缓存 12/12 命中 0 新增 DLL build、SEPA 漏斗 `19→2→1`、威科夫 99→0 拆解 `27/8/5/1→0`、`core-4` 峰谷回撤归因误差 `< 2e-16`），落盘实证报告；完整 `pnpm check` **6/6 通过**（8,379 根测试 + 7 包全绿）、`tests/e2e/lab-diagnose.spec.ts` **6/6 通过**、`pnpm desktop:pack` 完成 `release\win-unpacked\GuanlanQuant.exe` 打包（0 Turbopack 告警，`standalone-trace.test.ts` **6/6 通过**）并通过 `--diagnose-smoke --packaged`（`readOnlyWithoutDatabase: true`, `schemaVersion: 23`），已清理全部临时产物。
+
+## 前一阶段（2026-11-23 已交付 `master@abecc47d` 并打包）：底座提速、投资理论闭环与 `/lab` 产品化
+
+完整规划、12 只精简分层验证池、零迁移优化策略与 Wave 0–3 多 Agent 编排见 [前阶段主实施计划](project/2026-11-23-next-phase-plan.md)，真实 12 股与原生缠论全谱验证证据见 [Wave 1–3 真实数据验证矩阵](research-backtest/2026-11-23-wave1-theories-matrix.md)：
 
 - **Wave 0（已完成）**：`deliveryBatchPage` 以 `(PRAGMA data_version, total_changes())` 连接级缓存 + 轻量元数据索引实现**零迁移**降阶（保持 `user_version = 23`，万批 500 页 434.57 ms / 单页 P95 1.19 ms）；门禁拆 `heavy`/`io`/`pure` 三组、4 个热点测试进程内化 + 代表性子进程契约断言、Windows Job Object 两跳孤儿回收、统一 `test` 补齐 `tstdx`/`quant-execution`/`quant-rps` 共 7 个包，全量 `pnpm check` 零超时通过。
 - **Wave 1（已完成）**：`FrozenChanObservation` 升级 v2 共享投影（一/二/三买 + `CH14` 真实卖点退出，同股 0 新增 DLL build）、缓存键绑定当前 DLL SHA/ABI/配置、按标的解除多标的 `firstIndex` 限制（`sh600519 + sh688981` 跨上市日组合全通过，旧三买 5,908 前缀逐字节一致）；接通 CANSLIM C1–A3 覆盖、SEPA PIT（`FN230/232/281`）、`sh000300` `M` 大盘制度（缺口日 fail-closed）、8%/7%/MA20/MA50 退出消融、`--pool core-12` 幸存者偏差披露、`gpcw20251231.dat` `300750` 重复记录披露与威科夫逐层漏斗。
 - **Wave 2（已完成）**：抽离共享诊断服务 `src/server/research/diagnose/` 与共享契约 `src/lib/research/diagnose-contract.ts`（CLI 瘦身为薄封装，3 策略 × 3 档 9 组 CLI/Lab 对拍 100% 一致，常规生产回测 strict 零渗漏，取消任务隐藏未完成归档）；`/lab/backtest` 落地三档执行情景对比卡、15 项体检抽屉与缠论/PIT/威科夫披露面板；`/scan` 公式/形态/RPS 候选一键「带入回测」且绝不静默覆盖保活草稿（原生缠论/PIT 候选直达诊断运行表单）。
-- **Wave 3（已完成）**：基于只读 `E:/new_tdx64` 完成 288/288 单元真实矩阵（0 阻断、0 P0、0 残留 `czsc-worker`）、落盘研究矩阵报告、通过最终完整 `pnpm check` 并清理 `.test-data/fleet/` 与任务临时产物；提交、推送与桌面打包分别待授权。
+- **Wave 3（已完成）**：基于只读 `E:/new_tdx64` 完成 288/288 单元真实矩阵（0 阻断、0 P0、0 残留 `czsc-worker`）、落盘研究矩阵报告、通过最终完整 `pnpm check`（8,290 根测试 + 7 包全绿）、清理全部临时产物，已提交至本地 `master@abecc47d` 并完成 `release\win-unpacked\GuanlanQuant.exe` 桌面打包。
 
 ### 前置探针已完成项（2026-11-22）
 

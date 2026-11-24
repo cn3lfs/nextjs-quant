@@ -1,7 +1,7 @@
 import { sqlite } from ".";
 import { formatNumber } from "trading-strategy-core/format-number";
 
-/** Small result projection for the three local Lab/System tasks. Full frozen
+/** Small result projection for local Lab/System tasks. Full frozen
  * inputs are read only by an explicit export, never by task polling. */
 export function taskEvidence(id: string) {
   const row = sqlite()
@@ -20,6 +20,17 @@ export function taskEvidence(id: string) {
     (SELECT sum(json_extract(value,'$.missing.setup')) FROM json_each(payload,'$.result.frozen.sources')) missingSetup,
     (SELECT sum(json_extract(value,'$.missing.background')) FROM json_each(payload,'$.result.frozen.sources')) missingBackground,
     json_extract(payload,'$.result.datasets') datasets,
+    json_extract(payload,'$.result.archiveId') archiveId,
+    CASE WHEN json_type(payload,'$.result.strategyKeys')='array' THEN json_extract(payload,'$.result.strategyKeys') END strategyKeys,
+    CASE WHEN json_type(payload,'$.result.symbols')='array' THEN json_extract(payload,'$.result.symbols') END symbols,
+    CASE WHEN json_type(payload,'$.result.scenarios')='array' THEN json_extract(payload,'$.result.scenarios') END scenarios,
+    json_extract(payload,'$.result.statusCounts.ok') ok,
+    json_extract(payload,'$.result.statusCounts.blocked') blocked,
+    json_extract(payload,'$.result.statusCounts.failed') failed,
+    json_extract(payload,'$.result.statusCounts.zeroSignal') zeroSignal,
+    json_extract(payload,'$.result.boundaryState') boundaryState,
+    json_extract(payload,'$.result.driftWarningsCount') driftWarningsCount,
+    json_extract(payload,'$.result.missingFilesCount') missingFilesCount,
     (SELECT json_group_array(json_object('symbol',json_extract(value,'$.symbol'),'interval',json_extract(value,'$.interval'),
       'count',json_extract(value,'$.count'),'files',json_array_length(value,'$.files'),'gaps',json_array_length(value,'$.gaps'))) FROM json_each(payload,'$.result.series')) series
     FROM records WHERE id=? AND kind='job' AND json_extract(payload,'$.status')='completed'`,
@@ -43,17 +54,55 @@ export function taskEvidence(id: string) {
         missingSetup: number | null;
         missingBackground: number | null;
         datasets: string | null;
+        archiveId: string | null;
+        strategyKeys: string | null;
+        symbols: string | null;
+        scenarios: string | null;
+        ok: number | null;
+        blocked: number | null;
+        failed: number | null;
+        zeroSignal: number | null;
+        boundaryState: string | null;
+        driftWarningsCount: number | null;
+        missingFilesCount: number | null;
         series: string | null;
       }
     | undefined;
   if (
     !row ||
-    !["lab-backtest", "research-command", "binance-archive-audit"].includes(
-      row.kind,
-    )
+    ![
+      "lab-backtest",
+      "lab-diagnose",
+      "research-command",
+      "binance-archive-audit",
+    ].includes(row.kind)
   )
     return null;
   const fields: { label: string; value: string }[] = [];
+  if (row.kind === "lab-diagnose") {
+    // Older receipts only carry archiveId. Preserve unknown counts in those rows.
+    const labels = (array: string | null) =>
+      array ? (JSON.parse(array) as string[]).join("、") : "未知";
+    fields.push(
+      { label: "策略", value: labels(row.strategyKeys) },
+      { label: "标的", value: labels(row.symbols) },
+      { label: "执行情景", value: labels(row.scenarios) },
+      {
+        label: "状态汇总",
+        value: `正常 ${row.ok ?? "未知"} · 阻断 ${row.blocked ?? "未知"} · 失败 ${row.failed ?? "未知"} · 零信号 ${row.zeroSignal ?? "未知"}`,
+      },
+      { label: "归档状态", value: row.boundaryState ?? "未知" },
+      { label: "漂移警告", value: String(row.driftWarningsCount ?? "未知") },
+      { label: "缺失文件", value: String(row.missingFilesCount ?? "未知") },
+      { label: "归档编号", value: row.archiveId ?? "未知" },
+    );
+    return {
+      kind: row.kind,
+      fields,
+      boundary:
+        "摘要记录各执行情景的诊断结果。零信号计入正常情景，回放结果不能证明策略有效。",
+    };
+  }
   if (row.kind === "lab-backtest") {
     fields.push(
       {

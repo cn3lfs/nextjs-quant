@@ -1,7 +1,11 @@
 import { createHash } from "node:crypto";
 import { readSnapshot } from "tstdx/local";
 import type { FinancialReportSnapshot } from "tstdx/financial-model";
-import { studyWarmup, type StrategyObjectInput } from "trading-strategies";
+import {
+  createTheoryStructureRule,
+  studyWarmup,
+  type StrategyObjectInput,
+} from "trading-strategies";
 import { researchCanslimHighSeries } from "trading-strategies/research/canslim/research-canslim-high";
 import { researchSepaSeries } from "trading-strategies/research/canslim/research-sepa";
 import type { Bar } from "trading-strategy-core/bars";
@@ -145,6 +149,18 @@ export function evaluateMarketRegimeAtDates(
   return { days, ...counts, boundary: marketBoundary };
 }
 
+export const SEPA_VCP_CLOSE_STRATEGY_KEYS = Object.freeze([
+  "research-sepa-vcp-close-price",
+  "research-sepa-vcp-close-pit",
+  "research-sepa-vcp-close-pit-strict-finance",
+] as const);
+export type SepaVcpCloseStrategyKey =
+  (typeof SEPA_VCP_CLOSE_STRATEGY_KEYS)[number];
+export const isSepaVcpCloseStrategyKey = (
+  key: string,
+): key is SepaVcpCloseStrategyKey =>
+  (SEPA_VCP_CLOSE_STRATEGY_KEYS as readonly string[]).includes(key);
+
 export const GROWTH_PIT_STRATEGY_KEYS = Object.freeze([
   "research-canslim-pit",
   "research-canslim-pit-m",
@@ -156,6 +172,7 @@ export const GROWTH_PIT_STRATEGY_KEYS = Object.freeze([
   "research-sepa-pit-m",
   "research-sepa-pit-stop8",
   "research-sepa-pit-ma50",
+  ...SEPA_VCP_CLOSE_STRATEGY_KEYS,
 ] as const);
 export type GrowthPitStrategyKey = (typeof GROWTH_PIT_STRATEGY_KEYS)[number];
 export const isGrowthPitStrategyKey = (
@@ -204,17 +221,25 @@ const strategyVariants = {
     { kind: "ma-close-breakdown", period: 50 },
   ],
 } as const satisfies Record<
-  GrowthPitStrategyKey,
+  Exclude<GrowthPitStrategyKey, SepaVcpCloseStrategyKey>,
   readonly ["canslim" | "sepa", boolean, GrowthExitAblation]
 >;
 
-export function growthPitWarmupBars(_key: GrowthPitStrategyKey) {
+export function growthPitWarmupBars(key: GrowthPitStrategyKey) {
+  if (isSepaVcpCloseStrategyKey(key)) return studyWarmup("theory-vcp-close");
   return studyWarmup("research-growth");
 }
+
+const vcpCloseMaxBars = 6;
 
 export function growthPitRulesFor(
   key: GrowthPitStrategyKey,
 ): Pick<StrategyObjectInput, "entry" | "exit"> {
+  if (isSepaVcpCloseStrategyKey(key))
+    return {
+      entry: { kind: "external", id: key, side: "entry" },
+      exit: { maxBars: vcpCloseMaxBars },
+    };
   const [family, , ablation] = strategyVariants[key];
   let exit: StrategyObjectInput["exit"];
   if (ablation.kind === "fixed-stop")
@@ -234,6 +259,7 @@ export function buildGrowthExitSeries(
   key: GrowthPitStrategyKey,
   bars: readonly Bar[],
 ) {
+  if (isSepaVcpCloseStrategyKey(key)) return bars.map(() => false);
   const [, , exit] = strategyVariants[key];
   if (exit.kind !== "ma-close-breakdown") return bars.map(() => false);
   const averages = ma(bars, exit.period);
@@ -257,7 +283,6 @@ export type GrowthPitDisclosure = CanslimPitDisclosure & {
   checkCoverage?: CanslimPitEvaluation["checkCoverage"];
   sepaPit?: SepaDisclosure;
   marketRegime?: MarketDisclosure;
-  exitAblation: GrowthExitAblation;
   /** The engine gives a simultaneous close exit priority over entry. */
   exitSuppressedEntrySignals?: number;
   funnel: {
@@ -269,7 +294,10 @@ export type GrowthPitDisclosure = CanslimPitDisclosure & {
     tolerantPitFinanceSignals?: number;
   };
   duplicateIssues: PitDuplicateIssue[];
-};
+} & (
+    | { exitAblation: GrowthExitAblation; maxBars?: never }
+    | { maxBars: 6; exitAblation?: never }
+  );
 
 export type GrowthPitSignalOptions = {
   tdxRoot: string;
@@ -313,6 +341,8 @@ export async function attachGrowthPitSignals(
   frozen: Pick<FrozenLabBacktest, "request">,
   options: GrowthPitSignalOptions,
 ): Promise<GrowthPitDisclosure[]> {
+  if (isSepaVcpCloseStrategyKey(key))
+    return attachSepaVcpCloseSignals(key, frozen, options);
   const [family, usesMarket, exitAblation] = strategyVariants[key];
   const { instruments, start, end } = frozen.request;
   const warmup = growthPitWarmupBars(key);
@@ -495,6 +525,112 @@ export async function attachGrowthPitSignals(
       }),
       funnel,
       duplicateIssues: canslim?.duplicateIssues ?? sepa!.duplicateRecordIssues,
+    });
+  }
+  return disclosures;
+}
+
+async function attachSepaVcpCloseSignals(
+  key: SepaVcpCloseStrategyKey,
+  frozen: Pick<FrozenLabBacktest, "request">,
+  options: GrowthPitSignalOptions,
+): Promise<GrowthPitDisclosure[]> {
+  const { instruments, start, end } = frozen.request;
+  const warmup = growthPitWarmupBars(key);
+  const priceOnly = key === "research-sepa-vcp-close-price";
+  const strictFinance = key === "research-sepa-vcp-close-pit-strict-finance";
+  const readHistory = options.readFinancialHistory ?? readLocalFinancialHistory;
+  const disclosures: GrowthPitDisclosure[] = [];
+  for (const instrument of instruments) {
+    const { symbol, signalBars } = instrument;
+    const scoredBars = signalBars.filter(
+      ({ date }, index) => index >= warmup && date >= start && date <= end,
+    );
+    const history = priceOnly
+      ? null
+      : await readHistory(options.tdxRoot, symbol, {
+          asOf: end,
+          strict: true,
+          limit: 200,
+        });
+    const pit = history
+      ? buildSepaPitSeries(history.reports, scoredBars, history)
+      : null;
+    const pitByDate = new Map(pit?.days.map((day) => [day.date, day]));
+    const priceRule = createTheoryStructureRule(
+      "theory-vcp-close",
+      signalBars,
+    )!;
+    const funnel: GrowthPitDisclosure["funnel"] = {
+      priceSignals: 0,
+      trendVcpSignals: 0,
+      pitFinanceSignals: 0,
+      marketRegimeSignals: 0,
+      ...(pit && { strictPitFinanceSignals: 0, tolerantPitFinanceSignals: 0 }),
+    };
+    const signals = signalBars.map(({ date }, index) => {
+      const row = { id: key, date, availableAt: date, exit: false };
+      if (index < warmup || date < start || date > end)
+        return { ...row, entry: null };
+      const priceEntry = priceRule(index, {
+        entry: 0,
+        entryIndex: index,
+      }).enter;
+      const finance = pitByDate.get(date);
+      const pitPass = strictFinance
+        ? finance?.qualifiedStrict
+        : finance?.qualifiedTolerant;
+      const entry = priceEntry && (priceOnly || pitPass === true);
+      if (priceEntry) {
+        funnel.priceSignals++;
+        funnel.trendVcpSignals++;
+        if (finance?.qualifiedStrict) funnel.strictPitFinanceSignals!++;
+        if (finance?.gate === "tolerant-pass")
+          funnel.tolerantPitFinanceSignals!++;
+        if (pitPass) funnel.pitFinanceSignals++;
+      }
+      if (entry) funnel.marketRegimeSignals++;
+      return { ...row, entry };
+    });
+    instrument.external = {
+      ...instrument.external,
+      signals: [
+        ...(instrument.external?.signals ?? []).filter(
+          (signal) => signal.id !== key,
+        ),
+        ...signals,
+      ],
+    };
+    let sepaPit: SepaDisclosure | undefined;
+    if (pit) {
+      const {
+        days: _days,
+        duplicateRecordIssues: _duplicates,
+        ...summary
+      } = pit;
+      sepaPit = summary;
+    }
+    disclosures.push({
+      symbol,
+      strictReportCount: pit?.strictReportCount ?? 0,
+      reportDateRange: pit?.reportDateRange ?? null,
+      qualifiedDays: strictFinance
+        ? (pit?.strictPassDays ?? 0)
+        : (pit?.strictPassDays ?? 0) + (pit?.tolerantPassDays ?? 0),
+      missingDays: pit?.incompleteDays ?? 0,
+      conflictDays: 0,
+      priceSignalCount: funnel.priceSignals,
+      pitFilteredSignalCount: funnel.pitFinanceSignals,
+      sourceIssuesCount: history?.issues.length ?? 0,
+      boundary:
+        `直接使用 theory-vcp-close 日线入场，计入成交日持有 ${vcpCloseMaxBars} 根后请求退出。` +
+        (pit
+          ? `${pit.boundary} 财务缺失时禁入。${strictFinance ? "四项均须达到严格阈值。" : "接受既有严格档或宽松档财务通过。"}`
+          : "纯价格基线，不读取财报。"),
+      ...(sepaPit && { sepaPit }),
+      maxBars: vcpCloseMaxBars,
+      funnel,
+      duplicateIssues: pit?.duplicateRecordIssues ?? [],
     });
   }
   return disclosures;

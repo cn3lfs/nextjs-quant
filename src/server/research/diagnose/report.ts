@@ -6,6 +6,8 @@ const escapeCell = (value: string) =>
   value.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
 const cellLabel = (cell: DiagnoseCell) =>
   `${cell.mode}/${cell.strategy}/${cell.symbols.join("+")}`;
+const strategyLabel = (cell: DiagnoseCell, row: { strategyKey?: string }) =>
+  row.strategyKey ? `${cellLabel(cell)} · ${row.strategyKey}` : cellLabel(cell);
 
 function markdownTable(header: string[], rows: (string | number)[][]) {
   return [
@@ -141,7 +143,7 @@ function nativeSection(cells: readonly DiagnoseCell[]) {
     "信号价基",
   ];
   const body = rows.map(({ cell, row }) => [
-    cellLabel(cell),
+    strategyLabel(cell, row),
     row.symbol,
     row.firstIndex,
     row.projectionVersion,
@@ -190,7 +192,7 @@ function growthPitSection(cells: readonly DiagnoseCell[]) {
     "财务包问题数",
   ];
   const body = rows.map(({ cell, row }) => [
-    cellLabel(cell),
+    strategyLabel(cell, row),
     row.symbol,
     String(row.strictReportCount),
     row.reportDateRange
@@ -215,14 +217,20 @@ function growthPitSection(cells: readonly DiagnoseCell[]) {
       const { funnel, checkCoverage, sepaPit, marketRegime, exitAblation } =
         row;
       const exit =
-        exitAblation.kind === "5-bar"
-          ? "5 根"
-          : exitAblation.kind === "fixed-stop"
-            ? `${Math.round(exitAblation.fraction * 100)}% 固定止损`
-            : `收盘跌破 MA${exitAblation.period}`;
+        exitAblation === undefined
+          ? `${row.maxBars} 根`
+          : exitAblation.kind === "5-bar"
+            ? "5 根"
+            : exitAblation.kind === "fixed-stop"
+              ? `${Math.round(exitAblation.fraction * 100)}% 固定止损`
+              : `收盘跌破 MA${exitAblation.period}`;
+      const ruleSuffix =
+        row.ruleId && row.ruleId !== (row.strategyKey ?? cell.strategy)
+          ? ` (${row.ruleId})`
+          : "";
       const details = [
         "",
-        `### ${cell.strategy} · ${cell.mode} · ${row.symbol}`,
+        `### ${row.strategyKey ?? cell.strategy}${ruleSuffix} · ${cell.mode} · ${row.symbol}`,
         "",
         `- 入场漏斗（价量 → 趋势/VCP → PIT 财务 → 大盘过滤后） ${funnel.priceSignals} → ${funnel.trendVcpSignals} → ${funnel.pitFinanceSignals} → ${funnel.marketRegimeSignals}`,
         `- 退出规则：${exit}`,
@@ -289,7 +297,7 @@ function wyckoffSection(cells: readonly DiagnoseCell[]) {
         "跨窗口候选",
       ],
       rows.map(({ cell, row }) => [
-        cellLabel(cell),
+        strategyLabel(cell, row),
         row.symbol,
         row.parentEvents,
         row.pullbackShrinkage,
@@ -306,7 +314,167 @@ function wyckoffSection(cells: readonly DiagnoseCell[]) {
     ...[...new Set(rows.map(({ row }) => row.boundary))].map(
       (boundary) => `> ${boundary}`,
     ),
+    ...rows.flatMap(({ cell, row }) =>
+      row.nextDayBreakdown
+        ? [
+            "",
+            `### ${strategyLabel(cell, row)} · ${row.symbol} 次日确认条件`,
+            markdownTable(
+              [
+                "有次日行情",
+                "守住候选低点",
+                "突破候选高点",
+                "量 ≥ 1.5 倍",
+                "量 ≥ 1.0 倍",
+                "次日有效",
+                "两个价格条件均通过",
+                "原四条件均通过",
+              ],
+              [
+                [
+                  row.nextDayBreakdown.candidatesWithNextBar,
+                  row.nextDayBreakdown.holdCandidateLow,
+                  row.nextDayBreakdown.closeAboveCandidateHigh,
+                  row.nextDayBreakdown.volumeGe15xMean20,
+                  row.nextDayBreakdown.volumeGe10xMean20,
+                  row.nextDayBreakdown.validNextBarNoReason,
+                  row.nextDayBreakdown.holdAndCloseAboveHigh,
+                  row.nextDayBreakdown.allFourConfirmed,
+                ],
+              ],
+            ),
+          ]
+        : [],
+    ),
   ].join("\n");
+}
+
+const percent = (v: number | null) =>
+  v === null ? "—" : `${(v * 100).toFixed(3)}%`;
+const metric = (v: number | null) => (v === null ? "—" : v.toFixed(4));
+
+function attributionSection(cell: DiagnoseCell) {
+  const a = cell.sleeveAttribution;
+  if (!a) return [];
+  return [
+    `## 分仓归因 · ${cellLabel(cell)}`,
+    "",
+    `组合最大回撤 ${percent(a.maxDrawdown)}，峰值 ${a.peakDate}（${a.peakEquity.toFixed(2)}），谷值 ${a.troughDate}（${a.troughEquity.toFixed(2)}）。分仓贡献合计 ${percent(a.contributionSum)}。`,
+    "",
+    markdownTable(
+      [
+        "分仓",
+        "期初权益",
+        "期末权益",
+        "收益",
+        "最大回撤",
+        "成交笔数",
+        "平均权重",
+        "峰谷回撤贡献",
+      ],
+      a.sleeves.map((s) => [
+        s.id,
+        s.initialEquity.toFixed(2),
+        s.finalEquity.toFixed(2),
+        percent(s.return),
+        percent(s.maxDrawdown),
+        s.trades,
+        percent(s.averageWeight),
+        percent(s.drawdownContribution),
+      ]),
+    ),
+    "",
+    "### 分仓日收益相关性",
+    "",
+    markdownTable(
+      ["分仓 A", "分仓 B", "重叠日", "相关系数", "缺失原因"],
+      a.correlations.map((pair) => [
+        pair.left,
+        pair.right,
+        pair.overlap,
+        metric(pair.correlation),
+        pair.reason ?? "",
+      ]),
+    ),
+    "",
+    a.transferBasis,
+    "",
+  ];
+}
+
+function holdoutSection(cell: DiagnoseCell) {
+  const review = cell.timeHoldout;
+  if (!review) return [];
+  const { devSummary, devWindowRange, holdout, holdoutRange, statistics } =
+    review;
+  const legs = ["base", "doubledCost", "delayed"] as const;
+  const lines = [
+    `## 时间留出 · ${cellLabel(cell)}`,
+    "",
+    `${review.classification} · 切点 ${review.holdoutStart} · ${review.status} · ${review.passed ? "通过" : "未通过"}`,
+    "",
+    review.disclosure,
+    "",
+  ];
+  if (devWindowRange && devSummary)
+    lines.push(
+      `### Dev 滚动窗 · ${devWindowRange.start} 至 ${devWindowRange.end}（共 ${devSummary.windowCount} 窗，通过风险调整标准的窗口数为 ${devSummary.positiveWindows}）`,
+      "",
+      markdownTable(
+        ["情景", "平均收益", "平均夏普", "最差回撤", "交易数"],
+        legs.map((leg) => {
+          const s = devSummary[leg];
+          return [
+            leg,
+            percent(s.meanReturn),
+            metric(s.meanSharpe),
+            percent(s.worstDrawdown),
+            s.trades,
+          ];
+        }),
+      ),
+      "",
+    );
+  if (holdoutRange && holdout)
+    lines.push(
+      `### Holdout · ${holdoutRange.start} 至 ${holdoutRange.end}`,
+      "",
+      markdownTable(
+        ["情景", "收益", "超额收益", "最大回撤", "夏普", "交易数", "费用"],
+        legs.map((leg) => {
+          const s = holdout[leg];
+          return [
+            leg,
+            percent(s.return),
+            percent(s.excess),
+            percent(s.drawdown),
+            metric(s.sharpe),
+            s.trades,
+            s.fees.toFixed(2),
+          ];
+        }),
+      ),
+      "",
+    );
+  return [
+    ...lines,
+    markdownTable(
+      ["DSR", "DSR 门槛", "PBO", "有效试验数"],
+      [
+        [
+          metric(statistics.dsr),
+          statistics.dsrThreshold,
+          metric(statistics.pbo),
+          statistics.effectiveTrials,
+        ],
+      ],
+    ),
+    "",
+    statistics.note,
+    "",
+    ...review.reasons.map((reason) => `- ${reason}`),
+    "",
+  ];
 }
 
 export function renderReport(
@@ -343,6 +511,8 @@ export function renderReport(
     ...(native ? [native, ""] : []),
     ...(growthPit ? [growthPit, ""] : []),
     ...(wyckoff ? [wyckoff, ""] : []),
+    ...cells.flatMap(attributionSection),
+    ...cells.flatMap(holdoutSection),
     "## 问题分级",
     "",
     issueSection(cells),

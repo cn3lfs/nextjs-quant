@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 
 import { rpsPeriods } from "quant-rps";
@@ -12,10 +13,20 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import { rpsPeriodLabel } from "~/lib/screening/rps";
-import { rpsCandidateToLabHref } from "~/lib/screening/screen-candidate-navigation";
-import type { RpsCondition } from "~/lib/screening/rps-conditions";
+import {
+  batchCandidatesToLabHref,
+  portfolioHandoffLimit,
+  portfolioHandoffLimitMessage,
+  rpsCandidateToLabHref,
+  useCandidateBatchSelection,
+} from "~/lib/screening/screen-candidate-navigation";
+import {
+  rpsConditionsSchema,
+  type RpsCondition,
+} from "~/lib/screening/rps-conditions";
 import {
   defaultRpsTablePeriods,
+  marketPoolQuerySchema,
   rpsSortColumnId,
   type MarketPoolRow,
 } from "~/lib/market/market-pool";
@@ -45,6 +56,62 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 
 const rowKey = (row: MarketPoolRow) => row.symbol;
+type RankingFilters = {
+  period: number;
+  search: string;
+  conditions: RpsCondition[];
+  order: TableSort;
+};
+const rankingSortColumns = new Set([
+  "symbol",
+  "rank",
+  "rps",
+  "return",
+  "reason",
+]);
+
+function readRankingFilters(query: string | null): RankingFilters {
+  const params = new URLSearchParams(query ?? "");
+  const fields = marketPoolQuerySchema.shape;
+  const sortPeriod = fields.period.safeParse(Number(params.get("sortPeriod")));
+  const sortColumn = params.get("sortColumn") ?? "";
+  const sortId = sortPeriod.success
+    ? rpsSortColumnId(sortPeriod.data)
+    : rankingSortColumns.has(sortColumn)
+      ? sortColumn
+      : null;
+  const conditions = params.getAll("rpsCondition").map((condition) => {
+    const [period, side, value] = condition.split(",");
+    return { period: Number(period), side, value: Number(value) };
+  });
+  return {
+    period: fields.period.catch(50).parse(Number(params.get("period"))),
+    search: (params.get("search") ?? "").slice(0, 80),
+    conditions: rpsConditionsSchema.safeParse(conditions).data ?? [],
+    order: sortId
+      ? { id: sortId, desc: params.get("descending") === "true" }
+      : null,
+  };
+}
+
+function rpsRankingHref({ period, search, conditions, order }: RankingFilters) {
+  const params = new URLSearchParams({ tab: "rps", period: String(period) });
+  if (search) params.set("search", search);
+  for (const condition of conditions)
+    params.append(
+      "rpsCondition",
+      `${condition.period},${condition.side},${condition.value}`,
+    );
+  if (order) {
+    // The allowlisted return URL never embeds a scheme-like `rps:<period>` value.
+    const sortPeriod = rpsPeriods.find((p) => rpsSortColumnId(p) === order.id);
+    if (sortPeriod) params.set("sortPeriod", String(sortPeriod));
+    else params.set("sortColumn", order.id);
+    params.set("descending", String(order.desc));
+  }
+  return `/scan?${params}`;
+}
+
 const rpsRankingMethodology = [
   {
     label: "排名口径",
@@ -111,12 +178,26 @@ function observationLabel(
  */
 export function StockRpsRanking() {
   const visible = usePanelVisible();
-  const [period, setPeriod] = useState(50);
-  const [search, setSearch] = useState("");
+  const router = useRouter();
+  const route = useSearchParams();
+  const linkedFilters =
+    visible && route?.get("tab") === "rps" && route.has("period")
+      ? route.toString()
+      : null;
   // Applied conditions are the only ones in the query key; draft edits wait for
   // 「应用条件」 so typing a threshold cannot produce a request per keystroke.
-  const [conditions, setConditions] = useState<RpsCondition[]>([]);
-  const [order, setOrder] = useState<TableSort>(null);
+  const [filters, setFilters] = useState(() =>
+    readRankingFilters(linkedFilters),
+  );
+  const [appliedLink, setAppliedLink] = useState(linkedFilters);
+  if (appliedLink !== linkedFilters) {
+    setAppliedLink(linkedFilters);
+    if (linkedFilters) setFilters(readRankingFilters(linkedFilters));
+  }
+  const { period, search, conditions, order } = filters;
+  const updateFilters = (patch: Partial<RankingFilters>) =>
+    setFilters((current) => ({ ...current, ...patch }));
+  const returnTo = rpsRankingHref(filters);
   const resetKey = JSON.stringify([search, period, conditions, order]);
   const cursor = useTablePage(resetKey);
   const [conditionsOpen, setConditionsOpen] = useState(false);
@@ -170,13 +251,14 @@ export function StockRpsRanking() {
   // page. A same-key refetch keeps it; a key change or a failed refresh does not.
   const result =
     page.isSuccess && !page.isPlaceholderData ? page.data : undefined;
+  const snapshotKey = `${result?.rps?.date ?? ""}:${result?.rps?.inputHash ?? ""}:${result?.rps?.observation?.createdAt ?? ""}`;
   const batches = useAccumulatedPages({
     resetKey,
     pageIndex: cursor.pageIndex,
     items: result?.rows,
     total: result?.total,
     isSuccess: !page.isFetching,
-    snapshotKey: `${result?.rps?.date ?? ""}:${result?.rps?.inputHash ?? ""}:${result?.rps?.observation?.createdAt ?? ""}`,
+    snapshotKey,
     onSnapshotDrift: cursor.restart,
     pageSize: 20,
     metadata: result,
@@ -227,7 +309,57 @@ export function StockRpsRanking() {
   })
     ? confirmed
     : undefined;
+  const batchReady = !!handoffBatch?.rps?.date && handoffBatch === result;
+  const batchSelection = useCandidateBatchSelection(
+    batchReady
+      ? JSON.stringify([
+          resetKey,
+          cursor.pageIndex,
+          snapshotKey,
+          job.data?.progress?.id,
+          page.dataUpdatedAt,
+        ])
+      : null,
+  );
+  const batchRows = new Set(batchReady ? result.rows.map(rowKey) : []);
+  const batchHandoff = batchCandidatesToLabHref({
+    symbols: batchSelection.symbols,
+    handoffSource: "rps",
+    label: rpsPeriodLabel(period),
+    frozenDate: handoffBatch?.rps?.date,
+    returnTo,
+  });
+  const batchFull = batchSelection.symbols.length >= portfolioHandoffLimit;
   const columns: DataTableColumn<MarketPoolRow>[] = [
+    ...(batchReady
+      ? [
+          {
+            id: "portfolio-select",
+            enableSorting: false,
+            header: "勾选",
+            cell: ({ row }) => {
+              const { symbol } = row.original;
+              if (!batchRows.has(symbol)) return null;
+              const checked = batchSelection.symbols.includes(symbol);
+              const disabled = batchFull && !checked;
+              return (
+                <span
+                  className="inline-flex items-center gap-1"
+                  title={disabled ? portfolioHandoffLimitMessage : undefined}
+                >
+                  <Checkbox
+                    aria-label={`选择 ${symbol}`}
+                    checked={checked}
+                    disabled={disabled}
+                    onCheckedChange={() => batchSelection.toggle(symbol)}
+                  />
+                  {disabled && <small>{portfolioHandoffLimitMessage}</small>}
+                </span>
+              );
+            },
+          } satisfies DataTableColumn<MarketPoolRow>,
+        ]
+      : []),
     {
       id: "symbol",
       enableSorting: true,
@@ -282,7 +414,7 @@ export function StockRpsRanking() {
           frozenDate: handoffBatch.rps.date,
           period: handoffBatch.period,
           rpsValue: row.original.value?.rps,
-          returnTo: "/scan?tab=rps",
+          returnTo,
         });
         return href ? (
           <Button asChild size="sm" variant="ghost">
@@ -333,7 +465,7 @@ export function StockRpsRanking() {
         <FilterGroup>
           <Select
             value={String(period)}
-            onValueChange={(value) => setPeriod(Number(value))}
+            onValueChange={(value) => updateFilters({ period: Number(value) })}
           >
             <SelectTrigger
               size="sm"
@@ -406,8 +538,9 @@ export function StockRpsRanking() {
             className="h-8 w-44"
             aria-label="搜索股票代码或名称"
             placeholder="搜代码/名称"
+            maxLength={80}
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => updateFilters({ search: e.target.value })}
           />
         </FilterGroup>
         <Popover open={conditionsOpen} onOpenChange={setConditionsOpen}>
@@ -423,11 +556,11 @@ export function StockRpsRanking() {
             <RpsConditionEditor
               applied={conditions}
               onApply={(next) => {
-                setConditions(next);
+                updateFilters({ conditions: next });
                 setConditionsOpen(false);
               }}
               onClear={() => {
-                setConditions([]);
+                updateFilters({ conditions: [] });
                 setConditionsOpen(false);
               }}
             />
@@ -446,9 +579,28 @@ export function StockRpsRanking() {
           variant="ghost"
           size="sm"
           disabled={order === null}
-          onClick={() => setOrder(null)}
+          onClick={() => updateFilters({ order: null })}
         >
           重置排序
+        </Button>
+        <FilterDivider />
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!batchHandoff}
+          onClick={() => {
+            if (batchHandoff) router.push(batchHandoff.href, { scroll: false });
+          }}
+        >
+          {`批量带入组合诊断 (${batchSelection.symbols.length}/${portfolioHandoffLimit})`}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={!batchHandoff}
+          onClick={batchSelection.clear}
+        >
+          清空已选
         </Button>
         <div className="ml-auto shrink-0">
           <MethodologyPopover
@@ -557,7 +709,9 @@ export function StockRpsRanking() {
           }
           rowCount={conditionUnavailable ? undefined : confirmed?.total}
           sorting={sortingState(order)}
-          onSortingChange={(updater) => setOrder(nextTableSort(updater, order))}
+          onSortingChange={(updater) =>
+            updateFilters({ order: nextTableSort(updater, order) })
+          }
           getRowId={rowKey}
           label="个股RPS排名"
           loading={page.isFetching || page.isPending}

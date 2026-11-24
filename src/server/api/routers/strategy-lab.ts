@@ -17,18 +17,24 @@ import { background, runWorker, updateJob } from "../../jobs/jobs";
 import { prepareLabBacktest } from "../../research/lab-backtest";
 import { readJobResultSnapshot } from "../../db/job-results";
 import { readJob } from "../../db/jobs";
+import { atomic } from "../../db";
 import {
   diagnoseArchiveDetailInputSchema,
   diagnoseArchivesInputSchema,
+  diagnoseCompareInputSchema,
   diagnoseResultInputSchema,
   labDiagnoseRunInputSchema,
 } from "~/lib/research/diagnose-contract";
 import {
   listDiagnoseArchives,
+  createDiagnoseStagingDir,
+  cleanupDiagnoseStagingDir,
+  publishStagedDiagnoseArchive,
   readDiagnoseArchive,
+  resolveDiagnoseArchiveKey,
   removeUnpublishedDiagnoseArchive,
 } from "../../research/diagnose/archive";
-import { runGroupedDiagnoseScenarios } from "../../research/diagnose/grouped-run";
+import type { LabDiagnoseWorkerResult } from "../../research/diagnose/grouped-run";
 import { labBacktestSchema } from "~/lib/research/lab-backtest";
 import {
   labPortfolioEvidenceHashSchema,
@@ -56,6 +62,39 @@ export const strategyLabRouter = createTRPCRouter({
   strategyLabDiagnoseArchiveDetail: p("backtest", "read")
     .input(diagnoseArchiveDetailInputSchema)
     .query(({ input: { id, ...page } }) => readDiagnoseArchive(id, page)),
+  strategyLabDiagnoseCompare: p("backtest", "read")
+    .input(diagnoseCompareInputSchema)
+    .query(async ({ input }) => {
+      const unreadable = (side: string) =>
+        new Error(`${side}诊断归档不可读取，请选择已完成且可访问的归档`);
+      const keyFor = (id: string, side: string) =>
+        resolveDiagnoseArchiveKey(id).catch(() => {
+          throw unreadable(side);
+        });
+      const [leftKey, rightKey] = await Promise.all([
+        keyFor(input.leftId, "左侧"),
+        keyFor(input.rightId, "右侧"),
+      ]);
+      if (leftKey === rightKey)
+        throw new Error("不能将同一份诊断归档与自身对比");
+      const readSide = async (id: string, side: string) => {
+        const detail = await readDiagnoseArchive(id, { allCells: true }).catch(
+          () => null,
+        );
+        if (!detail) throw unreadable(side);
+        if (
+          detail.boundaryState === "missing-files" ||
+          detail.summary.missingFiles.length
+        )
+          throw new Error(`${side}诊断归档缺少完整产物，无法对比`);
+        return detail;
+      };
+      const [left, right] = await Promise.all([
+        readSide(input.leftId, "左侧"),
+        readSide(input.rightId, "右侧"),
+      ]);
+      return { left, right };
+    }),
   strategyLabDiagnoseRun: p("backtest", "compute")
     .input(labDiagnoseRunInputSchema)
     .mutation(({ input }) =>
@@ -63,30 +102,51 @@ export const strategyLabRouter = createTRPCRouter({
         "backtest",
         { type: "lab-diagnose", ...input },
         async (job, signal) => {
-          const cancelled = () =>
-            signal.aborted || readJob(job.id)?.status === "cancelled";
-          const detail = await runGroupedDiagnoseScenarios(input, {
-            config: settings(),
-            signal,
-            jobId: job.id,
-            beforePublish() {
-              if (cancelled()) throw new Error("任务已取消");
-            },
-            onProgress(progress, phase) {
-              signal.throwIfAborted();
-              if (
-                updateJob(job.id, { progress, phase })?.status === "cancelled"
-              )
-                throw new Error("任务已取消");
-            },
-          });
-          if (cancelled()) {
-            await removeUnpublishedDiagnoseArchive(detail.summary.id).catch(
-              () => {},
+          const stagingDir = await createDiagnoseStagingDir();
+          let published = false;
+          const archiveId = `lab-${job.id}`;
+          try {
+            const receipt = await runWorker<LabDiagnoseWorkerResult>(
+              {
+                type: "lab-diagnose",
+                input,
+                config: settings(),
+                stagingDir,
+                jobId: job.id,
+              },
+              job.id,
             );
-            throw new Error("任务已取消");
+            if (receipt.archiveId !== archiveId)
+              throw new Error("诊断归档与任务 ID 不一致");
+            atomic(() => {
+              const current = readJob(job.id);
+              if (signal.aborted || current?.status !== "running")
+                throw new Error("诊断任务已取消或不再运行");
+              const completed = updateJob(job.id, {
+                status: "completed",
+                progress: 100,
+                phase: "完成",
+                result: receipt,
+              });
+              if (
+                completed?.status !== "completed" ||
+                !completed.result ||
+                typeof completed.result !== "object" ||
+                !("archiveId" in completed.result) ||
+                completed.result.archiveId !== receipt.archiveId
+              )
+                throw new Error("诊断任务完成状态未保存");
+              publishStagedDiagnoseArchive(stagingDir, receipt.archiveId);
+              published = true;
+            });
+            return receipt;
+          } catch (error) {
+            // Includes SQLite commit failures after the filesystem rename.
+            if (published) await removeUnpublishedDiagnoseArchive(archiveId);
+            throw error;
+          } finally {
+            await cleanupDiagnoseStagingDir(stagingDir);
           }
-          return { archiveId: detail.summary.id };
         },
       ),
     ),

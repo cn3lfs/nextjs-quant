@@ -59,6 +59,22 @@ const wyckoffStudyIds = Object.keys(wyckoffStudyBindings) as WyckoffStudyId[];
 export const isWyckoffStudy = (strategy: string): strategy is WyckoffStudyId =>
   Object.hasOwn(wyckoffStudyBindings, strategy);
 
+export const wyckoffExitStudyBindings = {
+  "research-wy-ut-exit": "wy-ut-exit-daily",
+  "research-wy-sow-lpsy": "wy-sow-lpsy-daily",
+  "research-wy-ice-exit": "wy-ice-exit-daily",
+} as const;
+export type WyckoffExitStudyId = keyof typeof wyckoffExitStudyBindings;
+const wyckoffExitStudyIds = Object.keys(
+  wyckoffExitStudyBindings,
+) as WyckoffExitStudyId[];
+export const isWyckoffExitStudy = (
+  strategy: string,
+): strategy is WyckoffExitStudyId =>
+  Object.hasOwn(wyckoffExitStudyBindings, strategy);
+export const wyckoffTrendVol10Diagnostic =
+  "wy-trend-pullback-confirm-vol10-diagnostic";
+
 /** Fixed research rules, not a ranking or optimized parameter search. */
 export const classicStudyStrategies = [
   "ma",
@@ -77,6 +93,8 @@ export const studyStrategies = [
   ...volumeStudyIds,
   "research-wyckoff",
   ...wyckoffStudyIds,
+  ...wyckoffExitStudyIds,
+  wyckoffTrendVol10Diagnostic,
   "research-growth",
   "sma200",
   "golden-cross",
@@ -153,6 +171,26 @@ export const studyCatalog: Record<StudyStrategy, StudyDefinition> = {
     name: "SOS-JAC 突破",
     family: "wyckoff",
     rule: "复用wy-sos-daily的完整SOS候选、次日守位确认与原有日线退出；仅OHLCV工程版本，不声称完整威科夫。",
+  },
+  "research-wy-ut-exit": {
+    name: "UT/UTAD 风险退出",
+    family: "wyckoff",
+    rule: "JAC 确认入场，UT/UTAD 风险确认后全平多仓。",
+  },
+  "research-wy-sow-lpsy": {
+    name: "SOW/LPSY 反弹减半",
+    family: "wyckoff",
+    rule: "JAC 确认入场，SOW 后 LPSY 确认时减当时剩余多仓的 50%。",
+  },
+  "research-wy-ice-exit": {
+    name: "破冰退出",
+    family: "wyckoff",
+    rule: "JAC 确认入场，收盘放量跌破此前已知冰线时全平多仓。",
+  },
+  [wyckoffTrendVol10Diagnostic]: {
+    name: "威科夫趋势回调 · 1.0 倍量诊断敏感性",
+    family: "wyckoff",
+    rule: "沿用日线趋势回调候选、次日价位确认及原有退出，次日放量门槛由候选日前 20 日均量的 1.5 倍降至 1.0 倍。",
   },
   ...(Object.fromEntries(
     wyckoffStudyIds.map((id) => {
@@ -420,6 +458,7 @@ export const studyWarmup = (strategy: StudyStrategy) =>
       : strategy === "research-growth"
         ? 300
         : strategy.startsWith("research-") ||
+            strategy === wyckoffTrendVol10Diagnostic ||
             (classicStudyStrategies as readonly string[]).includes(strategy)
           ? 140
           : Math.max(

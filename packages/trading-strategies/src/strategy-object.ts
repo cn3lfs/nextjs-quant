@@ -512,6 +512,7 @@ export function selectCzscMonitorSignals(
 export type StrategyDecision = {
   entry: boolean | null;
   exit: boolean | null;
+  exitFraction?: number;
   stopLevel: number | null;
   chandelierStop?: number | null;
 };
@@ -864,7 +865,11 @@ export function prepareStrategy(
   const compile = (
     rule: StrategyRule,
     executionSide: "entry" | "exit" = "entry",
-  ): ((index: number, position?: TripleScreenPosition) => boolean | null) => {
+  ): ((
+    index: number,
+    position?: TripleScreenPosition,
+    exitDetails?: Pick<StrategyDecision, "exitFraction">,
+  ) => boolean | null) => {
     switch (rule.kind) {
       case "triple-screen": {
         const input = external.tripleScreen;
@@ -972,11 +977,14 @@ export function prepareStrategy(
           throw new Error(
             "Study rule requires an account-only execution profile",
           );
-        return (i, position) => {
+        return (i, position, exitDetails) => {
           if (i < studyWarmup(rule.strategy)) return null;
           if (rule.side === "exit" && !position) return false;
-          const result = evaluate(i, position ?? { entry: 0, entryIndex: i });
-          return rule.side === "entry" ? result.enter : result.exit;
+          const output = evaluate(i, position ?? { entry: 0, entryIndex: i });
+          if (rule.side === "entry") return output.enter;
+          if (exitDetails && output.exitFraction !== undefined)
+            exitDetails.exitFraction = output.exitFraction;
+          return output.exit;
         };
       }
       case "historical-low": {
@@ -1268,7 +1276,8 @@ export function prepareStrategy(
     evaluate(index: number, position?: TripleScreenPosition): StrategyDecision {
       if (!Number.isInteger(index) || index < 0 || index >= bars.length)
         throw new Error("Invalid strategy index");
-      const exit = leave(index, position);
+      const exitDetails: Pick<StrategyDecision, "exitFraction"> = {};
+      const exit = leave(index, position, exitDetails);
       let stopLevel: number | null = null;
       if (stop?.kind === "fixed")
         stopLevel = bars[index]!.close * (1 - stop.fraction);
@@ -1311,6 +1320,7 @@ export function prepareStrategy(
       return {
         entry,
         exit,
+        ...exitDetails,
         stopLevel,
         ...(strategy.exit.chandelier
           ? {

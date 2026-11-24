@@ -58,7 +58,12 @@ async function flatCells(path: string) {
   const cells: string[] = [];
   for (const name of await directories(path)) {
     // Other .test-data tools also produce run.json. Only index diagnostic cells.
-    const run = await metadata(join(path, name), "run.json", new Set(), "");
+    const run = await metadata(
+      join(/*turbopackIgnore: true*/ path, name),
+      "run.json",
+      new Set(),
+      "",
+    );
     if (typeof run.strategyKey === "string" && Array.isArray(run.symbols))
       cells.push(name);
   }
@@ -67,8 +72,12 @@ async function flatCells(path: string) {
 
 async function isReport(path: string) {
   for (const mode of ["per-symbol", "portfolio"])
-    if (await checked(join(path, mode), "directory")) return true;
-  const header = await readBounded(join(path, "report.md"), 1024);
+    if (await checked(join(/*turbopackIgnore: true*/ path, mode), "directory"))
+      return true;
+  const header = await readBounded(
+    join(/*turbopackIgnore: true*/ path, "report.md"),
+    1024,
+  );
   if (header?.text.startsWith("# 回测诊断报告")) return true;
   const issues = new Set<string>();
   const run = await metadata(path, "run.json", issues, "");
@@ -90,7 +99,7 @@ export async function discoverCliArchives(
 ): Promise<CliLocation[]> {
   const reports: CliLocation[] = [];
   async function inspect(parts: string[]) {
-    const path = join(root, ...parts);
+    const path = join(/*turbopackIgnore: true*/ root, ...parts);
     try {
       if (await isReport(path)) {
         reports.push(parts);
@@ -133,7 +142,10 @@ async function metadata(
   issues: Set<string>,
   cell: string,
 ) {
-  const content = await readBounded(join(path, name), 2 * 1024 * 1024);
+  const content = await readBounded(
+    join(/*turbopackIgnore: true*/ path, name),
+    2 * 1024 * 1024,
+  );
   if (content && !content.truncated) {
     try {
       return object(JSON.parse(content.text));
@@ -155,8 +167,14 @@ interface CellLocation {
 async function cellLocations(root: string) {
   const cells: CellLocation[] = [];
   for (const mode of ["per-symbol", "portfolio"] as const)
-    for (const strategy of await directories(join(root, mode), true))
-      for (const leaf of await directories(join(root, mode, strategy), true)) {
+    for (const strategy of await directories(
+      join(/*turbopackIgnore: true*/ root, mode),
+      true,
+    ))
+      for (const leaf of await directories(
+        join(/*turbopackIgnore: true*/ root, mode, strategy),
+        true,
+      )) {
         cells.push({
           parts: [mode, strategy, leaf],
           mode,
@@ -169,8 +187,11 @@ async function cellLocations(root: string) {
     cells.push({ parts: [name], mode: "per-symbol" });
   if (cells.length) return cells;
   if (
-    (await checked(join(root, "run.json"), "file")) ||
-    (await checked(join(root, "summary.json"), "file"))
+    (await checked(join(/*turbopackIgnore: true*/ root, "run.json"), "file")) ||
+    (await checked(
+      join(/*turbopackIgnore: true*/ root, "summary.json"),
+      "file",
+    ))
   )
     cells.push({ parts: [], mode: "per-symbol" });
   return cells;
@@ -226,7 +247,10 @@ async function csvDetails(
   missing: Set<string>,
   cell: string,
 ) {
-  const data = await readBounded(join(path, `${name}.csv`), 2 * 1024 * 1024);
+  const data = await readBounded(
+    join(/*turbopackIgnore: true*/ path, `${name}.csv`),
+    2 * 1024 * 1024,
+  );
   const sample: JsonObject[] = [],
     reasons = new Map<string, number>();
   let fees: number | null = 0;
@@ -400,7 +424,7 @@ export async function readCliReport(
   page: { page: number; pageSize: number; offset: number },
   drift: (hashes: Iterable<string>) => Promise<string[]>,
 ): Promise<Omit<DiagnoseArchiveDetail, "boundaryState">> {
-  const root = join(base, ...parts),
+  const root = join(/*turbopackIgnore: true*/ base, ...parts),
     st = await checked(root, "directory");
   if (!st || !(await isReport(root))) throw new Error("CLI 诊断报告不存在");
   const missing = new Set<string>(),
@@ -413,14 +437,26 @@ export async function readCliReport(
   const cells: DiagnoseScenarioCellGroup[] = [];
   const locations = await cellLocations(root);
   let generatedAt: string | undefined, pool: DiagnoseArchiveSummary["pool"];
-  if (!(await checked(join(root, "report.md"), "file")))
+  const reportHeader = await readBounded(
+    join(/*turbopackIgnore: true*/ root, "report.md"),
+    4096,
+  );
+  if (!reportHeader) {
     missing.add("report.md");
+  } else {
+    const declared = /^-\s*单元：(\d+)\b/m.exec(reportHeader.text);
+    if (declared && Number(declared[1]) !== locations.length) {
+      missing.add("cells");
+    }
+  }
   if (!locations.length) missing.add("run.json");
   for (const [index, cell] of locations.entries()) {
-    const path = join(root, ...cell.parts),
+    const path = join(/*turbopackIgnore: true*/ root, ...cell.parts),
       label = cell.parts.join("/");
     await checked(path, "directory");
-    const entries = await readdir(path, { withFileTypes: true });
+    const entries = await readdir(/*turbopackIgnore: true*/ path, {
+      withFileTypes: true,
+    });
     for (const name of cellFiles) {
       const entry = entries.find((e) => e.name === name);
       if (!entry) missing.add([label, name].filter(Boolean).join("/"));

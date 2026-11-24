@@ -26,6 +26,39 @@ export const executionCostsSchema = z.object({
 export type ExecutionCosts = z.infer<typeof executionCostsSchema>;
 export const defaultExecutionCosts = executionCostsSchema.parse({});
 
+export function scaleResearchCosts(
+  costs: ExecutionCosts,
+  multiplier: number,
+): ExecutionCosts {
+  if (!Number.isFinite(multiplier) || multiplier <= 0)
+    throw new Error("Invalid research cost multiplier");
+  return executionCostsSchema.parse({
+    ...costs,
+    commissionBps: costs.commissionBps * multiplier,
+    minimumCommission: costs.minimumCommission * multiplier,
+    sellTaxBps: costs.sellTaxBps * multiplier,
+    slippageBps: costs.slippageBps * multiplier,
+    ...(costs.transferBps !== undefined && {
+      transferBps: costs.transferBps * multiplier,
+    }),
+    ...(costs.dividendTaxBps !== undefined && {
+      dividendTaxBps: costs.dividendTaxBps * multiplier,
+    }),
+    ...(costs.sellTaxSchedule && {
+      sellTaxSchedule: {
+        ...costs.sellTaxSchedule,
+        multiplier: costs.sellTaxSchedule.multiplier * multiplier,
+      },
+    }),
+    ...(costs.transferSchedule && {
+      transferSchedule: {
+        ...costs.transferSchedule,
+        multiplier: costs.transferSchedule.multiplier * multiplier,
+      },
+    }),
+  });
+}
+
 /** Lab and research CLIs share these three explicit scenarios. `fixed` keeps
  * the legacy lab default (no historical stamp-duty switch); `base` and
  * `double-cost` use the declared historical schedule. */
@@ -37,7 +70,8 @@ export function researchExecutionCosts(
   market: "cn-equity" | "crypto",
   scenario: ResearchCostScenario,
 ): ExecutionCosts {
-  const multiplier = scenario === "double-cost" ? 2 : 1;
+  if (scenario === "double-cost")
+    return scaleResearchCosts(researchExecutionCosts(market, "base"), 2);
   if (scenario === "fixed")
     return executionCostsSchema.parse(
       market === "crypto"
@@ -55,23 +89,23 @@ export function researchExecutionCosts(
           },
     );
   return executionCostsSchema.parse({
-    commissionBps: (market === "crypto" ? 10 : 3) * multiplier,
-    minimumCommission: market === "crypto" ? 0 : 5 * multiplier,
-    sellTaxBps: market === "crypto" ? 0 : 5 * multiplier,
+    commissionBps: market === "crypto" ? 10 : 3,
+    minimumCommission: market === "crypto" ? 0 : 5,
+    sellTaxBps: market === "crypto" ? 0 : 5,
     ...(market === "cn-equity"
       ? {
-          transferBps: 0.1 * multiplier,
+          transferBps: 0.1,
           sellTaxSchedule: {
             kind: "cn-equity-historical",
-            multiplier,
+            multiplier: 1,
           },
           transferSchedule: {
             kind: "cn-equity-transfer",
-            multiplier,
+            multiplier: 1,
           },
         }
       : {}),
-    slippageBps: 5 * multiplier,
+    slippageBps: 5,
   });
 }
 

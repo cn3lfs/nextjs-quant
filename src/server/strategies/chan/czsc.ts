@@ -4,6 +4,7 @@ import type { NativeStudyIdentity } from "trading-strategies";
 import { fork, type ChildProcess } from "node:child_process";
 import { recordRuntimeError } from "../../infra/runtime-errors";
 import { resolve } from "node:path";
+import { isMainThread } from "node:worker_threads";
 import type { CzscInput } from "./czsc-input";
 import {
   czscOverrides,
@@ -39,6 +40,8 @@ const scope = globalThis as typeof globalThis & {
 };
 
 function worker() {
+  if (!isMainThread)
+    throw new Error("原生缠论工作进程只能由主线程创建，请通过主线程代理调用");
   if (!scope.czscWorker) {
     const child = fork(resolve("runtime/czsc-worker.cjs"), [], {
       stdio: ["ignore", "inherit", "inherit", "ipc"],
@@ -56,11 +59,15 @@ function worker() {
 export function projectCzsc(
   input: CzscInput,
   request: CzscRequest = {},
+  shouldSkip?: () => boolean,
 ): Promise<CzscSnapshot> {
-  return dispatch<CzscSnapshot>({
-    input: structuredClone(input),
-    request: structuredClone(request),
-  });
+  return dispatch<CzscSnapshot>(
+    {
+      input: structuredClone(input),
+      request: structuredClone(request),
+    },
+    shouldSkip,
+  );
 }
 
 export function nativeIdentityFromSnapshot(
@@ -87,14 +94,13 @@ export function nativeIdentityFromSnapshot(
 
 // Default config metadata is a function of these two exact binaries.
 export async function czscRuntimeFingerprint() {
-  const [dllHash, workerHash] = await Promise.all(
-    ["runtime/czsc/CZSC64.dll", "runtime/czsc-worker.cjs"].map(async (path) =>
-      createHash("sha256")
-        .update(await readFile(resolve(path)))
-        .digest("hex"),
-    ),
-  );
-  return { dllHash: dllHash!, workerHash: workerHash! };
+  const hash = (bytes: Buffer) =>
+    createHash("sha256").update(bytes).digest("hex");
+  const [dllHash, workerHash] = await Promise.all([
+    readFile(resolve("runtime/czsc/CZSC64.dll")).then(hash),
+    readFile(resolve("runtime/czsc-worker.cjs")).then(hash),
+  ]);
+  return { dllHash, workerHash };
 }
 
 let lastDefaults:
@@ -106,6 +112,7 @@ export async function getCurrentCzscIdentity(
   project: typeof projectCzsc = projectCzsc,
   runtime?: Awaited<ReturnType<typeof czscRuntimeFingerprint>>,
   probe?: () => Promise<CzscSnapshot>,
+  shouldSkip?: () => boolean,
 ): Promise<NativeStudyIdentity> {
   const local =
     runtime ??
@@ -117,6 +124,7 @@ export async function getCurrentCzscIdentity(
     project(
       { high: [1], low: [1], close: [1], volume: [1] },
       { levels: [0], bars: false },
+      shouldSkip,
     ));
   const identity = nativeIdentityFromSnapshot(raw);
   if (local && identity.dllHash !== local.dllHash)
@@ -135,11 +143,15 @@ export function czscConfigSchema(): Promise<CzscConfigSchema> {
   }));
 }
 
-function dispatch<T>(message: Record<string, unknown>): Promise<T> {
+function dispatch<T>(
+  message: Record<string, unknown>,
+  shouldSkip?: () => boolean,
+): Promise<T> {
   // Queue entire jobs; retain the singleton across Next HMR.
   const job = (scope.czscQueue ?? Promise.resolve()).then(
     () =>
       new Promise<T>((resolveResult, reject) => {
+        if (shouldSkip?.()) throw new DOMException("任务已取消", "AbortError");
         const child = worker(),
           id = (scope.czscRequestId = (scope.czscRequestId ?? 0) + 1);
         const cleanup = () => {

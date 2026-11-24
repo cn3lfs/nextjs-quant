@@ -32,6 +32,21 @@ export function applyCorporateActions(state: PortfolioState, date: string) {
         evidence: action.evidence,
         ...applied,
       });
+      if (applied.quantity !== applied.before) {
+        for (const order of state.pendingOrders.get(key) ?? []) {
+          if (
+            order.side === "sell" &&
+            order.targetRemainingQuantity !== undefined
+          ) {
+            const scaled =
+              (order.targetRemainingQuantity * applied.quantity) /
+              applied.before;
+            // Keep at least the frozen remainder when only whole shares exist.
+            order.targetRemainingQuantity =
+              market === "cn-equity" ? Math.ceil(scaled) : scaled;
+          }
+        }
+      }
       const c = controls.get(key)!;
       for (const field of ["entry", "high", "stop", "target"] as const)
         if (c[field] !== null) c[field] = actionPrice(c[field]!, action);
@@ -52,6 +67,7 @@ export function matchOpeningOrders(
     identities,
     pendingOrders,
   } = state;
+  state.dailyCapacityUsed.clear();
   for (const account of accounts.values())
     for (const [key, p] of account.positions) {
       const symbol = identities.get(key)!.symbol,
@@ -61,6 +77,9 @@ export function matchOpeningOrders(
     }
   for (const [sleeve, account] of accounts)
     openingEquities.set(sleeve, account.equity);
+  const accountLimits =
+    request.accountMaxUniqueSymbols !== undefined ||
+    request.accountMaxSymbolWeight !== undefined;
   const pending = [...pendingOrders.values()]
     .flatMap((active) => [...active])
     .filter(
@@ -83,11 +102,15 @@ export function matchOpeningOrders(
     .sort(
       (a, b) =>
         (a.side === "sell" ? 0 : 1) - (b.side === "sell" ? 0 : 1) ||
-        a.sleeve.localeCompare(b.sleeve) ||
+        (accountLimits ? 0 : a.sleeve.localeCompare(b.sleeve)) ||
         (b.rankScore ?? 0) - (a.rankScore ?? 0) ||
         (request.buyTieBreak === "symbol-descending" && a.side === "buy"
           ? b.symbol.localeCompare(a.symbol)
           : a.symbol.localeCompare(b.symbol)) ||
+        (accountLimits
+          ? a.sleeve.localeCompare(b.sleeve) ||
+            a.strategyId.localeCompare(b.strategyId)
+          : 0) ||
         a.id - b.id,
     );
   pending.forEach((o) => execute(o, date));

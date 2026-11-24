@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type Dispatch,
   type ReactNode,
   type SetStateAction,
@@ -14,6 +15,11 @@ import Link from "next/link";
 import { api } from "~/trpc/react";
 import { labBacktestSchema } from "~/lib/research/lab-backtest";
 import { labIdentitySchema } from "~/lib/research/strategy-lab";
+import {
+  buildLabDraftFromHandoff,
+  isDiagnosticOnlyStrategyKey,
+  parseScanToLabHandoff,
+} from "~/lib/research/diagnose-contract";
 import { taskHistoryHref } from "~/lib/research/workflow/task-history-location";
 import {
   strategyObjectSchema,
@@ -244,17 +250,30 @@ function LabReturnLink() {
     </Link>
   );
 }
+
+const subscribeToReady = () => () => {};
+const clientReady = () => true;
+const serverReady = () => false;
+
 export function LabBacktest() {
+  // Controlled fields can lose a browser edit made before hydration.
+  const ready = useSyncExternalStore(
+    subscribeToReady,
+    clientReady,
+    serverReady,
+  );
   const currentSearch = useSearchParams().toString();
   const visible = usePanelVisible();
   const [retainedSearch, setRetainedSearch] = useState(currentSearch);
   if (visible && currentSearch !== retainedSearch)
     setRetainedSearch(currentSearch);
   return (
-    <LabEditor
-      search={visible ? currentSearch : retainedSearch}
-      visible={visible}
-    />
+    <div data-lab-ready={ready ? "true" : "false"}>
+      <LabEditor
+        search={visible ? currentSearch : retainedSearch}
+        visible={visible}
+      />
+    </div>
   );
 }
 function labIdentityKey(identity: LabIdentity) {
@@ -286,17 +305,26 @@ function LabStrategySource({
   const loadedIdentityKey = draft.loadedIdentity?.key;
   const nextDraft = useMemo(
     () =>
-      matched && loadedIdentityKey !== identityKey
+      matched && !draft.dirty && loadedIdentityKey !== identityKey
         ? newDraft(matched, { key: identityKey, label })
         : null,
-    [matched, loadedIdentityKey, identityKey, label],
+    [matched, draft.dirty, loadedIdentityKey, identityKey, label],
   );
   useEffect(() => {
     if (nextDraft)
       setDraft((current) =>
-        current.loadedIdentity?.key === identityKey ? current : nextDraft,
+        current.dirty || current.loadedIdentity?.key === identityKey
+          ? current
+          : nextDraft,
       );
   }, [identityKey, nextDraft, setDraft]);
+  if (draft.dirty && loadedIdentityKey !== identityKey)
+    return (
+      <>
+        <p role="status">当前对象回测草稿有未保存修改，已保留草稿。</p>
+        {renderForm(draft)}
+      </>
+    );
   if (nextDraft || loadedIdentityKey === identityKey)
     return renderForm(
       nextDraft ?? draft,
@@ -357,6 +385,44 @@ function LabEditor({ search, visible }: { search: string; visible: boolean }) {
       : source.kind === "invalid" || params.get("mode") === "object"
         ? source.kind
         : null;
+  const rawArchiveId = params.get("archive")?.trim();
+  const archiveId =
+    rawArchiveId &&
+    /^(?:lab-[\w.\u3400-\u9fff-]+|cli-(?:~[\w-]+|[\w.\u3400-\u9fff-]+))$/.test(
+      rawArchiveId,
+    ) &&
+    rawArchiveId.length <= 4096 &&
+    !rawArchiveId.includes("..") &&
+    !rawArchiveId.endsWith(".")
+      ? rawArchiveId
+      : null;
+  // A portfolio handoff only ever prefills the diagnostic run form. The Lab
+  // object draft stays byte-for-byte untouched so retained edits survive.
+  const portfolioHandoff = useMemo(() => {
+    const parsed = parseScanToLabHandoff(new URLSearchParams(search));
+    if (
+      parsed.kind !== "valid" ||
+      parsed.handoff.scope !== "portfolio-diagnose"
+    )
+      return null;
+    const { handoff } = parsed;
+    const draft = buildLabDraftFromHandoff(handoff);
+    const hint = handoff.strategyHint;
+    return {
+      key: parsed.key,
+      prefill: {
+        symbols: handoff.symbols,
+        mode: "portfolio",
+        start: draft.start,
+        end: draft.end,
+        ...(hint === "core-4"
+          ? { bookPreset: "core-4" }
+          : hint && isDiagnosticOnlyStrategyKey(hint)
+            ? { strategyKey: hint }
+            : {}),
+      } satisfies DiagnoseRunPrefill,
+    };
+  }, [search]);
   const [draft, setDraft] = useState(() =>
     newDraft(presetStrategy(preset) ?? initialStrategy),
   );
@@ -366,7 +432,23 @@ function LabEditor({ search, visible }: { search: string; visible: boolean }) {
   const [receipt, setReceipt] = useState<LabBacktestReceipt | null>(null);
   const [handoffPrefill, setHandoffPrefill] =
     useState<DiagnoseRunPrefill | null>(null);
+  const [lastPortfolioKey, setLastPortfolioKey] = useState<string | null>(null);
+  const [wasVisible, setWasVisible] = useState(visible);
   const submitting = useRef(false);
+  const portfolioKey = portfolioHandoff?.key ?? null;
+  if (visible !== wasVisible) setWasVisible(visible);
+  // Reopening a portfolio-only link reapplies it. With an explicit archive,
+  // only a newly arrived handoff takes precedence over the archive detail.
+  if (
+    visible &&
+    (portfolioKey !== lastPortfolioKey ||
+      (!wasVisible && !archiveId && portfolioKey))
+  ) {
+    setLastPortfolioKey(portfolioKey);
+    if (portfolioKey && portfolioHandoff)
+      setHandoffPrefill({ ...portfolioHandoff.prefill });
+    else setHandoffPrefill(null);
+  }
   if (openRequest !== lastOpenRequest) {
     setLastOpenRequest(openRequest);
     if (openRequest !== null) setOpen(true);
@@ -701,7 +783,10 @@ function LabEditor({ search, visible }: { search: string; visible: boolean }) {
   return (
     <>
       <ScanHandoffBanner
-        search={source.kind === "none" ? search : ""}
+        search={
+          visible && (source.kind === "none" || draft.dirty) ? search : ""
+        }
+        draftDirty={draft.dirty}
         onApply={(handoff) => {
           setDraft({
             ...draft,
@@ -741,7 +826,7 @@ function LabEditor({ search, visible }: { search: string; visible: boolean }) {
           renderForm(draft)
         )}
       </LabFrame>
-      <DiagnoseWorkspacePanel prefill={handoffPrefill} />
+      <DiagnoseWorkspacePanel prefill={handoffPrefill} archiveId={archiveId} />
     </>
   );
 }

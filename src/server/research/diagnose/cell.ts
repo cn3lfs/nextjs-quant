@@ -13,6 +13,7 @@ import {
 import { runDiagnostics } from "./diagnostics";
 import {
   readGrowthMarketBars,
+  isSepaVcpCloseStrategyKey,
   type GrowthPitSignalOptions,
 } from "./growth-pit";
 import {
@@ -20,7 +21,8 @@ import {
   prepareDiagnoseRequest,
 } from "./prepare-request";
 import {
-  buildStrategy,
+  buildDiagnoseCellStrategies,
+  DIAGNOSE_BOOK_PRESETS,
   isNativeStrategyKey,
   isPitStrategyKey,
   isWyckoffFunnelKey,
@@ -35,6 +37,8 @@ import type {
   StrategyDisclosures,
 } from "./types";
 import { analyzeWyckoffFunnel } from "./wyckoff-funnel";
+import { computeSleeveAttribution } from "./sleeve-attribution";
+import { runDiagnoseTimeHoldout } from "./time-holdout";
 type ReplayReturn = ReturnType<typeof replayLabBacktest>;
 export function classifyError(error: unknown): {
   status: DiagnoseStatus;
@@ -115,26 +119,33 @@ async function alignToBenchmark(
 }
 
 export async function resolveAutoStart(
-  key: StrategyKey,
+  key: PlannedDiagnoseCell["strategy"],
   symbols: readonly string[],
   mode: "per-symbol" | "portfolio",
   tdxRoot: string,
   end: string,
   cache: BarCache,
 ) {
-  const warmup = warmupBarsFor(key);
+  const warmup =
+    key === "core-4"
+      ? Math.max(
+          ...DIAGNOSE_BOOK_PRESETS[key].sleeves.map((s) =>
+            warmupBarsFor(s.strategyKey),
+          ),
+        )
+      : warmupBarsFor(key);
   const series = await Promise.all(
     symbols.map((symbol) => loadDaily(tdxRoot, end, symbol, cache)),
   );
   if (mode === "portfolio") {
-    const native = isNativeStrategyKey(key);
+    const native = key === "core-4" || isNativeStrategyKey(key);
     const listed = series
       .map((bars, i) => {
         if (!native) return bars[0]?.date;
         const ready = bars[warmup];
         if (!ready)
           throw new Error(
-            `${symbols[i]}：原生缠论需要至少 ${warmup} 根预热行情和一根执行行情`,
+            `${symbols[i]}：${key === "core-4" ? key : "原生缠论"}需要至少 ${warmup} 根预热行情和一根执行行情`,
           );
         return ready.date;
       })
@@ -172,7 +183,9 @@ export type DiagnosePreparationOptions = Pick<
   | "resolveIdentity"
   | "nativeProgress"
 > &
-  Pick<GrowthPitSignalOptions, "indexBars" | "readFinancialHistory">;
+  Pick<GrowthPitSignalOptions, "indexBars" | "readFinancialHistory"> & {
+    read?: typeof readBars;
+  };
 export type DiagnoseMarketCache = { marketBars?: readonly Bar[] };
 type CellInput = DiagnosePreparationOptions & {
   config: Settings;
@@ -195,17 +208,22 @@ export async function prepareDiagnoseCell(
 ) {
   const { strategy, symbols } = item;
   const { tdxRoot } = input.config;
-  const strategyConfig = buildStrategy(
-    strategy,
-    symbols,
-    item.mode === "portfolio" ? "portfolio" : "single",
-  );
+  const strategies = buildDiagnoseCellStrategies(item);
+  const strategyConfig = strategies[0]!;
+  const book =
+    strategy === "core-4" ? DIAGNOSE_BOOK_PRESETS[strategy] : undefined;
+  const keys: readonly StrategyKey[] =
+    strategy === "core-4"
+      ? DIAGNOSE_BOOK_PRESETS[strategy].sleeves.map((s) => s.strategyKey)
+      : [strategy];
   const forceCausalPrice = strategy !== "hold";
   const prefetched = new Map<string, Awaited<ReturnType<typeof readBars>>>();
   const read: typeof readBars = (query, ...rest) => {
     const key = JSON.stringify([query.instrument.symbol, query.adjustment]);
     const snapshot = prefetched.get(key);
-    return snapshot ? Promise.resolve(snapshot) : readBars(query, ...rest);
+    return snapshot
+      ? Promise.resolve(snapshot)
+      : (input.read ?? readBars)(query, ...rest);
   };
   let start = input.start;
   if (start === "auto") {
@@ -223,7 +241,12 @@ export async function prepareDiagnoseCell(
         live: false,
         ...(benchmark ? {} : { source: "local" as const, freezeRaw: true }),
       } as const;
-      const snapshot = await readBars(query, undefined, undefined, budget);
+      const snapshot = await (input.read ?? readBars)(
+        query,
+        undefined,
+        undefined,
+        budget,
+      );
       prefetched.set(JSON.stringify([symbol, adjustment]), snapshot);
       cache.set(symbol, snapshot.rawBars ?? snapshot.bars);
     }
@@ -242,9 +265,13 @@ export async function prepareDiagnoseCell(
 
   if (
     input.indexBars === undefined &&
-    isPitStrategyKey(strategy) &&
-    strategy !== "research-canslim-pit" &&
-    strategy !== "research-sepa-pit"
+    keys.some(
+      (key) =>
+        isPitStrategyKey(key) &&
+        !isSepaVcpCloseStrategyKey(key) &&
+        key !== "research-canslim-pit" &&
+        key !== "research-sepa-pit",
+    )
   ) {
     market.marketBars ??= await readGrowthMarketBars(tdxRoot, input.end);
   }
@@ -253,10 +280,23 @@ export async function prepareDiagnoseCell(
     frozen,
     dataQuality,
     calendar: _calendar,
+    benchmarkBars,
     ...disclosures
   } = await prepare({
     config: input.config,
     strategy: strategyConfig,
+    ...(book && {
+      additionalStrategies: strategies.slice(1),
+      sleeves: book.sleeves.map(({ id, share }) => ({
+        id,
+        share,
+        riskPerTrade: input.riskPerTrade,
+        maxPositions: input.maxPositions,
+      })),
+      accountMaxUniqueSymbols: book.accountMaxUniqueSymbols,
+      accountMaxSymbolWeight: book.accountMaxSymbolWeight,
+      collectDailyDecisionCounts: true,
+    }),
     start,
     end: input.end,
     costScenario: input.cost,
@@ -291,16 +331,36 @@ export async function prepareDiagnoseCell(
       captureElapsedMs: _elapsed,
       ...identity
     } = row;
-    source.nativeChan = identity;
+    if (row.strategyKey) {
+      source.nativeChanByStrategy = {
+        ...(source.nativeChanByStrategy as Record<string, unknown>),
+        [row.strategyKey]: identity,
+      };
+      delete source.nativeChan;
+    } else source.nativeChan = identity;
   }
-  return { strategyConfig, frozen, dataQuality, disclosures };
+  return {
+    strategyConfig,
+    candidateId: item.strategy,
+    benchmarkBars,
+    frozen,
+    dataQuality,
+    disclosures,
+    bookCapacity: book
+      ? {
+          maxParticipation: book.maxParticipation,
+          capacityPolicy: book.capacityPolicy,
+        }
+      : undefined,
+  };
 }
 
 type PreparedCell = Awaited<ReturnType<typeof prepareDiagnoseCell>>;
 type ExecutionOptions = {
+  holdoutStart?: string;
   executionProfile?: LabExecutionProfile;
-  maxParticipation?: number;
-  capacityPolicy?: "clip" | "reject";
+  maxParticipation?: number | null;
+  capacityPolicy?: "clip" | "reject" | null;
 };
 
 function applyProfile(
@@ -325,11 +385,21 @@ export function replayDiagnoseCell(
 ) {
   const profile = options.executionProfile ?? "strict";
   const request = base.frozen.request;
+  const maxParticipation =
+    options.maxParticipation === null
+      ? undefined
+      : (options.maxParticipation ?? base.bookCapacity?.maxParticipation);
+  const capacityPolicy =
+    maxParticipation === undefined
+      ? undefined
+      : (options.capacityPolicy ??
+        base.bookCapacity?.capacityPolicy ??
+        undefined);
   const frozen: FrozenLabBacktest = {
     ...base.frozen,
     executionProfile: profile,
-    maxParticipation: options.maxParticipation ?? null,
-    capacityPolicy: options.capacityPolicy ?? null,
+    maxParticipation: maxParticipation ?? null,
+    capacityPolicy: capacityPolicy ?? null,
     request: {
       ...request,
       instruments:
@@ -342,12 +412,8 @@ export function replayDiagnoseCell(
                 profile === "clamp" ? "clamp" : "none",
               ),
             })),
-      ...(options.maxParticipation === undefined
-        ? {}
-        : { maxParticipation: options.maxParticipation }),
-      ...(options.capacityPolicy === undefined
-        ? {}
-        : { capacityPolicy: options.capacityPolicy }),
+      ...(maxParticipation === undefined ? {} : { maxParticipation }),
+      ...(capacityPolicy === undefined ? {} : { capacityPolicy }),
     },
   };
   const replay = replayLabBacktest(frozen, undefined, signal);
@@ -360,24 +426,44 @@ export function replayDiagnoseCell(
     (f) => f.capacityClipped,
   ).length;
   const disclosures: StrategyDisclosures = { ...base.disclosures };
-  const { entry } = base.strategyConfig;
-  const key =
-    entry.kind === "study-rule" && isWyckoffStudy(entry.strategy)
-      ? wyckoffStudyBindings[entry.strategy]
-      : undefined;
-  if (key && isWyckoffFunnelKey(key)) {
-    disclosures.wyckoffFunnel = request.instruments.map(
-      ({ symbol, signalBars }) => ({
-        symbol,
-        ...analyzeWyckoffFunnel(key, signalBars, request.start, request.end),
-        buyOrders: replay.result.orders.filter(
-          (o) => o.symbol === symbol && o.side === "buy",
-        ).length,
-        buyFills: replay.result.fills.filter(
-          (f) => f.symbol === symbol && f.side === "buy",
-        ).length,
-      }),
-    );
+  if (request.sleeves.length > 1)
+    disclosures.sleeveAttribution = computeSleeveAttribution(replay.result);
+  if (options.holdoutStart !== undefined)
+    disclosures.timeHoldout = runDiagnoseTimeHoldout(frozen.request, {
+      holdoutStart: options.holdoutStart,
+      candidateId: base.candidateId,
+      benchmark: base.benchmarkBars,
+      signal,
+    });
+  for (const strategy of request.strategies) {
+    const { entry } = strategy;
+    const key =
+      entry.kind === "study-rule" && isWyckoffStudy(entry.strategy)
+        ? wyckoffStudyBindings[entry.strategy]
+        : undefined;
+    if (key && isWyckoffFunnelKey(key)) {
+      (disclosures.wyckoffFunnel ??= []).push(
+        ...request.instruments.map(({ symbol, signalBars }) => ({
+          ...(request.strategies.length > 1 && {
+            strategyKey: strategy.id.replace(/^diag-/, ""),
+          }),
+          symbol,
+          ...analyzeWyckoffFunnel(key, signalBars, request.start, request.end),
+          buyOrders: replay.result.orders.filter(
+            (o) =>
+              o.strategyId === strategy.id &&
+              o.symbol === symbol &&
+              o.side === "buy",
+          ).length,
+          buyFills: replay.result.fills.filter(
+            (f) =>
+              f.strategyId === strategy.id &&
+              f.symbol === symbol &&
+              f.side === "buy",
+          ).length,
+        })),
+      );
+    }
   }
   return {
     frozen,

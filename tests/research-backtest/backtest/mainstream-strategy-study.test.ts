@@ -54,6 +54,12 @@ it("主流目录保留原七项并显式声明规则与预热，长周期缺历�
 it("全部策略追加未来行情与现金事件不改变过去净值、成交、拒单及pending", () => {
   const before = structuredClone(data);
   for (const strategy of studyStrategies) {
+    if (strategy === "research-wy-sow-lpsy") {
+      expect(() =>
+        replayDailyStudy(data.slice(0, 500), [], { ...options, strategy }),
+      ).toThrow(/部分减仓/);
+      continue;
+    }
     const short = replayDailyStudy(data.slice(0, 500), [], {
       ...options,
       strategy,

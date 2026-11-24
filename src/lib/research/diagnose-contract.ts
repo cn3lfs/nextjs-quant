@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isAShareStockSymbol } from "~/lib/market/security-classification";
 import {
   nativeStudyDefinition,
   type StrategyObjectInput,
@@ -160,23 +161,38 @@ export const DIAGNOSE_CONDITIONAL_CHECK_GROUPS = {
 export const DIAGNOSE_SAMPLE_LIMIT = 50;
 const count = z.number().int().nonnegative();
 const numeric = z.number().finite();
-const symbolSchema = z.string().regex(/^(sh|sz|bj)\d{6}$/);
+const symbolPattern = /^(sh|sz|bj)\d{6}$/;
+const symbolSchema = z.string().regex(symbolPattern);
 const sourceSchema = z.enum(["lab-archive", "cli-report"]);
 const textList = z.array(z.string());
 const unique = (values: readonly string[]) =>
   new Set(values).size === values.length;
 
 export function isDiagnosticOnlyStrategyKey(key: string): boolean {
-  return ["research-chan", "research-canslim-pit", "research-sepa-pit"].some(
-    (prefix) => key.startsWith(prefix),
+  return (
+    [
+      "core-4",
+      "research-wy-sow-lpsy",
+      "wy-trend-pullback-confirm-vol10-diagnostic",
+    ].includes(key) ||
+    [
+      "research-chan",
+      "research-canslim-pit",
+      "research-sepa-pit",
+      "research-sepa-vcp-close",
+    ].some((family) => key === family || key.startsWith(family + "-"))
   );
 }
 
+const bookPresetSchema = z.literal("core-4");
 export const labDiagnoseRunInputSchema = z
   .object({
     symbols: z.array(symbolSchema).min(1).max(12).refine(unique, "标的重复"),
     mode: z.enum(["per-symbol", "portfolio"]).optional(),
-    strategyKey: z.string().trim().min(1).max(100),
+    strategyKey: z.string().trim().min(1).max(100).optional(),
+    bookPreset: bookPresetSchema.optional(),
+    includeHoldout: z.boolean().default(false),
+    holdoutStart: researchDateSchema.optional(),
     start: z.union([z.literal("auto"), researchDateSchema]),
     end: researchDateSchema,
     initial: numeric.positive().max(1e9),
@@ -192,8 +208,46 @@ export const labDiagnoseRunInputSchema = z
   .refine(
     (v) => v.start === "auto" || v.start < v.end,
     "开始日期须早于结束日期",
-  );
-export type LabDiagnoseRunInput = z.infer<typeof labDiagnoseRunInputSchema>;
+  )
+  .transform((v, ctx) => {
+    const strategyKey = v.bookPreset ?? v.strategyKey;
+    if (!strategyKey || (strategyKey === "core-4" && !v.bookPreset)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["strategyKey"],
+        message: "请选择诊断策略，四策略组合须指定 bookPreset",
+      });
+      return z.NEVER;
+    }
+    if (v.bookPreset && v.mode === "per-symbol") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["mode"],
+        message: "四策略组合须使用组合模式",
+      });
+      return z.NEVER;
+    }
+    const holdoutStart =
+      v.holdoutStart ?? (v.includeHoldout ? "2023-01-01" : undefined);
+    if (
+      holdoutStart &&
+      ((v.start !== "auto" && holdoutStart <= v.start) || holdoutStart > v.end)
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["holdoutStart"],
+        message: "留出切点须晚于开始日期且不晚于结束日期",
+      });
+      return z.NEVER;
+    }
+    return {
+      ...v,
+      strategyKey,
+      mode: v.bookPreset ? ("portfolio" as const) : v.mode,
+      holdoutStart,
+    };
+  });
+export type LabDiagnoseRunInput = z.input<typeof labDiagnoseRunInputSchema>;
 
 const page = z.number().int().positive().max(1_000_000);
 const pageSize = z.number().int().positive().max(50);
@@ -217,6 +271,14 @@ export const diagnoseArchiveDetailInputSchema = z
 export const diagnoseResultInputSchema = z
   .object({ jobId: z.string().min(1).max(200) })
   .strict();
+export const diagnoseCompareInputSchema = z
+  .object({
+    leftId: z.string().min(1).max(4096),
+    rightId: z.string().min(1).max(4096),
+  })
+  .strict()
+  .refine((v) => v.leftId !== v.rightId, "请选择两份不同的诊断归档进行对比");
+export type DiagnoseCompareInput = z.infer<typeof diagnoseCompareInputSchema>;
 
 export const diagnoseCountsSchema = z.object({
   bars: count,
@@ -239,6 +301,8 @@ export type DiagnoseCheck = z.infer<typeof diagnoseCheckSchema>;
 
 const dateRange = z.tuple([z.string(), z.string()]).nullable();
 const growthPit = z.object({
+  ruleId: z.string().optional(),
+  strategyKey: z.string().optional(),
   symbol: z.string(),
   strictReportCount: count,
   reportDateRange: dateRange,
@@ -316,6 +380,7 @@ const growthPit = z.object({
 });
 
 const nativeChan = z.object({
+  strategyKey: z.string().optional(),
   symbol: z.string(),
   identity: z.object({
     dllHash: z.string(),
@@ -340,6 +405,21 @@ const nativeChan = z.object({
   mode: z.enum(["frozen-replay", "current-dll-compute"]).optional(),
   captureMetricsAvailable: z.boolean().optional(),
 });
+export const diagnoseWyckoffNextDayBreakdownSchema = z
+  .object({
+    candidatesWithNextBar: count,
+    holdCandidateLow: count,
+    closeAboveCandidateHigh: count,
+    volumeGe15xMean20: count,
+    volumeGe10xMean20: count,
+    validNextBarNoReason: count,
+    holdAndCloseAboveHigh: count,
+    allFourConfirmed: count,
+  })
+  .strict();
+export type DiagnoseWyckoffNextDayBreakdown = z.infer<
+  typeof diagnoseWyckoffNextDayBreakdownSchema
+>;
 const wyckoffFunnel = z.object({
   symbol: z.string(),
   parentEvents: count,
@@ -351,11 +431,124 @@ const wyckoffFunnel = z.object({
   carryInCandidates: count,
   buyOrders: count,
   buyFills: count,
+  nextDayBreakdown: diagnoseWyckoffNextDayBreakdownSchema.optional(),
   boundary: z.string(),
 });
 export type DiagnoseNativeChanDisclosure = z.infer<typeof nativeChan>;
 export type DiagnoseGrowthPitDisclosure = z.infer<typeof growthPit>;
 export type DiagnoseWyckoffFunnel = z.infer<typeof wyckoffFunnel>;
+
+const nullableMetric = numeric.nullable();
+const reviewRange = z
+  .object({ start: researchDateSchema, end: researchDateSchema })
+  .strict();
+const devLeg = z
+  .object({
+    meanReturn: nullableMetric,
+    meanSharpe: nullableMetric,
+    worstDrawdown: nullableMetric,
+    trades: count,
+  })
+  .strict();
+const holdoutLeg = z
+  .object({
+    return: nullableMetric,
+    excess: nullableMetric,
+    drawdown: nullableMetric,
+    sharpe: nullableMetric,
+    trades: count,
+    fees: numeric,
+  })
+  .strict();
+const holdoutMetadata = z
+  .object({
+    classification: z.literal("historical-holdout-review"),
+    disclosure: z.string(),
+    holdoutStart: researchDateSchema,
+    reasons: textList,
+    statistics: z
+      .object({
+        dsr: nullableMetric,
+        dsrThreshold: z.literal(0.95),
+        pbo: nullableMetric,
+        effectiveTrials: count.positive(),
+        note: z.string(),
+      })
+      .strict(),
+    passed: z.boolean(),
+  })
+  .strict();
+export const diagnoseTimeHoldoutSchema = z.discriminatedUnion("status", [
+  holdoutMetadata.extend({
+    status: z.literal("insufficient"),
+    devWindowRange: z.null(),
+    devSummary: z.null(),
+    holdoutRange: reviewRange.nullable(),
+    holdout: z.null(),
+  }),
+  holdoutMetadata.extend({
+    status: z.literal("reviewed"),
+    devWindowRange: reviewRange.extend({ windowCount: count }),
+    devSummary: z
+      .object({
+        windowCount: count,
+        positiveWindows: count,
+        base: devLeg,
+        doubledCost: devLeg,
+        delayed: devLeg,
+      })
+      .strict(),
+    holdoutRange: reviewRange,
+    holdout: z
+      .object({
+        base: holdoutLeg,
+        doubledCost: holdoutLeg,
+        delayed: holdoutLeg,
+      })
+      .strict(),
+  }),
+]);
+export type DiagnoseTimeHoldoutResult = z.infer<
+  typeof diagnoseTimeHoldoutSchema
+>;
+
+export const diagnoseSleeveAttributionSchema = z
+  .object({
+    sleeves: z.array(
+      z
+        .object({
+          id: z.string(),
+          initialEquity: numeric,
+          finalEquity: numeric,
+          return: nullableMetric,
+          maxDrawdown: numeric,
+          trades: count,
+          averageWeight: nullableMetric,
+          drawdownContribution: numeric,
+        })
+        .strict(),
+    ),
+    correlations: z.array(
+      z
+        .object({
+          left: z.string(),
+          right: z.string(),
+          overlap: count,
+          correlation: nullableMetric,
+          reason: z.string().nullable(),
+        })
+        .strict(),
+    ),
+    peakDate: researchDateSchema,
+    troughDate: researchDateSchema,
+    peakEquity: numeric,
+    troughEquity: numeric,
+    maxDrawdown: numeric,
+    contributionSum: numeric,
+    transferBasis: z.string(),
+  })
+  .strict();
+export type SleeveAttribution = z.infer<typeof diagnoseSleeveAttributionSchema>;
 
 const tradeIdentity = z.object({
   symbol: z.string(),
@@ -427,6 +620,8 @@ export const diagnoseScenarioMetricsSchema = z.object({
   canslimPit: z.array(growthPit).optional(),
   growthPit: z.array(growthPit).optional(),
   wyckoffFunnel: z.array(wyckoffFunnel).optional(),
+  timeHoldout: diagnoseTimeHoldoutSchema.optional(),
+  sleeveAttribution: diagnoseSleeveAttributionSchema.optional(),
   sampleOrders: z.array(diagnoseSampleOrderSchema).max(DIAGNOSE_SAMPLE_LIMIT),
   sampleFills: z.array(diagnoseSampleFillSchema).max(DIAGNOSE_SAMPLE_LIMIT),
   sampleRejections: z
@@ -452,6 +647,8 @@ export const diagnoseArchiveSummarySchema = z.object({
   source: sourceSchema,
   title: z.string(),
   generatedAt: z.string(),
+  bookPreset: bookPresetSchema.optional(),
+  holdoutStart: researchDateSchema.nullish(),
   strategyKeys: textList,
   symbols: textList,
   pool: z
@@ -498,14 +695,19 @@ export const diagnoseArchiveDetailSchema = z.object({
 });
 export type DiagnoseArchiveDetail = z.infer<typeof diagnoseArchiveDetailSchema>;
 
-/** A return target is exactly the scanner route, optionally with its original query. */
-function safeScanReturn(value: string): boolean {
-  if (value !== "/scan" && !value.startsWith("/scan?")) return false;
+function safeHandoffReturn(value: string): boolean {
+  if (
+    !["/scan", "/accounts", "/accounts/review"].includes(
+      value.split("?", 1)[0]!,
+    )
+  )
+    return false;
   // Search params may themselves contain percent-encoded URL delimiters.
   let decoded = value;
   while (true) {
     if (
       decoded.includes("//") ||
+      decoded.includes("..") ||
       /[\\#]|[a-z][a-z0-9+.-]*:\/|(?:^|[?&=])\s*[a-z][a-z0-9+.-]*:/i.test(
         decoded,
       ) ||
@@ -523,28 +725,91 @@ function safeScanReturn(value: string): boolean {
   }
 }
 
-export const ScanToLabHandoffSchema = z
+const handoffSymbols = z
+  .array(symbolSchema)
+  .min(1)
+  .max(12)
+  .refine(unique, "标的重复");
+
+export function normalizePortfolioHandoffSymbols(
+  rawSymbols: readonly string[],
+  limit = 12,
+  acceptsSymbol = (symbol: string) => symbolPattern.test(symbol),
+) {
+  if (!Number.isSafeInteger(limit) || limit < 0)
+    throw new RangeError("标的数量上限须为非负整数");
+  const valid = new Set<string>();
+  let droppedInvalidCount = 0;
+  for (const raw of rawSymbols) {
+    if (acceptsSymbol(raw)) valid.add(raw);
+    else droppedInvalidCount++;
+  }
+  return {
+    symbols: [...valid].slice(0, limit),
+    truncatedCount: Math.max(0, valid.size - limit),
+    droppedInvalidCount,
+  };
+}
+
+export function monthlyReviewHandoffSymbols(symbols: readonly string[]) {
+  return normalizePortfolioHandoffSymbols(
+    symbols,
+    12,
+    (symbol) => isAShareStockSymbol(symbol) && !symbol.startsWith("bj"),
+  );
+}
+
+const handoffFields = z
   .object({
-    handoffSource: z.enum(["formula", "pattern", "rps"]),
+    handoffSource: z.enum(["formula", "pattern", "rps", "account-review"]),
     symbol: symbolSchema,
+    symbols: handoffSymbols.optional(),
     frozenDate: researchDateSchema.optional(),
     strategyHint: z.string().trim().min(1).max(100).optional(),
     label: z.string().trim().min(1).max(100).optional(),
     returnTo: z
       .string()
       .max(4096)
-      .refine(safeScanReturn, "返回地址须为本地 /scan 页面")
+      .refine(safeHandoffReturn, "返回地址须为本地扫描或账户复盘页面")
       .optional(),
-    scope: z.literal("single-symbol-diagnose"),
+    scope: z.enum(["single-symbol-diagnose", "portfolio-diagnose"]),
   })
   .strict();
+const singleHandoffSchema = handoffFields.extend({
+  scope: z.literal("single-symbol-diagnose"),
+  symbols: z.array(symbolSchema).length(1).optional(),
+});
+const portfolioHandoffSchema = handoffFields.extend({
+  scope: z.literal("portfolio-diagnose"),
+  symbol: symbolSchema.optional(),
+  symbols: handoffSymbols,
+});
+// Existing scan link builders use .shape.returnTo to validate the return link separately.
+export const ScanToLabHandoffSchema = Object.assign(
+  z
+    .discriminatedUnion("scope", [singleHandoffSchema, portfolioHandoffSchema])
+    .refine(
+      (v) =>
+        v.scope !== "single-symbol-diagnose" ||
+        !v.symbols ||
+        v.symbols[0] === v.symbol,
+      { path: ["symbols"], message: "单标的交接只能包含当前标的" },
+    )
+    .transform((v) =>
+      v.scope === "portfolio-diagnose" ? { ...v, symbol: v.symbols[0]! } : v,
+    ),
+  { shape: handoffFields.shape },
+);
 export type ScanToLabHandoff = z.infer<typeof ScanToLabHandoffSchema>;
 
-export function buildScanToLabHandoffHref(payload: ScanToLabHandoff): string {
+export function buildScanToLabHandoffHref(
+  payload: z.input<typeof ScanToLabHandoffSchema>,
+): string {
   const handoff = ScanToLabHandoffSchema.parse(payload);
   const params = new URLSearchParams({ handoff: "1" });
   for (const [name, value] of Object.entries(handoff)) {
-    if (value !== undefined) params.set(name, value);
+    if (value !== undefined)
+      params.set(name, Array.isArray(value) ? value.join(",") : value);
   }
   return `/lab/backtest?${params}`;
 }
@@ -559,10 +824,11 @@ export function parseScanToLabHandoff(search: {
   const marker = search.get("handoff");
   if (marker === null) return { kind: "none" };
   if (marker !== "1") return { kind: "invalid", message: "未知的扫描交接版本" };
-  const raw: Record<string, string> = {};
+  const raw: Record<string, string | string[]> = {};
   for (const name of Object.keys(ScanToLabHandoffSchema.shape)) {
     const value = search.get(name);
-    if (value !== null) raw[name] = value;
+    if (value !== null)
+      raw[name] = name === "symbols" ? value.split(",") : value;
   }
   const parsed = ScanToLabHandoffSchema.safeParse(raw);
   if (!parsed.success) {
@@ -660,19 +926,23 @@ export function buildLabDraftFromHandoff(payload: ScanToLabHandoff) {
     formula: "formula",
     pattern: "double-breakout",
     rps: "dual-ma",
+    "account-review": "dual-ma",
   }[handoff.handoffSource];
   const hintedRules =
     handoff.strategyHint && scanHandoffStrategyRules(handoff.strategyHint);
   const strategyKey = hintedRules ? handoff.strategyHint! : defaultKey;
   const rules = hintedRules || scanHandoffStrategyRules(defaultKey)!;
+  const portfolio = handoff.scope === "portfolio-diagnose";
   const strategy: StrategyObjectInput = {
     id: `diag-${strategyKey}`,
     version: 1,
     market: "cn-equity",
     period: "day",
-    universe: { kind: "symbols", symbols: [handoff.symbol] },
+    universe: { kind: "symbols", symbols: handoff.symbols ?? [handoff.symbol] },
     ...rules,
-    sizing: { kind: "weight", weight: 1 },
+    sizing: portfolio
+      ? { kind: "equal", positions: handoff.symbols.length }
+      : { kind: "weight", weight: 1 },
     sleeve: "diag",
   };
   // Without an as-of date, leave the Lab's date fields awaiting explicit selection.
@@ -681,7 +951,9 @@ export function buildLabDraftFromHandoff(payload: ScanToLabHandoff) {
     ? new Date(Date.parse(end) - 365 * 86_400_000).toISOString().slice(0, 10)
     : "";
   const notes = [
-    "此草稿只诊断扫描候选中的一个标的。历史证券池与逐日选股表现需独立验证。",
+    portfolio
+      ? "此草稿诊断所选标的组合。历史证券池与逐日选股表现需独立验证。"
+      : "此草稿只诊断扫描候选中的一个标的。历史证券池与逐日选股表现需独立验证。",
   ];
   if (handoff.strategyHint && !hintedRules)
     notes.push(
@@ -690,7 +962,11 @@ export function buildLabDraftFromHandoff(payload: ScanToLabHandoff) {
   if (strategyKey === "formula")
     notes.push("草稿使用诊断示例公式，可按原扫描公式编辑。");
   if (handoff.handoffSource === "rps")
-    notes.push("RPS 排名仅用于选择候选；草稿规则用于单标的回放。");
+    notes.push(
+      portfolio
+        ? "RPS 排名仅用于选择候选。"
+        : "RPS 排名仅用于选择候选；草稿规则用于单标的回放。",
+    );
   if (!end) notes.push("缺少冻结日期，请选择回放日期范围。");
   return {
     strategy,

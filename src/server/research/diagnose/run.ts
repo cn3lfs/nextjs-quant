@@ -21,7 +21,12 @@ import {
   type DiagnoseSourceQuality,
 } from "./prepare-request";
 import { writeReport } from "./report";
-import { buildStrategy, planDiagnoseCells } from "./strategy-specs";
+import {
+  buildDiagnoseCellStrategies,
+  DIAGNOSE_BOOK_PRESETS,
+  planDiagnoseCells,
+  type DiagnoseBookKey,
+} from "./strategy-specs";
 import {
   emptyCounts,
   type StrategyDisclosures,
@@ -30,6 +35,8 @@ import {
 } from "./types";
 
 export type RunDiagnoseOptions = DiagnosePreparationOptions & {
+  book?: DiagnoseBookKey;
+  holdoutStart?: string;
   symbols: string[];
   pool?: UniversePoolDisclosure;
   strategies: string[];
@@ -78,6 +85,7 @@ async function writeJson(path: string, value: unknown) {
 }
 
 type ArtifactContext = {
+  book?: DiagnoseBookKey;
   mode: DiagnoseCell["mode"];
   strategyConfig: StrategyObjectInput;
   frozen: FrozenLabBacktest;
@@ -109,8 +117,19 @@ async function writeArtifacts(dir: string, context: ArtifactContext) {
   await writeJson(join(dir, "run.json"), {
     generatedAt: new Date().toISOString(),
     mode: context.mode,
-    strategyKey: effectiveStrategy.id,
-    strategyConfig: effectiveStrategy,
+    ...(context.book
+      ? {
+          strategyKey: context.book,
+          strategies: frozen.request.strategies,
+          sleeves: frozen.request.sleeves,
+          accountMaxUniqueSymbols: frozen.request.accountMaxUniqueSymbols,
+          accountMaxSymbolWeight: frozen.request.accountMaxSymbolWeight,
+          collectDailyDecisionCounts: frozen.request.collectDailyDecisionCounts,
+        }
+      : {
+          strategyKey: effectiveStrategy.id,
+          strategyConfig: effectiveStrategy,
+        }),
     symbols: frozen.request.instruments.map((i) => i.symbol),
     pool: context.pool,
     start: context.start,
@@ -264,7 +283,7 @@ async function writeErrorArtifacts(
   cell: DiagnoseCell,
   message: string,
   context: {
-    strategyConfig: StrategyObjectInput;
+    strategies: StrategyObjectInput[];
     start: string;
     end: string;
     initial: number;
@@ -278,9 +297,12 @@ async function writeErrorArtifacts(
 ) {
   await writeJson(join(dir, "run.json"), {
     generatedAt: new Date().toISOString(),
-    strategyKey: context.strategyConfig.id,
+    strategyKey:
+      context.strategies.length > 1 ? cell.strategy : context.strategies[0]!.id,
     mode: cell.mode,
-    strategyConfig: context.strategyConfig,
+    ...(context.strategies.length > 1
+      ? { strategies: context.strategies }
+      : { strategyConfig: context.strategies[0] }),
     symbols: cell.symbols,
     pool: context.pool,
     start: context.start,
@@ -338,10 +360,18 @@ export async function runDiagnose(
   if (new Set(options.symbols).size !== options.symbols.length)
     throw new Error("标的需要唯一");
   const config = settingsSchema.parse({ tdxRoot: options.tdxRoot });
+  const bookPreset = options.book
+    ? DIAGNOSE_BOOK_PRESETS[options.book]
+    : undefined;
   const executionProfile = options.executionProfile ?? "strict";
-  const maxParticipation = options.maxParticipation ?? null;
-  const capacityPolicy = options.capacityPolicy ?? null;
+  const maxParticipation =
+    options.maxParticipation ?? bookPreset?.maxParticipation ?? null;
+  const capacityPolicy =
+    maxParticipation === null
+      ? null
+      : (options.capacityPolicy ?? bookPreset?.capacityPolicy ?? null);
   const planned = planDiagnoseCells({
+    book: options.book,
     symbols: options.symbols,
     strategies: options.strategies,
     controls: options.controls,
@@ -408,6 +438,7 @@ export async function runDiagnose(
         replayDiagnoseCell(prepared, options);
       const { counts } = diagnostics;
       await writeArtifacts(runPath, {
+        book: item.strategy === options.book ? options.book : undefined,
         mode: item.mode,
         strategyConfig,
         frozen,
@@ -454,11 +485,7 @@ export async function runDiagnose(
       log(`    阻断：${message}`);
       try {
         await writeErrorArtifacts(runPath, cell, message, {
-          strategyConfig: buildStrategy(
-            item.strategy,
-            item.symbols,
-            item.mode === "portfolio" ? "portfolio" : "single",
-          ),
+          strategies: buildDiagnoseCellStrategies(item),
           start: cell.start ?? options.start,
           end: options.end,
           initial: options.initial,

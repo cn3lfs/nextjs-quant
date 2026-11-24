@@ -26,7 +26,6 @@ export function observeClosingSignals(
     controls,
     lastExitIndices,
     reentries,
-    lifecycle,
     dailyDecisionCounts,
     pendingOrders,
     removePending,
@@ -39,6 +38,7 @@ export function observeClosingSignals(
   } = state;
   const closeCandidates = new Map<string, BookCandidate[]>();
   for (const strategy of strategies) {
+    const usesBook = usesStrategyBook(strategy);
     const candidates: BookCandidate[] = [];
     const count = {
       strategyId: strategy.id,
@@ -53,13 +53,13 @@ export function observeClosingSignals(
       const i = source.indices.get(date);
       if (i === undefined) {
         if (eligible) count.unknown++;
-        if (usesStrategyBook(strategy))
+        if (usesBook)
           candidates.push({
             symbol,
             bars: source.instrument.signalBars,
             external: source.instrument.external,
             decision: { entry: null, exit: null, stopLevel: null },
-            eligible: eligibleAt(strategy, symbol, source, date),
+            eligible,
           });
         continue;
       }
@@ -70,18 +70,28 @@ export function observeClosingSignals(
         c = controls.get(key);
       if (p && c) {
         const protection = strategyProtection(strategy, bar, c);
+        const pendingSell = [...(pendingOrders.get(key) ?? [])].find(
+          (o) => o.side === "sell",
+        );
+        const futureDelayedSell =
+          pendingSell !== undefined &&
+          (pendingSell.due === null ||
+            Date.parse(pendingSell.due) > Date.parse(date));
         if (
           protection &&
-          ![...(pendingOrders.get(key) ?? [])].some((o) => o.side === "sell")
+          (!pendingSell ||
+            pendingSell.exitFraction !== undefined ||
+            futureDelayedSell)
         ) {
-          const order = pushOrder(
-            strategy,
-            symbol,
-            date,
-            date,
-            "sell",
-            protection.trigger,
-          );
+          const order =
+            pendingSell ??
+            pushOrder(strategy, symbol, date, date, "sell", protection.trigger);
+          if (pendingSell) {
+            delete order.exitFraction;
+            order.targetRemainingQuantity = 0;
+            order.trigger = protection.trigger;
+            order.due = date;
+          }
           execute(order, date, protection.price);
         }
       }
@@ -127,6 +137,30 @@ export function observeClosingSignals(
               lastExitIndex: lastExitIndices.get(key),
             },
       );
+      const timed = !!current && strategyTimeExit(strategy.exit, control!.bars);
+      const fraction = (decision as { exitFraction?: number }).exitFraction;
+      const partial =
+        typeof fraction === "number" &&
+        Number.isFinite(fraction) &&
+        fraction > 0 &&
+        fraction < 1 &&
+        !timed;
+      if (
+        timed ||
+        (decision.exit === true && (fraction === undefined || fraction >= 1))
+      ) {
+        for (const order of pendingOrders.get(key) ?? []) {
+          if (
+            order.side !== "sell" ||
+            (order.exitFraction === undefined &&
+              (order.targetRemainingQuantity ?? 0) <= 0)
+          )
+            continue;
+          order.status = "rejected";
+          order.reason = "剩余减仓委托已由收盘全平信号替代";
+          removePending(order);
+        }
+      }
       if (eligible && (decision.entry === null || decision.exit === null))
         count.unknown++;
       if (eligible && decision.entry === true && decision.exit !== true)
@@ -156,7 +190,7 @@ export function observeClosingSignals(
           symbol,
           decision,
         });
-      if (usesStrategyBook(strategy)) {
+      if (usesBook) {
         candidates.push({
           symbol,
           bars: source.instrument.signalBars,
@@ -171,30 +205,13 @@ export function observeClosingSignals(
             : { ...decision, entry: false },
           eligible,
         });
-        if (
-          current &&
-          (decision.exit === true ||
-            strategyTimeExit(strategy.exit, control!.bars)) &&
-          !pendingOrders.has(key)
-        ) {
-          const timed = strategyTimeExit(strategy.exit, control!.bars);
-          pushOrder(
-            strategy,
-            symbol,
-            date,
-            calendar[index + 1 + (request.signalDelayBars ?? 0)] ?? null,
-            "sell",
-            timed ? "time" : "signal",
-          );
-        }
-        continue;
       }
       if (pendingOrders.has(key)) continue;
-      const timed = !!current && strategyTimeExit(strategy.exit, control!.bars);
       const side =
         current && (decision.exit === true || timed)
           ? "sell"
-          : eligible &&
+          : !usesBook &&
+              eligible &&
               decision.entry === true &&
               strategyReentryAllowed(
                 strategy.exit,
@@ -208,10 +225,10 @@ export function observeClosingSignals(
       if (side) {
         const next =
           calendar[index + 1 + (request.signalDelayBars ?? 0)] ??
-          (market === "crypto" && !request.signalDelayBars
+          (!usesBook && market === "crypto" && !request.signalDelayBars
             ? nextBar(date, strategy.period)
             : null);
-        pushOrder(
+        const order = pushOrder(
           strategy,
           symbol,
           date,
@@ -219,9 +236,10 @@ export function observeClosingSignals(
           side,
           timed ? "time" : "signal",
         );
+        if (side === "sell" && partial) order.exitFraction = fraction;
       }
     }
-    if (lifecycle) dailyDecisionCounts.push(count);
+    if (state.collectDailyDecisionCounts) dailyDecisionCounts.push(count);
     closeCandidates.set(strategy.id, candidates);
   }
   return closeCandidates;

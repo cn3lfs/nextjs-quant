@@ -4,6 +4,8 @@ import {
   prepareStrategy,
   strategyObjectSchema,
   studyStrategies,
+  studyWarmup,
+  wyckoffExitStudyBindings,
   volumeStudyBindings,
   wyckoffStudyBindings,
 } from "trading-strategies";
@@ -15,6 +17,7 @@ import { usesNativeChan } from "~/server/research/lab-backtest";
 import type { Bar } from "trading-strategy-core/bars";
 import {
   NATIVE_STRATEGY_KEYS,
+  DIAGNOSE_BOOK_PRESETS,
   PIT_STRATEGY_KEYS,
   SIGNAL_STRATEGY_KEYS,
   STUDY_STRATEGY_KEYS,
@@ -162,13 +165,15 @@ describe.each(["single", "portfolio"] as const)(
 
 it("accepts exactly the executable catalog studies as signal keys", () => {
   expect(probeErrors).toEqual([]);
-  expect(acceptedStudyKeys).toHaveLength(94);
+  expect(acceptedStudyKeys).toHaveLength(98);
   expect([...STUDY_STRATEGY_KEYS]).toEqual(acceptedStudyKeys);
   expect(new Set(STUDY_STRATEGY_KEYS).size).toBe(STUDY_STRATEGY_KEYS.length);
   expect([...acceptedStudyKeys]).toEqual(
     expect.arrayContaining([
       ...Object.keys(volumeStudyBindings),
       ...Object.keys(wyckoffStudyBindings),
+      ...Object.keys(wyckoffExitStudyBindings),
+      "wy-trend-pullback-confirm-vol10-diagnostic",
     ]),
   );
 });
@@ -580,7 +585,11 @@ it.each(GROWTH_PIT_STRATEGY_KEYS)(
   "%s registers the PIT entry and its exact exit",
   (key) => {
     expect(SIGNAL_STRATEGY_KEYS).toContain(key);
-    expect(warmupBarsFor(key)).toBe(300);
+    expect(warmupBarsFor(key)).toBe(
+      key.startsWith("research-sepa-vcp-close")
+        ? studyWarmup("theory-vcp-close")
+        : 300,
+    );
     const strategy = buildStrategy(key, [symbol], "single");
     expect(strategy.entry).toEqual({
       kind: "external",
@@ -625,4 +634,51 @@ it("plans core-12 and rejects competing symbol inputs in either order", () => {
     ["--symbols", symbol, "--pool", "core-5"],
   ])
     expect(() => parseArgs([...base, ...args])).toThrow(/--pool.*--symbols/);
+});
+
+it("plans core-4 as one portfolio and opts into historical holdout independently", () => {
+  const base = ["--tdx-root", resolve("fixture"), "--symbols", symbol];
+  const args = parseArgs([...base, "--book", "core-4", "--holdout"]);
+  expect(planDiagnoseCells(args)).toEqual([
+    { strategy: "core-4", mode: "portfolio", symbols: [symbol] },
+  ]);
+  expect(args.holdoutStart).toBe("2023-01-01");
+  expect(parseArgs(base).holdoutStart).toBeUndefined();
+  expect(
+    parseArgs([...base, "--holdout-start", "2024-02-29"]).holdoutStart,
+  ).toBe("2024-02-29");
+  for (const bad of ["2023-02-29", "2023-1-01", "x"])
+    expect(() => parseArgs([...base, "--holdout-start", bad])).toThrow(
+      "--holdout-start",
+    );
+  for (const extra of [
+    ["--strategies", "hold"],
+    ["--mode", "both"],
+  ])
+    expect(() => parseArgs([...base, "--book", "core-4", ...extra])).toThrow(
+      "--book",
+    );
+  const book = DIAGNOSE_BOOK_PRESETS["core-4"];
+  expect(book.sleeves.map((s) => s.strategyKey)).toEqual([
+    "research-chan-hold-cash",
+    "research-canslim-pit-ma50",
+    "theory-vcp-close",
+    "classic-ibs",
+  ]);
+  expect(book.sleeves.map((s) => s.share)).toEqual([0.25, 0.25, 0.25, 0.25]);
+  expect(book).toMatchObject({
+    accountMaxUniqueSymbols: 10,
+    accountMaxSymbolWeight: 0.1,
+  });
+});
+
+it("registers the three SEPA close variants and binds CH14 structure stop to the causal ZD field", () => {
+  for (const suffix of ["price", "pit", "pit-strict-finance"])
+    expect(PIT_STRATEGY_KEYS).toContain(`research-sepa-vcp-close-${suffix}`);
+  const key = "research-chan-hold-cash-zd-stop";
+  expect(NATIVE_STRATEGY_KEYS).toContain(key);
+  expect(buildStrategy(key, [symbol], "single")).toMatchObject({
+    entry: { kind: "chan-native", profile: "chan-hold-cash-native" },
+    exit: { stop: { kind: "structure", field: "chan-zd" } },
+  });
 });

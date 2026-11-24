@@ -4,10 +4,22 @@ import {
 } from "trading-strategies/research/wyckoff/research-wyckoff";
 import type { Bar } from "trading-strategy-core/bars";
 import { ma } from "trading-strategy-core/indicators";
+import { wyckoffTrendNextDayConditions } from "trading-strategies";
 
 export type WyckoffFunnelStrategyId =
   "wy-lps-daily" | "wy-reaccumulation-daily" | "wy-trend-pullback-daily";
 type Event = WyckoffPoint["events"][number];
+
+export type WyckoffNextDayBreakdown = {
+  candidatesWithNextBar: number;
+  holdCandidateLow: number;
+  closeAboveCandidateHigh: number;
+  volumeGe15xMean20: number;
+  volumeGe10xMean20: number;
+  validNextBarNoReason: number;
+  holdAndCloseAboveHigh: number;
+  allFourConfirmed: number;
+};
 
 export function analyzeWyckoffFunnel(
   strategyId: WyckoffFunnelStrategyId,
@@ -24,6 +36,39 @@ export function analyzeWyckoffFunnel(
   const mean20 = trendPullback ? ma(observed, 20) : [];
   const mean60 = trendPullback ? ma(observed, 60) : [];
   const candidateKind = trendPullback ? "trend" : "lps";
+  const nextDayBreakdown: WyckoffNextDayBreakdown | undefined = trendPullback
+    ? {
+        candidatesWithNextBar: 0,
+        holdCandidateLow: 0,
+        closeAboveCandidateHigh: 0,
+        volumeGe15xMean20: 0,
+        volumeGe10xMean20: 0,
+        validNextBarNoReason: 0,
+        holdAndCloseAboveHigh: 0,
+        allFourConfirmed: 0,
+      }
+    : undefined;
+  function countNextDay(event: Event, nextIndex: number) {
+    const nextBar = observed[nextIndex];
+    if (!nextDayBreakdown || !nextBar) return;
+    const checks = wyckoffTrendNextDayConditions(
+      event.facts,
+      nextBar,
+      series[nextIndex]!,
+    );
+    const holdAndCloseAboveHigh =
+      checks.holdCandidateLow && checks.closeAboveCandidateHigh;
+    nextDayBreakdown.candidatesWithNextBar++;
+    for (const condition of Object.keys(checks) as (keyof typeof checks)[])
+      if (checks[condition]) nextDayBreakdown[condition]++;
+    if (holdAndCloseAboveHigh) nextDayBreakdown.holdAndCloseAboveHigh++;
+    if (
+      holdAndCloseAboveHigh &&
+      checks.volumeGe15xMean20 &&
+      checks.validNextBarNoReason
+    )
+      nextDayBreakdown.allFourConfirmed++;
+  }
   const result = {
     parentEvents: 0,
     pullbackShrinkage: 0,
@@ -92,7 +137,10 @@ export function analyzeWyckoffFunnel(
         (reaccumulation && !event.facts.trend)
       )
         continue;
-      if (event.state === "candidate") result.candidates++;
+      if (event.state === "candidate") {
+        result.candidates++;
+        countNextDay(event, index + 1);
+      }
       if (event.state === "confirmed") {
         result.nextDayVolumeConfirm++;
         if (event.candidateAt < windowStart) {
@@ -100,10 +148,11 @@ export function analyzeWyckoffFunnel(
           result.parentEvents++;
           result.pullbackShrinkage++;
           result.candidates++;
+          countNextDay(event, index);
         }
       }
     }
     if (inWindow && point.entry) result.entrySignals++;
   }
-  return result;
+  return { ...result, ...(nextDayBreakdown && { nextDayBreakdown }) };
 }

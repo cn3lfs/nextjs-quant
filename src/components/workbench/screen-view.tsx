@@ -5,9 +5,10 @@ import { ResearchUsageContainer } from "~/components/research/research-usage-con
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { DataTable } from "~/components/ui/data-table";
+import { DataTable, type DataTableColumn } from "~/components/ui/data-table";
 import { useAccumulatedPages } from "~/components/ui/use-infinite-table";
 import { Input } from "~/components/ui/input";
+import { Checkbox } from "~/components/ui/checkbox";
 import {
   Select,
   SelectTrigger,
@@ -27,10 +28,14 @@ import {
 } from "~/lib/market/watchlist-groups";
 import { screenSortLabels, type ScreenSort } from "~/lib/screening/screen-sort";
 import {
+  batchCandidatesToLabHref,
   currentScreenCandidateIndex,
   formulaCandidateToLabHref,
   openScreenCandidate,
+  portfolioHandoffLimit,
+  portfolioHandoffLimitMessage,
   screenCandidateUrlKey,
+  useCandidateBatchSelection,
   type ScreenCandidateIdentity,
 } from "~/lib/screening/screen-candidate-navigation";
 import {
@@ -176,6 +181,34 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
       !!screenResult && !pageQuery.isFetching && !screened.isPlaceholderData,
   });
   const candidates = candidateBatches.rows;
+  const batchReady =
+    formulaView === "screen" &&
+    !pageUnavailable &&
+    !pageQuery.isPlaceholderData &&
+    !!screenJob &&
+    (!requestedJob || requestedJob === screenJob.id);
+  const batchSelection = useCandidateBatchSelection(
+    batchReady
+      ? JSON.stringify([
+          pageKey,
+          candidateResetKey,
+          excludedPage,
+          errorPage,
+          pageQuery.dataUpdatedAt,
+        ])
+      : null,
+  );
+  const batchRows = new Set(
+    batchReady ? screenResult?.candidates.map((row) => row.symbol) : [],
+  );
+  const batchHandoff = batchCandidatesToLabHref({
+    symbols: batchSelection.symbols,
+    handoffSource: "formula",
+    label: screenResult?.formula?.name,
+    frozenDate: screenResult?.asOf?.slice(0, 10),
+    returnTo,
+  });
+  const batchFull = batchSelection.symbols.length >= portfolioHandoffLimit;
   // Watchlist groups arrive through the workspace utils so this view stays
   // renderable without a tRPC provider (and keeps the existing props contract).
   const groupUtils = state.utils;
@@ -627,6 +660,28 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
                 </FilterGroup>
                 <FilterDivider />
                 <FilterGroup>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!batchHandoff}
+                    onClick={() => {
+                      if (batchHandoff)
+                        router.push(batchHandoff.href, { scroll: false });
+                    }}
+                  >
+                    {`批量带入组合诊断 (${batchSelection.symbols.length}/${portfolioHandoffLimit})`}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={!batchHandoff}
+                    onClick={batchSelection.clear}
+                  >
+                    清空已选
+                  </Button>
+                </FilterGroup>
+                <FilterDivider />
+                <FilterGroup>
                   <span className="whitespace-nowrap text-xs tabular-nums text-nc-text-3">
                     已加载 {candidates.length} / {screenResult.count} 条
                   </span>
@@ -902,6 +957,48 @@ export function ScreenView({ state }: { state: ScreenViewState }) {
                   label="候选结果"
                   data={candidates}
                   columns={[
+                    ...(batchReady
+                      ? [
+                          {
+                            id: "portfolio-select",
+                            header: "勾选",
+                            enableSorting: false,
+                            cell: ({ row }) => {
+                              const { symbol } = row.original;
+                              if (!batchRows.has(symbol)) return null;
+                              const checked =
+                                batchSelection.symbols.includes(symbol);
+                              const disabled = batchFull && !checked;
+                              return (
+                                <span
+                                  className="inline-flex items-center gap-1"
+                                  title={
+                                    disabled
+                                      ? portfolioHandoffLimitMessage
+                                      : undefined
+                                  }
+                                >
+                                  <Checkbox
+                                    aria-label={`选择 ${symbol}`}
+                                    checked={checked}
+                                    disabled={disabled}
+                                    onCheckedChange={() =>
+                                      batchSelection.toggle(symbol)
+                                    }
+                                  />
+                                  {disabled && (
+                                    <small>
+                                      {portfolioHandoffLimitMessage}
+                                    </small>
+                                  )}
+                                </span>
+                              );
+                            },
+                          } satisfies DataTableColumn<
+                            (typeof candidates)[number]
+                          >,
+                        ]
+                      : []),
                     {
                       id: "column-0",
                       header: "证券",

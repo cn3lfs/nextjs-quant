@@ -4,6 +4,8 @@ import {
   type PortfolioRequest,
 } from "./portfolio-engine.js";
 import { marketRules } from "trading-strategy-core/market-rules";
+import { scaleResearchCosts } from "trading-strategy-core/costs";
+import { portfolioObservationDay } from "./portfolio-clock.js";
 import type { StrategyObjectInput } from "trading-strategies";
 
 /** External projected decisions need the original rule's declaration. Native
@@ -34,6 +36,7 @@ export function validationEntryParameterSensitivity(
 }
 
 export type ValidationScore = {
+  fees?: number;
   /** Present only in the declared lifecycle method; legacy artifacts stay exact. */
   dailyDates?: string[];
   tradeListHash?: string;
@@ -300,8 +303,7 @@ export function validationNeighborhood(
 
 /** Only the training prefix is supplied to the engine and ranking callback.
  * Each segment starts with independent capital, preserving earlier features but
- * no inherited positions. The separate last-20% split overlaps rolling OOS;
- * it is a diagnostic, never an extra independent statistical trial.
+ * no inherited positions. Rolling training and OOS both end before holdout.
  */
 export function runValidationSuite(
   candidates: readonly ValidationCandidate[],
@@ -341,23 +343,6 @@ export function runValidationSuite(
     ].every((n) => Number.isFinite(n) && n > 0 && n <= 1)
   )
     throw new Error("Invalid validation candidates / dates / policy");
-  const windows: {
-    trainStart: string;
-    trainEnd: string;
-    start: string;
-    end: string;
-  }[] = [];
-  for (
-    let i = policy.trainBars;
-    i + policy.testBars <= dates.length;
-    i += policy.testBars
-  )
-    windows.push({
-      trainStart: dates[i - policy.trainBars]!,
-      trainEnd: dates[i - 1]!,
-      start: dates[i]!,
-      end: dates[i + policy.testBars - 1]!,
-    });
   const split =
     policy.holdoutStart === undefined
       ? Math.floor(dates.length * 0.8)
@@ -369,6 +354,23 @@ export function runValidationSuite(
       !Number.isFinite(Date.parse(policy.holdoutStart)))
   )
     throw new Error("Invalid holdout start");
+  const windows: {
+    trainStart: string;
+    trainEnd: string;
+    start: string;
+    end: string;
+  }[] = [];
+  for (
+    let i = policy.trainBars;
+    i + policy.testBars <= split;
+    i += policy.testBars
+  )
+    windows.push({
+      trainStart: dates[i - policy.trainBars]!,
+      trainEnd: dates[i - 1]!,
+      start: dates[i]!,
+      end: dates[i + policy.testBars - 1]!,
+    });
   let prefix:
     | {
         candidate: ValidationCandidate;
@@ -389,45 +391,46 @@ export function runValidationSuite(
     const costs = original.costs ?? marketRules[original.market].costs;
     if (!costs) throw new Error("Missing market cost assumptions");
     if (prefix?.candidate !== candidate || prefix.end !== end) {
+      const throughEnd = (date: string) =>
+        portfolioObservationDay(
+          original.market,
+          original.strategies[0]!.period,
+          date,
+        ) <= end;
       const frozenPrefix: PortfolioRequest = {
         ...original,
         start,
         end,
-        calendar: original.calendar.filter((d) => d.slice(0, 10) <= end),
+        calendar: original.calendar.filter(throughEnd),
         instruments: original.instruments.map((instrument) => ({
           ...instrument,
-          bars: instrument.bars.filter((b) => b.date.slice(0, 10) <= end),
-          signalBars: instrument.signalBars.filter(
-            (b) => b.date.slice(0, 10) <= end,
-          ),
+          bars: instrument.bars.filter((b) => throughEnd(b.date)),
+          signalBars: instrument.signalBars.filter((b) => throughEnd(b.date)),
           actions: instrument.actions?.filter((a) => a.date <= end),
           external: instrument.external && {
             ...instrument.external,
-            rps: instrument.external.rps?.filter(
-              (r) => r.date.slice(0, 10) <= end,
+            rps: instrument.external.rps?.filter((r) => throughEnd(r.date)),
+            chan: instrument.external.chan?.filter((r) => throughEnd(r.date)),
+            signals: instrument.external.signals?.filter((r) =>
+              throughEnd(r.date),
             ),
-            chan: instrument.external.chan?.filter(
-              (r) => r.date.slice(0, 10) <= end,
+            levels: instrument.external.levels?.filter((r) =>
+              throughEnd(r.date),
             ),
-            signals: instrument.external.signals?.filter(
-              (r) => r.date.slice(0, 10) <= end,
-            ),
-            levels: instrument.external.levels?.filter(
-              (r) => r.date.slice(0, 10) <= end,
-            ),
-            lowZone: instrument.external.lowZone?.filter(
-              (r) => r.date.slice(0, 10) <= end,
+            lowZone: instrument.external.lowZone?.filter((r) =>
+              throughEnd(r.date),
             ),
           },
         })),
-        positionWeights: original.positionWeights?.filter(
-          (w) => w.date.slice(0, 10) <= end,
+        positionWeights: original.positionWeights?.filter((w) =>
+          throughEnd(w.date),
         ),
-        memberships: original.memberships?.filter(
-          (m) => m.date.slice(0, 10) <= end,
+        memberships: original.memberships?.filter((m) => throughEnd(m.date)),
+        sleeveTargets: original.sleeveTargets?.filter((t) =>
+          throughEnd(t.date),
         ),
-        sleeveTargets: original.sleeveTargets?.filter(
-          (t) => t.date.slice(0, 10) <= end,
+        scheduledTargets: original.scheduledTargets?.filter((row) =>
+          throughEnd(row.date),
         ),
       };
       prefix = {
@@ -442,19 +445,7 @@ export function runValidationSuite(
       start,
       end,
       signalDelayBars: delay,
-      costs: Object.fromEntries(
-        Object.entries(costs).map(([key, value]) => [
-          key,
-          key === "sellTaxSchedule" && costs.sellTaxSchedule
-            ? {
-                ...costs.sellTaxSchedule,
-                multiplier: costs.sellTaxSchedule.multiplier * costMultiplier,
-              }
-            : typeof value === "number"
-              ? value * costMultiplier
-              : value,
-        ]),
-      ) as typeof costs,
+      costs: scaleResearchCosts(costs, costMultiplier),
     };
     return score(
       runPortfolio(request, undefined, prefix.preparation, signal),
@@ -516,7 +507,11 @@ export function runValidationSuite(
         : {}),
       id: candidate.id,
       family: candidate.family,
-      inSample: run(candidate, dates[0]!, dates[policy.trainBars - 1]!),
+      inSample: run(
+        candidate,
+        dates[0]!,
+        dates[Math.min(policy.trainBars, split) - 1]!,
+      ),
       holdout: stress(candidate, dates[split]!, dates.at(-1)!),
       windows: evaluated,
       neighbors: [],

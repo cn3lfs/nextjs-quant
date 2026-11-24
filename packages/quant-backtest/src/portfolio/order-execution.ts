@@ -97,7 +97,7 @@ export function createOrderExecutor(state: PortfolioState) {
     controls,
     lastExitIndices,
     reentries,
-    lifecycle,
+    lifecycleExecutionEvidence,
     openingEquities,
     identities,
     fills,
@@ -128,6 +128,43 @@ export function createOrderExecutor(state: PortfolioState) {
     const control = controls.get(key);
     if (
       order.side === "sell" &&
+      order.exitFraction !== undefined &&
+      order.targetRemainingQuantity === undefined &&
+      holding &&
+      rules.execution
+    ) {
+      const sell = floorStep(holding.quantity * order.exitFraction, rules.step);
+      if (sell < rules.minimum) {
+        reject(order, date, "按比例减仓不足最小交易数量，维持原仓");
+        order.status = "rejected";
+        removePending(order);
+        return;
+      }
+      order.targetRemainingQuantity = Math.max(0, holding.quantity - sell);
+    }
+    const reachedQuantityTarget = (remaining: number) => {
+      const target = order.targetRemainingQuantity;
+      if (target === undefined) return false;
+      const delta = Math.max(0, remaining - target);
+      return (
+        delta <= 1e-8 ||
+        (market === "cn-equity" &&
+          target > 0 &&
+          rules.execution !== null &&
+          floorStep(delta, rules.step) < rules.minimum)
+      );
+    };
+    if (
+      order.side === "sell" &&
+      reachedQuantityTarget(holding?.quantity ?? 0)
+    ) {
+      order.status = "filled";
+      order.reason = null;
+      removePending(order);
+      return;
+    }
+    if (
+      order.side === "sell" &&
       account.sellable(
         key,
         accountDate(date, market),
@@ -154,6 +191,58 @@ export function createOrderExecutor(state: PortfolioState) {
     let quantity = holding?.quantity ?? 0;
     let stop: number | null = null;
     if (order.side === "buy") {
+      let accountRoom = Infinity;
+      if (
+        request.accountMaxUniqueSymbols !== undefined ||
+        request.accountMaxSymbolWeight !== undefined
+      ) {
+        const symbols = new Set<string>();
+        let equity = 0,
+          heldValue = 0;
+        for (const ledger of accounts.values()) {
+          equity += ledger.equity;
+          for (const [id, position] of ledger.positions) {
+            if (position.quantity <= 0) continue;
+            const symbol = identities.get(id)!.symbol;
+            symbols.add(symbol);
+            if (symbol === order.symbol)
+              heldValue += position.quantity * position.mark;
+          }
+        }
+        if (
+          request.accountMaxUniqueSymbols !== undefined &&
+          !symbols.has(order.symbol) &&
+          symbols.size >= request.accountMaxUniqueSymbols
+        ) {
+          reject(order, date, "账户跨分仓持仓品种上限");
+          return;
+        }
+        if (request.accountMaxSymbolWeight !== undefined) {
+          const weight = request.accountMaxSymbolWeight;
+          const room = equity * weight - heldValue;
+          // A fill re-marks this holding and debits fees from account equity.
+          // Reserve fees on the maximum possible buy to keep the post-fill
+          // weight within the cap even when notional lands exactly on a lot.
+          const markChange = holding
+            ? holding.quantity * (price - holding.mark)
+            : 0;
+          const markAdjustedRoom = room - (1 - weight) * markChange;
+          const maxBuy = Math.min(
+            rules.maximum,
+            Math.max(0, Math.min(room, markAdjustedRoom)) / price,
+          );
+          const feeReserve = feeFor(maxBuy, price, "buy", dateCosts);
+          const netRoom = Math.min(
+            room,
+            markAdjustedRoom - weight * feeReserve,
+          );
+          accountRoom = floorStep(Math.max(0, netRoom) / price, rules.step);
+          if (accountRoom < rules.minimum) {
+            reject(order, date, "账户跨分仓单票权重上限");
+            return;
+          }
+        }
+      }
       const heldNames = new Set(
         [...account.positions.keys()].map((k) => identities.get(k)!.symbol),
       );
@@ -251,7 +340,7 @@ export function createOrderExecutor(state: PortfolioState) {
         targetWeight === undefined
           ? sizePortfolioEntry(sizingInput)
           : sizePortfolioTargetEntry({ ...sizingInput, targetWeight });
-      quantity = sized.quantity;
+      quantity = Math.min(sized.quantity, accountRoom);
       if (sized.reason) {
         reject(order, date, sized.reason);
         return;
@@ -379,6 +468,9 @@ export function createOrderExecutor(state: PortfolioState) {
     } else {
       quantity = Math.min(
         quantity,
+        order.targetRemainingQuantity === undefined
+          ? Infinity
+          : Math.max(0, quantity - order.targetRemainingQuantity),
         account.sellable(
           key,
           accountDate(date, market),
@@ -414,13 +506,14 @@ export function createOrderExecutor(state: PortfolioState) {
       reject(order, date, "无可成交数量");
       return;
     }
+    const capKey = `${date}\0${order.symbol}`;
+    const usedCap = state.dailyCapacityUsed.get(capKey) ?? 0;
     const capacityAmount =
       request.maxParticipation !== undefined && bar && bar.amount > 0
-        ? bar.amount * request.maxParticipation
+        ? Math.max(0, bar.amount * request.maxParticipation - usedCap)
         : Infinity;
     const capacityClipped =
-      Number.isFinite(capacityAmount) &&
-      quantity * price > capacityAmount + 1e-8;
+      Number.isFinite(capacityAmount) && quantity * price > capacityAmount;
     if (capacityClipped) {
       const reason = "超过参与率上限（容量情景）";
       if (request.capacityPolicy !== "clip") {
@@ -472,6 +565,8 @@ export function createOrderExecutor(state: PortfolioState) {
       marketRules[market].settlementDays,
     );
     const remaining = account.positions.get(key)?.quantity ?? 0;
+    if (Number.isFinite(capacityAmount))
+      state.dailyCapacityUsed.set(capKey, usedCap + quantity * price);
     const targetRemaining =
       order.targetWeight === undefined
         ? 0
@@ -482,9 +577,11 @@ export function createOrderExecutor(state: PortfolioState) {
             rules.step,
           );
     const targetPending =
-      order.targetWeight !== undefined
-        ? Math.abs(remaining - targetRemaining) > 1e-8
-        : order.side === "sell" && remaining > 1e-8;
+      order.targetRemainingQuantity !== undefined
+        ? !reachedQuantityTarget(remaining)
+        : order.targetWeight !== undefined
+          ? Math.abs(remaining - targetRemaining) > 1e-8
+          : order.side === "sell" && remaining > 1e-8;
     order.status = targetPending ? "pending" : "filled";
     if (order.status !== "pending") removePending(order);
     order.reason = null;
@@ -511,7 +608,7 @@ export function createOrderExecutor(state: PortfolioState) {
       cashAfter: account.cash,
       holdingAfter: remaining,
       ...(capacityClipped ? { capacityClipped: true as const } : {}),
-      ...(lifecycle
+      ...(lifecycleExecutionEvidence
         ? {
             executionEvidence: {
               intendedPrice: reference ?? bar!.open,

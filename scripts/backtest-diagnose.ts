@@ -11,6 +11,8 @@ import {
 } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { UniversePoolDisclosure } from "./lib/backtest-diagnose/types";
+import type { DiagnoseBookKey } from "./lib/backtest-diagnose/strategy-specs";
+import { coreBookCapacity } from "../src/server/research/diagnose/sleeve-attribution";
 import {
   CORE_5_SYMBOLS,
   resolveUniversePreset,
@@ -36,6 +38,8 @@ const executionProfiles = ["strict", "clamp", "no-slippage"] as const;
 const capacityPolicies = ["clip", "reject"] as const;
 
 type Args = {
+  book?: DiagnoseBookKey;
+  holdoutStart?: string;
   plan: boolean;
   symbols: string[];
   pool?: UniversePoolDisclosure;
@@ -62,6 +66,9 @@ function usage() {
     "  --pool        core-5 | core-12 | chan-core-7（与 --symbols 互斥）",
     "  --symbols     逗号分隔标的（默认 sh600519,sz000001,sh601318,sz000333,sz300750）",
     "  --strategies  信号策略（默认 dual-ma,turtle,rsi2,double-breakout,formula）",
+    "  --book core-4  四个等权分仓共享同日同票成交额的 0.5%（clip），仅 portfolio 模式，与 --strategies 互斥。组合默认单独运行，可用 --controls 添加对照",
+    "  --holdout      启用历史留出复核，默认切点 2023-01-01",
+    "  --holdout-start YYYY-MM-DD  启用历史留出复核并指定切点",
     "  --controls    对照（默认 hold）",
     "  --start       auto | YYYY-MM-DD（默认 auto）",
     "  --end         YYYY-MM-DD（默认 2026-11-20）",
@@ -73,8 +80,8 @@ function usage() {
     "  --native-cache-dir  原生缠论前缀缓存目录，必须在 <repo>/.test-data 下",
     "  --limit       只跑前 N 个单元（冒烟）",
     "  --execution-profile strict | clamp | no-slippage（默认 strict）",
-    "  --max-participation  成交额参与率上限 (0,1]；不设置则不启用容量约束",
-    "  --capacity-policy    clip | reject（默认 reject，须与 --max-participation 同用）",
+    "  --max-participation  成交额参与率上限 (0,1]（core-4 默认 0.005，其余默认关闭）",
+    "  --capacity-policy    clip | reject（core-4 默认 clip，其余启用容量时默认 reject）",
     "  --plan        只打印诊断单元，不读取行情",
   ].join("\n");
 }
@@ -96,8 +103,13 @@ function parseDate(value: string, name: string) {
 export function parseArgs(argv: readonly string[]): Args {
   const values = new Map<string, string>();
   let plan = false;
+  let holdout = false;
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index]!;
+    if (arg === "--holdout") {
+      holdout = true;
+      continue;
+    }
     if (arg === "--plan") {
       plan = true;
       continue;
@@ -111,6 +123,8 @@ export function parseArgs(argv: readonly string[]): Args {
         "--pool",
         "--symbols",
         "--strategies",
+        "--book",
+        "--holdout-start",
         "--controls",
         "--start",
         "--end",
@@ -145,7 +159,22 @@ export function parseArgs(argv: readonly string[]): Args {
   const cost = (values.get("--cost") ?? "base") as Args["cost"];
   if (!costScenarios.includes(cost))
     throw new Error(`--cost 须为 ${costScenarios.join(" | ")}`);
-  const mode = (values.get("--mode") ?? "both") as Args["mode"];
+  const book = values.get("--book");
+  if (book !== undefined && book !== "core-4")
+    throw new Error("--book 须为 core-4");
+  if (book && values.has("--strategies"))
+    throw new Error("--book 与 --strategies 互斥");
+  const holdoutStart =
+    values.get("--holdout-start") ?? (holdout ? "2023-01-01" : undefined);
+  if (holdoutStart !== undefined) {
+    parseDate(holdoutStart, "--holdout-start");
+    if (new Date(holdoutStart).toISOString().slice(0, 10) !== holdoutStart)
+      throw new Error("--holdout-start 日期无效");
+  }
+  const mode = (values.get("--mode") ??
+    (book ? "portfolio" : "both")) as Args["mode"];
+  if (book && mode !== "portfolio")
+    throw new Error("--book 仅支持 portfolio 模式");
   if (!["per-symbol", "portfolio", "both"].includes(mode))
     throw new Error("--mode 须为 per-symbol | portfolio | both");
   const limitRaw = values.get("--limit");
@@ -159,8 +188,11 @@ export function parseArgs(argv: readonly string[]): Args {
       `--execution-profile 须为 ${executionProfiles.join(" | ")}`,
     );
   const maxParticipationRaw = values.get("--max-participation");
+  const bookCapacity = book && coreBookCapacity;
   const maxParticipation =
-    maxParticipationRaw === undefined ? undefined : Number(maxParticipationRaw);
+    maxParticipationRaw === undefined
+      ? bookCapacity?.maxParticipation
+      : Number(maxParticipationRaw);
   if (
     maxParticipation !== undefined &&
     (!Number.isFinite(maxParticipation) ||
@@ -175,7 +207,7 @@ export function parseArgs(argv: readonly string[]): Args {
     capacityRaw === undefined
       ? maxParticipation === undefined
         ? undefined
-        : ("reject" as const)
+        : (bookCapacity?.capacityPolicy ?? "reject")
       : (capacityRaw as Args["capacityPolicy"]);
   if (
     capacityPolicy !== undefined &&
@@ -204,11 +236,18 @@ export function parseArgs(argv: readonly string[]): Args {
       ? parseList(values.get("--symbols")!, "--symbols")
       : [...(preset?.symbols ?? CORE_5_SYMBOLS)],
     pool,
-    strategies: parseList(
-      values.get("--strategies") ?? defaultStrategies.join(","),
-      "--strategies",
-    ),
-    controls: parseList(values.get("--controls") ?? "hold", "--controls"),
+    book,
+    holdoutStart,
+    strategies: book
+      ? []
+      : parseList(
+          values.get("--strategies") ?? defaultStrategies.join(","),
+          "--strategies",
+        ),
+    controls:
+      book && !values.has("--controls")
+        ? []
+        : parseList(values.get("--controls") ?? "hold", "--controls"),
     start,
     end,
     tdxRoot: resolve(tdxRoot),
@@ -251,6 +290,10 @@ function contains(root: string, path: string) {
 }
 
 async function main() {
+  if (process.argv.slice(2).includes("--help")) {
+    console.log(usage());
+    return;
+  }
   const args = parseArgs(process.argv.slice(2));
   if (!args.dataDir)
     throw new Error(
@@ -297,12 +340,14 @@ async function main() {
     const { planDiagnoseCells } =
       await import("./lib/backtest-diagnose/strategy-specs");
     const cells = planDiagnoseCells({
+      book: args.book,
       symbols: args.symbols,
       strategies: args.strategies,
       controls: args.controls,
       mode: args.mode,
     });
     const perSymbol = cells.filter((cell) => cell.mode === "per-symbol").length;
+    if (args.holdoutStart) console.log(`历史留出切点：${args.holdoutStart}`);
     console.log(
       `诊断单元共 ${cells.length} 个（per-symbol ${perSymbol} / portfolio ${cells.length - perSymbol}）`,
     );
@@ -355,6 +400,8 @@ async function main() {
   const { runDiagnose } = await import("./lib/backtest-diagnose/run");
   const { closeCzsc } = await import("../src/server/strategies/chan/czsc");
   const { cells, reportPath } = await runDiagnose({
+    book: args.book,
+    holdoutStart: args.holdoutStart,
     symbols: args.symbols,
     pool: args.pool,
     strategies: args.strategies,

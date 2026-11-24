@@ -28,6 +28,18 @@ export function createPortfolioState(
   preparation?: ReturnType<typeof createPortfolioPreparation>,
 ) {
   const { market, initial, sleeves } = request;
+  const { accountMaxUniqueSymbols, accountMaxSymbolWeight } = request;
+  if (
+    accountMaxUniqueSymbols !== undefined &&
+    (!Number.isSafeInteger(accountMaxUniqueSymbols) ||
+      accountMaxUniqueSymbols < 1)
+  )
+    throw new Error("Invalid accountMaxUniqueSymbols");
+  if (
+    accountMaxSymbolWeight !== undefined &&
+    !(accountMaxSymbolWeight > 0 && accountMaxSymbolWeight <= 1)
+  )
+    throw new Error("Invalid accountMaxSymbolWeight");
   const {
     costs,
     strategies,
@@ -57,6 +69,9 @@ export function createPortfolioState(
   const samePeriod = strategies.every(
     (s) => s.period === strategies[0]!.period,
   );
+  const collectDailyDecisionCounts =
+    lifecycle || Boolean(request.collectDailyDecisionCounts);
+  const dailyCapacityUsed = new Map<string, number>();
   const observationDay = (date: string) =>
     lifecycle || samePeriod
       ? portfolioObservationDay(market, strategies[0]!.period, date)
@@ -267,7 +282,12 @@ export function createPortfolioState(
     bookStates,
     bookDecisions,
     reentries,
-    lifecycle,
+    // portfolioResult exposes counts in its lifecycle diagnostics envelope.
+    // Opt-in reporting must not activate lifecycle eligibility or clock rules.
+    lifecycle: collectDailyDecisionCounts,
+    lifecycleExecutionEvidence: lifecycle,
+    collectDailyDecisionCounts,
+    dailyCapacityUsed,
     observationDay,
     dailyDecisionCounts,
     openingEquities,

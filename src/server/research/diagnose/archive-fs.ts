@@ -25,10 +25,13 @@ export function safeSegment(name: string) {
 /** Every component must resolve to itself, including the configured root. */
 export async function checked(path: string, kind: "file" | "directory") {
   try {
-    const st = await lstat(path);
+    const st = await lstat(/*turbopackIgnore: true*/ path);
     if (
       st.isSymbolicLink() ||
-      relative(resolve(path), await realpath(path)) !== "" ||
+      relative(
+        resolve(/*turbopackIgnore: true*/ path),
+        await realpath(/*turbopackIgnore: true*/ path),
+      ) !== "" ||
       !(kind === "file" ? st.isFile() : st.isDirectory())
     ) {
       throw new UnsafeArchivePath();
@@ -42,9 +45,9 @@ export async function checked(path: string, kind: "file" | "directory") {
 
 export async function ensureRealDirectory(path: string): Promise<void> {
   if (await checked(path, "directory")) return;
-  await ensureRealDirectory(dirname(resolve(path)));
+  await ensureRealDirectory(dirname(resolve(/*turbopackIgnore: true*/ path)));
   try {
-    await mkdir(path);
+    await mkdir(/*turbopackIgnore: true*/ path);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
   }
@@ -53,7 +56,9 @@ export async function ensureRealDirectory(path: string): Promise<void> {
 
 export async function directories(path: string, rejectLinks = false) {
   if (!(await checked(path, "directory"))) return [];
-  const entries = await readdir(path, { withFileTypes: true });
+  const entries = await readdir(/*turbopackIgnore: true*/ path, {
+    withFileTypes: true,
+  });
   if (rejectLinks && entries.some((entry) => entry.isSymbolicLink()))
     throw new UnsafeArchivePath();
   return entries
@@ -67,7 +72,7 @@ export async function readBounded(path: string, limit: number) {
   const st = await checked(path, "file");
   if (!st) return undefined;
   const handle = await open(
-    path,
+    /*turbopackIgnore: true*/ path,
     constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
   );
   try {

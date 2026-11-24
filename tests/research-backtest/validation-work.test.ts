@@ -797,7 +797,11 @@ describe("research validation application boundary", () => {
         r.reasons,
       ]),
     ).toEqual(result.rows.map((r) => [r.id, r.status, r.reasons]));
-    expect(result.suites[0]!.suite.rows[0]!.windows).toHaveLength(6);
+    const firstRow = result.suites[0]!.suite.rows[0]!;
+    expect(firstRow.windows).toHaveLength(4);
+    expect(firstRow.windows.every((w) => w.end < firstRow.holdout.start)).toBe(
+      true,
+    );
     expect(result.missing.some((r) => r.id.includes("15m"))).toBe(true);
     expect(result.suites[0]!.diagnostics).toHaveProperty("cscv");
     const bad = fixture();

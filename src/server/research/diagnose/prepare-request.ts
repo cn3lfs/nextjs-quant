@@ -1,4 +1,6 @@
 import type { StrategyObjectInput } from "trading-strategies";
+import type { PortfolioRequest } from "quant-backtest";
+import type { Bar } from "trading-strategy-core/bars";
 import type { ResearchCostScenario } from "trading-strategy-core/costs";
 import type { Settings } from "~/lib/domain";
 import {
@@ -25,8 +27,16 @@ import type { StrategyDisclosures } from "./types";
 export const BENCHMARK_CALENDAR_SYMBOL = "sh000001";
 
 export type PrepareDiagnoseRequestInput = NativeChanOptions &
+  Pick<
+    PortfolioRequest,
+    | "accountMaxUniqueSymbols"
+    | "accountMaxSymbolWeight"
+    | "collectDailyDecisionCounts"
+  > &
   Pick<GrowthPitSignalOptions, "indexBars" | "readFinancialHistory"> & {
     strategy: StrategyObjectInput;
+    additionalStrategies?: readonly StrategyObjectInput[];
+    sleeves?: PortfolioRequest["sleeves"];
     start: string;
     end: string;
     initial: number;
@@ -67,6 +77,7 @@ export type PreparedDiagnoseRequest = Pick<
 > & {
   frozen: FrozenLabBacktest;
   calendar: string[];
+  benchmarkBars?: readonly Bar[];
   dataQuality: DiagnoseSourceQuality[];
 };
 
@@ -113,7 +124,35 @@ function sourceQuality(sources: readonly Record<string, unknown>[]) {
 export async function prepareDiagnoseRequest(
   input: PrepareDiagnoseRequestInput,
 ): Promise<PreparedDiagnoseRequest> {
-  const isNativeChan = usesNativeChan(input.strategy);
+  const strategies = [input.strategy, ...(input.additionalStrategies ?? [])];
+  const multi = strategies.length > 1;
+  if (multi) {
+    const universe = input.strategy.universe;
+    if (
+      universe.kind !== "symbols" ||
+      strategies.some(
+        (s) =>
+          s.market !== input.strategy.market ||
+          s.period !== input.strategy.period ||
+          s.universe.kind !== "symbols" ||
+          s.universe.symbols.length !== universe.symbols.length ||
+          s.universe.symbols.some(
+            (symbol) => !universe.symbols.includes(symbol),
+          ),
+      )
+    )
+      throw new Error("多策略诊断需要相同市场、周期及证券池");
+    const ids = new Set(input.sleeves?.map((s) => s.id));
+    if (
+      ids.size !== strategies.length ||
+      ids.size !== input.sleeves?.length ||
+      new Set(strategies.map((s) => s.id)).size !== strategies.length ||
+      new Set(strategies.map((s) => s.sleeve)).size !== strategies.length ||
+      strategies.some((s) => !ids.has(s.sleeve))
+    )
+      throw new Error("多策略诊断需要唯一策略及一一对应的独立分仓");
+  }
+  const nativeStrategies = strategies.filter(usesNativeChan);
   const frozen = await prepareLabBacktest(
     {
       type: "lab-backtest",
@@ -133,9 +172,9 @@ export async function prepareDiagnoseRequest(
     input.signal,
     {
       config: input.config,
-      allowNativeChan: isNativeChan,
-      allowExternalSignals: usesExternalSignals(input.strategy),
-      forceCausalPrice: input.forceCausalPrice,
+      allowNativeChan: nativeStrategies.length > 0,
+      allowExternalSignals: strategies.some(usesExternalSignals),
+      forceCausalPrice: multi || input.forceCausalPrice,
       dataQualityMode: "record-only",
       gbbqIssuePolicy: "record-only",
       executionProfile: input.executionProfile,
@@ -237,44 +276,86 @@ export async function prepareDiagnoseRequest(
   }
   frozen.request.calendar = calendar;
   frozen.request.observationDetail = "full";
+  if (multi) frozen.request.strategies = strategies;
+  if (input.sleeves) frozen.request.sleeves = input.sleeves;
+  for (const key of [
+    "accountMaxUniqueSymbols",
+    "accountMaxSymbolWeight",
+  ] as const)
+    if (input[key] !== undefined) frozen.request[key] = input[key];
+  if (input.collectDailyDecisionCounts !== undefined)
+    frozen.request.collectDailyDecisionCounts =
+      input.collectDailyDecisionCounts;
   input.signal?.throwIfAborted();
-  const nativeChan = isNativeChan
-    ? await attachNativeChanMulti(frozen, input)
-    : undefined;
-  const growthKeys = new Set(
-    [input.strategy.entry, input.strategy.exit.rule].flatMap((rule) =>
-      rule?.kind === "external" && isGrowthPitStrategyKey(rule.id)
-        ? [rule.id]
-        : [],
-    ),
-  );
-  const disclosures: Pick<StrategyDisclosures, "growthPit" | "canslimPit"> = {};
-  for (const key of growthKeys) {
-    input.signal?.throwIfAborted();
-    const rows = await attachGrowthPitSignals(key, frozen, {
-      tdxRoot: input.config.tdxRoot,
-      signalCalendar,
-      indexBars: input.indexBars,
-      readFinancialHistory: input.readFinancialHistory,
-    });
-    (disclosures.growthPit ??= []).push(...rows);
-    if (key.startsWith("research-canslim-"))
-      (disclosures.canslimPit ??= []).push(...rows);
-    for (const row of rows) {
-      const source = frozen.sources.find(
-        (source) => source.symbol === row.symbol,
-      );
-      if (source) {
-        source.growthPit = row;
-        if (key.startsWith("research-canslim-")) source.canslimPit = row;
+  const disclosures: StrategyDisclosures = {};
+  if (nativeStrategies.length) {
+    const rows = await attachNativeChanMulti(frozen, input);
+    disclosures.nativeChan = nativeStrategies.flatMap((strategy) =>
+      rows.map(({ zdStop, ...row }) => ({
+        ...row,
+        ...(multi && { strategyKey: strategy.id.replace(/^diag-/, "") }),
+        ...(strategy.exit.stop?.kind === "structure" && zdStop && { zdStop }),
+      })),
+    );
+  }
+  for (const strategy of strategies) {
+    const growthKeys = new Set(
+      [strategy.entry, strategy.exit.rule].flatMap((rule) =>
+        rule?.kind === "external" && isGrowthPitStrategyKey(rule.id)
+          ? [rule.id]
+          : [],
+      ),
+    );
+    for (const key of growthKeys) {
+      input.signal?.throwIfAborted();
+      const attached = await attachGrowthPitSignals(key, frozen, {
+        tdxRoot: input.config.tdxRoot,
+        signalCalendar,
+        indexBars: input.indexBars,
+        readFinancialHistory: input.readFinancialHistory,
+      });
+      const strategyKey = strategy.id.replace(/^diag-/, "");
+      const byRule = multi || growthKeys.size > 1;
+      const rows = byRule
+        ? attached.map((row) => ({ ...row, strategyKey, ruleId: key }))
+        : attached;
+      (disclosures.growthPit ??= []).push(...rows);
+      if (key.startsWith("research-canslim-"))
+        (disclosures.canslimPit ??= []).push(...rows);
+      for (const row of rows) {
+        const source = frozen.sources.find(
+          (source) => source.symbol === row.symbol,
+        );
+        if (source && byRule) {
+          const byStrategy = (source.growthPitByStrategy ??= {}) as Record<
+            string,
+            Record<string, typeof row>
+          >;
+          byStrategy[strategyKey] = { ...byStrategy[strategyKey], [key]: row };
+        } else if (source) {
+          source.growthPit = row;
+          if (key.startsWith("research-canslim-")) source.canslimPit = row;
+        }
       }
     }
   }
+  if (multi || (disclosures.growthPit ?? []).some((row) => row.strategyKey))
+    for (const { external } of frozen.request.instruments) {
+      if (external?.signals)
+        external.signals = [...external.signals].sort(
+          (a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id),
+        );
+      if (external?.levels)
+        external.levels = [...external.levels].sort(
+          (a, b) =>
+            a.date.localeCompare(b.date) || a.field.localeCompare(b.field),
+        );
+    }
   return {
     frozen,
     calendar,
+    benchmarkBars: benchmark.bars,
     dataQuality: sourceQuality(frozen.sources),
-    ...(nativeChan && { nativeChan }),
     ...disclosures,
   };
 }

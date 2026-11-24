@@ -6,7 +6,12 @@ import {
   type PortfolioRequest,
   type ValidationScore,
 } from "../src/index.js";
-import { defaultExecutionCosts } from "trading-strategy-core/costs";
+import {
+  defaultExecutionCosts,
+  executionCostsForDate,
+  researchExecutionCosts,
+  scaleResearchCosts,
+} from "trading-strategy-core/costs";
 
 function request(): PortfolioRequest {
   const bars = Array.from({ length: 100 }, (_, i) => {
@@ -93,6 +98,7 @@ function score(
   const total = result.equity.at(-1)!.equity / req.initial - 1;
   return {
     return: total,
+    fees: result.fills.reduce((sum, f) => sum + f.fee, 0),
     excess: total,
     drawdown,
     trades: result.fills.filter(
@@ -231,7 +237,8 @@ describe("frozen walk-forward validation", () => {
     const input = request(),
       dates = input.calendar;
     const suite = runValidationSuite(menu(input), dates, policy, score);
-    expect(suite.windows).toHaveLength(6);
+    expect(suite.windows).toHaveLength(4);
+    expect(suite.windows.every((w) => w.end < dates[80]!)).toBe(true);
     expect(suite.selection[0]!.families[0]!.selectedId).toBe("trend");
     expect(suite.rows[0]!.inSample.return).toBeGreaterThan(0);
     expect(suite.rows[0]!.holdout.base.return).toBeLessThan(0);
@@ -251,6 +258,105 @@ describe("frozen walk-forward validation", () => {
     const future = runValidationSuite(menu(changed), dates, policy, score);
     expect(future.selection[0]).toEqual(suite.selection[0]);
     expect(future.rows[0]!.inSample).toEqual(suite.rows[0]!.inSample);
+  });
+  it("clips training to a short development prefix without leaking a rolling window", () => {
+    const input = request();
+    const split = 12,
+      holdoutStart = input.calendar[split]!;
+    const suite = runValidationSuite(
+      menu(input),
+      input.calendar,
+      { ...policy, holdoutStart },
+      score,
+    );
+    expect(suite.windows).toEqual([]);
+    expect(suite.rows[0]!.inSample.daily).toHaveLength(split);
+    expect(suite.rows[0]!.holdout.start).toBe(holdoutStart);
+  });
+
+  it("matches the direct historical double-cost ledger across both fee switches", () => {
+    const input = request(),
+      original = input.instruments[0]!;
+    const bars = original.bars.map((b, i) => ({
+      ...b,
+      date: new Date(
+        i < 70 ? Date.UTC(2022, 2, 1 + i) : Date.UTC(2023, 7, 25 + i - 70),
+      )
+        .toISOString()
+        .slice(0, 10),
+      high: b.close + 2,
+      low: b.close - 2,
+    }));
+    const base = researchExecutionCosts("cn-equity", "base"),
+      doubled = researchExecutionCosts("cn-equity", "double-cost");
+    for (const date of [
+      "2022-04-28",
+      "2022-04-29",
+      "2023-08-27",
+      "2023-08-28",
+    ]) {
+      expect(executionCostsForDate(scaleResearchCosts(base, 2), date)).toEqual(
+        executionCostsForDate(doubled, date),
+      );
+      expect(executionCostsForDate(doubled, date).transferBps).toBe(
+        date < "2022-04-29" ? 0.4 : 0.2,
+      );
+    }
+    expect(
+      scaleResearchCosts({ ...base, dividendTaxBps: 200 }, 2).dividendTaxBps,
+    ).toBe(400);
+    for (const invalid of [0, -1, Infinity, NaN])
+      expect(() => scaleResearchCosts(base, invalid)).toThrow();
+    const dates = bars.map((b) => b.date),
+      holdoutStart = dates[40]!;
+    const req: PortfolioRequest = {
+      ...input,
+      market: "cn-equity",
+      costs: base,
+      initial: 1000000,
+      start: dates[0]!,
+      end: dates.at(-1)!,
+      calendar: dates,
+      strategies: [
+        {
+          ...input.strategies[0]!,
+          market: "cn-equity",
+          universe: { kind: "symbols", symbols: ["sh600000"] },
+        },
+      ],
+      instruments: [
+        {
+          ...original,
+          market: "cn-equity",
+          symbol: "sh600000",
+          bars,
+          signalBars: bars,
+          execution: {
+            minimum: 100,
+            step: 100,
+            tradable: true,
+            evidence: "fixture",
+            limitUp: null,
+            limitDown: null,
+          },
+        },
+      ],
+    };
+    const directRequest = { ...req, start: holdoutStart, costs: doubled };
+    const direct = runPortfolio(directRequest);
+    expect(direct.fills.some((f) => f.date < "2022-04-29")).toBe(true);
+    expect(direct.fills.some((f) => f.date >= "2023-08-28")).toBe(true);
+    const suite = runValidationSuite(
+      [{ id: "one", family: "fixture", request: req }],
+      dates,
+      { ...policy, trainBars: 10, holdoutStart },
+      score,
+    );
+    expect(suite.windows.length).toBe(3);
+    expect(suite.windows.every((w) => w.end < holdoutStart)).toBe(true);
+    expect(suite.rows[0]!.holdout.doubledCost).toEqual(
+      score(direct, directRequest),
+    );
   });
   it("doubles all costs, delays signals by one bar, and independently fails trade/sample gates", () => {
     const input = request();

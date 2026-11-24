@@ -14,7 +14,11 @@ import {
   type LabDiagnoseRunInput,
 } from "~/lib/research/diagnose-contract";
 import { settings } from "../../infra/settings";
-import { classifyArchiveBoundary, publishDiagnoseArchive } from "./archive";
+import {
+  classifyArchiveBoundary,
+  publishDiagnoseArchive,
+  stageDiagnoseArchive,
+} from "./archive";
 import {
   classifyError,
   prepareDiagnoseCell,
@@ -29,6 +33,7 @@ export type GroupedDiagnoseOptions = DiagnosePreparationOptions & {
   onProgress?: (progress: number, phase: string) => void;
   config?: Settings;
   archiveDir?: string;
+  stagingDir?: string;
   jobId?: string;
   beforePublish?: () => void;
 };
@@ -177,7 +182,11 @@ async function replayGroup(
     try {
       const result = replayDiagnoseCell(
         prepared,
-        DIAGNOSE_SCENARIO_PRESETS[id],
+        {
+          maxParticipation: null, // Disable the book's implicit cap on strict/clamp.
+          ...DIAGNOSE_SCENARIO_PRESETS[id],
+          holdoutStart: input.includeHoldout ? input.holdoutStart : undefined,
+        },
         signal,
       );
       metrics.push(replayMetrics(id, result));
@@ -209,7 +218,7 @@ export async function runGroupedDiagnoseScenarios(
     scenarios,
     mode = symbols.length > 1 ? "portfolio" : "per-symbol",
   } = params;
-  if (!isStrategyKey(strategyKey))
+  if (strategyKey !== "core-4" && !isStrategyKey(strategyKey))
     throw new Error(`未知诊断策略：${strategyKey}`);
   const groups =
     mode === "portfolio" ? [symbols] : symbols.map((symbol) => [symbol]);
@@ -243,6 +252,8 @@ export async function runGroupedDiagnoseScenarios(
     source: "lab-archive",
     title: `${strategyKey} · ${symbols.join("、")}`,
     generatedAt: new Date().toISOString(),
+    ...(params.bookPreset && { bookPreset: params.bookPreset }),
+    ...(params.includeHoldout && { holdoutStart: params.holdoutStart }),
     strategyKeys: [strategyKey],
     symbols,
     scenarios,
@@ -261,10 +272,26 @@ export async function runGroupedDiagnoseScenarios(
   onProgress?.(98, "写入诊断归档");
   await setImmediate();
   signal?.throwIfAborted();
-  await publishDiagnoseArchive(detail, {
-    archiveDir: options.archiveDir,
-    signal,
-    beforePublish: options.beforePublish,
-  });
+  if (options.stagingDir !== undefined)
+    await stageDiagnoseArchive(detail, options.stagingDir, options);
+  else await publishDiagnoseArchive(detail, options);
   return detail;
 }
+
+export function diagnoseWorkerResult({
+  summary,
+  boundaryState,
+}: DiagnoseArchiveDetail) {
+  return {
+    archiveId: summary.id,
+    title: summary.title,
+    strategyKeys: summary.strategyKeys,
+    symbols: summary.symbols,
+    scenarios: summary.scenarios,
+    statusCounts: summary.statusCounts,
+    boundaryState,
+    driftWarningsCount: summary.driftWarnings.length,
+    missingFilesCount: summary.missingFiles.length,
+  };
+}
+export type LabDiagnoseWorkerResult = ReturnType<typeof diagnoseWorkerResult>;

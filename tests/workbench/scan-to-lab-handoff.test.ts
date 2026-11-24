@@ -6,10 +6,13 @@ import {
 } from "~/components/workbench/keep-alive";
 import {
   buildLabDraftFromHandoff,
+  buildScanToLabHandoffHref,
+  monthlyReviewHandoffSymbols,
   parseScanToLabHandoff,
   type ScanToLabHandoff,
 } from "~/lib/research/diagnose-contract";
 import {
+  batchCandidatesToLabHref,
   formulaCandidateToLabHref,
   patternCandidateToLabHref,
   rpsCandidateToLabHref,
@@ -24,6 +27,12 @@ const formulaList =
 const patternList =
   "/scan?tab=formula&symbol=sh600000&screenSnapshot=pattern-1";
 const rpsList = "/scan?tab=rps";
+const filteredRpsList =
+  "/scan?tab=rps&period=120&search=600&rpsCondition=50%2Cgte%2C90&sortPeriod=20&descending=true";
+const portfolioSymbols = Array.from(
+  { length: 13 },
+  (_, i) => `sh${600000 + i}`,
+);
 
 function handoffUrl(href: string | null) {
   if (!href) throw new Error("Expected a scan handoff URL");
@@ -60,6 +69,109 @@ function checkDraft(
   expect(draft.scopeNote).toContain("历史证券池与逐日选股表现需独立验证");
   return draft;
 }
+
+describe("portfolio handoff", () => {
+  it("reserves all 12 monthly review slots for distinct Shanghai and Shenzhen A shares in round order", () => {
+    const shares = ["sz300750", ...portfolioSymbols.slice(0, 12)];
+    expect(
+      monthlyReviewHandoffSymbols([
+        "sh510300",
+        shares[0]!,
+        "sz159915",
+        "bj430047",
+        ...shares,
+      ]),
+    ).toEqual({
+      symbols: shares.slice(0, 12),
+      truncatedCount: 1,
+      droppedInvalidCount: 3,
+    });
+  });
+  it.each([1, 2, 12])(
+    "preserves %i unique symbols in selection order",
+    (count) => {
+      const expected = portfolioSymbols.slice(0, count);
+      const result = batchCandidatesToLabHref({
+        symbols: [expected[0]!, ...expected],
+        handoffSource: "formula",
+        label: "确认公式",
+        frozenDate,
+        returnTo: formulaList,
+      });
+      expect(result).toMatchObject({ symbols: expected, truncatedCount: 0 });
+      const { handoff } = readHandoff(result?.href ?? null);
+      expect(handoff).toMatchObject({
+        scope: "portfolio-diagnose",
+        handoffSource: "formula",
+        symbol: expected[0],
+        symbols: expected,
+        label: "确认公式",
+        frozenDate,
+        returnTo: formulaList,
+      });
+    },
+  );
+
+  it("truncates the 13th unique symbol and keeps the filtered RPS return link", () => {
+    const result = batchCandidatesToLabHref({
+      symbols: [portfolioSymbols[0]!, ...portfolioSymbols],
+      handoffSource: "rps",
+      returnTo: filteredRpsList,
+    });
+    const symbols = portfolioSymbols.slice(0, 12);
+    expect(result).toMatchObject({ symbols, truncatedCount: 1 });
+    expect(readHandoff(result?.href ?? null).handoff).toMatchObject({
+      handoffSource: "rps",
+      symbols,
+      returnTo: filteredRpsList,
+    });
+  });
+
+  it("filters invalid symbols and strips unsafe return URLs independently", () => {
+    const result = batchCandidatesToLabHref({
+      symbols: ["BTCUSDT", "sz000001", "600000", "bj430047", "SH600519"],
+      handoffSource: "pattern",
+      returnTo: "https://outside.example/scan",
+    });
+    expect(result).toMatchObject({
+      symbols: ["sz000001", "bj430047"],
+      truncatedCount: 0,
+    });
+    const href = result?.href ?? null;
+    expect(readHandoff(href).handoff.returnTo).toBeUndefined();
+    expect(handoffUrl(href).searchParams.has("returnTo")).toBe(false);
+  });
+
+  it.each([{ symbols: [] }, { symbols: ["invalid"] }])(
+    "returns null for $symbols",
+    ({ symbols }) => {
+      expect(
+        batchCandidatesToLabHref({ symbols, handoffSource: "rps" }),
+      ).toBeNull();
+    },
+  );
+
+  it("allowlists the account review page for account-review handoffs", () => {
+    const accountHandoff = {
+      scope: "portfolio-diagnose" as const,
+      handoffSource: "account-review" as const,
+      symbol,
+      symbols: [symbol],
+    };
+    const returnTo = "/accounts/review?account=paper&month=2026-11";
+    expect(
+      readHandoff(buildScanToLabHandoffHref({ ...accountHandoff, returnTo }))
+        .handoff,
+    ).toMatchObject({ handoffSource: "account-review", returnTo });
+    for (const unsafe of [
+      "/accounts/review-other",
+      "/accounts/review?next=%2F%2Foutside.example",
+    ])
+      expect(() =>
+        buildScanToLabHandoffHref({ ...accountHandoff, returnTo: unsafe }),
+      ).toThrow();
+  });
+});
 
 describe("scan candidate links to the Lab", () => {
   it("round-trips a formula candidate, its frozen date, label and full result URL", () => {
@@ -356,7 +468,7 @@ describe("invalid scan handoffs", () => {
   it.each([
     "https://workbench.test/scan?tab=formula",
     "//evil.com",
-    "/accounts",
+    "/accounts/trades",
     "/scan/../accounts",
     "/scan?next=javascript%3Aalert%281%29",
     "/scan?next=%252F%252Fevil.com",

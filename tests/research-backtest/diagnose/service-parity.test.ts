@@ -20,10 +20,15 @@ import type {
 } from "tstdx/financial-model";
 import type { Bar } from "trading-strategy-core/bars";
 import { settingsSchema } from "~/lib/domain";
+import { saveSettings } from "~/server/infra/settings";
+import gbbq from "../../fixtures/tdx-gbbq.json";
 import {
   buildLabDraftFromHandoff,
   buildScanToLabHandoffHref,
   isDiagnosticOnlyStrategyKey,
+  labDiagnoseRunInputSchema,
+  normalizePortfolioHandoffSymbols,
+  ScanToLabHandoffSchema,
   parseScanToLabHandoff,
   DIAGNOSE_SCENARIO_PRESETS,
   DIAGNOSE_CHECK_GROUPS,
@@ -80,11 +85,7 @@ const input = (strategyKey: string): LabDiagnoseRunInput => ({
 });
 const temp = () => mkdtemp(join(process.env.QUANT_DATA_DIR!, "diagnose-"));
 
-function marketFixture(
-  amount = 8_000_000,
-  repaired = false,
-  openAtHigh = false,
-) {
+function marketBars(amount: number, openAtHigh = false) {
   const bars: Bar[] = [];
   for (
     let day = Date.parse("2020-01-01");
@@ -107,6 +108,15 @@ function marketFixture(
       ...(openAtHigh && { high: 100, close: 100 }),
     });
   }
+  return bars;
+}
+
+function marketFixture(
+  amount = 8_000_000,
+  repaired = false,
+  openAtHigh = false,
+) {
+  const bars = marketBars(amount, openAtHigh);
   vi.mocked(readBars).mockImplementation(
     async ({ instrument, period }) =>
       ({
@@ -141,6 +151,31 @@ function marketFixture(
         },
       }) satisfies BarSeries,
   );
+}
+
+async function configureWorkerMarket(symbols = [symbol]) {
+  const tdxRoot = await temp();
+  const lday = join(tdxRoot, "vipdoc/sh/lday");
+  const cache = join(tdxRoot, "T0002/hq_cache");
+  await mkdir(lday, { recursive: true });
+  await mkdir(cache, { recursive: true });
+  await mkdir(join(tdxRoot, "vipdoc/cw"), { recursive: true });
+  const rows = marketBars(100_000_000).map((bar) => {
+    const row = Buffer.alloc(32);
+    row.writeUInt32LE(Number(bar.date.replaceAll("-", "")));
+    [bar.open, bar.high, bar.low, bar.close].forEach((price, i) =>
+      row.writeUInt32LE(Math.round(price * 100), 4 + 4 * i),
+    );
+    row.writeFloatLE(bar.amount!, 20);
+    row.writeUInt32LE(bar.volume, 24);
+    return row;
+  });
+  const days = Buffer.concat(rows);
+  for (const code of [...symbols, "sh000001", "sh000300"]) {
+    await writeFile(join(lday, code + ".day"), days);
+  }
+  await writeFile(join(cache, "gbbq"), Buffer.from(gbbq.gbbqBase64, "base64"));
+  saveSettings(settingsSchema.parse({ tdxRoot }));
 }
 
 const captureNative = vi.fn<
@@ -477,41 +512,62 @@ it("routes native Chan and external PIT variants to diagnostics", () => {
     "research-canslim-pit-market",
     "research-sepa-pit",
     "research-sepa-pit-tolerant",
+    "core-4",
+    "research-chan-hold-cash-zd-stop",
+    "research-sepa-vcp-close-price",
+    "research-sepa-vcp-close-pit",
+    "research-wy-sow-lpsy",
+    "wy-trend-pullback-confirm-vol10-diagnostic",
   ])
     expect(isDiagnosticOnlyStrategyKey(key)).toBe(true);
   for (const key of ["research-growth", "dual-ma", ""])
     expect(isDiagnosticOnlyStrategyKey(key)).toBe(false);
 });
 
-it("removes the unpublished directory if SQLite records cancellation just after the rename", async () => {
+it("discards the staged worker archive when cancelled before the host takes the publish lock", async () => {
+  await configureWorkerMarket();
   const archive = await import("~/server/research/diagnose/archive");
   const { strategyLabRouter } =
     await import("~/server/api/routers/strategy-lab");
-  const { updateJob } = await import("~/server/jobs/jobs");
+  const jobs = await import("~/server/jobs/jobs");
   const caller = strategyLabRouter.createCaller({ headers: new Headers() });
-  const publish = archive.publishDiagnoseArchive;
+  const run = jobs.runWorker;
+  const publish = vi.spyOn(archive, "publishStagedDiagnoseArchive");
   const wrapped = vi
-    .spyOn(archive, "publishDiagnoseArchive")
-    .mockImplementationOnce(async (detail, options) => {
-      await publish(detail, options);
-      updateJob(detail.summary.id.slice(4), { status: "cancelled" });
-    });
+    .spyOn(jobs, "runWorker")
+    .mockImplementationOnce(
+      async <T>(work: Parameters<typeof run>[0], id?: string) => {
+        const result = await run<T>(work, id);
+        if (work.type !== "lab-diagnose")
+          throw new Error("expected diagnostic worker");
+        expect(await readdir(work.stagingDir)).toEqual(["diagnose-group.json"]);
+        expect(jobs.cancelJob(work.jobId).outcome).toBe("accepted");
+        return result;
+      },
+    );
   try {
     const job = await caller.strategyLabDiagnoseRun({
       ...input("hold"),
       scenarios: ["strict"],
     });
-    await vi.waitFor(async () => {
-      const result = await caller.strategyLabDiagnoseResult({ jobId: job.id });
-      expect(result.status).toBe("cancelled");
-      expect(result.detail).toBeNull();
-      expect(
-        await readdir(join(process.env.QUANT_DATA_DIR!, "diagnose-archives")),
-      ).not.toContain(`lab-${job.id}`);
-    });
+    await vi.waitFor(
+      async () => {
+        const result = await caller.strategyLabDiagnoseResult({
+          jobId: job.id,
+        });
+        expect(result.status).toBe("cancelled");
+        expect(result.detail).toBeNull();
+        expect(
+          await readdir(join(process.env.QUANT_DATA_DIR!, "diagnose-archives")),
+        ).toEqual([]);
+      },
+      { timeout: 15_000 },
+    );
     expect(wrapped).toHaveBeenCalledOnce();
+    expect(publish).not.toHaveBeenCalled();
   } finally {
     wrapped.mockRestore();
+    publish.mockRestore();
   }
 });
 
@@ -567,6 +623,7 @@ it("opens a CLI archive with a truncated fill, keeping valid rows and flagging t
     end,
     initial: 200_000,
     cost: "fixed",
+    holdoutStart: "2021-04-08",
     outDir,
   });
   const path = join(cell!.runPath, "fills.csv");
@@ -585,6 +642,11 @@ it("opens a CLI archive with a truncated fill, keeping valid rows and flagging t
     /fills\.csv: 第 2 行.*price/,
   );
   const metrics = detail.cells[0]!.scenarios[0]!;
+  expect(metrics.timeHoldout).toMatchObject({
+    status: "insufficient",
+    holdoutStart: "2021-04-08",
+  });
+  expect(metrics.timeHoldout).toEqual(cell!.timeHoldout);
   expect(metrics.sampleFills).toHaveLength(1);
   expect(metrics.sampleFills[0]!.price).toBeGreaterThan(0);
   expect(metrics.totalFees).toBeNull();
@@ -693,6 +755,95 @@ it("reads paged CLI cells and persisted Lab boundaries, warns on DLL drift and m
   expect(listed.map((report) => report.id)).toEqual([blocked.summary.id]);
 });
 
+it.runIf(process.platform === "win32")(
+  "rejects CLI archive IDs that differ only in case on Windows",
+  async () => {
+    const repoRoot = await temp();
+    const outDir = join(repoRoot, ".test-data", "Foo");
+    await mkdir(outDir, { recursive: true });
+    await runDiagnose({
+      tdxRoot: config.tdxRoot,
+      symbols: [symbol],
+      strategies: ["hold"],
+      controls: [],
+      mode: "per-symbol",
+      start,
+      end,
+      initial: 200_000,
+      cost: "fixed",
+      outDir,
+    });
+    expect(
+      (await readVisibleArchive("cli-Foo", { repoRoot })).boundaryState,
+    ).toBe("ok");
+    const { strategyLabRouter } =
+      await import("~/server/api/routers/strategy-lab");
+    const caller = strategyLabRouter.createCaller({ headers: new Headers() });
+    const cwd = vi.spyOn(process, "cwd").mockReturnValue(repoRoot);
+    try {
+      await expect(
+        caller.strategyLabDiagnoseCompare({
+          leftId: "cli-Foo",
+          rightId: "cli-foo",
+        }),
+      ).rejects.toThrow("不能将同一份诊断归档与自身对比");
+    } finally {
+      cwd.mockRestore();
+    }
+  },
+);
+
+it("permits standalone Lab archives only when the database path is absent", async () => {
+  const root = await temp();
+  const archiveDir = join(root, "diagnose-archives");
+  const id = "lab-standalone";
+  await mkdir(join(archiveDir, id), { recursive: true });
+  vi.stubEnv("QUANT_DATA_DIR", root);
+  try {
+    expect((await readDiagnoseArchive(id, { archiveDir }))?.boundaryState).toBe(
+      "missing-files",
+    );
+    await mkdir(join(root, "quant.sqlite"));
+    await expect(readDiagnoseArchive(id, { archiveDir })).rejects.toThrow();
+  } finally {
+    vi.unstubAllEnvs();
+  }
+});
+
+it("retains the CLI core-4 summary's holdout legs, correlations and per-sleeve contributions", async () => {
+  const repoRoot = await temp();
+  const outDir = join(repoRoot, ".test-data", "book");
+  await mkdir(outDir, { recursive: true });
+  const {
+    cells: [book],
+  } = await runDiagnose({
+    ...evidence,
+    tdxRoot: config.tdxRoot,
+    indexBars: marketBars(8_000_000),
+    symbols: [symbol],
+    mode: "portfolio",
+    book: "core-4",
+    strategies: [],
+    controls: [],
+    start: "2021-02-01",
+    end,
+    holdoutStart: start,
+    initial: 200_000,
+    cost: "fixed",
+    outDir,
+  });
+  expect(book!.status, book!.error).toBe("ok");
+  expect(book!.timeHoldout?.status).toBe("reviewed");
+  expect(book!.sleeveAttribution?.sleeves).toHaveLength(4);
+  const detail = await readVisibleArchive("cli-book", {
+    repoRoot,
+    currentDllHash: identity.dllHash,
+  });
+  const scenario = detail.cells[0]!.scenarios[0]!;
+  expect(scenario.timeHoldout).toEqual(book!.timeHoldout);
+  expect(scenario.sleeveAttribution).toEqual(book!.sleeveAttribution);
+});
+
 it("rejects traversal and linked report directories for archive reads and publication", async () => {
   const repoRoot = await temp(),
     archiveDir = join(repoRoot, "lab"),
@@ -774,19 +925,107 @@ it("round-trips scan provenance and creates a validated editable single-symbol d
   }
 });
 
-it("runs a Lab diagnostic through the background job and retrieves its archive from both read procedures", async () => {
+it("preserves portfolio selection order and counts only distinct valid codes beyond the limit", () => {
+  const valid = Array.from({ length: 13 }, (_, i) => "sh" + (600000 + i));
+  const raw = ["bad", valid[0]!, ...valid, valid[12]!, "SH600519"];
+  const normalized = normalizePortfolioHandoffSymbols(raw);
+  expect(normalized).toEqual({
+    symbols: valid.slice(0, 12),
+    droppedInvalidCount: 2,
+    truncatedCount: 1,
+  });
+  expect(normalizePortfolioHandoffSymbols(raw, 2)).toEqual({
+    symbols: valid.slice(0, 2),
+    droppedInvalidCount: 2,
+    truncatedCount: 11,
+  });
+  const payload = {
+    handoffSource: "account-review",
+    scope: "portfolio-diagnose",
+    symbols: normalized.symbols,
+    returnTo: "/accounts/review?month=2021-04",
+  } as const;
+  const handoff = ScanToLabHandoffSchema.parse(payload);
+  expect(handoff.symbol).toBe(valid[0]);
+  const query = new URL(buildScanToLabHandoffHref(payload), "https://lab.local")
+    .searchParams;
+  expect(query.get("symbols")).toBe(normalized.symbols.join(","));
+  query.delete("symbol");
+  expect(parseScanToLabHandoff(query)).toMatchObject({
+    kind: "valid",
+    handoff,
+  });
+  expect(buildLabDraftFromHandoff(handoff).strategy.universe).toEqual({
+    kind: "symbols",
+    symbols: normalized.symbols,
+  });
+  expect(
+    ScanToLabHandoffSchema.safeParse({ ...payload, returnTo: "/accounts" })
+      .success,
+  ).toBe(true);
+  for (const symbols of [undefined, [], valid, [symbol, symbol], ["sh123"]]) {
+    expect(
+      ScanToLabHandoffSchema.safeParse({ ...payload, symbols }).success,
+    ).toBe(false);
+  }
+  for (const returnTo of [
+    "//accounts",
+    "/accounts/../scan",
+    "/accounts?next=%252e%252e%252fadmin",
+    "/accounts/review?next=//example.com",
+    "/accounts?next=javascript:alert(1)",
+    "/accounts/reviews",
+  ]) {
+    query.set("returnTo", returnTo);
+    expect(parseScanToLabHandoff(query).kind).toBe("invalid");
+  }
+});
+
+it("normalizes core-4 and the historical cutoff and rejects contradictory replay windows", () => {
+  const run = { ...input("hold"), start: "2020-01-01", end: "2023-12-31" };
+  expect(labDiagnoseRunInputSchema.parse(run)).toMatchObject({
+    includeHoldout: false,
+  });
+  const book = {
+    ...run,
+    strategyKey: undefined,
+    bookPreset: "core-4",
+    includeHoldout: true,
+  };
+  expect(labDiagnoseRunInputSchema.parse(book)).toMatchObject({
+    strategyKey: "core-4",
+    mode: "portfolio",
+    holdoutStart: "2023-01-01",
+  });
+  for (const invalid of [
+    { ...book, mode: "per-symbol" },
+    { ...book, holdoutStart: run.start },
+    { ...book, start: "auto", holdoutStart: "2024-01-01" },
+    { ...book, holdoutStart: "2023-02-30" },
+  ])
+    expect(labDiagnoseRunInputSchema.safeParse(invalid).success).toBe(false);
+});
+
+it("reads completed Worker archives side by side with the historical holdout and all four sleeves", async () => {
+  const symbols = Array.from({ length: 11 }, (_, i) => "sh" + (600000 + i));
+  await configureWorkerMarket(symbols);
   const { strategyLabRouter } =
     await import("~/server/api/routers/strategy-lab");
   const caller = strategyLabRouter.createCaller({ headers: new Headers() });
   const job = await caller.strategyLabDiagnoseRun({
     ...input("hold"),
+    symbols,
+    mode: "per-symbol",
     scenarios: ["strict"],
   });
-  const completed = await vi.waitFor(async () => {
-    const result = await caller.strategyLabDiagnoseResult({ jobId: job.id });
-    expect(result.status, result.error ?? undefined).toBe("completed");
-    return result;
-  });
+  const completed = await vi.waitFor(
+    async () => {
+      const result = await caller.strategyLabDiagnoseResult({ jobId: job.id });
+      expect(result.status, result.error ?? undefined).toBe("completed");
+      return result;
+    },
+    { timeout: 15_000 },
+  );
   const id = completed.detail!.summary.id;
   expect(id).toBe(`lab-${job.id}`);
   const { sqlite } = await import("~/server/db");
@@ -794,13 +1033,100 @@ it("runs a Lab diagnostic through the background job and retrieves its archive f
   expect(
     completed.detail!.cells[0]!.scenarios[0]!.counts.fills,
   ).toBeGreaterThan(0);
-  expect(
-    (await caller.strategyLabDiagnoseArchiveDetail({ id }))?.summary.id,
-  ).toBe(id);
+  expect(await caller.strategyLabDiagnoseArchiveDetail({ id })).toEqual(
+    completed.detail,
+  );
   expect(
     await caller.strategyLabDiagnoseArchives({
       source: "lab-archive",
       strategyKey: "hold",
     }),
-  ).toEqual(expect.arrayContaining([expect.objectContaining({ id })]));
+  ).toContainEqual(completed.detail!.summary);
+
+  const book = await caller.strategyLabDiagnoseRun({
+    ...input("core-4"),
+    symbols: symbols.slice(0, 2),
+    bookPreset: "core-4",
+    start: "2021-02-01",
+    includeHoldout: true,
+    holdoutStart: start,
+  });
+  const { closeCzsc } = await import("~/server/strategies/chan/czsc");
+  try {
+    const result = await vi.waitFor(
+      async () => {
+        const r = await caller.strategyLabDiagnoseResult({ jobId: book.id });
+        expect(r.status, r.error ?? undefined).toBe("completed");
+        return r;
+      },
+      { timeout: 30_000 },
+    );
+    const right = result.detail!;
+    const rightId = right.summary.id;
+    expect(right.summary).toMatchObject({
+      bookPreset: "core-4",
+      holdoutStart: start,
+    });
+    const cell = right.cells[0]!;
+    expect(cell.mode).toBe("portfolio");
+    for (const [i, row] of cell.scenarios.entries()) {
+      expect(row.status, row.error).toBe("ok");
+      expect(row).toMatchObject({
+        scenarioId: scenarios[i],
+        maxParticipation: i === 2 ? 0.005 : null,
+        capacityPolicy: i === 2 ? "clip" : null,
+        capacityActive: i === 2,
+        timeHoldout: {
+          status: "reviewed",
+          holdoutStart: start,
+          holdout: { base: { trades: expect.any(Number) } },
+        },
+      });
+      expect(row.sleeveAttribution!.sleeves.map((s) => s.id)).toEqual([
+        "canslim",
+        "chan",
+        "ibs",
+        "vcp",
+      ]);
+      expect(row.sleeveAttribution!.correlations).toHaveLength(6);
+    }
+    const compare = (leftId: string, other = rightId) =>
+      caller.strategyLabDiagnoseCompare({ leftId, rightId: other });
+    const pair = await compare(id);
+    expect(completed.detail!.cells).toHaveLength(10);
+    expect(pair.left.cells.map((c) => c.symbols[0])).toEqual(symbols);
+    expect(pair.right.cells).toEqual(right.cells);
+    expect(pair.right.summary).toEqual(right.summary);
+    await expect(compare(id, id)).rejects.toThrow("请选择两份不同");
+    const incompleteId = "lab-missing-group";
+    await mkdir(
+      join(process.env.QUANT_DATA_DIR!, "diagnose-archives", incompleteId),
+    );
+    expect(
+      (await caller.strategyLabDiagnoseArchiveDetail({ id: incompleteId }))
+        ?.boundaryState,
+    ).toBe("missing-files");
+    await expect(compare(incompleteId)).rejects.toThrow(
+      "左侧诊断归档缺少完整产物",
+    );
+    await expect(compare(id, incompleteId)).rejects.toThrow(
+      "右侧诊断归档缺少完整产物",
+    );
+    await expect(compare("lab-../outside")).rejects.toThrow(
+      "左侧诊断归档不可读取",
+    );
+    const { newJob, updateJob, cancelJob } = await import("~/server/jobs/jobs");
+    const hidden = newJob("backtest", { type: "lab-diagnose" });
+    updateJob(hidden.id, { status: "running" });
+    const hiddenId = "lab-" + hidden.id;
+    await runGroupedDiagnoseScenarios(input("hold"), {
+      config,
+      jobId: hidden.id,
+    });
+    await expect(compare(id, hiddenId)).rejects.toThrow("右侧诊断归档不可读取");
+    cancelJob(hidden.id);
+    await expect(compare(hiddenId)).rejects.toThrow("左侧诊断归档不可读取");
+  } finally {
+    await closeCzsc();
+  }
 });

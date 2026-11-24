@@ -21,10 +21,12 @@ import { handoffSourceLabels, type LabHandoffDraft } from "./format";
  */
 export function ScanHandoffBanner({
   search,
+  draftDirty,
   onApply,
   onDiagnose,
 }: {
   search: string;
+  draftDirty: boolean;
   onApply: (draft: LabHandoffDraft) => void;
   onDiagnose: (prefill: DiagnoseRunPrefill) => void;
 }) {
@@ -32,10 +34,16 @@ export function ScanHandoffBanner({
     () => new Set(),
   );
   const [lastAppliedKey, setLastAppliedKey] = useState<string | null>(null);
+  const [confirmKey, setConfirmKey] = useState<string | null>(null);
   const dismiss = (key: string) =>
     setDismissedKeys((current) => new Set(current).add(key));
 
   const parsed = parseScanToLabHandoff(new URLSearchParams(search));
+  if (
+    confirmKey &&
+    (parsed.kind !== "valid" || parsed.key !== confirmKey || !draftDirty)
+  )
+    setConfirmKey(null);
   if (parsed.kind === "none") return null;
 
   if (parsed.kind === "invalid") {
@@ -65,7 +73,9 @@ export function ScanHandoffBanner({
   const sourceLabel = handoffSourceLabels[handoff.handoffSource];
   const returnLink = handoff.returnTo && (
     <Link className="text-sm underline" href={handoff.returnTo}>
-      返回原筛选列表
+      {handoff.handoffSource === "account-review"
+        ? "返回月度复盘"
+        : "返回原筛选列表"}
     </Link>
   );
   if (lastAppliedKey === key)
@@ -87,6 +97,54 @@ export function ScanHandoffBanner({
         </Button>
       </div>
     );
+
+  if (handoff.scope === "portfolio-diagnose") {
+    const sourceText = {
+      formula: "公式选股批量带入",
+      pattern: "形态选股批量带入",
+      rps: "RPS 榜单批量带入",
+      "account-review": "月度复盘",
+    }[handoff.handoffSource];
+    return (
+      <section
+        aria-label="扫描候选批量交接预览"
+        className="mb-3 space-y-2 rounded-lg border border-nc-accent bg-nc-inset px-3 py-2"
+      >
+        <div className="flex flex-wrap items-baseline gap-2">
+          <Pill tone="accent">组合交接</Pill>
+          <span className="text-sm font-medium text-nc-text">
+            来自{sourceText}
+          </span>
+          <span className="text-sm text-nc-text">
+            {handoff.symbols.length} 只
+          </span>
+          {handoff.label && (
+            <span className="text-sm text-nc-text-3">{handoff.label}</span>
+          )}
+          <span className="text-sub text-nc-text-3">
+            冻结日期 {handoff.frozenDate ?? "未提供"}
+          </span>
+        </div>
+        <p className="break-all font-mono text-sm text-nc-text">
+          {handoff.symbols.join("、")}
+        </p>
+        <p className="text-sm text-nc-text-3">
+          已预填诊断运行表单的组合标的，核对策略和日期后可手动运行。
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => dismiss(key)}
+          >
+            忽略此交接提示
+          </Button>
+          {returnLink}
+        </div>
+      </section>
+    );
+  }
 
   const hint = handoff.strategyHint;
   const diagnosticKey = hint && isDiagnosticOnlyStrategyKey(hint) ? hint : null;
@@ -120,6 +178,9 @@ export function ScanHandoffBanner({
         <p className="text-sub text-nc-text-4">{draft.scopeNote}</p>
       )}
       <div className="flex flex-wrap items-center gap-2">
+        {confirmKey === key && (
+          <span role="alert">当前对象回测草稿有未保存修改，确认覆盖？</span>
+        )}
         <Button
           type="button"
           size="sm"
@@ -127,23 +188,37 @@ export function ScanHandoffBanner({
             if (diagnosticKey)
               onDiagnose({
                 symbol: handoff.symbol,
-                strategyKey: diagnosticKey,
+                ...(diagnosticKey === "core-4"
+                  ? { bookPreset: "core-4" }
+                  : { strategyKey: diagnosticKey }),
                 start: draft.start,
                 end: draft.end,
               });
-            else onApply(draft);
+            else if (draftDirty && confirmKey !== key) {
+              setConfirmKey(key);
+              return;
+            } else {
+              onApply(draft);
+              setConfirmKey(null);
+            }
             setLastAppliedKey(key);
           }}
         >
-          {diagnosticKey ? "带入诊断运行表单" : "应用到回测草稿"}
+          {diagnosticKey
+            ? "带入诊断运行表单"
+            : confirmKey === key
+              ? "确认覆盖草稿"
+              : "应用到回测草稿"}
         </Button>
         <Button
           type="button"
           size="sm"
           variant="outline"
-          onClick={() => dismiss(key)}
+          onClick={() =>
+            confirmKey === key ? setConfirmKey(null) : dismiss(key)
+          }
         >
-          忽略并保留当前草稿
+          {confirmKey === key ? "取消" : "忽略并保留当前草稿"}
         </Button>
         {returnLink}
       </div>

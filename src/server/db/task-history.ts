@@ -111,6 +111,10 @@ export function taskState(id: string): TaskState | null {
     'inputSource', json_extract(payload, '$.input.source'),
     'inputKind', json_extract(payload, '$.input.kind'),
     'inputMethod', json_extract(payload, '$.input.method'),
+    'diagnoseArchiveId', CASE WHEN json_extract(payload, '$.type') = 'backtest'
+      AND json_extract(payload, '$.input.type') = 'lab-diagnose'
+      AND json_extract(payload, '$.status') = 'completed'
+      THEN json_extract(payload, '$.result.archiveId') END,
     'screenResultId', CASE WHEN json_extract(payload, '$.type') = 'screen'
       AND json_extract(payload, '$.input.type') = 'formula-screen'
       AND json_extract(payload, '$.status') = 'completed'
@@ -127,6 +131,7 @@ export function taskState(id: string): TaskState | null {
     inputSource,
     inputKind,
     inputMethod,
+    diagnoseArchiveId,
     ...value
   } = JSON.parse(row.payload);
   const counts = workProgressSchema.safeParse(value.workProgress);
@@ -141,11 +146,12 @@ export function taskState(id: string): TaskState | null {
     error: value.error ?? undefined,
     screenResultId: value.screenResultId ?? undefined,
     isFormulaScreen: value.type === "screen" && inputType === "formula-screen",
-    ...(["lab-backtest", "research-command"].includes(inputType) ||
-    inputSource === "binance-archive-audit"
+    ...(["lab-backtest", "lab-diagnose", "research-command"].includes(
+      inputType,
+    ) || inputSource === "binance-archive-audit"
       ? { localEvidence: true }
       : {}),
-    resultLink: taskResultLink(id),
+    resultLink: taskResultLink(id, diagnoseArchiveId),
     sourceLink: taskSourceLink(value.type, inputType, inputKind, inputMethod),
   };
 }
@@ -168,6 +174,7 @@ function taskSourceLink(
     // source workflow even though all three share the same job type.
     if (inputType === "strategy-center") href = "/lab?tab=catalog";
     else if (inputType === "lab-backtest") href = "/lab/backtest?mode=object";
+    // The diagnostic workspace is mounted directly on this page.
     else href = "/lab/backtest";
   } else if (
     type === "research" &&
@@ -189,7 +196,18 @@ function taskSourceLink(
 
 // Only expose a destination for a persisted report, never infer one from status
 // or materialize the job result (which can contain a whole screening universe).
-function taskResultLink(id: string): TaskState["resultLink"] {
+function taskResultLink(
+  id: string,
+  archiveId: unknown,
+): TaskState["resultLink"] {
+  if (archiveId != null) {
+    if (archiveId !== `lab-${id}` || !/^lab-[a-z0-9-]{1,124}$/i.test(archiveId))
+      return undefined;
+    return {
+      href: `/lab/backtest?archive=${encodeURIComponent(archiveId)}`,
+      label: "查看诊断归档",
+    };
+  }
   const financial = sqlite()
     .prepare(
       `

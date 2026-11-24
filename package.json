@@ -22,7 +22,7 @@
     "wdz:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-wdz.ps1",
     "native:build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-tdx-import.ps1",
     "runtime:build": "pnpm packages:build && node scripts/build-runtime.mjs",
-    "test": "pnpm packages:build && pnpm native:build && vitest run && pnpm --filter trading-strategies test && pnpm --filter trading-strategy-core test && pnpm backtest-engine:test && pnpm performance:test && pnpm tstdx:test && pnpm --filter quant-execution test && pnpm rps:test",
+    "test": "pnpm runtime:build && vitest run && pnpm --filter trading-strategies test && pnpm --filter trading-strategy-core test && pnpm backtest-engine:test && pnpm performance:test && pnpm tstdx:test && pnpm --filter quant-execution test && pnpm rps:test",
     "lint": "eslint src \"packages/*/src/**/*.{ts,tsx}\"",
     "check:dependencies": "tsx scripts/check-dependencies.ts",
     "e2e": "playwright test --project workbench",

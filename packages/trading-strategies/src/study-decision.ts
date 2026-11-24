@@ -195,8 +195,15 @@ export function createStudyDecision(
         b.close < entry * 0.92;
     }
     let entryFraction: number | undefined;
-    if (extendedRule)
-      ({ enter, exit, entryFraction } = extendedRule(i, { entry, entryIndex }));
+    if (extendedRule) {
+      const decision = extendedRule(i, { entry, entryIndex });
+      const { exitFraction } = decision;
+      if (exitFraction !== undefined && exitFraction > 0 && exitFraction < 1)
+        throw new Error(
+          "日线研究入口不支持部分减仓和防重减重试，请使用 runPortfolio 或 backtest-diagnose",
+        );
+      ({ enter, exit, entryFraction } = decision);
+    }
     return shares > 0
       ? exit
         ? order("sell", "规则退出", shares)

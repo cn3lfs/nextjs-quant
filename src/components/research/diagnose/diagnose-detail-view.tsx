@@ -15,7 +15,9 @@ import {
   formatCount,
   type DiagnosticFocusTarget,
 } from "./format";
+import { SleeveAttributionCard } from "./sleeve-attribution-card";
 import { TheoryDisclosurePanel } from "./theory-disclosure-panel";
+import { TimeHoldoutCard } from "./time-holdout-card";
 
 const sourceLabels = {
   "lab-archive": "Lab 诊断运行",
@@ -220,6 +222,12 @@ export function DiagnoseDetailView({
           scenario={scenario}
           focus={focus}
         />
+      )}
+      {scenario?.timeHoldout && (
+        <TimeHoldoutCard result={scenario.timeHoldout} />
+      )}
+      {scenario?.sleeveAttribution && (
+        <SleeveAttributionCard attribution={scenario.sleeveAttribution} />
       )}
       <TheoryDisclosurePanel
         nativeChan={scenario?.nativeChan}

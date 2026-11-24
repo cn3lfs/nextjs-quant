@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { randomUUID, createHash } from "node:crypto";
 import { get, put, sqlite, atomic } from "../db";
 import type { Job } from "~/lib/domain";
-import type { Work } from "./worker";
+import type { CzscProjectRequest, Work } from "./worker";
+import { getCurrentCzscIdentity, projectCzsc } from "../strategies/chan/czsc";
 import {
   workProgressSchema,
   type WorkProgress,
@@ -192,19 +193,23 @@ export function recoverJobs() {
   for (const id of activeJobIds()) recover(id);
 }
 export async function runWorker<T>(work: Work, jobId?: string): Promise<T> {
-  const controller = new AbortController();
-  if (jobId) {
-    if (state.computeControllers.has(jobId))
-      throw new Error("任务已有计算请求");
-    state.computeControllers.set(jobId, controller);
-    watchCancellation();
-    updateJob(jobId, { phase: "等待计算资源" });
-    if (readJob(jobId)?.status === "cancelled") controller.abort();
+  if (work.type === "lab-diagnose") {
+    if (jobId && jobId !== work.jobId) throw new Error("诊断任务 ID 不一致");
+    jobId = work.jobId;
   }
+  const controller = new AbortController();
   let release: (() => void) | undefined;
   let worker: Worker | undefined;
   let healthy = true;
   try {
+    if (jobId) {
+      if (state.computeControllers.has(jobId))
+        throw new Error("任务已有计算请求");
+      state.computeControllers.set(jobId, controller);
+      watchCancellation();
+      updateJob(jobId, { phase: "等待计算资源" });
+      if (readJob(jobId)?.status === "cancelled") controller.abort();
+    }
     // Single-security reads take precedence over queued scans/backtests, with
     // aging in PrioritySlots ensuring older bulk work eventually receives a slot.
     release = await state.slots.acquire(
@@ -242,17 +247,16 @@ export async function runWorker<T>(work: Work, jobId?: string): Promise<T> {
       if (
         updateJob(jobId, { status: "running", phase: "计算中" })?.status ===
         "cancelled"
-      ) {
-        workers.delete(jobId);
+      )
         throw new Error("任务已取消");
-      }
     }
     return await new Promise<T>((resolve, reject) => {
+      let active = true;
       const cleanup = () => {
+        active = false;
         current.off("message", onMessage);
         current.off("error", onError);
         current.off("exit", onExit);
-        if (jobId) workers.delete(jobId);
       };
       const onError = (error: Error) => {
         healthy = false;
@@ -265,7 +269,19 @@ export async function runWorker<T>(work: Work, jobId?: string): Promise<T> {
         );
       };
       const onExit = () => onError(new Error("计算任务已中止"));
+      const reply = (czscReply: object) => {
+        if (!active || controller.signal.aborted || current.threadId === -1)
+          return;
+        try {
+          current.postMessage({ czscReply });
+        } catch (error) {
+          // A terminating worker can lose its port before emitting exit.
+          onError(error instanceof Error ? error : new Error(String(error)));
+        }
+      };
       const onMessage = (message: {
+        czscProject?: CzscProjectRequest;
+        czscIdentity?: { requestId: number };
         progress?: number;
         progressId?: number;
         phase?: string;
@@ -273,6 +289,46 @@ export async function runWorker<T>(work: Work, jobId?: string): Promise<T> {
         result?: T;
         error?: string;
       }) => {
+        if (controller.signal.aborted) {
+          onError(new Error("任务已取消"));
+          return;
+        }
+        const native = message.czscProject ?? message.czscIdentity;
+        if (native) {
+          const { requestId } = native;
+          try {
+            if (jobId && readJob(jobId)?.status === "cancelled") {
+              onError(new Error("任务已取消"));
+              return;
+            }
+            const shouldSkip = () =>
+              !active || controller.signal.aborted || current.threadId === -1;
+            const pending = message.czscProject
+              ? projectCzsc(
+                  message.czscProject.input,
+                  message.czscProject.request,
+                  shouldSkip,
+                )
+              : getCurrentCzscIdentity(
+                  undefined,
+                  undefined,
+                  undefined,
+                  shouldSkip,
+                );
+            void pending.then(
+              (result) => reply({ requestId, ok: true, result }),
+              (error: unknown) =>
+                reply({
+                  requestId,
+                  ok: false,
+                  error: error instanceof Error ? error.message : String(error),
+                }),
+            );
+          } catch (error) {
+            onError(error instanceof Error ? error : new Error(String(error)));
+          }
+          return;
+        }
         const counts = message.workProgress
           ? workProgressSchema.safeParse(message.workProgress)
           : undefined;
@@ -294,6 +350,10 @@ export async function runWorker<T>(work: Work, jobId?: string): Promise<T> {
           return;
         }
         if (message.error) {
+          if (work.type === "lab-diagnose") {
+            onError(new Error(message.error));
+            return;
+          }
           cleanup();
           reject(new Error(message.error));
         } else if ("result" in message) {
@@ -321,11 +381,13 @@ export async function runWorker<T>(work: Work, jobId?: string): Promise<T> {
       });
     throw error;
   } finally {
+    if (jobId && workers.get(jobId) === worker) workers.delete(jobId);
     if (worker && healthy && worker.threadId !== -1) {
       worker.unref();
       state.idle.push(worker);
     }
-    if (jobId) state.computeControllers.delete(jobId);
+    if (jobId && state.computeControllers.get(jobId) === controller)
+      state.computeControllers.delete(jobId);
     stopCancellationWatchIfIdle();
     release?.();
   }

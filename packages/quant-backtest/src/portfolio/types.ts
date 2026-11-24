@@ -64,6 +64,9 @@ export type PortfolioRequest = {
   sleeves: readonly PortfolioSleeve[];
   costs?: ExecutionCosts;
   maxParticipation?: number;
+  accountMaxUniqueSymbols?: number;
+  accountMaxSymbolWeight?: number;
+  collectDailyDecisionCounts?: boolean;
   capacityPolicy?: "clip" | "reject";
   bookFacts?: Readonly<Record<string, StrategyBookFacts>>;
   /** A completed pre-start weekly signal seeds only next-session orders; no warmup equity is scored. */
@@ -130,6 +133,8 @@ export type PortfolioOrder = {
   status: "pending" | "filled" | "rejected";
   reason: string | null;
   attempts: number;
+  exitFraction?: number;
+  targetRemainingQuantity?: number;
   capacityClipped?: true;
   trigger: "signal" | "stop" | "target" | "trailing" | "time";
   rankScore?: number;

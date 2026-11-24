@@ -211,6 +211,7 @@ export const handoffSourceLabels = {
   formula: "公式选股",
   pattern: "形态筛选",
   rps: "RPS 排名",
+  "account-review": "月度复盘",
 } as const;
 
 export const boundaryLabels = {

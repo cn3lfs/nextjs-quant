@@ -362,6 +362,48 @@ function WyckoffCard({ entry }: { entry: DiagnoseWyckoffFunnel }) {
           {formatCount(entry.buyOrders)} / {formatCount(entry.buyFills)}
         </Field>
       </dl>
+      {entry.nextDayBreakdown && (
+        <div className="space-y-1.5 rounded border border-nc-border-soft px-2 py-1.5">
+          <p className="text-sub font-medium text-nc-text">
+            次日确认四条件独立计数
+          </p>
+          <FunnelSteps
+            steps={[
+              {
+                label: "守住候选低点",
+                value: entry.nextDayBreakdown.holdCandidateLow,
+              },
+              {
+                label: "收盘破高",
+                value: entry.nextDayBreakdown.closeAboveCandidateHigh,
+              },
+              {
+                label: "≥1.5×均量",
+                value: entry.nextDayBreakdown.volumeGe15xMean20,
+              },
+              {
+                label: "无阻断原因",
+                value: entry.nextDayBreakdown.validNextBarNoReason,
+              },
+              {
+                label: "全满足",
+                value: entry.nextDayBreakdown.allFourConfirmed,
+              },
+            ]}
+          />
+          <dl className="grid gap-x-4 gap-y-1 text-sm sm:grid-cols-3">
+            <Field label="有次日K线的候选">
+              {formatCount(entry.nextDayBreakdown.candidatesWithNextBar)}
+            </Field>
+            <Field label="守住低点且收盘破高">
+              {formatCount(entry.nextDayBreakdown.holdAndCloseAboveHigh)}
+            </Field>
+            <Field label="1.0× 均量对照">
+              {formatCount(entry.nextDayBreakdown.volumeGe10xMean20)}
+            </Field>
+          </dl>
+        </div>
+      )}
       <p className="text-sub text-nc-text-3">{entry.boundary}</p>
     </div>
   );

@@ -1,14 +1,26 @@
 import { randomUUID } from "node:crypto";
-import { renameSync, statSync } from "node:fs";
-import { mkdir, rename, rmdir, unlink, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { lstatSync, realpathSync, renameSync } from "node:fs";
+import Database from "better-sqlite3";
+import { and, eq, sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import {
+  mkdir,
+  realpath,
+  rename,
+  rmdir,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import {
   diagnoseArchiveDetailSchema,
+  diagnoseSleeveAttributionSchema,
+  diagnoseTimeHoldoutSchema,
   type DiagnoseArchiveDetail,
   type DiagnoseArchiveSummary,
 } from "~/lib/research/diagnose-contract";
 import { dataDirectory } from "../../infra/paths";
-import { readJob } from "../../db/jobs";
+import { records } from "../../db/schema";
 import { czscRuntimeFingerprint } from "../../strategies/chan/czsc";
 import {
   checked,
@@ -30,6 +42,8 @@ export interface DiagnoseArchiveOptions {
   repoRoot?: string;
   page?: number;
   pageSize?: number;
+  /** Internal read mode for side-by-side comparison, including every cell. */
+  allCells?: boolean;
   source?: DiagnoseArchiveSummary["source"];
   strategyKey?: string;
   symbol?: string;
@@ -38,9 +52,15 @@ export interface DiagnoseArchiveOptions {
 
 const maxArchiveBytes = 16 * 1024 * 1024;
 const labRoot = (options: DiagnoseArchiveOptions) =>
-  resolve(options.archiveDir ?? join(dataDirectory(), "diagnose-archives"));
+  resolve(
+    /* turbopackIgnore: true */ options.archiveDir ??
+      join(/* turbopackIgnore: true */ dataDirectory(), "diagnose-archives"),
+  );
 const cliRoot = (options: DiagnoseArchiveOptions) =>
-  resolve(options.repoRoot ?? process.cwd(), ".test-data");
+  resolve(
+    /* turbopackIgnore: true */ options.repoRoot ?? process.cwd(),
+    ".test-data",
+  );
 
 export function classifyArchiveBoundary(
   summary: DiagnoseArchiveSummary,
@@ -84,26 +104,67 @@ function dllWarnings(options: DiagnoseArchiveOptions) {
   };
 }
 
+function readArchiveJob(id: string) {
+  const path = join(
+    /* turbopackIgnore: true */ dataDirectory(),
+    "quant.sqlite",
+  );
+  try {
+    lstatSync(/* turbopackIgnore: true */ path);
+  } catch (error) {
+    if (isAbsent(error)) return undefined;
+    throw error;
+  }
+  const db = new Database(path, { readonly: true, fileMustExist: true });
+  try {
+    return drizzle(db)
+      .select({
+        status: sql<
+          string | null
+        >`json_extract(${records.payload}, '$.status')`,
+      })
+      .from(records)
+      .where(and(eq(records.kind, "job"), eq(records.id, id)))
+      .get();
+  } finally {
+    db.close();
+  }
+}
+
+function labArchivePath(id: string, options: DiagnoseArchiveOptions) {
+  if (!safeSegment(id) || !id.startsWith("lab-") || id.length === 4)
+    throw new Error("非法诊断归档 ID");
+  return join(/* turbopackIgnore: true */ labRoot(options), id);
+}
+
+export async function resolveDiagnoseArchiveKey(
+  id: string,
+  options: DiagnoseArchiveOptions = {},
+) {
+  const path = id.startsWith("lab-")
+    ? labArchivePath(id, options)
+    : join(
+        /* turbopackIgnore: true */ cliRoot(options),
+        ...decodeCliLocation(id),
+      );
+  if (!(await checked(path, "directory"))) throw new Error("诊断归档不存在");
+  const canonical = await realpath(/* turbopackIgnore: true */ path);
+  return process.platform === "win32" ? canonical.toLowerCase() : canonical;
+}
+
 async function readLab(
   id: string,
   options: DiagnoseArchiveOptions,
   drift: ReturnType<typeof dllWarnings>,
 ) {
-  if (!safeSegment(id) || !id.startsWith("lab-") || id.length === 4)
-    throw new Error("非法诊断归档 ID");
-  // readJob opens and migrates SQLite on demand. Standalone archives may
-  // have no database, or predate job-based archive IDs.
-  if (
-    statSync(join(dataDirectory(), "quant.sqlite"), { throwIfNoEntry: false })
-  ) {
-    const job = readJob(id.slice(4));
-    if (job && job.status !== "completed") return null;
-  }
-  const path = join(labRoot(options), id);
+  const path = labArchivePath(id, options);
+  // Standalone archives can predate job IDs or have no database at all.
+  const job = readArchiveJob(id.slice(4));
+  if (job && job.status !== "completed") return null;
   const dir = await checked(path, "directory");
   if (!dir) throw new Error("诊断归档不存在");
   const bytes = await readBounded(
-    join(path, "diagnose-group.json"),
+    join(/* turbopackIgnore: true */ path, "diagnose-group.json"),
     maxArchiveBytes,
   );
   const { page, pageSize, offset } = archivePage(options);
@@ -153,75 +214,205 @@ async function readLab(
   detail.summary.driftWarnings = [
     ...new Set([...detail.summary.driftWarnings, ...(await drift(hashes))]),
   ];
+  const declaredScenarios =
+    detail.summary.statusCounts.ok +
+    detail.summary.statusCounts.blocked +
+    detail.summary.statusCounts.failed;
+  const actualScenarios = detail.cells.reduce(
+    (sum, cell) => sum + cell.scenarios.length,
+    0,
+  );
+  const incompleteCells =
+    detail.pagination.totalCells !== detail.cells.length ||
+    declaredScenarios !== actualScenarios;
+  if (incompleteCells) {
+    detail.summary.missingFiles = [
+      ...new Set([...detail.summary.missingFiles, "diagnose-group.json:cells"]),
+    ];
+  }
   return {
     summary: detail.summary,
-    cells: detail.cells.slice(offset, offset + pageSize),
-    pagination: { page, pageSize, totalCells: detail.cells.length },
-    boundaryState: classifyArchiveBoundary(detail.summary),
+    cells: options.allCells
+      ? detail.cells
+      : detail.cells.slice(offset, offset + pageSize),
+    pagination: {
+      page,
+      pageSize: options.allCells ? Math.max(1, detail.cells.length) : pageSize,
+      totalCells: detail.cells.length,
+    },
+    boundaryState:
+      incompleteCells || detail.boundaryState === "missing-files"
+        ? ("missing-files" as const)
+        : classifyArchiveBoundary(detail.summary),
   };
 }
 
-/** Publish the complete file atomically. Job-backed archives also require a completed job. */
-export async function publishDiagnoseArchive(
-  detail: DiagnoseArchiveDetail,
-  options: {
-    archiveDir?: string;
-    signal?: AbortSignal;
-    beforePublish?: () => void;
-  } = {},
-) {
-  const { id, source } = detail.summary;
+type WriteOptions = Pick<DiagnoseArchiveOptions, "archiveDir"> & {
+  signal?: AbortSignal;
+  beforePublish?: () => void;
+};
+
+function checkLabId(id: string) {
+  if (!/^lab-[a-z0-9-]+$/i.test(id) || !safeSegment(id))
+    throw new Error("非法 Lab 诊断归档 ID");
+}
+
+function checkStagingPath(stage: string, root: string) {
   if (
-    !/^lab-[a-z0-9-]+$/i.test(id) ||
-    !safeSegment(id) ||
-    source !== "lab-archive"
+    stage !== resolve(/* turbopackIgnore: true */ stage) ||
+    relative(root, dirname(stage)) !== "" ||
+    !/^\.pending-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(
+      basename(stage),
+    )
   )
+    throw new UnsafeArchivePath();
+}
+
+export async function createDiagnoseStagingDir(archiveDir?: string) {
+  const root = labRoot({ archiveDir });
+  await ensureRealDirectory(root);
+  const stage = join(
+    /* turbopackIgnore: true */ root,
+    `.pending-${randomUUID()}`,
+  );
+  await mkdir(/* turbopackIgnore: true */ stage);
+  if (!(await checked(stage, "directory"))) throw new UnsafeArchivePath();
+  return stage;
+}
+
+export async function stageDiagnoseArchive(
+  detail: DiagnoseArchiveDetail,
+  stage: string,
+  options: WriteOptions = {},
+) {
+  checkLabId(detail.summary.id);
+  if (detail.summary.source !== "lab-archive")
     throw new Error("非法 Lab 诊断归档 ID");
   options.signal?.throwIfAborted();
   const json = JSON.stringify(diagnoseArchiveDetailSchema.parse(detail));
   if (Buffer.byteLength(json) > maxArchiveBytes)
     throw new Error("诊断归档超过大小上限");
+  checkStagingPath(stage, labRoot(options));
+  if (!(await checked(stage, "directory"))) throw new UnsafeArchivePath();
+  const tmp = join(/* turbopackIgnore: true */ stage, "diagnose-group.tmp");
+  const file = join(/* turbopackIgnore: true */ stage, "diagnose-group.json");
+  if (await checked(file, "file")) throw new Error("诊断归档已存在");
+  await writeFile(/* turbopackIgnore: true */ tmp, json, {
+    flag: "wx",
+    signal: options.signal,
+  });
+  if (!(await checked(stage, "directory"))) throw new UnsafeArchivePath();
+  await rename(/* turbopackIgnore: true */ tmp, file);
+}
+
+/** Synchronous so the host can hold SQLite's write reservation throughout publication. */
+export function publishStagedDiagnoseArchive(
+  stage: string,
+  id: string,
+  options: Pick<DiagnoseArchiveOptions, "archiveDir"> = {},
+) {
+  checkLabId(id);
   const root = labRoot(options);
-  await ensureRealDirectory(root);
-  const target = join(root, id);
-  if (await checked(target, "directory")) throw new Error("诊断归档已存在");
-  const stage = join(root, `.pending-${randomUUID()}`);
-  await mkdir(stage);
-  try {
-    await checked(stage, "directory");
-    await writeFile(join(stage, "diagnose-group.tmp"), json, {
-      flag: "wx",
-      signal: options.signal,
-    });
-    await checked(stage, "directory");
-    await rename(
-      join(stage, "diagnose-group.tmp"),
-      join(stage, "diagnose-group.json"),
+  checkStagingPath(stage, root);
+  const file = join(/* turbopackIgnore: true */ stage, "diagnose-group.json");
+  const st = lstatSync(/* turbopackIgnore: true */ file);
+  if (
+    !st.isFile() ||
+    st.size > maxArchiveBytes ||
+    relative(file, realpathSync(/* turbopackIgnore: true */ file)) !== ""
+  )
+    throw new UnsafeArchivePath();
+  const target = join(/* turbopackIgnore: true */ root, id);
+  if (lstatSync(/* turbopackIgnore: true */ target, { throwIfNoEntry: false }))
+    throw new Error("诊断归档已存在");
+  renameSync(/* turbopackIgnore: true */ stage, target);
+}
+
+export async function cleanupDiagnoseStagingDir(
+  stage: string,
+  options: Pick<DiagnoseArchiveOptions, "archiveDir"> = {},
+) {
+  checkStagingPath(stage, labRoot(options));
+  if (!(await checked(stage, "directory"))) return;
+  for (const name of ["diagnose-group.tmp", "diagnose-group.json"]) {
+    await unlink(join(/* turbopackIgnore: true */ stage, name)).catch(
+      (error) => {
+        if (!isAbsent(error)) throw error;
+      },
     );
-    await checked(stage, "directory");
+  }
+  await rmdir(/* turbopackIgnore: true */ stage).catch((error) => {
+    if (!isAbsent(error)) throw error;
+  });
+}
+
+export async function publishDiagnoseArchive(
+  detail: DiagnoseArchiveDetail,
+  options: WriteOptions = {},
+) {
+  options.signal?.throwIfAborted();
+  const stage = await createDiagnoseStagingDir(options.archiveDir);
+  try {
+    await stageDiagnoseArchive(detail, stage, options);
     options.signal?.throwIfAborted();
     options.beforePublish?.();
-    // No event-loop turn between the final cancellation check and publication.
-    renameSync(stage, target);
-  } catch (error) {
-    if (await checked(stage, "directory")) {
-      for (const name of ["diagnose-group.tmp", "diagnose-group.json"])
-        await unlink(join(stage, name)).catch((error) => {
-          if (!isAbsent(error)) throw error;
-        });
-      await rmdir(stage);
-    }
-    throw error;
+    options.signal?.throwIfAborted();
+    publishStagedDiagnoseArchive(stage, detail.summary.id, options);
+  } finally {
+    await cleanupDiagnoseStagingDir(stage, options);
   }
 }
 
 export async function removeUnpublishedDiagnoseArchive(id: string) {
   if (!safeSegment(id) || !id.startsWith("lab-")) throw new UnsafeArchivePath();
-  const dir = join(labRoot({}), id);
+  const dir = join(/* turbopackIgnore: true */ labRoot({}), id);
   if (!(await checked(dir, "directory"))) return;
-  const file = join(dir, "diagnose-group.json");
-  if (await checked(file, "file")) await unlink(file);
-  await rmdir(dir);
+  const file = join(/* turbopackIgnore: true */ dir, "diagnose-group.json");
+  if (await checked(file, "file"))
+    await unlink(/* turbopackIgnore: true */ file);
+  await rmdir(/* turbopackIgnore: true */ dir);
+}
+
+async function readCliObject(dir: string, name: "summary.json" | "run.json") {
+  const bytes = await readBounded(
+    join(/* turbopackIgnore: true */ dir, name),
+    2 * 1024 * 1024,
+  );
+  if (!bytes || bytes.truncated) return;
+  try {
+    const value: unknown = JSON.parse(bytes.text);
+    if (value && typeof value === "object" && !Array.isArray(value))
+      return value as Record<string, unknown>;
+  } catch {
+    /* The CLI reader already records malformed metadata. */
+  }
+}
+
+/** Follow the CLI reader's sorted cell order, including legacy flat and single-cell reports.
+ * Only directory entries are used as path segments, never fields from report JSON. */
+async function* cliCellDirectories(root: string) {
+  let nested = false;
+  for (const mode of ["per-symbol", "portfolio"]) {
+    const modeDir = join(/* turbopackIgnore: true */ root, mode);
+    for (const key of await directories(modeDir, true)) {
+      const strategyDir = join(/* turbopackIgnore: true */ modeDir, key);
+      for (const leaf of await directories(strategyDir, true)) {
+        nested = true;
+        yield join(/* turbopackIgnore: true */ strategyDir, leaf);
+      }
+    }
+  }
+  if (nested) return;
+  let flat = false;
+  for (const name of await directories(root)) {
+    const dir = join(/* turbopackIgnore: true */ root, name);
+    const run = await readCliObject(dir, "run.json");
+    if (typeof run?.strategyKey === "string" && Array.isArray(run.symbols)) {
+      flat = true;
+      yield dir;
+    }
+  }
+  if (!flat) yield root;
 }
 
 export async function readDiagnoseArchive(
@@ -231,12 +422,33 @@ export async function readDiagnoseArchive(
   const drift = dllWarnings(options);
   if (id.startsWith("lab-")) return readLab(id, options, drift);
   const location = decodeCliLocation(id);
-  const detail = await readCliReport(
-    cliRoot(options),
-    location,
-    archivePage(options),
-    drift,
-  );
+  const base = cliRoot(options);
+  const page = options.allCells
+    ? { page: 1, pageSize: Number.MAX_SAFE_INTEGER, offset: 0 }
+    : archivePage(options);
+  const detail = await readCliReport(base, location, page, drift);
+  if (options.allCells)
+    detail.pagination.pageSize = Math.max(1, detail.cells.length);
+  if (detail.cells.length) {
+    let index = 0;
+    for await (const dir of cliCellDirectories(
+      join(/* turbopackIgnore: true */ base, ...location),
+    )) {
+      if (index++ < page.offset) continue;
+      const cell = detail.cells[index - page.offset - 1]!;
+      const summary = await readCliObject(dir, "summary.json");
+      const metrics = cell.scenarios[0]!;
+      if (summary?.timeHoldout !== undefined)
+        metrics.timeHoldout = diagnoseTimeHoldoutSchema.parse(
+          summary.timeHoldout,
+        );
+      if (summary?.sleeveAttribution !== undefined)
+        metrics.sleeveAttribution = diagnoseSleeveAttributionSchema.parse(
+          summary.sleeveAttribution,
+        );
+      if (index - page.offset === detail.cells.length) break;
+    }
+  }
   return { ...detail, boundaryState: classifyArchiveBoundary(detail.summary) };
 }
 

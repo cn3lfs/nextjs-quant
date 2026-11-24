@@ -134,6 +134,10 @@ export function replayDailyStudy(
       dividendTaxBps: z.number().int().min(0).max(10000).default(0),
     })
     .parse(options);
+  if (o.strategy === "research-wy-sow-lpsy")
+    throw new Error(
+      "research-wy-sow-lpsy 需要支持部分减仓和防重减重试的组合引擎，请使用 runPortfolio 或 backtest-diagnose",
+    );
   if (o.start > o.end) throw new Error("研究区间倒序");
   const bars = z.array(barSchema).min(142).parse(rawBars);
   for (let i = 0; i < bars.length; i++) {

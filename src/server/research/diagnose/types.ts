@@ -11,6 +11,8 @@ import type { FrozenLabBacktest, replayLabBacktest } from "../lab-backtest";
 
 import type { NativeChanMultiDisclosure } from "./chan-native";
 import type { GrowthPitDisclosure } from "./growth-pit";
+import type { DiagnoseTimeHoldoutResult } from "./time-holdout";
+import type { SleeveAttribution } from "./sleeve-attribution";
 import type { analyzeWyckoffFunnel } from "./wyckoff-funnel";
 
 export type { DiagnoseCounts };
@@ -62,6 +64,7 @@ export type NativeChanDisclosure = {
 };
 
 export type CanslimPitDisclosure = {
+  ruleId?: string;
   symbol: string;
   strictReportCount: number;
   reportDateRange: [string, string] | null;
@@ -75,10 +78,13 @@ export type CanslimPitDisclosure = {
 };
 
 export type StrategyDisclosures = {
-  nativeChan?: NativeChanMultiDisclosure[];
-  canslimPit?: GrowthPitDisclosure[];
-  growthPit?: GrowthPitDisclosure[];
+  timeHoldout?: DiagnoseTimeHoldoutResult;
+  sleeveAttribution?: SleeveAttribution;
+  nativeChan?: (NativeChanMultiDisclosure & { strategyKey?: string })[];
+  canslimPit?: (GrowthPitDisclosure & { strategyKey?: string })[];
+  growthPit?: (GrowthPitDisclosure & { strategyKey?: string })[];
   wyckoffFunnel?: (ReturnType<typeof analyzeWyckoffFunnel> & {
+    strategyKey?: string;
     symbol: string;
     buyOrders: number;
     buyFills: number;

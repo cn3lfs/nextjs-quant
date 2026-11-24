@@ -24,7 +24,13 @@ import {
 } from "~/components/ui/select";
 import { useMarketSession } from "~/lib/stores/market-session";
 import { cn } from "~/lib/common/classnames";
-import { patternCandidateToLabHref } from "~/lib/screening/screen-candidate-navigation";
+import {
+  batchCandidatesToLabHref,
+  patternCandidateToLabHref,
+  portfolioHandoffLimit,
+  portfolioHandoffLimitMessage,
+  useCandidateBatchSelection,
+} from "~/lib/screening/screen-candidate-navigation";
 import { usePanelVisible } from "~/components/workbench/keep-alive";
 
 type Candidate = RouterOutputs["patternScreenRun"]["candidates"][number];
@@ -250,6 +256,51 @@ export function PatternScreenPanel() {
       : [...list, value];
 
   const candidates = run.data?.candidates ?? [];
+  const filtersKey = JSON.stringify([
+    chanEnabled,
+    chanDirection,
+    chanConfigs,
+    chanCodes,
+    doubleEnabled,
+    doubleDirection,
+    doubleScore,
+    doubleVolume,
+    patternsEnabled,
+    patternDirection,
+    patternKinds,
+    patternScore,
+    patternVolume,
+    theoryEnabled,
+    theoryDirection,
+    theoryFamilies,
+    theoryScore,
+    theoryVolume,
+    combineMode,
+    lookbackBars,
+    minRps20,
+    minRps50,
+    minRps120,
+    symbolsText,
+  ]);
+  const [submittedFilters, setSubmittedFilters] = useState<string | null>(null);
+  const batchReady =
+    visible && run.isSuccess && submittedFilters === filtersKey;
+  const batchSelection = useCandidateBatchSelection(
+    batchReady ? JSON.stringify([run.submittedAt, filtersKey, returnTo]) : null,
+  );
+  const selectedDates = new Set(
+    candidates
+      .filter((row) => batchSelection.symbols.includes(row.symbol))
+      .map((row) => row.date),
+  );
+  const batchHandoff = batchCandidatesToLabHref({
+    symbols: batchSelection.symbols,
+    handoffSource: "pattern",
+    label: "结构与形态突破",
+    frozenDate: selectedDates.size === 1 ? [...selectedDates][0] : undefined,
+    returnTo,
+  });
+  const batchFull = batchSelection.symbols.length >= portfolioHandoffLimit;
 
   function submit() {
     setMessage("");
@@ -344,6 +395,8 @@ export function PatternScreenPanel() {
       );
       return;
     }
+    batchSelection.clear();
+    setSubmittedFilters(filtersKey);
     run.mutate({
       ...(chanEnabled
         ? {
@@ -749,6 +802,27 @@ export function PatternScreenPanel() {
       )}
       {run.data && (
         <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!batchHandoff}
+              onClick={() => {
+                if (batchHandoff)
+                  router.push(batchHandoff.href, { scroll: false });
+              }}
+            >
+              {`批量带入组合诊断 (${batchSelection.symbols.length}/${portfolioHandoffLimit})`}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={!batchHandoff}
+              onClick={batchSelection.clear}
+            >
+              清空已选
+            </Button>
+          </div>
           <p role="status" className="text-xs text-muted-foreground">
             命中 {candidates.length} 只 · 缠论原生评估{" "}
             {run.data.czscEvaluatedCount} 次
@@ -777,6 +851,7 @@ export function PatternScreenPanel() {
               <table className="w-full min-w-[78rem] border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-border text-left text-muted-foreground">
+                    {batchReady && <th className="px-1.5 py-1">勾选</th>}
                     <th className="px-1.5 py-1">证券代码/名称</th>
                     <th className="px-1.5 py-1">信号日期</th>
                     <th className="px-1.5 py-1">方向</th>
@@ -794,6 +869,8 @@ export function PatternScreenPanel() {
                 </thead>
                 <tbody>
                   {candidates.map((row, index) => {
+                    const checked = batchSelection.symbols.includes(row.symbol);
+                    const disabled = batchFull && !checked;
                     const primary = row.matches[0];
                     const reward = primary?.rewardMultiple ?? null;
                     const volume =
@@ -837,6 +914,31 @@ export function PatternScreenPanel() {
                           }
                         }}
                       >
+                        {batchReady && (
+                          <td
+                            className="px-1.5 py-1"
+                            onClick={(event) => event.stopPropagation()}
+                            title={
+                              disabled
+                                ? portfolioHandoffLimitMessage
+                                : undefined
+                            }
+                          >
+                            <span className="inline-flex items-center gap-1">
+                              <Checkbox
+                                aria-label={`选择 ${row.symbol}`}
+                                checked={checked}
+                                disabled={disabled}
+                                onCheckedChange={() =>
+                                  batchSelection.toggle(row.symbol)
+                                }
+                              />
+                              {disabled && (
+                                <small>{portfolioHandoffLimitMessage}</small>
+                              )}
+                            </span>
+                          </td>
+                        )}
                         <td className="px-1.5 py-1">
                           <div className="font-medium">{row.name}</div>
                           <div className="text-muted-foreground tabular">

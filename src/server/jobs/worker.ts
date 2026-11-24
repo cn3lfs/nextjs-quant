@@ -46,7 +46,16 @@ import {
   evaluateFactorWork,
   type FactorWork,
 } from "../research/factor-evaluation-job";
-import type { Period } from "~/lib/domain";
+import type { Period, Settings } from "~/lib/domain";
+import type { LabDiagnoseRunInput } from "~/lib/research/diagnose-contract";
+import {
+  diagnoseWorkerResult,
+  runGroupedDiagnoseScenarios,
+} from "../research/diagnose/grouped-run";
+import type {
+  projectCzsc,
+  getCurrentCzscIdentity,
+} from "../strategies/chan/czsc";
 import {
   executeValidationWork,
   type ValidationWork,
@@ -76,7 +85,56 @@ function reportSavedBatch() {
     }
   });
 }
+export type LabDiagnoseWork = {
+  type: "lab-diagnose";
+  input: LabDiagnoseRunInput;
+  config: Settings;
+  stagingDir: string;
+  archiveDir?: string;
+  jobId: string;
+};
+export type CzscProjectRequest = {
+  requestId: number;
+  input: Parameters<typeof projectCzsc>[0];
+  request?: Parameters<typeof projectCzsc>[1];
+};
+type CzscCall =
+  { czscProject: CzscProjectRequest } | { czscIdentity: { requestId: number } };
+type CzscReply<T> = { requestId: number } & (
+  { ok: true; result: T } | { ok: false; error: string }
+);
+let czscRequestId = 0;
+
+function createWorkerCzscProxy() {
+  const port = parentPort;
+  if (!port) throw new Error("原生缠论代理需要主线程通道");
+  const call = <T>(makeRequest: (id: number) => CzscCall) => {
+    const requestId = ++czscRequestId;
+    return new Promise<T>((resolve, reject) => {
+      const onReply = ({ czscReply }: { czscReply?: CzscReply<T> }) => {
+        if (czscReply?.requestId !== requestId) return;
+        port.off("message", onReply);
+        if (czscReply.ok) resolve(czscReply.result);
+        else reject(new Error(czscReply.error));
+      };
+      port.on("message", onReply);
+      try {
+        port.postMessage(makeRequest(requestId));
+      } catch (error) {
+        port.off("message", onReply);
+        reject(error);
+      }
+    });
+  };
+  const project: typeof projectCzsc = (input, request) =>
+    call((requestId) => ({ czscProject: { requestId, input, request } }));
+  const resolveIdentity = (): ReturnType<typeof getCurrentCzscIdentity> =>
+    call((requestId) => ({ czscIdentity: { requestId } }));
+  return { project, resolveIdentity };
+}
+
 export type Work =
+  | LabDiagnoseWork
   | LabBacktestWork
   | { type: "lab-backtest-replay"; frozen: FrozenLabBacktest }
   | { type: "research-command"; input: z.input<typeof researchCommandSchema> }
@@ -95,6 +153,18 @@ export type Work =
   | { type: "scan"; root: string }
   | { type: "snapshot"; root: string; symbol: string; period: Period };
 async function main(work: Work & { attemptId?: string; jobId?: string }) {
+  if (work.type === "lab-diagnose") {
+    const detail = await runGroupedDiagnoseScenarios(work.input, {
+      config: work.config,
+      archiveDir: work.archiveDir,
+      stagingDir: work.stagingDir,
+      jobId: work.jobId,
+      ...createWorkerCzscProxy(),
+      onProgress: (progress, phase) =>
+        parentPort?.postMessage({ progress, phase }),
+    });
+    return diagnoseWorkerResult(detail);
+  }
   if (work.type === "lab-backtest-replay")
     return replayLabBacktest(work.frozen, (progress, phase) =>
       parentPort?.postMessage({ progress, phase }),
@@ -187,13 +257,16 @@ async function main(work: Work & { attemptId?: string; jobId?: string }) {
     });
   throw new Error("不支持的计算任务类型");
 }
-parentPort?.on("message", (work: Work | { progressAck: number }) => {
-  if ("progressAck" in work) return;
-  void main(work)
-    .then((result) => parentPort?.postMessage({ result }))
-    .catch((error) =>
-      parentPort?.postMessage({
-        error: error instanceof Error ? error.message : "计算失败",
-      }),
-    );
-});
+parentPort?.on(
+  "message",
+  (work: Work | { progressAck: number } | { czscReply: unknown }) => {
+    if ("progressAck" in work || "czscReply" in work) return;
+    void main(work)
+      .then((result) => parentPort?.postMessage({ result }))
+      .catch((error) =>
+        parentPort?.postMessage({
+          error: error instanceof Error ? error.message : "计算失败",
+        }),
+      );
+  },
+);
