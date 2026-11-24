@@ -4,6 +4,11 @@ import { budgets, waitForJob } from "./helpers";
 /** Runs a fixed formula on synthetic local securities and waits for this run. */
 async function screen(page: import("@playwright/test").Page) {
   await page.goto("/scan?tab=formula", { waitUntil: "networkidle" });
+  const expand = page.getByRole("button", {
+    name: "展开编辑公式",
+    exact: true,
+  });
+  if (await expand.isVisible()) await expand.click();
   await page.getByLabel("公式源码", { exact: true }).fill("选股:C>0;");
   await page.getByRole("button", { name: "语法检查与未来函数门禁" }).click();
   await page.getByRole("button", { name: "全市场执行公式" }).click();
@@ -152,7 +157,7 @@ test("frozen evidence survives a failed ordinary snapshot and browser back", asy
   );
   expect(ordinarySnapshots).toBe(1);
 
-  await page.getByRole("button", { name: "重试", exact: true }).click();
+  await loadFailure.getByRole("button", { name: "重试", exact: true }).click();
   await expect.poll(() => ordinarySnapshots).toBe(2);
   await expect(frozen).toHaveCount(0);
   await expect(loadFailure).toHaveCount(0);

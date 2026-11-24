@@ -7,8 +7,10 @@ import type { ChartAdjustment } from "~/lib/chart/chart-adjustment";
 import {
   normalizeTradeDate,
   normalizeTradeSymbol,
+  tradeChartHref,
   type TradeMarkFill,
 } from "~/lib/chart/chart-trade-marks";
+import type { TradeReviewRef } from "~/lib/chart/trade-review-ref";
 
 /**
  * Where the K 线 trade marks come from. `symbol` is the symbol the fills
@@ -22,6 +24,7 @@ export type MarketTradeContext = {
   diagnose?: string;
   cell?: string;
   scenario?: string;
+  review?: TradeReviewRef;
   /** In-memory portfolio fills (never persisted). */
   portfolioFills?: TradeMarkFill[];
   visible: boolean;
@@ -110,6 +113,14 @@ export function marketSelectionHref(
     if (tradeContext.diagnose) search.set("diagnose", tradeContext.diagnose);
     if (tradeContext.cell) search.set("cell", tradeContext.cell);
     if (tradeContext.scenario) search.set("scenario", tradeContext.scenario);
+    if (tradeContext.review) {
+      const reviewUrl = tradeChartHref({
+        symbol: selection.symbol,
+        review: tradeContext.review,
+      });
+      for (const [key, value] of new URLSearchParams(reviewUrl.split("?")[1]))
+        if (key.startsWith("review")) search.set(key, value);
+    }
   }
   return `/scan?${search}`;
 }

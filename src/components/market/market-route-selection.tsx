@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { readChartSymbolParam } from "~/lib/chart/chart-symbol";
 import { chartPeriodSchema } from "~/lib/chart/chart-view";
 import { chartAdjustmentSchema } from "~/lib/chart/chart-adjustment";
 import { marketSourceSchema } from "~/lib/market/market-source";
 import { useMarketSession } from "~/lib/stores/market-session";
+import { parseTradeReviewRef } from "~/lib/chart/chart-trade-marks";
 import type { MarketState } from "./use-market-state";
 
 /** Mounted only on /market, inside Suspense so the shared shell stays prerenderable. */
@@ -19,7 +20,9 @@ export function MarketRouteSelection({
   frozen?: boolean;
 }) {
   const search = useSearchParams();
-  const symbol = readChartSymbolParam(search.toString());
+  const query = search.toString();
+  const symbol = readChartSymbolParam(query);
+  const review = useMemo(() => parseTradeReviewRef(query), [query]);
   const view = search.get("view") === "financial" ? "financial" : "chart";
   const atParam = search.get("at");
   const at =
@@ -29,11 +32,11 @@ export function MarketRouteSelection({
   const scenario = search.get("scenario") || undefined;
   const period =
     chartPeriodSchema.safeParse(search.get("period")).data ??
-    (at || diagnose ? "day" : undefined);
+    (at || diagnose || review ? "day" : undefined);
   const source = marketSourceSchema.safeParse(search.get("source")).data;
-  const adjustment = chartAdjustmentSchema.safeParse(
-    search.get("adjustment"),
-  ).data;
+  const adjustment =
+    chartAdjustmentSchema.safeParse(search.get("adjustment")).data ??
+    (review ? "none" : undefined);
   const base =
     search.get("base") === "5m"
       ? "5m"
@@ -59,7 +62,7 @@ export function MarketRouteSelection({
     const state = useMarketSession.getState();
     const target = symbol ?? state.symbol;
     const current = state.tradeContext;
-    if (frozen || (!at && !diagnose)) {
+    if (frozen || (!at && !diagnose && !review)) {
       // The toggle removes the URL context while retaining the fills locally.
       if (current && (frozen || current.visible || current.symbol !== target))
         state.clearTradeContext();
@@ -72,6 +75,7 @@ export function MarketRouteSelection({
       current.diagnose === diagnose &&
       current.cell === cell &&
       current.scenario === scenario &&
+      JSON.stringify(current.review ?? null) === JSON.stringify(review) &&
       current.visible
     )
       return;
@@ -82,7 +86,8 @@ export function MarketRouteSelection({
       diagnose,
       cell,
       scenario,
+      review: review ?? undefined,
     });
-  }, [symbol, at, diagnose, cell, scenario, frozen]);
+  }, [symbol, at, diagnose, cell, scenario, review, frozen]);
   return null;
 }

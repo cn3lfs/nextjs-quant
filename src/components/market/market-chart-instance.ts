@@ -61,6 +61,7 @@ export function createMarketChartInstance(
     period,
     pricePrecision,
     viewportKey,
+    viewportPolicy = "persisted",
     live,
     viewport,
     linkRef,
@@ -119,6 +120,7 @@ export function createMarketChartInstance(
     setDrawings,
     setShared,
     markers,
+    viewportPolicy,
     structure: { czsc: null, bars: [], start: 0 },
     bars: [],
     start: 0,
@@ -164,6 +166,7 @@ export function createMarketChartInstance(
   let dragging = false;
   const container = element;
   const remember = (range: LogicalRange | null) => {
+    if (viewportPolicy === "ephemeral") return;
     viewport.current = {
       bars: state.bars,
       period,
@@ -233,7 +236,7 @@ export function createMarketChartInstance(
     window.removeEventListener("pointerup", endDrag);
     window.removeEventListener("pointercancel", endDrag);
     cancelAnimationFrame(frame);
-    if (!state.temporaryRange) {
+    if (viewportPolicy === "persisted" && !state.temporaryRange) {
       const range = chart.timeScale().getVisibleLogicalRange();
       remember(range);
       if (viewportKey)

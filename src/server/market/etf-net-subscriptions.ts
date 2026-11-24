@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { readSnapshot, resolveTdxRoot } from "tstdx/local";
@@ -197,6 +198,29 @@ function parseStateHistoryCsv(text: string): ParsedRow[] {
     });
   }
   return rows;
+}
+
+/** Full daily series for rolling research. Never reads the optional price overlay. */
+export async function readEtfSubscriptionHistory(
+  asOf: string,
+  explicitDir?: string,
+) {
+  const directory = resolveNationalTeamDataDir(explicitDir);
+  const daily = new Map<string, number | null>();
+  let sha256: string | null = null;
+  if (!directory) return { daily, sha256 };
+  try {
+    const bytes = await readFile(join(directory, SOURCE_FILENAME));
+    const rows = parseStateHistoryCsv(bytes.toString("utf8"));
+    sha256 = createHash("sha256").update(bytes).digest("hex");
+    for (const row of rows) {
+      if (row.date <= asOf)
+        daily.set(row.date, daily.has(row.date) ? null : row.net);
+    }
+  } catch (error) {
+    if (!missingFile(error)) throw error;
+  }
+  return { daily, sha256 };
 }
 
 async function readIndexClosesFromCsv(

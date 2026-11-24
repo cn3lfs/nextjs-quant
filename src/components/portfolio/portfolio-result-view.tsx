@@ -7,7 +7,11 @@ import {
   tradeChartHref,
   type TradeMarkFill,
 } from "~/lib/chart/chart-trade-marks";
-import { useOpenChart } from "../market/open-chart";
+import {
+  tradeReviewRefSchema,
+  type TradeReviewRef,
+} from "~/lib/chart/trade-review-ref";
+import { TradeReviewChartLink, useOpenChart } from "../market/open-chart";
 import { EquityChart } from "../backtest/equity-chart";
 import { MonthlyReturnsHeatmap } from "../backtest/monthly-returns-heatmap";
 import { Button } from "../ui/button";
@@ -217,6 +221,7 @@ export function PortfolioResultView({
   onRejectionPage,
   highlightedDate = null,
   highlightedOrderId = null,
+  tradeReview,
 }: {
   equity: { date: string; value: number }[];
   initial: number;
@@ -231,6 +236,8 @@ export function PortfolioResultView({
   /** Focus target from the diagnostic checks drawer; markers only, no reorder. */
   highlightedDate?: string | null;
   highlightedOrderId?: number | null;
+  /** Frozen server evidence shared by all pages of this result. */
+  tradeReview?: Omit<TradeReviewRef, "symbol">;
 }) {
   const [tab, setTab] = useState("fills"),
     [sorting, setSorting] = useState<{ id: string; desc: boolean }[]>([]);
@@ -247,6 +254,10 @@ export function PortfolioResultView({
     cell: ({ row }) => {
       const symbol = row.original.symbol;
       const at = row.original.date.slice(0, 10);
+      const review =
+        tradeReview &&
+        tradeReviewRefSchema.safeParse({ ...tradeReview, symbol }).data;
+      if (review) return <TradeReviewChartLink at={at} review={review} />;
       return openChart ? (
         <Button
           type="button"

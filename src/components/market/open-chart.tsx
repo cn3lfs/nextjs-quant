@@ -3,6 +3,8 @@
 import { createContext, useContext, type ReactNode } from "react";
 import type { BrowseList, BrowseOrigin } from "~/lib/market/browse-list";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Button } from "~/components/ui/button";
 import {
   chartSymbolHref,
   isForeignMarketChartSymbol,
@@ -14,8 +16,10 @@ import {
 } from "~/lib/stores/market-session";
 import {
   normalizeTradeDate,
+  tradeChartHref,
   type TradeMarkFill,
 } from "~/lib/chart/chart-trade-marks";
+import type { TradeReviewRef } from "~/lib/chart/trade-review-ref";
 
 /** In-place chart switch into a backtest review (fill → K 线). */
 export type OpenChartOptions = {
@@ -24,6 +28,7 @@ export type OpenChartOptions = {
   diagnose?: string;
   cell?: string;
   scenario?: string;
+  review?: TradeReviewRef;
   /** In-memory portfolio fills; never written to the URL. */
   portfolioFills?: TradeMarkFill[];
 };
@@ -56,7 +61,11 @@ export function ChartNavigationProvider({ children }: { children: ReactNode }) {
       const session = useMarketSession.getState();
       session.setBrowse(list ?? null);
       const reviewing =
-        options && (options.diagnose || options.portfolioFills || options.at);
+        options &&
+        (options.review ||
+          options.diagnose ||
+          options.portfolioFills ||
+          options.at);
       if (reviewing) {
         session.setChartMode("k");
         session.setTradeContext({
@@ -65,6 +74,7 @@ export function ChartNavigationProvider({ children }: { children: ReactNode }) {
           diagnose: options.diagnose,
           cell: options.cell,
           scenario: options.scenario,
+          review: options.review,
           portfolioFills: options.portfolioFills,
         });
       } else {
@@ -78,6 +88,7 @@ export function ChartNavigationProvider({ children }: { children: ReactNode }) {
           // Trade marks are daily-only, so the review always opens on 日线.
           chartPeriod: reviewing ? "day" : current.chartPeriod,
           period: reviewing ? "day" : current.period,
+          adjustment: options?.review ? "none" : current.adjustment,
           marketView: "chart",
         },
         current.tradeContext,
@@ -86,6 +97,38 @@ export function ChartNavigationProvider({ children }: { children: ReactNode }) {
     router.push(href, { scroll: false });
   };
   return <OpenChartProvider value={openChart}>{children}</OpenChartProvider>;
+}
+
+export function TradeReviewChartLink({
+  review,
+  at,
+  children = "看K线",
+}: {
+  review: TradeReviewRef;
+  at?: string;
+  children?: ReactNode;
+}) {
+  const openChart = useOpenChart();
+  const href = tradeChartHref({ symbol: review.symbol, at, review });
+  return (
+    <Button asChild size="sm" variant="ghost">
+      <Link
+        href={href}
+        prefetch={false}
+        scroll={false}
+        onNavigate={
+          openChart
+            ? (event) => {
+                event.preventDefault();
+                openChart(review.symbol, { at, review });
+              }
+            : undefined
+        }
+      >
+        {children}
+      </Link>
+    </Button>
+  );
 }
 
 export function BrowseSource({

@@ -36,6 +36,10 @@ import { z } from "zod";
 import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
 
 import { accountReview } from "./portfolio-review-source";
+import {
+  implementationShortfallQuerySchema,
+  readImplementationShortfall,
+} from "../../portfolio/implementation-shortfall-service";
 
 const reviewInputSchema = z.object({
   account: z.string().trim().min(1).max(64),
@@ -54,6 +58,9 @@ const roundSortFields = [
 ] as const;
 
 export const portfolioReviewRouter = createTRPCRouter({
+  implementationShortfall: p("portfolio", "read")
+    .input(implementationShortfallQuerySchema)
+    .mutation(({ input }) => readImplementationShortfall(input)),
   tradeReviewHoldingsCorrelation: p("portfolio", "read")
     .input(
       holdingsCorrelationPageSchema.extend({

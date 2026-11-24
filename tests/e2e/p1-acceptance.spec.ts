@@ -102,9 +102,10 @@ async function exploreViews(
   page: Page,
   states: string[],
   seen = new Set<string>(),
+  scope = page.locator("main"),
 ) {
-  const groups = page.locator(
-    'main [role="tablist"]:visible, main [role="radiogroup"]:visible, main [aria-label="报告视图"]:visible',
+  const groups = scope.locator(
+    '[role="tablist"]:visible, [role="radiogroup"]:visible, [aria-label="报告视图"]:visible',
   );
   const signatures = await groups.evaluateAll((elements) =>
     elements.map((el) => el.textContent ?? ""),
@@ -123,10 +124,27 @@ async function exploreViews(
       await fits(page);
       states.push(label.trim());
       await checkOverlays(page);
-      await exploreViews(page, states, seen);
+      await exploreViews(page, states, seen, scope);
     }
   }
 }
+
+const workspaceLocalReads = new Set([
+  "alphaComposites",
+  "strategyLabDiagnoseArchives",
+  "accountPortfolioRisk",
+  "workspacePreferences",
+]);
+const sharedLocalReads = new Set([
+  "accountPositions",
+  "jobSummary",
+  "maBaselineHistory",
+  "maBaselineResult",
+  "researchArchiveHistory",
+  "researchUsage",
+  "status",
+  "taskOverview",
+]);
 
 test.beforeEach(async ({ page }) => {
   const errors: string[] = [];
@@ -138,6 +156,25 @@ test.beforeEach(async ({ page }) => {
     undefined,
     new Set(["maBaseline", "checkFormula", "formulaScreen"]),
   );
+  await page.route("**/api/trpc/**", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const names = decodeURIComponent(
+      url.pathname.split("/api/trpc/")[1] ?? "",
+    ).split(",");
+    if (
+      request.method() === "GET" &&
+      url.origin === new URL(page.url()).origin &&
+      names.some((name) => workspaceLocalReads.has(name)) &&
+      names.every(
+        (name) =>
+          !failed.has(name) &&
+          (workspaceLocalReads.has(name) || sharedLocalReads.has(name)),
+      )
+    )
+      return route.continue();
+    return route.fallback();
+  });
   // Assertions belong in afterEach even when a preceding interaction fails.
   guards.set(page, { errors, api, failed });
 });
@@ -493,17 +530,19 @@ test("C1/C2 loaded account review visits every analysis view", async ({
 test("C1/C2 actual baseline report visits four tabs and their popovers", async ({
   page,
 }) => {
-  await ready(page, "/lab/backtest");
+  await ready(page, "/lab/backtest?view=compose&template=ma-baseline-5m");
   await page.getByLabel("基线证券代码").fill("sh600000");
   await page.getByRole("button", { name: "读取本地覆盖", exact: true }).click();
   await expect(page.getByLabel("基线结束日期")).toHaveValue("2026-10-12");
   await page.getByLabel("基线开始日期").fill("2026-10-12");
   await page.getByRole("button", { name: "开始回测", exact: true }).click();
+  const report = page.getByRole("region", { name: "实验报告", exact: true });
+  await expect(report).toContainText("已完成", { timeout: 30000 });
   await expect(
-    page.getByRole("region", { name: "实验报告", exact: true }),
-  ).toContainText("已完成", { timeout: 30000 });
+    page.getByRole("tab", { name: "结果", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
   const states: string[] = [];
-  await exploreViews(page, states);
+  await exploreViews(page, states, new Set(), report);
   for (const label of ["概览", "绩效评价", "成交与订单", "复现依据"])
     expect(states).toContain(label);
 });

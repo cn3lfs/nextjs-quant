@@ -12,7 +12,10 @@ import {
   SelectValue,
 } from "../ui/select";
 import { formatNumber } from "trading-strategy-core/format-number";
-import { accountKindLabels } from "~/lib/portfolio/account-workspace";
+import {
+  accountKindLabels,
+  accountRiskHref,
+} from "~/lib/portfolio/account-workspace";
 import { useScreenVisible } from "../workbench/use-task-visible";
 
 export function BulkTradeLinks({ batchId }: { batchId?: string }) {
@@ -249,7 +252,12 @@ export function WeeklyReview() {
   });
   return (
     <section className="space-y-4" aria-label="周度复盘">
-      <h2>周度复盘与执行质量</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2>周度复盘与执行质量</h2>
+        <Button asChild variant="outline" size="sm">
+          <Link href={accountRiskHref}>查看账户风控与实施缺口</Link>
+        </Button>
+      </div>
       <label>
         起始日期
         <Input

@@ -32,7 +32,7 @@ async function openPage(page: Page, path: string, ready: Locator) {
 }
 
 const systemHeading = (page: Page) =>
-  page.getByRole("heading", { name: "数据与连接设置" });
+  page.getByRole("heading", { name: "数据源设置", level: 1, exact: true });
 
 async function selectThsdkSettings(page: Page) {
   await page.getByRole("radio", { name: "同花顺行情", exact: true }).click();
@@ -79,9 +79,11 @@ test("THSDK defaults to disabled and makes no data requests during initial navig
     ],
     [
       "/lab/backtest",
-      page
-        .getByText("策略对象组合回测（A股 / BTC、ETH）", { exact: true })
-        .first(),
+      page.getByRole("heading", { name: "研究工作室", exact: true }),
+    ],
+    [
+      "/lab/backtest?mode=object",
+      page.getByRole("region", { name: "策略对象组合回测", exact: true }),
     ],
     ["/system", systemHeading(page)],
     ["/intel", page.getByRole("heading", { name: "新闻存档与分析" })],
@@ -89,6 +91,14 @@ test("THSDK defaults to disabled and makes no data requests during initial navig
   for (const [path, ready] of routes) {
     const calls = await trpcCalls(page, () => openPage(page, path, ready));
     expect(thsdkCallsExceptStatus(calls), path).toEqual([]);
+    if (path === "/lab/backtest") {
+      await expect(
+        page.getByRole("tab", { name: "编排", exact: true }),
+      ).toHaveAttribute("aria-selected", "true");
+      await expect(
+        page.getByRole("combobox", { name: "研究模板" }),
+      ).toHaveValue("ma-baseline-5m");
+    }
   }
 
   for (const viewport of [
@@ -295,7 +305,13 @@ test("THSDK sentiment, Wencai, news, formula and backtest surfaces work offline"
     name: "数据源",
     exact: true,
   });
-  await openPage(page, "/scan?tab=formula", formulaSource);
+  await page.goto("/scan?tab=formula", { waitUntil: "networkidle" });
+  const expandFormula = page.getByRole("button", {
+    name: "展开编辑公式",
+    exact: true,
+  });
+  if (await expandFormula.isVisible()) await expandFormula.click();
+  await expect(formulaSource).toBeVisible();
   await expect(formulaSource).toHaveText("本地通达信（默认）");
   await formulaSource.click();
   await page
@@ -313,13 +329,14 @@ test("THSDK sentiment, Wencai, news, formula and backtest surfaces work offline"
     page.getByRole("button", { name: "同花顺执行公式" }),
   ).toBeVisible();
 
-  const backtestParameters = page
-    .locator("summary")
-    .filter({ hasText: "策略对象组合回测" })
-    .first();
-  await openPage(page, "/lab/backtest", backtestParameters);
-  const backtestSource = page.getByRole("combobox", { name: "行情数据源" });
-  if (!(await backtestSource.isVisible())) await backtestParameters.click();
+  const objectBacktest = page.getByRole("region", {
+    name: "策略对象组合回测",
+    exact: true,
+  });
+  await openPage(page, "/lab/backtest?mode=object", objectBacktest);
+  const backtestSource = objectBacktest.getByRole("combobox", {
+    name: "行情数据源",
+  });
   await expect(backtestSource).toHaveText("本地通达信（默认）");
   await backtestSource.click();
   await page

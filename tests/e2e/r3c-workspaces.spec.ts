@@ -379,10 +379,13 @@ test("R3c 本地归档校验与策略对象回测结果", async ({ page }) => {
   await expect(
     page.getByRole("region", { name: "任务结果摘要" }),
   ).toContainText("BTCUSDT");
-  await page.goto("/lab/backtest");
+  await page.goto("/lab/backtest", { waitUntil: "networkidle" });
   await page
-    .getByText("策略对象组合回测（A股 / BTC、ETH）", { exact: true })
-    .click();
+    .getByRole("combobox", { name: "研究模板", exact: true })
+    .selectOption("single");
+  await page
+    .getByRole("combobox", { name: "单策略引擎", exact: true })
+    .selectOption("object");
   await page.getByRole("textbox", { name: "回测策略对象", exact: true }).fill(
     JSON.stringify({
       id: "QA-r3c-object",
@@ -419,7 +422,12 @@ test("R3c 本地归档校验与策略对象回测结果", async ({ page }) => {
     .getByRole("button", { name: "提交策略对象回测", exact: true })
     .click();
   await page
-    .getByRole("link", { name: "查看进度、结果与取消", exact: true })
+    .getByRole("button", { name: "查看工作室结果", exact: true })
+    .click();
+  const result = page.getByRole("region", { name: "研究任务结果" });
+  await expect(result).toBeVisible();
+  await result
+    .getByRole("link", { name: "在任务中心查看", exact: true })
     .click();
   await page
     .locator('button[aria-controls^="task-detail-"][aria-expanded="false"]')
@@ -525,11 +533,13 @@ test("R3c 实验室集成 登记链接与回执", async ({ page, context }) => {
   expect(posts).toHaveLength(0);
 
   await page.getByLabel("对象回测结束日期", { exact: true }).fill("2024-03-01");
-  await page.evaluate(() => {
-    const form = document.querySelector("form");
-    form?.requestSubmit();
-    form?.requestSubmit();
-  });
+  await page
+    .getByRole("region", { name: "策略对象组合回测", exact: true })
+    .locator("form")
+    .evaluate((form: HTMLFormElement) => {
+      form.requestSubmit();
+      form.requestSubmit();
+    });
   const receipt = page.getByRole("status").filter({
     hasText: "最近一次已创建的回测任务",
   });

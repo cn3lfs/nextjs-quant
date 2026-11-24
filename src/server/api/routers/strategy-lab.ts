@@ -1,4 +1,19 @@
 import { z } from "zod";
+import {
+  researchStudioDraftSchema,
+  studioArchiveDetailInputSchema,
+  studioEtfRotationInputSchema,
+  studioResultSchema,
+} from "~/lib/research/studio-result";
+import {
+  readStudioArchive,
+  runResearchStudio,
+  runStudioEtfRotation,
+  runStudioParameterGrid,
+  studioEtfGridResultSchema,
+  studioParameterGridInputSchema,
+  studioTemplates,
+} from "../../research/studio";
 import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
 import {
   labIdentitySchema,
@@ -58,6 +73,25 @@ import {
 } from "../../paper/shadow-scanning";
 
 export const strategyLabRouter = createTRPCRouter({
+  studioTemplates: p("backtest", "read").query(() => studioTemplates()),
+  studioParameterGrid: p("backtest", "compute")
+    .input(studioParameterGridInputSchema)
+    .output(studioEtfGridResultSchema)
+    .mutation(({ input, signal }) =>
+      runStudioParameterGrid(input, { tdxRoot: settings().tdxRoot, signal }),
+    ),
+  studioEtfRotationRun: p("backtest", "compute")
+    .input(studioEtfRotationInputSchema)
+    .output(studioResultSchema)
+    .mutation(({ input, signal }) => runStudioEtfRotation(input, { signal })),
+  studioRun: p("backtest", "compute")
+    .input(researchStudioDraftSchema)
+    .output(studioResultSchema)
+    .mutation(({ input, signal }) => runResearchStudio(input, signal)),
+  studioArchiveDetail: p("backtest", "read")
+    .input(studioArchiveDetailInputSchema)
+    .output(studioResultSchema.nullable())
+    .query(({ input }) => readStudioArchive(input)),
   strategyLabDiagnoseArchives: p("backtest", "read")
     .input(diagnoseArchivesInputSchema)
     .query(({ input }) => listDiagnoseArchives(input)),

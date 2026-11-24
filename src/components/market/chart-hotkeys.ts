@@ -64,3 +64,27 @@ export function usePeriodHotkey(
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 }
+
+export function useTradeReviewHotkeys(
+  step: (direction: -1 | 1) => void,
+  enabled: boolean,
+) {
+  useEffect(() => {
+    if (!enabled) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (
+        (event.key !== "[" && event.key !== "]") ||
+        event.defaultPrevented ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.metaKey ||
+        isTypingTarget(event.target)
+      )
+        return;
+      event.preventDefault();
+      step(event.key === "[" ? -1 : 1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [enabled, step]);
+}

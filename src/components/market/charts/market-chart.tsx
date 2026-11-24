@@ -15,8 +15,10 @@ import {
   type MarketChartState,
   type ChartCompare,
   type ChartTradeMarksValue,
+  type ChartViewportPolicy,
 } from "../market-chart-state";
 import { tradeMarks } from "~/lib/chart/chart-trade-marks";
+import { attachTradeReviewOverlay } from "./trade-review-overlay";
 
 import { chartColor } from "~/lib/chart/chart-theme";
 import { Input } from "~/components/ui/input";
@@ -127,6 +129,7 @@ export function MarketChart({
   onRpsRetry,
   onHistoryRequest,
   viewportKey,
+  viewportPolicy = "persisted",
   annotations = true,
   rpsAvailable = true,
   hotkeys = false,
@@ -178,6 +181,7 @@ export function MarketChart({
   onRpsRetry?: () => void;
   onHistoryRequest?: () => void;
   viewportKey?: string;
+  viewportPolicy?: ChartViewportPolicy;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const viewport = useRef<{
@@ -226,6 +230,14 @@ export function MarketChart({
     [tradeContext, bars, period],
   );
   const showTradeMarks = tradeContext?.visible ?? false;
+  const review =
+    viewportPolicy === "persisted" &&
+    showTradeMarks &&
+    tradeContext?.barsConfirmed &&
+    period === "day" &&
+    adjustment === "none"
+      ? tradeContext.review
+      : undefined;
   const changeAnnotation = (patch: Partial<ChartAnnotationVisibility>) => {
     const next = { ...shownAnnotations, ...patch };
     if (onAnnotationVisibilityChange) onAnnotationVisibilityChange(next);
@@ -372,6 +384,7 @@ export function MarketChart({
       period,
       pricePrecision,
       viewportKey,
+      viewportPolicy,
       live,
       viewport,
       linkRef,
@@ -385,7 +398,7 @@ export function MarketChart({
       instance.dispose();
       native.current = null;
     };
-  }, [period, pricePrecision, viewportKey]);
+  }, [period, pricePrecision, viewportKey, viewportPolicy]);
 
   const planLevels = usePlanLevels();
   useEffect(() => {
@@ -393,6 +406,7 @@ export function MarketChart({
     if (
       !n ||
       !planLevels ||
+      viewportPolicy === "ephemeral" ||
       adjustment !== "none" ||
       viewportKey?.split(":")[0]?.replace(/^cx/, "") !==
         planLevels.symbol.replace(/^cx/, "")
@@ -422,7 +436,14 @@ export function MarketChart({
       if (native.current === n)
         for (const line of lines) n.candles.removePriceLine(line);
     };
-  }, [planLevels, adjustment, period, pricePrecision, viewportKey]);
+  }, [
+    planLevels,
+    adjustment,
+    period,
+    pricePrecision,
+    viewportKey,
+    viewportPolicy,
+  ]);
 
   // Appearance and gesture options: applied in place.
   useEffect(() => {
@@ -445,7 +466,14 @@ export function MarketChart({
       },
       handleScroll: { pressedMouseMove: drawingTool === "none" },
     });
-  }, [period, pricePrecision, viewportKey, hasRps, drawingTool]);
+  }, [
+    period,
+    pricePrecision,
+    viewportKey,
+    viewportPolicy,
+    hasRps,
+    drawingTool,
+  ]);
 
   // Log prices only: oscillators can be negative and must retain their linear
   // scale. A comparison switches the main scale to percent from the first
@@ -459,6 +487,7 @@ export function MarketChart({
     period,
     pricePrecision,
     viewportKey,
+    viewportPolicy,
     view === undefined,
     logarithmic,
     comparing,
@@ -468,10 +497,17 @@ export function MarketChart({
     selected && drawings?.some((d) => d.id === selected) ? selected : null;
   useEffect(() => {
     native.current?.setDrawings(drawings ?? [], selectedId);
-  }, [period, pricePrecision, viewportKey, drawings, selectedId]);
+  }, [
+    period,
+    pricePrecision,
+    viewportKey,
+    viewportPolicy,
+    drawings,
+    selectedId,
+  ]);
   useEffect(() => {
     native.current?.setShared(sharedDrawings ?? [], null);
-  }, [period, pricePrecision, viewportKey, sharedDrawings]);
+  }, [period, pricePrecision, viewportKey, viewportPolicy, sharedDrawings]);
 
   // Content is replaced in place on the existing chart, in two independent
   // layers so an indicator or pane toggle never rewrites the price data:
@@ -496,6 +532,7 @@ export function MarketChart({
       showPatterns,
       tradeMarks: tradeProjection?.marks,
       showTradeMarks,
+      review,
       focusAt: tradeContext?.focusAt,
       compare,
       setHistoryStart,
@@ -505,6 +542,7 @@ export function MarketChart({
     period,
     pricePrecision,
     viewportKey,
+    viewportPolicy,
     bars,
     czsc,
     showCzsc,
@@ -518,8 +556,31 @@ export function MarketChart({
     showPatterns,
     tradeProjection,
     showTradeMarks,
+    review,
     tradeContext?.focusAt,
   ]);
+
+  const activeBox = tradeContext?.activeBox;
+  useEffect(() => {
+    const n = native.current;
+    if (!n || !review) return;
+    const detach = attachTradeReviewOverlay(n, review.boxes, activeBox);
+    const click = ({ hoveredObjectId }: { hoveredObjectId?: unknown }) => {
+      if (typeof hoveredObjectId !== "string") return;
+      const match = /^trade-review-(box|fill):(\d+)$/.exec(hoveredObjectId);
+      if (!match) return;
+      const rows = match[1] === "box" ? review.boxes : review.fills;
+      const href = rows[Number(match[2])]?.backHref;
+      if (href) window.location.assign(href);
+    };
+    n.chart.subscribeClick(click);
+    return () => {
+      if (native.current === n) {
+        n.chart.unsubscribeClick(click);
+        detach();
+      }
+    };
+  }, [review, activeBox, period, pricePrecision, viewportKey, viewportPolicy]);
 
   useEffect(() => {
     const chart = native.current?.chart;
@@ -533,7 +594,7 @@ export function MarketChart({
     };
     chart.subscribeClick(click);
     return () => chart.unsubscribeClick(click);
-  }, [onNewsEvent, period, pricePrecision, viewportKey]);
+  }, [onNewsEvent, period, pricePrecision, viewportKey, viewportPolicy]);
 
   // Secondary panes are diffed by identity: each subchart owns one anchor
   // series, and its pane is wherever that series lives. Unselected panes are
@@ -547,6 +608,7 @@ export function MarketChart({
     period,
     pricePrecision,
     viewportKey,
+    viewportPolicy,
     visibleSubcharts,
     rpsOptions.threshold,
   ]);
@@ -561,6 +623,7 @@ export function MarketChart({
     period,
     pricePrecision,
     viewportKey,
+    viewportPolicy,
     bars,
     values,
     names,
@@ -669,7 +732,9 @@ export function MarketChart({
         padding: "0 8px 8px",
       }}
     >
-      <TradeMarksBinding sync={setTradeContext} />
+      {viewportPolicy === "persisted" && (
+        <TradeMarksBinding sync={setTradeContext} />
+      )}
       <div
         className="flex flex-wrap items-center gap-x-3 gap-y-2 py-1 text-sm"
         data-testid="chart-secondary-controls"
@@ -810,13 +875,15 @@ export function MarketChart({
             {tradeContext?.sourceLabel && (
               <label>
                 <Checkbox
-                  aria-label="回测买卖点"
+                  aria-label={
+                    tradeContext.review ? "交易复盘覆盖层" : "回测买卖点"
+                  }
                   checked={showTradeMarks}
                   onCheckedChange={(checked) =>
                     tradeContext.onVisibilityChange?.(checked === true)
                   }
                 />{" "}
-                回测买卖点
+                {tradeContext.review ? "交易复盘覆盖层" : "回测买卖点"}
               </label>
             )}
           </>

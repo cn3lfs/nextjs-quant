@@ -2,7 +2,9 @@
 import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 
 import { useEffect, useRef, type ReactNode } from "react";
+import Link from "next/link";
 import type { RouterOutputs } from "~/trpc/react";
+import { accountRiskHref } from "~/lib/portfolio/account-workspace";
 import type { ReviewValue, CostMethod } from "~/lib/portfolio/trade-review";
 import {
   DataTable,
@@ -337,7 +339,12 @@ export function TradeReviewResults({
   );
   return (
     <div className="min-w-0 space-y-6">
-      <h2 className="text-xl font-semibold">{data.account} · 交易复盘</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-xl font-semibold">{data.account} · 交易复盘</h2>
+        <Button asChild variant="outline" size="sm">
+          <Link href={accountRiskHref}>查看账户风控与实施缺口</Link>
+        </Button>
+      </div>
       <p className="text-sm text-muted-foreground">
         交易日历：{data.calendar.source} · {data.calendar.start} —{" "}
         {data.calendar.end}。复盘截止账户最后一笔流水；未平仓头寸不延伸到今天。

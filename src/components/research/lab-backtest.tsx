@@ -9,17 +9,10 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react";
-import { useSearchParams } from "next/navigation";
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { api } from "~/trpc/react";
 import { labBacktestSchema } from "~/lib/research/lab-backtest";
-import { labIdentitySchema } from "~/lib/research/strategy-lab";
-import {
-  buildLabDraftFromHandoff,
-  isDiagnosticOnlyStrategyKey,
-  parseScanToLabHandoff,
-} from "~/lib/research/diagnose-contract";
+import type { StudioEntry } from "~/lib/research/studio-entry";
 import { taskHistoryHref } from "~/lib/research/workflow/task-history-location";
 import {
   strategyObjectSchema,
@@ -40,14 +33,6 @@ import { usePanelVisible } from "../workbench/keep-alive";
 import { MethodologyPopover } from "../panels";
 import { ScanHandoffBanner } from "./diagnose/scan-handoff-banner";
 import type { DiagnoseRunPrefill } from "./diagnose/diagnose-workspace-panel";
-
-const DiagnoseWorkspacePanel = dynamic(
-  () =>
-    import("./diagnose/diagnose-workspace-panel").then(
-      (module) => module.DiagnoseWorkspacePanel,
-    ),
-  { ssr: false },
-);
 
 const initialStrategy = {
   id: "my-lab-ma",
@@ -194,54 +179,11 @@ function dataSourceLabel(receipt: LabBacktestReceipt) {
   return receipt.market === "crypto" ? "本地归档" : "本地通达信";
 }
 
-/** Missing `strategy` means the ordinary entry; any present but invalid pair is an invalid link. */
-function labIdentityFromSearch(search: URLSearchParams) {
-  if (!search.has("strategy")) return { kind: "none" } as const;
-  const rawId = search.get("strategy") ?? "";
-  const rawVersion = search.get("version") ?? "1";
-  const parsed = /^\d+$/.test(rawVersion)
-    ? labIdentitySchema.safeParse({ id: rawId, version: Number(rawVersion) })
-    : null;
-  return parsed?.success
-    ? ({ kind: "valid", identity: parsed.data } as const)
-    : ({ kind: "invalid" } as const);
-}
 function presetStrategy(preset: string | null) {
   if (preset === "week-day" || preset === "day-hour-five")
     return tripleScreenStrategy(preset, "cn-equity", ["sh600000"]);
   if (preset === "utc-orb") return utcOrbStrategy();
   return null;
-}
-function LabFrame({
-  open,
-  onToggle,
-  collapsible,
-  children,
-}: {
-  open: boolean;
-  onToggle: (open: boolean) => void;
-  collapsible: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <details
-      open={open}
-      onToggle={(event) => onToggle(event.currentTarget.open)}
-      className="mb-4 rounded-lg border border-nc-border bg-nc-card"
-    >
-      <summary className="flex cursor-pointer flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-nc-border-soft px-4 py-2.5">
-        <span className="text-base font-semibold">
-          策略对象组合回测（A股 / BTC、ETH）
-        </span>
-        {collapsible && (
-          <span className="text-sub text-nc-text-3">
-            {open ? "收起参数" : "展开参数"}
-          </span>
-        )}
-      </summary>
-      <div className="space-y-3 p-4">{children}</div>
-    </details>
-  );
 }
 function LabReturnLink() {
   return (
@@ -255,24 +197,24 @@ const subscribeToReady = () => () => {};
 const clientReady = () => true;
 const serverReady = () => false;
 
-export function LabBacktest() {
+export function LabBacktest(props: {
+  entry: StudioEntry;
+  search: string;
+  active: boolean;
+  showHandoff: boolean;
+  onApply: () => void;
+  onDiagnose: (prefill: DiagnoseRunPrefill) => void;
+  onResult: (id: string) => void;
+}) {
   // Controlled fields can lose a browser edit made before hydration.
   const ready = useSyncExternalStore(
     subscribeToReady,
     clientReady,
     serverReady,
   );
-  const currentSearch = useSearchParams().toString();
-  const visible = usePanelVisible();
-  const [retainedSearch, setRetainedSearch] = useState(currentSearch);
-  if (visible && currentSearch !== retainedSearch)
-    setRetainedSearch(currentSearch);
   return (
     <div data-lab-ready={ready ? "true" : "false"}>
-      <LabEditor
-        search={visible ? currentSearch : retainedSearch}
-        visible={visible}
-      />
+      <LabEditor {...props} />
     </div>
   );
 }
@@ -372,87 +314,25 @@ function LabStrategySource({
     </p>
   );
 }
-function LabEditor({ search, visible }: { search: string; visible: boolean }) {
-  const params = new URLSearchParams(search);
-  const source = labIdentityFromSearch(params);
-  const preset =
-    source.kind === "none" && !params.has("handoff")
-      ? params.get("preset")
-      : null;
-  const openRequest =
-    source.kind === "valid"
-      ? labIdentityKey(source.identity)
-      : source.kind === "invalid" || params.get("mode") === "object"
-        ? source.kind
-        : null;
-  const rawArchiveId = params.get("archive")?.trim();
-  const archiveId =
-    rawArchiveId &&
-    /^(?:lab-[\w.\u3400-\u9fff-]+|cli-(?:~[\w-]+|[\w.\u3400-\u9fff-]+))$/.test(
-      rawArchiveId,
-    ) &&
-    rawArchiveId.length <= 4096 &&
-    !rawArchiveId.includes("..") &&
-    !rawArchiveId.endsWith(".")
-      ? rawArchiveId
-      : null;
-  // A portfolio handoff only ever prefills the diagnostic run form. The Lab
-  // object draft stays byte-for-byte untouched so retained edits survive.
-  const portfolioHandoff = useMemo(() => {
-    const parsed = parseScanToLabHandoff(new URLSearchParams(search));
-    if (
-      parsed.kind !== "valid" ||
-      parsed.handoff.scope !== "portfolio-diagnose"
-    )
-      return null;
-    const { handoff } = parsed;
-    const draft = buildLabDraftFromHandoff(handoff);
-    const hint = handoff.strategyHint;
-    return {
-      key: parsed.key,
-      prefill: {
-        symbols: handoff.symbols,
-        mode: "portfolio",
-        start: draft.start,
-        end: draft.end,
-        ...(hint === "core-4"
-          ? { bookPreset: "core-4" }
-          : hint && isDiagnosticOnlyStrategyKey(hint)
-            ? { strategyKey: hint }
-            : {}),
-      } satisfies DiagnoseRunPrefill,
-    };
-  }, [search]);
+function LabEditor({
+  entry,
+  search,
+  active,
+  showHandoff,
+  onApply,
+  onDiagnose,
+  onResult,
+}: Parameters<typeof LabBacktest>[0]) {
+  const visible = usePanelVisible();
+  const source = entry.identity;
+  const preset = entry.preset;
   const [draft, setDraft] = useState(() =>
     newDraft(presetStrategy(preset) ?? initialStrategy),
   );
-  const [open, setOpen] = useState(openRequest !== null);
-  const [lastOpenRequest, setLastOpenRequest] = useState(openRequest);
   const [lastPreset, setLastPreset] = useState(preset);
   const [receipt, setReceipt] = useState<LabBacktestReceipt | null>(null);
-  const [handoffPrefill, setHandoffPrefill] =
-    useState<DiagnoseRunPrefill | null>(null);
-  const [lastPortfolioKey, setLastPortfolioKey] = useState<string | null>(null);
-  const [wasVisible, setWasVisible] = useState(visible);
+  const [advanced, setAdvanced] = useState(false);
   const submitting = useRef(false);
-  const portfolioKey = portfolioHandoff?.key ?? null;
-  if (visible !== wasVisible) setWasVisible(visible);
-  // Reopening a portfolio-only link reapplies it. With an explicit archive,
-  // only a newly arrived handoff takes precedence over the archive detail.
-  if (
-    visible &&
-    (portfolioKey !== lastPortfolioKey ||
-      (!wasVisible && !archiveId && portfolioKey))
-  ) {
-    setLastPortfolioKey(portfolioKey);
-    if (portfolioKey && portfolioHandoff)
-      setHandoffPrefill({ ...portfolioHandoff.prefill });
-    else setHandoffPrefill(null);
-  }
-  if (openRequest !== lastOpenRequest) {
-    setLastOpenRequest(openRequest);
-    if (openRequest !== null) setOpen(true);
-  }
   if (preset !== lastPreset) {
     setLastPreset(preset);
     const next =
@@ -602,15 +482,24 @@ function LabEditor({ search, visible }: { search: string; visible: boolean }) {
             </span>
           </div>
         )}
-        <label className="block text-sm">
-          策略对象
-          <Textarea
-            aria-label="回测策略对象"
-            value={object}
-            onChange={(e) => edit({ object: e.target.value })}
-            className="min-h-64 font-mono text-xs"
-          />
-        </label>
+        <details
+          open={advanced || entry.object || draft.dirty}
+          onToggle={(event) => setAdvanced(event.currentTarget.open)}
+          className="rounded-lg border border-nc-border-soft p-3"
+        >
+          <summary className="cursor-pointer text-sm font-medium">
+            旧版策略对象编辑
+          </summary>
+          <label className="block text-sm">
+            策略对象
+            <Textarea
+              aria-label="回测策略对象"
+              value={object}
+              onChange={(e) => edit({ object: e.target.value })}
+              className="min-h-64 font-mono text-xs"
+            />
+          </label>
+        </details>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <label className="block text-sm">
             开始日期
@@ -769,6 +658,13 @@ function LabEditor({ search, visible }: { search: string; visible: boolean }) {
             <p className="text-nc-text-3">
               {`${receipt.strategyId} v${receipt.strategyVersion} · ${marketLabels[receipt.market]} · ${receipt.start} 至 ${receipt.end} · 本金 ${String(receipt.initial)} · 交易成本 ${costScenarioLabel(receipt.costScenario)} · 数据源：${dataSourceLabel(receipt)}`}
             </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onResult(receipt.jobId)}
+            >
+              查看工作室结果
+            </Button>
             <Link
               href={taskHistoryHref({ id: receipt.jobId })}
               className="underline"
@@ -782,34 +678,37 @@ function LabEditor({ search, visible }: { search: string; visible: boolean }) {
   }
   return (
     <>
-      <ScanHandoffBanner
-        search={
-          visible && (source.kind === "none" || draft.dirty) ? search : ""
-        }
-        draftDirty={draft.dirty}
-        onApply={(handoff) => {
-          setDraft({
-            ...draft,
-            object: handoff.strategyJson,
-            loadedIdentity: null,
-            start: handoff.start,
-            end: handoff.end,
-            dirty: true,
-            error: "",
-          });
-          setOpen(true);
-        }}
-        onDiagnose={setHandoffPrefill}
-      />
-      <LabFrame
-        open={open}
-        onToggle={setOpen}
-        collapsible={source.kind === "none"}
+      {showHandoff && (
+        <ScanHandoffBanner
+          search={source.kind === "none" || draft.dirty ? search : ""}
+          draftDirty={draft.dirty}
+          onApply={(handoff) => {
+            setDraft({
+              ...draft,
+              object: handoff.strategyJson,
+              loadedIdentity: null,
+              start: handoff.start,
+              end: handoff.end,
+              dirty: true,
+              error: "",
+            });
+            onApply();
+          }}
+          onDiagnose={onDiagnose}
+        />
+      )}
+      <section
+        hidden={!active}
+        aria-label="策略对象组合回测"
+        className="space-y-3 rounded-lg border border-nc-border bg-nc-card p-4"
       >
+        <h3 className="text-base font-semibold">
+          策略对象组合回测（A股 / BTC、ETH）
+        </h3>
         {source.kind === "valid" ? (
           <LabStrategySource
             identity={source.identity}
-            enabled={visible}
+            enabled={visible && active}
             draft={draft}
             setDraft={setDraft}
             renderForm={renderForm}
@@ -825,8 +724,7 @@ function LabEditor({ search, visible }: { search: string; visible: boolean }) {
         ) : (
           renderForm(draft)
         )}
-      </LabFrame>
-      <DiagnoseWorkspacePanel prefill={handoffPrefill} archiveId={archiveId} />
+      </section>
     </>
   );
 }

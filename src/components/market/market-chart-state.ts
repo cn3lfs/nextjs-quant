@@ -1,6 +1,7 @@
 import { createContext, type RefObject } from "react";
 import type { Bar } from "~/lib/domain";
 import type { TradeMarkFill } from "~/lib/chart/chart-trade-marks";
+import type { ChartTradeReview } from "~/lib/chart/trade-review-ref";
 import type {
   ChartPeriod as Period,
   ChartView,
@@ -20,6 +21,8 @@ import type {
   Time,
 } from "lightweight-charts";
 
+export type ChartViewportPolicy = "persisted" | "ephemeral";
+
 export type MarketChartState = {
   chart: ReturnType<typeof createChart>;
   candles: ISeriesApi<"Candlestick">;
@@ -27,6 +30,7 @@ export type MarketChartState = {
   /** Drawings shared from other periods: dashed and read-only. */
   setShared: ReturnType<typeof attachDrawings>;
   markers: ISeriesMarkersPluginApi<Time>;
+  viewportPolicy: ChartViewportPolicy;
   /** What the structure primitive paints; replaced per content pass. */
   structure: { czsc: CzscResult | null; bars: Bar[]; start: number };
   bars: Bar[];
@@ -72,6 +76,7 @@ export type ChartInstanceOptions = {
   period: Period;
   pricePrecision: number;
   viewportKey?: string;
+  viewportPolicy?: ChartViewportPolicy;
   live: RefObject<ChartLiveOptions>;
   viewport: RefObject<ChartViewport | null>;
   linkRef: RefObject<{ hub: CrosshairLink; id: string } | undefined>;
@@ -92,8 +97,10 @@ export type ChartTradeMarksValue = {
   archiveMessage?: string;
   barsConfirmed: boolean;
   visible: boolean;
+  review?: ChartTradeReview;
+  activeBox?: number;
   /** One-shot centring request; the token changes on a new review entry. */
-  focusAt: { date: string; consume: () => boolean } | null;
+  focusAt: { date: string; through?: string; consume: () => boolean } | null;
   onVisibilityChange?: (visible: boolean) => void;
 };
 

@@ -17,6 +17,7 @@ import { api } from "~/trpc/react";
 import {
   BarRows,
   GridTable,
+  PageGrid,
   Panel,
   Pill,
   SecurityCell,
@@ -31,6 +32,8 @@ import { MarketBreadth } from "./market-breadth";
 import { MarketPulse, useOverviewQuotes } from "./market-pulse";
 import { useNow } from "../workbench/use-now";
 import { phaseOf, type OverviewInput } from "./overview-model";
+import { MarketTemperature } from "./market-temperature";
+import { IndustryRotation } from "./industry-rotation";
 
 const deliveryLabel = {
   pending: ["待投递", "accent"],
@@ -45,6 +48,17 @@ const tradingLabel = {
   suspended: ["停牌 · 已暂停", "warn"],
   unknown: ["状态未知 · 已暂停", "warn"],
 } as const;
+
+export function MarketConditions() {
+  return (
+    <div id="market-conditions">
+      <PageGrid>
+        <MarketTemperature />
+        <IndustryRotation />
+      </PageGrid>
+    </div>
+  );
+}
 
 /**
  * 大盘总览：按交易者视角自上而下排列实时指数与市场宽度、
@@ -170,6 +184,7 @@ export function TodayOverview() {
 
       {/* 2. 宽基 ETF 净申赎 */}
       <EtfNetSubscriptions />
+      <MarketConditions />
 
       {/* 3. 今日信号 */}
       <Panel

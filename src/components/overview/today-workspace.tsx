@@ -47,6 +47,15 @@ import { strategyMethodInfo } from "~/lib/strategy-facts/strategy-display";
 const Overview = dynamic(() =>
   import("./today-overview").then((m) => m.TodayOverview),
 );
+const MarketConditions = dynamic(() =>
+  import("./today-overview").then((m) => m.MarketConditions),
+);
+const WorkspaceNews = dynamic(() =>
+  import("./workspace-news").then((m) => m.WorkspaceNews),
+);
+const RebalanceTicketPanel = dynamic(() =>
+  import("./rebalance-ticket-panel").then((m) => m.RebalanceTicketPanel),
+);
 const Intraday = dynamic(() =>
   import("../workbench/route-panels").then((m) => m.IntradayPanel),
 );
@@ -509,7 +518,7 @@ function DailyDecision() {
     <div className="space-y-4">
       <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-nc-border-soft pb-2">
         <h1 className="m-0 text-[length:var(--nc-font-size-page)] leading-[var(--nc-line-height-page)] font-semibold whitespace-nowrap text-nc-text">
-          今日决策
+          A 股全天候作战室
         </h1>
         <span className="tabular whitespace-nowrap text-sub text-nc-text-4">
           截至 {new Date(d.now).toLocaleString("zh-CN")}
@@ -621,6 +630,20 @@ function DailyDecision() {
           </Link>
         </div>
       )}
+      <nav
+        aria-label="作战室面板"
+        className="flex flex-wrap gap-x-4 gap-y-1 text-sub"
+      >
+        <a href="#market-conditions" className="text-nc-accent hover:underline">
+          市场温度与行业轮动
+        </a>
+        <a href="#workspace-news" className="text-nc-accent hover:underline">
+          精准快讯
+        </a>
+        <a href="#rebalance-tickets" className="text-nc-accent hover:underline">
+          次日调仓计划单
+        </a>
+      </nav>
       <div className="nc-cockpit-grid">
         <div className="min-w-0 space-y-4">
           <Panel
@@ -1053,6 +1076,24 @@ function DailyDecision() {
           </Panel>
         </div>
       </div>
+      {/* Mount supplementary reads after the initial workspace response. */}
+      <MarketConditions />
+      <WorkspaceNews
+        holdings={
+          d.holdings
+            ?.filter(
+              (holding) =>
+                holding.market === "cn-equity" && holding.quantity > 0,
+            )
+            .map((holding) => holding.symbol) ?? null
+        }
+        candidates={d.candidates.items
+          .filter((candidate) => candidate.market === "cn-equity")
+          .map((candidate) => candidate.symbol)}
+        candidateTotal={d.candidates.total}
+        names={names}
+      />
+      <RebalanceTicketPanel decisionDate={date} />
       <Dialog
         open={plan !== null}
         onOpenChange={(open) => {

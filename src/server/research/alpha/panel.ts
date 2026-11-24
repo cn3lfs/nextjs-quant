@@ -37,19 +37,27 @@ const builtins: Record<
   string,
   { source: string; parameters: Record<string, number> }
 > = {
-  momentum: { source: "X:C/REF(C,N)-1;", parameters: { N: 20 } },
-  reversal: { source: "X:1-C/REF(C,N);", parameters: { N: 5 } },
-  volatility: { source: "X:STD(C/REF(C,1)-1,N);", parameters: { N: 20 } },
+  momentum: { source: "X:C/REF(C,N1)-1;", parameters: { N1: 20 } },
+  reversal: { source: "X:1-C/REF(C,N1);", parameters: { N1: 5 } },
+  volatility: { source: "X:STD(C/REF(C,1)-1,N1);", parameters: { N1: 20 } },
 };
 export function compileFactors(c: AlphaExperiment) {
   return c.factors.map((f) => {
     if (!f.formula && (f.factorId === "turnover" || f.factorId === "amount"))
       return f.factorId;
     const builtin = builtins[f.factorId];
-    const program = compileFormula(f.formula ?? builtin!.source, {
-      ...(f.formula ? {} : builtin!.parameters),
-      ...f.parameters,
-    });
+    const params = f.formula
+      ? f.parameters
+      : {
+          ...builtin!.parameters,
+          ...Object.fromEntries(
+            Object.entries(f.parameters).map(([k, v]) => [
+              k === "N" ? "N1" : k,
+              v,
+            ]),
+          ),
+        };
+    const program = compileFormula(f.formula ?? builtin!.source, params);
     if (program.outputCount < 1) throw new Error("因子公式必须声明输出");
     return program;
   });

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   lstatSync,
   readdirSync,
@@ -24,6 +24,7 @@ import {
   diagnoseArchiveSummarySchema,
   diagnoseFamilyHoldoutSchema,
   diagnoseSampleOrderSchema,
+  diagnoseScenarioEvidenceSchema,
   diagnoseScenarioMetricsSchema,
   type DiagnoseArchiveDetail,
   type DiagnoseArchiveSummary,
@@ -42,6 +43,7 @@ import {
   ensureRealDirectory,
   isAbsent,
   readBounded,
+  readOptionalArchiveEvidence,
   safeSegment,
   UnsafeArchivePath,
 } from "./archive-fs";
@@ -52,6 +54,8 @@ import {
 } from "./cli-archive";
 import { renderReport } from "./report";
 import type { DiagnoseCell } from "./types";
+import { enrichCliScenario } from "../studio/cli-diagnose-evidence";
+import { cliTradeExcursions } from "../studio/diagnose-evidence";
 
 export interface DiagnoseArchiveOptions {
   archiveDir?: string;
@@ -67,6 +71,25 @@ export interface DiagnoseArchiveOptions {
 }
 
 const maxArchiveBytes = 16 * 1024 * 1024;
+const maxEvidenceBytes = 64 * 1024 * 1024;
+const evidenceFile = "fill-evidence.json";
+const evidenceFileSchema = z.object({
+  version: z.literal(1),
+  archiveId: z.string(),
+  scenarios: z.array(
+    z.object({
+      cellIndex: z.number().int().nonnegative(),
+      scenarioId: z.string(),
+      inputHash: z.string(),
+      evidence: diagnoseScenarioEvidenceSchema.required({
+        fullFills: true,
+        equity: true,
+        performance: true,
+        topDrawdowns: true,
+      }),
+    }),
+  ),
+});
 const sidecarSchema = diagnoseArchiveSummarySchema.extend({
   dllHashes: z.array(z.string()),
   sleeveScenarios: z
@@ -189,8 +212,10 @@ function incompleteJobArchive(path: string, id: string) {
   } catch {
     return true;
   }
-  const summary = diagnoseArchiveDetailSchema.safeParse(json).data?.summary;
-  return summary?.id !== id || summary.source !== "lab-archive";
+  const detail = diagnoseArchiveDetailSchema.safeParse(json).data;
+  if (detail?.summary.id !== id || detail.summary.source !== "lab-archive")
+    return true;
+  return false;
 }
 
 /** Recover the rename-before-commit window. Keep each original directory intact,
@@ -331,6 +356,7 @@ async function readLab(
   id: string,
   options: DiagnoseArchiveOptions,
   drift: ReturnType<typeof dllWarnings>,
+  includeEvidence = true,
 ) {
   const path = labArchivePath(id, options);
   const dir = await checked(path, "directory");
@@ -377,6 +403,94 @@ async function readLab(
     } satisfies DiagnoseArchiveDetail;
   }
   const summary = await listedSummary(diagnoseArchiveSidecar(detail), drift);
+  if (includeEvidence && detail.evidenceSha256) {
+    let unavailableReason: string | undefined;
+    const file = await readOptionalArchiveEvidence(
+      join(/* turbopackIgnore: true */ path, evidenceFile),
+      maxEvidenceBytes,
+      (reason) => {
+        unavailableReason = reason;
+      },
+    );
+    let valid = false;
+    if (
+      file &&
+      !file.truncated &&
+      createHash("sha256").update(file.text).digest("hex") ===
+        detail.evidenceSha256
+    ) {
+      try {
+        const sidecar = evidenceFileSchema.parse(JSON.parse(file.text));
+        const seen = new Set<DiagnoseScenarioMetrics>();
+        const targets = sidecar.scenarios.map((row) => {
+          const target = detail.cells[row.cellIndex]?.scenarios.find(
+            (s) => s.scenarioId === row.scenarioId,
+          );
+          if (
+            !target ||
+            seen.has(target) ||
+            target.inputHash !== row.inputHash ||
+            target.counts.fills !== row.evidence.fullFills.length
+          )
+            throw new Error("成交证据与归档情景不匹配");
+          seen.add(target);
+          return { target, evidence: row.evidence };
+        });
+        if (
+          sidecar.archiveId === id &&
+          detail.cells.every((cell) =>
+            cell.scenarios.every((s) => !s.inputHash || seen.has(s)),
+          )
+        ) {
+          for (const { target, evidence } of targets)
+            Object.assign(target, evidence);
+          valid = true;
+        }
+      } catch {
+        /* Keep the original diagnosis readable when only the evidence is damaged. */
+      }
+    }
+    if (!valid) {
+      summary.missingFiles.push(evidenceFile);
+      summary.driftWarnings.push(
+        unavailableReason
+          ? `完整成交证据不可用（${unavailableReason}）`
+          : "完整成交证据缺失、超出读取上限或与归档不一致",
+      );
+    }
+  } else if (includeEvidence) {
+    // A legacy preview is complete only when the stored count proves it.
+    // Never infer account NAV from per-sleeve investment returns.
+    for (const cell of detail.cells)
+      for (const s of cell.scenarios) {
+        if (
+          s.fullFills ||
+          s.status !== "ok" ||
+          s.sampleFills.length !== s.counts.fills
+        )
+          continue;
+        const fills = diagnoseScenarioEvidenceSchema.shape.fullFills
+          .unwrap()
+          .safeParse(s.sampleFills);
+        if (
+          !fills.success ||
+          fills.data.filter((f) => f.holdingAfter === 0).length !==
+            s.counts.closedTrades ||
+          fills.data.some(
+            (f, i) =>
+              !cell.symbols.includes(f.symbol) ||
+              (i > 0 && f.date < fills.data[i - 1]!.date),
+          )
+        )
+          continue;
+        s.fullFills = fills.data;
+        try {
+          s.tradeExcursions ??= cliTradeExcursions(s.fullFills, [], {});
+        } catch {
+          /* A malformed historical preview carries no round-trip evidence. */
+        }
+      }
+  }
   return {
     summary,
     cells: options.allCells
@@ -421,7 +535,7 @@ async function readLabSummary(
     if (full && full.size <= maxArchiveBytes)
       return listedSummary(parsed, drift);
   }
-  return (await readLab(id, options, drift)).summary;
+  return (await readLab(id, options, drift, false)).summary;
 }
 
 type WriteOptions = Pick<DiagnoseArchiveOptions, "archiveDir"> & {
@@ -466,7 +580,44 @@ export async function stageDiagnoseArchive(
   if (detail.summary.source !== "lab-archive")
     throw new Error("非法 Lab 诊断归档 ID");
   options.signal?.throwIfAborted();
-  const json = JSON.stringify(diagnoseArchiveDetailSchema.parse(detail));
+  const stored = diagnoseArchiveDetailSchema.parse(detail);
+  const scenarios: z.infer<typeof evidenceFileSchema>["scenarios"] = [];
+  for (const [cellIndex, cell] of stored.cells.entries()) {
+    for (const scenario of cell.scenarios) {
+      if (scenario.fullFills === undefined) continue;
+      if (
+        !scenario.inputHash ||
+        scenario.fullFills.length !== scenario.counts.fills
+      )
+        throw new Error("完整成交数或冻结输入身份与诊断情景不一致");
+      const evidence =
+        evidenceFileSchema.shape.scenarios.element.shape.evidence.parse(
+          scenario,
+        );
+      scenarios.push({
+        cellIndex,
+        scenarioId: scenario.scenarioId,
+        inputHash: scenario.inputHash,
+        evidence,
+      });
+      for (const name of diagnoseScenarioEvidenceSchema.keyof().options)
+        delete scenario[name];
+    }
+  }
+  const evidenceJson = JSON.stringify({
+    version: 1,
+    archiveId: stored.summary.id,
+    scenarios,
+  });
+  delete stored.evidenceSha256;
+  if (scenarios.length) {
+    if (Buffer.byteLength(evidenceJson) > maxEvidenceBytes)
+      throw new Error("完整成交证据超过大小上限");
+    stored.evidenceSha256 = createHash("sha256")
+      .update(evidenceJson)
+      .digest("hex");
+  }
+  const json = JSON.stringify(stored);
   if (Buffer.byteLength(json) > maxArchiveBytes)
     throw new Error("诊断归档超过大小上限");
   checkStagingPath(stage, labRoot(options));
@@ -474,6 +625,12 @@ export async function stageDiagnoseArchive(
   const tmp = join(/* turbopackIgnore: true */ stage, "diagnose-group.tmp");
   const file = join(/* turbopackIgnore: true */ stage, "diagnose-group.json");
   if (await checked(file, "file")) throw new Error("诊断归档已存在");
+  if (stored.evidenceSha256)
+    await writeFile(
+      join(/* turbopackIgnore: true */ stage, evidenceFile),
+      evidenceJson,
+      { flag: "wx", signal: options.signal },
+    );
   await writeFile(/* turbopackIgnore: true */ tmp, json, {
     flag: "wx",
     signal: options.signal,
@@ -513,12 +670,24 @@ export function publishStagedDiagnoseArchive(
   checkLabId(id);
   const root = labRoot(options);
   checkStagingPath(stage, root);
-  for (const name of ["diagnose-group.json", "summary.json"]) {
+  for (const name of ["diagnose-group.json", "summary.json", evidenceFile]) {
     const file = join(/* turbopackIgnore: true */ stage, name);
-    const st = lstatSync(/* turbopackIgnore: true */ file);
+    const st = lstatSync(/* turbopackIgnore: true */ file, {
+      throwIfNoEntry: false,
+    });
+    // An already-running previous-version worker can finish after a host update.
+    if (!st && name === evidenceFile) {
+      const group = JSON.parse(
+        readFileSync(
+          join(/* turbopackIgnore: true */ stage, "diagnose-group.json"),
+          "utf8",
+        ),
+      ) as { evidenceSha256?: string };
+      if (!group.evidenceSha256) continue;
+    }
     if (
-      !st.isFile() ||
-      st.size > maxArchiveBytes ||
+      !st?.isFile() ||
+      st.size > (name === evidenceFile ? maxEvidenceBytes : maxArchiveBytes) ||
       relative(file, realpathSync(/* turbopackIgnore: true */ file)) !== ""
     )
       throw new UnsafeArchivePath();
@@ -539,6 +708,7 @@ export async function cleanupDiagnoseStagingDir(
     "diagnose-group.tmp",
     "diagnose-group.json",
     "summary.json",
+    evidenceFile,
   ]) {
     await unlink(join(/* turbopackIgnore: true */ stage, name)).catch(
       (error) => {
@@ -579,7 +749,7 @@ export async function removeUnpublishedDiagnoseArchive(id: string) {
   const dir = join(/* turbopackIgnore: true */ labRoot({}), id);
   if (!(await checked(dir, "directory"))) return;
   try {
-    for (const name of ["diagnose-group.json", "summary.json"]) {
+    for (const name of ["diagnose-group.json", "summary.json", evidenceFile]) {
       const file = join(/* turbopackIgnore: true */ dir, name);
       if (await checked(file, "file"))
         await unlink(/* turbopackIgnore: true */ file);
@@ -763,6 +933,17 @@ export async function readDiagnoseArchive(
       const summary = await readCliObject(dir, "summary.json");
       const metrics = cell.scenarios[0]!;
       await attachCliFillTriggers(dir, metrics);
+      try {
+        await enrichCliScenario(
+          dir,
+          cell,
+          metrics,
+          await readCliObject(dir, "run.json"),
+          summary,
+        );
+      } catch {
+        // Supplementary metadata I/O failures must not break base legacy archive reads.
+      }
       if (summary)
         Object.assign(
           metrics,

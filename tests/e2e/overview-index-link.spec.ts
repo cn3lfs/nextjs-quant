@@ -6,7 +6,7 @@ test("an overview index opens that index even after the default chart loaded", a
 }) => {
   await waitForIdleServer(page);
   // The overview initialises the workbench with the default security first.
-  await page.goto("/", { waitUntil: "networkidle" });
+  await page.goto("/?tab=overview", { waitUntil: "networkidle" });
   const pulse = page.getByTestId("market-pulse");
   await pulse.waitFor();
   await pulse.locator('a[href="/scan?symbol=sh000001"]').click();

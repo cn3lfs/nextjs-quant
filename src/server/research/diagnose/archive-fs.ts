@@ -106,3 +106,41 @@ export async function readBounded(path: string, limit: number) {
     await handle.close();
   }
 }
+
+/** Supplementary evidence can be unavailable without invalidating the
+ * original archive. Unsafe paths are still rejected before any read. */
+export async function readOptionalArchiveEvidence(
+  path: string,
+  limit: number,
+  onUnavailable?: (reason: string) => void,
+) {
+  try {
+    return await readBounded(path, limit);
+  } catch (error) {
+    if (error instanceof UnsafeArchivePath) {
+      onUnavailable?.(error.message);
+      return undefined;
+    }
+    const code = (error as NodeJS.ErrnoException).code;
+    if (
+      code &&
+      [
+        "ENOENT",
+        "EACCES",
+        "EPERM",
+        "EIO",
+        "EBUSY",
+        "EAGAIN",
+        "EINTR",
+        "ETIMEDOUT",
+        "ESTALE",
+        "EMFILE",
+        "ENFILE",
+      ].includes(code)
+    ) {
+      onUnavailable?.(`读取失败（${code}）`);
+      return undefined;
+    }
+    throw error;
+  }
+}

@@ -8,6 +8,7 @@ import {
 } from "trading-strategies";
 import { researchDateSchema } from "trading-strategies/research/contracts/date";
 import { researchCostScenarios } from "trading-strategy-core/costs";
+import { alphaBacktestInputSchema } from "./alpha-experiment";
 
 export const diagnoseScenarioIdSchema = z.enum([
   "strict",
@@ -288,7 +289,14 @@ export function customBookId(sleeves: readonly DiagnoseBookSleeve[]): string {
 }
 const runFields = z
   .object({
-    symbols: z.array(symbolSchema).min(1).max(12).refine(unique, "标的重复"),
+    symbols: z.array(symbolSchema).min(1).max(30).refine(unique, "标的重复"),
+    poolId: z
+      .enum(["core-5", "core-12", "chan-core-7", "core-30-v1"])
+      .optional(),
+    riskPolicy: alphaBacktestInputSchema.shape.riskPolicy,
+    bookControl: z
+      .enum(["none", "equal-month-end", "risk-parity-60"])
+      .optional(),
     mode: z.enum(["per-symbol", "portfolio"]).optional(),
     strategyKey: z.string().trim().min(1).max(100).optional(),
     bookPreset: bookPresetSchema.optional(),
@@ -318,8 +326,24 @@ export const labDiagnoseRunInputSchema = runFields
     "开始日期须早于结束日期",
   )
   .transform((v, ctx) => {
+    if (v.symbols.length > 12 && v.poolId !== "core-30-v1") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["symbols"],
+        message: "自定义证券池最多 12 只",
+      });
+      return z.NEVER;
+    }
     const rawBook = v.book ?? v.bookPreset;
     const book = rawBook && normalizeDiagnoseBookInput(rawBook);
+    if (v.bookControl && v.bookControl !== "none" && !book) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["bookControl"],
+        message: "分配政策需要分仓组合",
+      });
+      return z.NEVER;
+    }
     if (book && "sleeves" in book && v.bookPreset) {
       ctx.addIssue({
         code: "custom",
@@ -843,7 +867,102 @@ export const diagnoseSampleRejectionSchema = z.object({
   reason: z.string(),
 });
 
+export const diagnoseDrawdownSchema = z.object({
+  peakDate: researchDateSchema,
+  valleyDate: researchDateSchema,
+  recoveryDate: researchDateSchema.nullable(),
+  depth: numeric.nonnegative(),
+  recoveryDays: count.nullable(),
+  observedRecoveryDays: count,
+  underwaterDays: count,
+});
+const performanceMetric = z.object({
+  value: numeric.nullable(),
+  reason: z.string().nullable(),
+});
+export const diagnosePerformanceSchema = z.object({
+  version: z.literal("daily-performance-v1"),
+  start: researchDateSchema.nullable(),
+  end: researchDateSchema.nullable(),
+  initial: numeric.positive(),
+  days: count,
+  shortSample: z.boolean(),
+  totalReturn: performanceMetric,
+  annualReturn: performanceMetric,
+  benchmarkReturn: performanceMetric,
+  excessReturn: performanceMetric,
+  sharpe: performanceMetric,
+  sortino: performanceMetric,
+  informationRatio: performanceMetric,
+  annualVolatility: performanceMetric,
+  trackingError: performanceMetric,
+  maxDrawdown: performanceMetric,
+  calmar: performanceMetric,
+  recoveryDays: performanceMetric,
+  longestUnderwaterDays: performanceMetric,
+  maxDrawdownEpisode: diagnoseDrawdownSchema.nullable(),
+});
+export const diagnoseTradeExcursionSchema = z.object({
+  id: z.string(),
+  strategyId: z.string(),
+  sleeve: z.string(),
+  symbol: z.string(),
+  openedAt: researchDateSchema,
+  closedAt: researchDateSchema.nullable(),
+  entryAverage: numeric.positive().nullable(),
+  entryAverageReason: z.string().nullable(),
+  realizedNetReturn: numeric.nullable(),
+  realizedNetReturnReason: z.string().nullable(),
+  days: count.nullable(),
+  daysReason: z.string().nullable(),
+  mfe: numeric.nonnegative().nullable(),
+  mae: numeric.nonpositive().nullable(),
+  reason: z.string().nullable(),
+});
+export const diagnoseFullFillSchema = diagnoseSampleFillSchema.extend({
+  date: researchDateSchema,
+  price: numeric.positive(),
+  quantity: numeric.positive(),
+  fee: numeric.nonnegative(),
+  holdingAfter: numeric.nonnegative(),
+  parentOrderId: count.optional(),
+  sliceEnd: z.string().optional(),
+  windowPhase: z.enum(["opening", "protection"]).optional(),
+  limitUp: numeric.positive().nullable().optional(),
+  limitDown: numeric.positive().nullable().optional(),
+  decisionClose: numeric.positive().nullable().optional(),
+  arrivalOpen: numeric.positive().nullable().optional(),
+  limitEvidence: z.string().nullable().optional(),
+});
+export const diagnoseScenarioEvidenceSchema = z.object({
+  fullFills: z.array(diagnoseFullFillSchema).optional(),
+  equity: z
+    .array(z.object({ date: researchDateSchema, value: numeric.nonnegative() }))
+    .optional(),
+  performance: diagnosePerformanceSchema.optional(),
+  topDrawdowns: z.array(diagnoseDrawdownSchema).max(5).optional(),
+  tradeExcursions: z.array(diagnoseTradeExcursionSchema).optional(),
+  evidenceNotes: textList.optional(),
+  studioCosts: z
+    .array(
+      z.object({
+        costScenario: z.enum(researchCostScenarios),
+        totalReturn: numeric.nullable(),
+        maxDrawdown: numeric.nullable(),
+        totalFees: numeric.nullable(),
+        fills: count.nullable(),
+        reason: z.string().nullable(),
+      }),
+    )
+    .length(3)
+    .optional(),
+});
+export type DiagnoseScenarioEvidence = z.infer<
+  typeof diagnoseScenarioEvidenceSchema
+>;
+
 export const diagnoseScenarioMetricsSchema = z.object({
+  ...diagnoseScenarioEvidenceSchema.shape,
   scenarioId: z.string().min(1),
   label: z.string(),
   executionProfile: z.string(),
@@ -946,6 +1065,11 @@ export type DiagnoseArchiveSummary = z.infer<
   typeof diagnoseArchiveSummarySchema
 >;
 export const diagnoseArchiveDetailSchema = z.object({
+  /** SHA-256 of the optional immutable fill-evidence.json staged with this run. */
+  evidenceSha256: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/)
+    .optional(),
   summary: diagnoseArchiveSummarySchema,
   cells: z.array(diagnoseScenarioCellGroupSchema),
   pagination: z.object({

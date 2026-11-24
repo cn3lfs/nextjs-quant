@@ -157,7 +157,7 @@ export const navGroups: readonly NavGroup[] = [
       item("/intel", "快讯与主题", Newspaper, "news"),
       item("/intel?tab=thsdk", "同花顺快讯", Lightning),
       item("/intel/review", "财联社复盘", Article),
-      item("/lab/analysis", "AI 研判", Sparkle, "analysis"),
+      item("/lab/analysis", "Alpha 与研究", Sparkle, "analysis"),
       item("/lab/reports", "研报存档", Archive, "reports"),
     ],
   },

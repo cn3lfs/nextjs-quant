@@ -1,5 +1,10 @@
 import { newsAnalysisIdForTask } from "../../db/workflow-history";
-import { intelEvents, todayIntel } from "../../news/intel-service";
+import {
+  intelEvents,
+  todayIntel,
+  workspaceNews,
+  workspaceNewsInputSchema,
+} from "../../news/intel-service";
 import { intelEventQuerySchema } from "~/lib/news/intel-events";
 import { readArchiveRecord } from "../../db/archive-records";
 import { clsReviewConfigSchema } from "~/lib/news/cls-review-config";
@@ -79,6 +84,9 @@ import {
 } from "../../data-sources/thsdk/thsdk-news";
 
 export const newsRouter = createTRPCRouter({
+  workspaceNews: p("news", "read")
+    .input(workspaceNewsInputSchema)
+    .query(({ input }) => workspaceNews(input)),
   thsdkNewsFlash: p("news", "read")
     .input(thsdkNewsFlashInputSchema)
     .query(({ input, signal }) => thsdkNewsFlash(input, signal)),

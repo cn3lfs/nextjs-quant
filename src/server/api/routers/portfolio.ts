@@ -32,8 +32,33 @@ import { sqlite as chartSqlite } from "../../db";
 import { z } from "zod";
 import { settings } from "../../infra/settings";
 import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
+import {
+  generateTicketSchema,
+  listTicketsSchema,
+  ticketIdSchema,
+  generateRebalanceTicket,
+  listRebalanceTickets,
+  confirmRebalanceTicket,
+  cancelRebalanceTicket,
+  recheckRebalanceTicket,
+} from "../../portfolio/rebalance-ticket-service";
 
 export const portfolioRouter = createTRPCRouter({
+  rebalanceTicketGenerate: p("portfolio", "configure")
+    .input(generateTicketSchema)
+    .mutation(({ input }) => generateRebalanceTicket(input)),
+  rebalanceTicketList: p("portfolio", "read")
+    .input(listTicketsSchema)
+    .query(({ input }) => listRebalanceTickets(input)),
+  rebalanceTicketConfirm: p("portfolio", "configure")
+    .input(ticketIdSchema)
+    .mutation(({ input }) => confirmRebalanceTicket(input)),
+  rebalanceTicketCancel: p("portfolio", "configure")
+    .input(ticketIdSchema)
+    .mutation(({ input }) => cancelRebalanceTicket(input)),
+  rebalanceTicketRecheck: p("portfolio", "configure")
+    .input(ticketIdSchema)
+    .mutation(({ input }) => recheckRebalanceTicket(input)),
   tradeWorkspaceEnvironment: p("portfolio", "read").query(() => ({
     today: chinaClock(Date.now()).date,
     mockEnabled: mockEnabled(),

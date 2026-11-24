@@ -29,10 +29,25 @@ export const sidebarPages = navItems
 
 /** Clicks a sidebar link and waits until the page is idle. */
 export async function visit(page: Page, path: string) {
+  const entry = navItems.find((item) => item.href === path);
+  if (entry) {
+    const groupBtn = page
+      .getByRole("navigation", { name: "工作台导航", exact: true })
+      .getByRole("button", { name: entry.group, exact: true });
+    if (
+      (await groupBtn.count()) > 0 &&
+      (await groupBtn.getAttribute("aria-expanded")) === "false"
+    ) {
+      await groupBtn.click();
+    }
+  }
   const link = page.locator(`a[href="${path}"]`).first();
   await expect(link, `Missing navigation entry: ${path}`).toBeVisible();
   await link.click();
-  await expect(page).toHaveURL((url) => url.pathname === path);
+  const target = new URL(path, "http://workbench");
+  await expect(page).toHaveURL(
+    (url) => url.pathname === target.pathname && url.search === target.search,
+  );
   await page.waitForLoadState("networkidle");
 }
 

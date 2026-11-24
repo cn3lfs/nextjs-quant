@@ -72,9 +72,12 @@ export class MarketPanelHandle {
     idSchema.parse(snapshotId);
     rejectLink(directory);
     for (const f of ["manifest.json", "panel.bin", "events.jsonl"])
-      rejectLink(join(directory, f));
+      rejectLink(join(/* turbopackIgnore: true */ directory, f));
     const { snapshotId: stored, ...payload } = JSON.parse(
-      readFileSync(join(directory, "manifest.json"), "utf8"),
+      readFileSync(
+        join(/* turbopackIgnore: true */ directory, "manifest.json"),
+        "utf8",
+      ),
     );
     if (stored !== snapshotId || hash(JSON.stringify(payload)) !== snapshotId)
       throw new Error("面板 manifest 校验失败");
@@ -106,7 +109,10 @@ export class MarketPanelHandle {
         throw new Error("面板证券索引非法");
       offset += s.eventBytes;
     }
-    this.#panel = openSync(join(directory, "panel.bin"), "r");
+    this.#panel = openSync(
+      join(/* turbopackIgnore: true */ directory, "panel.bin"),
+      "r",
+    );
     try {
       if (
         fstatSync(this.#panel).size !==
@@ -116,7 +122,10 @@ export class MarketPanelHandle {
         )
       )
         throw new Error("面板数据头或长度非法");
-      this.#events = openSync(join(directory, "events.jsonl"), "r");
+      this.#events = openSync(
+        join(/* turbopackIgnore: true */ directory, "events.jsonl"),
+        "r",
+      );
       if (fstatSync(this.#events).size !== offset) {
         closeSync(this.#events);
         throw new Error("面板事件长度非法");

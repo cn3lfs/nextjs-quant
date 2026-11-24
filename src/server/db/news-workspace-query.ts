@@ -189,6 +189,74 @@ type RelatedNewsEvent = {
   href: string;
 };
 type RelatedNewsEventWithMatches = RelatedNewsEvent & { matches: string[] };
+
+const workspaceNewsScanLimit = 2_000;
+export const normalizeWorkspaceNewsText = (text: string) =>
+  text.normalize("NFKC").toUpperCase();
+
+/** Prefilter recent originals in SQLite, then verify code boundaries and
+ * ambiguous names before applying the display limit. */
+export function queryWorkspaceNews<Match>(
+  path: string,
+  window: { from: number; to: number; limit: number },
+  terms: readonly string[],
+  match: (title: string, content: string) => Match[],
+) {
+  if (!terms.length) return [];
+  // A single literal pattern avoids rescanning every article for every target.
+  const pattern = new RegExp(
+    terms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"),
+    "u",
+  );
+  return readSource(path, (db, source) => {
+    db.function(
+      "workspace_news_candidate",
+      { deterministic: true },
+      (title: string, content: string) =>
+        Number(
+          pattern.test(normalizeWorkspaceNewsText(title)) ||
+            pattern.test(normalizeWorkspaceNewsText(content)),
+        ),
+    );
+    const rows = db
+      .prepare(
+        `WITH recent AS MATERIALIZED (
+           SELECT id,ctime FROM news WHERE ctime>=? AND ctime<=?
+           ORDER BY ctime DESC,id DESC LIMIT ?
+         )
+         SELECT n.id,n.ctime,n.collected_at,n.title,n.content,n.shareurl
+         FROM recent r JOIN news n ON n.id=r.id
+         WHERE workspace_news_candidate(coalesce(n.title,''), coalesce(n.content,''))
+         ORDER BY r.ctime DESC,r.id DESC`,
+      )
+      .iterate(
+        Math.ceil(window.from / 1000),
+        Math.floor(window.to / 1000),
+        workspaceNewsScanLimit,
+      ) as Iterable<NewsRow>;
+    const items = [];
+    for (const row of rows) {
+      const matches = match(row.title ?? "", row.content ?? "");
+      if (!matches.length) continue;
+      const news = item(row);
+      const filter = {
+        cutoff: Date.parse(news.publishedAt),
+        historical: false,
+      };
+      items.push({
+        id: String(news.id),
+        publishedAt: news.publishedAt,
+        title: news.title.slice(0, 200) || news.content.slice(0, 80),
+        preview: news.content.slice(0, 1000),
+        href: `/intel?newsQuery=${encodeURIComponent(JSON.stringify(filter))}&newsId=${news.id}&newsSource=${source}`,
+        matches,
+      });
+      if (items.length === window.limit) break;
+    }
+    return items;
+  });
+}
+
 /** SQLite's default upper() folds ASCII only and preserves length, so an index
  * in the folded text is also the index in the original stored field. */
 function asciiFold(value: string) {

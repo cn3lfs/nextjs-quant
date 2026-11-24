@@ -62,7 +62,7 @@ for (const width of [1440, 1024]) {
     await list.getByRole("button", { name: selected.name }).click();
     await details
       .getByRole("combobox", { name: "搜索实验证券", exact: true })
-      .fill("600000");
+      .fill("sh600000");
     await page
       .getByRole("option", { name: /sh600000|600000/ })
       .first()

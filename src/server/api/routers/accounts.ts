@@ -29,6 +29,13 @@ import { AccountReviewRepository } from "../../db/account-review-repository";
 import { monthlyAccountReview } from "../../portfolio/account-monthly-review";
 import { settings, saveSettings } from "../../infra/settings";
 import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
+import {
+  accountEntrySizingInputSchema,
+  accountPortfolioRiskInputSchema,
+  evaluateAccountPortfolioRisk,
+  loadPortfolioRiskBook,
+  simulateAccountEntrySizing,
+} from "../../portfolio/portfolio-risk-service";
 const reviewDate = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -39,6 +46,26 @@ const reviewDate = z
     "日期无效",
   );
 export const accountsRouter = createTRPCRouter({
+  accountPortfolioRisk: p("portfolio", "read")
+    .input(accountPortfolioRiskInputSchema)
+    .query(async ({ input }) => {
+      const at = Date.now();
+      return evaluateAccountPortfolioRisk(
+        await loadPortfolioRiskBook(input.scope, at),
+        input,
+        at,
+      );
+    }),
+  accountEntrySizingPreview: p("portfolio", "read")
+    .input(accountEntrySizingInputSchema)
+    .query(async ({ input }) => {
+      const at = Date.now();
+      return simulateAccountEntrySizing(
+        await loadPortfolioRiskBook(input.scope, at),
+        input,
+        at,
+      );
+    }),
   accountTrades: p("portfolio", "read")
     .input(
       z.object({

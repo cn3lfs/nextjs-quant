@@ -36,6 +36,7 @@ import {
   labBacktestReceipt,
   readLabBacktestForm,
 } from "../../src/components/research/lab-backtest";
+import { parseStudioEntry } from "../../src/lib/research/studio-entry";
 const strategy = {
   id: "registered",
   version: 2,
@@ -79,7 +80,20 @@ function setDetail(patch: Partial<typeof harness.detail>) {
     patch,
   );
 }
-const render = () => renderToStaticMarkup(createElement(LabBacktest));
+const render = () => {
+  const entry = parseStudioEntry(harness.search);
+  return renderToStaticMarkup(
+    createElement(LabBacktest, {
+      entry,
+      search: harness.search,
+      active: entry.object,
+      showHandoff: false,
+      onApply: () => {},
+      onDiagnose: () => {},
+      onResult: () => {},
+    }),
+  );
+};
 beforeEach(() => {
   harness.search = "";
   harness.calls.length = 0;
@@ -90,11 +104,17 @@ it.each(["mode=object", "strategy=registered&version=2"])(
   "opens object form from an explicit %s entry",
   (search) => {
     harness.search = search;
-    expect(render()).toMatch(/<details[^>]* open=""/);
+    expect(parseStudioEntry(search).object).toBe(true);
+    expect(render()).toMatch(
+      /<section(?![^>]* hidden="")[^>]* aria-label="策略对象组合回测"/,
+    );
   },
 );
 it("keeps the ordinary baseline entry collapsed", () => {
-  expect(render()).not.toMatch(/<details[^>]* open=""/);
+  expect(parseStudioEntry("").object).toBe(false);
+  expect(render()).toMatch(
+    /<section[^>]* hidden=""[^>]* aria-label="策略对象组合回测"/,
+  );
 });
 it("offers explicit market and execution-period research presets", () => {
   const html = render();

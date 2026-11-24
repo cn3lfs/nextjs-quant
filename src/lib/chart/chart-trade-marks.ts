@@ -1,3 +1,4 @@
+import { tradeReviewRefSchema, type TradeReviewRef } from "./trade-review-ref";
 import type { Bar } from "../domain";
 import type { DiagnoseScenarioMetrics } from "../research/diagnose-contract";
 
@@ -190,6 +191,7 @@ export function tradeChartHref(input: {
   diagnose?: string;
   cell?: string;
   scenario?: string;
+  review?: TradeReviewRef;
 }) {
   const params = new URLSearchParams({
     symbol: input.symbol,
@@ -200,5 +202,32 @@ export function tradeChartHref(input: {
   if (input.diagnose) params.set("diagnose", input.diagnose);
   if (input.cell) params.set("cell", input.cell);
   if (input.scenario) params.set("scenario", input.scenario);
+  if (input.review) {
+    const review = tradeReviewRefSchema.parse(input.review);
+    if (review.symbol !== normalizeTradeSymbol(input.symbol))
+      throw new Error("复盘证券与主图证券不一致");
+    params.set("reviewSource", review.source);
+    params.set("reviewId", review.refId);
+    params.set("reviewLabel", review.label);
+    params.set("reviewBack", review.backHref);
+    if (review.accountId) params.set("reviewAccount", review.accountId);
+    if (review.unitKey) params.set("reviewUnit", review.unitKey);
+  }
   return `/scan?${params}`;
+}
+
+export function parseTradeReviewRef(
+  search: string | URLSearchParams,
+): TradeReviewRef | null {
+  const params = new URLSearchParams(search);
+  const result = tradeReviewRefSchema.safeParse({
+    source: params.get("reviewSource"),
+    refId: params.get("reviewId"),
+    symbol: params.get("symbol"),
+    label: params.get("reviewLabel"),
+    backHref: params.get("reviewBack"),
+    accountId: params.get("reviewAccount") ?? undefined,
+    unitKey: params.get("reviewUnit") ?? undefined,
+  });
+  return result.success ? result.data : null;
 }

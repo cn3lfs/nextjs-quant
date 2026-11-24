@@ -20,6 +20,8 @@ import {
 } from "~/components/ui/select";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { skipToken } from "@tanstack/react-query";
+import { Rewind } from "@phosphor-icons/react/ssr";
 import { CzscSettingsDialog } from "./czsc-settings-dialog";
 import type { Snapshot } from "~/lib/domain";
 import { isMarketIndex } from "~/lib/market/market-indices";
@@ -45,6 +47,9 @@ import {
   type CrosshairLink,
 } from "~/lib/chart/crosshair-link";
 import { CzscMarketChart, MarketChart } from "./chart";
+import { BarReplayPanel } from "./charts/bar-replay-panel";
+import { TradeReviewPanel } from "./charts/trade-review-panel";
+import { TradeReviewChartLink } from "./open-chart";
 import { IntelAnnotations } from "../news/intel-annotations";
 import {
   ChartTradeMarksContext,
@@ -55,13 +60,17 @@ import {
   normalizeTradeSymbol,
   tradeFillsFromDiagnose,
 } from "~/lib/chart/chart-trade-marks";
+import {
+  isAShareStockSymbol,
+  isPriceScaleThreeFund,
+} from "~/lib/market/security-classification";
 import { compareColors } from "./market-chart-palette";
 import { SecuritySelect } from "./security-select";
 import { ChartCompareSectors } from "./chart-compare-sectors";
 import { drawingPointCount } from "~/lib/chart/chart-drawings";
 import { IntradayChart } from "./intraday-chart";
 import { tradableSymbol } from "./tdx-side-panel";
-import { isTypingTarget } from "./chart-hotkeys";
+import { isTypingTarget, useTradeReviewHotkeys } from "./chart-hotkeys";
 import {
   useMarketSession,
   type ChartMode,
@@ -276,6 +285,7 @@ function EditableChart({
     [label, setLabel] = useState("标注"),
     [message, setMessage] = useState("");
   const visible = useScreenVisible();
+  const [replayOpen, setReplayOpen] = useState(false);
   // Backtest trade marks: only the symbol the fills belong to may paint them.
   const [sessionTradeContext, setSessionTradeContext] = useState(
     () => useMarketSession.getState().tradeContext,
@@ -294,7 +304,34 @@ function EditableChart({
       normalizeTradeSymbol(snapshot.symbol)
       ? sessionTradeContext
       : null;
-  const focusDate = tradeContext?.focusPending ? tradeContext.at : undefined;
+  const reviewRef = tradeContext?.review;
+  const reviewQuery = api.chartTradeReview.useQuery(
+    visible && reviewRef ? reviewRef : skipToken,
+    { retry: false, refetchOnWindowFocus: false, staleTime: 60_000 },
+  );
+  const [reviewStep, setReviewStep] = useState<{
+    token: number;
+    index: number;
+    focusPending: boolean;
+  } | null>(null);
+  const step =
+    reviewStep?.token === tradeContext?.focusToken ? reviewStep : null;
+  const boxes = reviewQuery.data?.boxes;
+  const entryDate = tradeContext?.at;
+  const initialBox = entryDate
+    ? boxes?.findIndex(
+        (box) => box.entryDate <= entryDate && entryDate <= box.exitDate,
+      )
+    : undefined;
+  const activeBox = step?.index ?? Math.max(0, initialBox ?? 0);
+  const box = boxes?.[activeBox];
+  const stepPending = step?.focusPending;
+  const focusDate =
+    stepPending && box
+      ? box.entryDate
+      : tradeContext?.focusPending
+        ? tradeContext.at
+        : undefined;
   const firstDate = bars[0]?.date;
   useEffect(() => {
     if (
@@ -329,6 +366,7 @@ function EditableChart({
       enabled:
         visible &&
         Boolean(tradeContext?.diagnose) &&
+        !reviewRef &&
         !tradeContext?.portfolioFills,
       retry: false,
       refetchOnWindowFocus: false,
@@ -354,11 +392,14 @@ function EditableChart({
         : cell.scenarios[0]
       : undefined;
   const tradeFills = useMemo(
-    () => tradeContext?.portfolioFills ?? tradeFillsFromDiagnose(scenario),
-    [tradeContext?.portfolioFills, scenario],
+    () =>
+      reviewRef
+        ? (reviewQuery.data?.fills ?? [])
+        : (tradeContext?.portfolioFills ?? tradeFillsFromDiagnose(scenario)),
+    [reviewRef, reviewQuery.data, tradeContext?.portfolioFills, scenario],
   );
   const archiveMessage =
-    tradeContext?.diagnose && !tradeContext.portfolioFills
+    !reviewRef && tradeContext?.diagnose && !tradeContext.portfolioFills
       ? archive.isError
         ? `诊断归档读取失败：${archive.error.message}`
         : !archive.data
@@ -372,26 +413,37 @@ function EditableChart({
       tradeContext
         ? {
             symbol: snapshot.symbol,
-            fills: tradeFills,
-            sourceLabel: tradeContext.portfolioFills
-              ? "组合回放成交（当前页）"
-              : tradeContext.diagnose
-                ? "诊断归档成交样本"
-                : null,
+            fills: reviewRef && adjustment !== "none" ? [] : tradeFills,
+            review: reviewQuery.data,
+            activeBox,
+            sourceLabel:
+              reviewRef?.label ??
+              (tradeContext.portfolioFills
+                ? "组合回放成交（当前页）"
+                : tradeContext.diagnose
+                  ? "诊断归档成交样本"
+                  : null),
             archiveMessage,
             barsConfirmed,
             visible: tradeContext.visible,
             focusAt:
-              visible &&
-              barsConfirmed &&
-              tradeContext.focusPending &&
-              tradeContext.at
+              visible && barsConfirmed && focusDate
                 ? {
-                    date: tradeContext.at,
-                    consume: () =>
-                      useMarketSession
+                    date: focusDate,
+                    through: stepPending ? box?.exitDate : undefined,
+                    consume: () => {
+                      if (stepPending) {
+                        setReviewStep((current) =>
+                          current === step
+                            ? { ...step, focusPending: false }
+                            : current,
+                        );
+                        return true;
+                      }
+                      return useMarketSession
                         .getState()
-                        .consumeTradeFocus(tradeContext.focusToken),
+                        .consumeTradeFocus(tradeContext.focusToken);
+                    },
                   }
                 : null,
             onVisibilityChange:
@@ -401,6 +453,14 @@ function EditableChart({
     [
       tradeContext,
       tradeFills,
+      reviewRef,
+      reviewQuery.data,
+      adjustment,
+      activeBox,
+      focusDate,
+      step,
+      stepPending,
+      box?.exitDate,
       snapshot.symbol,
       archiveMessage,
       visible,
@@ -519,6 +579,31 @@ function EditableChart({
   const intraday =
     chartMode === undefined ? localIntraday : chartMode === "intraday";
   const showIntraday = canIntraday && intraday;
+  const reviewHidden = !tradeContext?.visible
+    ? "交易复盘覆盖层已关闭"
+    : showIntraday || period !== "day"
+      ? "交易复盘覆盖层仅在日 K 显示"
+      : adjustment !== "none"
+        ? "切换至不复权日 K 查看原价盈亏区间与极值"
+        : !barsConfirmed
+          ? "正在读取对应的 K 线…"
+          : undefined;
+  const stepReview = useCallback(
+    (direction: -1 | 1) => {
+      const index = activeBox + direction;
+      if (tradeContext && index >= 0 && index < (boxes?.length ?? 0))
+        setReviewStep({
+          token: tradeContext.focusToken,
+          index,
+          focusPending: true,
+        });
+    },
+    [activeBox, boxes?.length, tradeContext],
+  );
+  useTradeReviewHotkeys(
+    stepReview,
+    visible && !replayOpen && !reviewHidden && !!boxes?.length,
+  );
   const setIntraday = (next: boolean) => {
     lastIntraday = next;
     if (chartMode === undefined) setLocalIntradayState(next);
@@ -757,6 +842,17 @@ function EditableChart({
         className="relative flex flex-wrap items-center gap-x-3 gap-y-2 py-1 text-sm"
         data-testid="chart-primary-controls"
       >
+        {!frozenEvidence &&
+          (isAShareStockSymbol(snapshot.symbol) ||
+            isPriceScaleThreeFund(snapshot.symbol)) && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setReplayOpen(true)}
+            >
+              <Rewind /> Bar Replay 盲测训练
+            </Button>
+          )}
         {canIntraday && (
           <span role="group" aria-label="图表类型" className="segmented">
             <Button
@@ -956,6 +1052,43 @@ function EditableChart({
             : "图中收盘价低于成本（绿）"}{" "}
           · P1 移动加权成本 · {chartAdjustmentLabels[adjustment]}
         </p>
+      )}
+      {reviewRef && (
+        <TradeReviewPanel
+          reviewRef={reviewRef}
+          review={reviewQuery.data}
+          error={reviewQuery.error?.message}
+          hiddenReason={reviewHidden}
+          activeBox={activeBox}
+          onStep={stepReview}
+          onRetry={() => void reviewQuery.refetch()}
+          bars={bars}
+        />
+      )}
+      {!reviewRef &&
+        tradeContext?.visible &&
+        tradeContext.diagnose &&
+        cell &&
+        scenario && (
+          <TradeReviewChartLink
+            at={tradeContext.at}
+            review={{
+              source: "lab-diagnose",
+              refId: tradeContext.diagnose,
+              unitKey: `${hasCellIndex ? cellIndex : archive.data?.cells.indexOf(cell)}:${scenario.scenarioId}`,
+              symbol: normalizeTradeSymbol(snapshot.symbol),
+              label: "Lab 工作室 · 诊断归档",
+              backHref: `/lab/backtest?${new URLSearchParams({ archive: tradeContext.diagnose })}`,
+            }}
+          >
+            打开完整交易复盘
+          </TradeReviewChartLink>
+        )}
+      {replayOpen && visible && (
+        <BarReplayPanel
+          symbol={snapshot.symbol}
+          onClose={() => setReplayOpen(false)}
+        />
       )}
       {showIntelAnnotations ? (
         <IntelAnnotations

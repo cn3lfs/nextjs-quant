@@ -12,6 +12,11 @@ import { Button } from "../ui/button";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
 import { Segmented } from "../panels";
 import { useScreenVisible } from "../workbench/use-task-visible";
+import { TradeReviewChartLink } from "../market/open-chart";
+import {
+  isAShareStockSymbol,
+  isPriceScaleThreeFund,
+} from "~/lib/market/security-classification";
 import {
   Dialog,
   DialogContent,
@@ -143,6 +148,38 @@ export function PaperFacts({
       ),
     })),
   ];
+  if (kind === "fill")
+    columns.push({
+      id: "chart",
+      header: "复盘",
+      cell: ({ row }) => {
+        const { account, date, id, value } = row.original;
+        const symbol = value.symbol;
+        if (
+          typeof symbol !== "string" ||
+          !(isAShareStockSymbol(symbol) || isPriceScaleThreeFund(symbol))
+        )
+          return "—";
+        const back = new URLSearchParams({
+          tab: "trades",
+          symbol,
+          trade: `paper:${account}:${id}`,
+        });
+        return (
+          <TradeReviewChartLink
+            at={date}
+            review={{
+              source: "paper-account",
+              refId: account,
+              accountId: account,
+              symbol,
+              label: "纸面账户",
+              backHref: `/accounts?${back}`,
+            }}
+          />
+        );
+      },
+    });
   const points =
     kind === "equity"
       ? [...(query.data?.items ?? [])]

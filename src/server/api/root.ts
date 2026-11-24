@@ -19,6 +19,7 @@ import { integrationsRouter } from "./routers/integrations";
 import { financialRouter } from "./routers/financial";
 import { strategyCenterRouter } from "./routers/strategy-center";
 import { strategyLabRouter } from "./routers/strategy-lab";
+import { barReplayRouter } from "./routers/bar-replay";
 import { createCallerFactory, mergeTRPCRouters } from "./trpc";
 
 export const appRouter = mergeTRPCRouters(
@@ -28,6 +29,7 @@ export const appRouter = mergeTRPCRouters(
   simAccountsRouter,
   alertsRouter,
   marketRouter,
+  barReplayRouter,
   screeningRouter,
   strategyRouter,
   researchRouter,

@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { setImmediate } from "node:timers/promises";
+import { runPortfolio } from "quant-backtest";
+import {
+  researchCostScenarios,
+  researchExecutionCosts,
+} from "trading-strategy-core/costs";
 import type { Settings } from "~/lib/domain";
 import {
   DIAGNOSE_CHECK_GROUPS,
@@ -45,8 +50,13 @@ import { BarResourceBudget } from "../../market/bar-store/resource-budget";
 import { runDiagnoseTimeHoldout } from "./time-holdout";
 import type { StrategyDisclosures } from "./types";
 import { emptyCounts } from "./types";
+import { resolveUniversePreset } from "./universe-presets";
+import { groupedScenarioEvidence } from "../studio/diagnose-evidence";
+import { costRow, unavailableCostRow } from "../studio/result-view";
 
 export type GroupedDiagnoseOptions = DiagnosePreparationOptions & {
+  /** Explicit studio sensitivity request. Regular diagnoses replay only their selected costs. */
+  studioCosts?: boolean;
   signal?: AbortSignal;
   onProgress?: (progress: number, phase: string) => void;
   config?: Settings;
@@ -317,6 +327,11 @@ function replayMetrics(
         trigger: orderById.get(fill.orderId)?.trigger,
       })),
     sampleRejections: replay.result.rejections.slice(0, DIAGNOSE_SAMPLE_LIMIT),
+    ...groupedScenarioEvidence(
+      result.frozen.request,
+      replay.result,
+      replay.overview,
+    ),
   });
 }
 
@@ -403,6 +418,7 @@ async function replayGroup(
         preparation,
       );
     else throw new Error(`未知诊断策略：${item.strategy}`);
+    if (input.riskPolicy) prepared.frozen.request.riskPolicy = input.riskPolicy;
   } catch (error) {
     signal?.throwIfAborted();
     preparationError = error;
@@ -427,6 +443,7 @@ async function replayGroup(
         prepared,
         {
           maxParticipation: null, // Disable the book's implicit cap on strict/clamp.
+          bookControl: input.bookControl,
           ...DIAGNOSE_SCENARIO_PRESETS[id],
         },
         signal,
@@ -441,7 +458,40 @@ async function replayGroup(
             signal,
           },
         );
-      metrics.push(replayMetrics(id, result, dates));
+      const scenario = replayMetrics(id, result, dates);
+      if (options.studioCosts) {
+        const request = result.frozen.request;
+        scenario.studioCosts = researchCostScenarios.map((cost) => {
+          signal?.throwIfAborted();
+          try {
+            const ledger =
+              cost === input.costScenario
+                ? result.replay.result
+                : runPortfolio(
+                    {
+                      ...request,
+                      costs: researchExecutionCosts(request.market, cost),
+                    },
+                    undefined,
+                    undefined,
+                    signal,
+                  );
+            return costRow(
+              cost,
+              request.initial,
+              ledger.equity.map((p) => ({ date: p.date, value: p.equity })),
+              ledger.fills,
+            );
+          } catch (error) {
+            signal?.throwIfAborted();
+            return unavailableCostRow(
+              cost,
+              error instanceof Error ? error.message : String(error),
+            );
+          }
+        });
+      }
+      metrics.push(scenario);
     } catch (error) {
       signal?.throwIfAborted();
       metrics.push(errorMetrics(id, error));
@@ -470,6 +520,13 @@ export async function runGroupedDiagnoseScenarios(
     scenarios,
     mode = symbols.length > 1 ? "portfolio" : "per-symbol",
   } = params;
+  const pool = params.poolId && resolveUniversePreset(params.poolId);
+  if (
+    pool &&
+    (pool.symbols.length !== symbols.length ||
+      pool.symbols.some((symbol, i) => symbol !== symbols[i]))
+  )
+    throw new Error("具名诊断证券池与冻结名单或顺序不一致");
   if (!params.book && !isStrategyKey(strategyKey))
     throw new Error(`未知诊断策略：${strategyKey}`);
   const strategies = params.book
@@ -524,12 +581,23 @@ export async function runGroupedDiagnoseScenarios(
     title: `${strategyKey} · ${symbols.join("、")}`,
     generatedAt: new Date().toISOString(),
     book: params.book,
+    ...(pool && {
+      pool: {
+        id: pool.id,
+        label: pool.label,
+        symbolCount: pool.symbols.length,
+        survivorBiasDisclosure: pool.survivorBiasDisclosure,
+      },
+    }),
     run: {
       mode,
       symbols,
       strategyKey,
       strategies,
       book: params.book,
+      poolId: params.poolId,
+      riskPolicy: params.riskPolicy,
+      bookControl: params.bookControl,
       start: params.start,
       end: params.end,
       initial: params.initial,

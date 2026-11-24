@@ -75,6 +75,9 @@ import {
 } from "../../market/limit-sentiment";
 import { limitHistory } from "../../market/limit-history";
 import { marketBreadth } from "../../market/market-breadth";
+import { marketIndicatorInput } from "../../market/market-temperature-inputs";
+import { marketTemperature } from "../../market/market-temperature";
+import { industryRotationRrg } from "../../market/industry-rotation";
 import { fetchLiveMarketBreadth } from "../../market/live-market-breadth";
 import { fetchOverviewQuotes } from "../../market/overview-quotes";
 import { etfNetSubscriptions } from "../../market/etf-net-subscriptions";
@@ -158,6 +161,16 @@ const thsdkDatedSymbolSchema = z.object({
   date: researchDateSchema.optional(),
 });
 export const marketRouter = createTRPCRouter({
+  marketTemperature: p("market", "read")
+    .input(marketIndicatorInput)
+    .query(({ input }) =>
+      marketTemperature({ ...input, tdxRoot: settings().tdxRoot }),
+    ),
+  industryRotationRrg: p("market", "read")
+    .input(marketIndicatorInput)
+    .query(({ input }) =>
+      industryRotationRrg({ ...input, tdxRoot: settings().tdxRoot }),
+    ),
   thsdkLimitUpAnalysis: p("market", "read")
     .input(
       z.object({

@@ -598,7 +598,10 @@ it("discards the staged worker archive when cancelled before the host takes the 
         const result = await run<T>(work, id);
         if (work.type !== "lab-diagnose")
           throw new Error("expected diagnostic worker");
-        expect(await readdir(work.stagingDir)).toEqual(["diagnose-group.json"]);
+        expect((await readdir(work.stagingDir)).sort()).toEqual([
+          "diagnose-group.json",
+          "fill-evidence.json",
+        ]);
         expect(jobs.cancelJob(work.jobId).outcome).toBe("accepted");
         return result;
       },

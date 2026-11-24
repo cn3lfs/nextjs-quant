@@ -28,6 +28,11 @@ import { LedgerSelect } from "../../signals/ledger-fields";
 import { alertReference } from "~/lib/strategy-facts/alert-reference";
 import { Input } from "../../ui/input";
 import { DataTable } from "../../ui/data-table";
+import { TradeReviewChartLink } from "../../market/open-chart";
+import {
+  isAShareStockSymbol,
+  isPriceScaleThreeFund,
+} from "~/lib/market/security-classification";
 import { TradeJournalEditor } from "../account-review-panels";
 import {
   type AccountTrade,
@@ -50,7 +55,29 @@ type TradeSourceProps = {
 
 export function TradeSources(props: TradeSourceProps) {
   const position = useContext(PositionTradeScope);
-  const tradeId = useSearchParams().get("trade") ?? "";
+  const search = useSearchParams();
+  const tradeId = search.get("trade") ?? "";
+  const linkedPaper =
+    !position &&
+    tradeId.startsWith("paper:") &&
+    !props.trades.some((trade) => trade.id === tradeId);
+  const paper = api.accountTrades.useQuery(
+    { kind: "paper", tradeId },
+    { enabled: linkedPaper },
+  );
+  if (linkedPaper)
+    return (
+      <TradeSourceTable
+        {...props}
+        resetKey={tradeId}
+        trades={paper.data?.trades ?? []}
+        suggestions={paper.data?.suggestions ?? []}
+        total={paper.data?.tradeCount ?? 0}
+        fetching={paper.isFetching}
+        readError={paper.isError}
+        onRetry={() => void paper.refetch()}
+      />
+    );
   return position ? (
     <PositionTrades key={position} position={position} first={props} />
   ) : (
@@ -253,6 +280,43 @@ function TradeSourceTable({
             id: "price",
             header: "价格",
             cell: ({ row }) => formatNumber(row.original.price),
+          },
+          {
+            id: "chart",
+            header: "复盘",
+            cell: ({ row }) => {
+              const trade = row.original;
+              const real = trade.kind === "real";
+              if (
+                trade.market !== "cn-equity" ||
+                (!real && trade.kind !== "paper") ||
+                !(
+                  isAShareStockSymbol(trade.symbol) ||
+                  isPriceScaleThreeFund(trade.symbol)
+                )
+              )
+                return "—";
+              const back = new URLSearchParams({
+                tab: "trades",
+                symbol: trade.symbol,
+                trade: trade.id,
+              });
+              if (real && trade.sourceOrder?.source)
+                back.set("batch", trade.sourceOrder.source);
+              return (
+                <TradeReviewChartLink
+                  at={trade.date}
+                  review={{
+                    source: real ? "real-delivery" : "paper-account",
+                    refId: real ? trade.id : trade.account,
+                    accountId: trade.account,
+                    symbol: trade.symbol,
+                    label: real ? "实盘交割单" : "纸面账户",
+                    backHref: `/accounts?${back}`,
+                  }}
+                />
+              );
+            },
           },
           {
             id: "strategy",

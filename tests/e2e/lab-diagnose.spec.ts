@@ -264,7 +264,10 @@ function archiveFixture(
       id,
       source: "lab-archive",
       title: archiveTitle(id),
-      generatedAt: "2026-11-24T00:00:00.000Z",
+      generatedAt:
+        id === archiveIds.ok
+          ? "2099-01-01T00:00:00.000Z"
+          : "2026-11-24T00:00:00.000Z",
       ...(withDisclosures && {
         bookPreset: "core-4",
         holdoutStart: timeHoldout.holdoutStart,
@@ -300,6 +303,8 @@ const additionalLocalReads = new Set([
   "strategyLabDiagnoseCompare",
   "strategyLabDiagnoseExport",
   "strategyLabDiagnoseResult",
+  "studioTemplates",
+  "studioArchiveDetail",
   "workspacePreferences",
   "simAccountsList",
 ]);
@@ -463,15 +468,19 @@ test("archive deep link opens holdout and four-sleeve evidence and compares two 
   for (const { correlation } of sleeveAttribution.correlations)
     await expect(sleeves).toContainText(correlation!.toFixed(2));
 
-  await page.getByRole("combobox", { name: "诊断归档来源" }).click();
-  await page.getByRole("option", { name: "Lab 诊断运行", exact: true }).click();
-  await page.getByRole("button", { name: "应用筛选", exact: true }).click();
-  await page.getByTestId(`diagnose-compare-toggle-${archiveIds.ok}`).click();
-  await page
+  await page.getByRole("tab", { name: "归档", exact: true }).click();
+  const archives = page.getByRole("region", { name: "历史诊断档案和实验" });
+  await archives
+    .getByRole("combobox", { name: "诊断归档来源" })
+    .selectOption("lab-archive");
+  await archives
+    .getByTestId(`diagnose-compare-toggle-${archiveIds.ok}`)
+    .click();
+  await archives
     .getByTestId(`diagnose-compare-toggle-${archiveIds.compare}`)
     .click();
-  await page.getByTestId("diagnose-compare-open").click();
-  const compare = page.getByTestId("diagnose-compare-panel");
+  await archives.getByTestId("diagnose-compare-open").click();
+  const compare = archives.getByTestId("diagnose-compare-panel");
   await expect(compare).toBeVisible();
   await expect(compare).toContainText(archiveTitle(archiveIds.ok));
   await expect(compare).toContainText(archiveTitle(archiveIds.compare));
@@ -572,6 +581,13 @@ test("RPS batch handoff preserves the existing KeepAlive object draft", async ({
         "/scan?tab=rps&period=50&search=60000",
   );
   await expectDiagnosisSymbols(page, expected);
+  await page
+    .getByRole("combobox", { name: "研究模板", exact: true })
+    .selectOption("single");
+  await page
+    .getByRole("combobox", { name: "单策略引擎", exact: true })
+    .selectOption("object");
+  await expect(start).toBeVisible();
   await expect(start).toHaveValue(draftDate);
   await expect(draft).toHaveValue(draftJson);
 });
@@ -593,12 +609,17 @@ test("13 unique candidates plus a duplicate prefill exactly the first 12 symbols
 test("custom sleeves validate, save a local preset, run a real job and restore its archived parameters", async ({
   page,
 }) => {
-  await page.goto("/lab/backtest");
+  await page.goto("/lab/backtest?view=compose&template=multi-book", {
+    waitUntil: "networkidle",
+  });
   const workspace = page.getByRole("region", { name: "诊断工作台" });
   const openCustom = async () => {
-    await workspace.getByRole("tab", { name: "成组情景诊断运行" }).click();
-    await workspace.getByRole("combobox", { name: "诊断模式" }).click();
-    await page.getByRole("option", { name: "自定义组合（2–6 策略）" }).click();
+    await expect(
+      workspace.getByRole("combobox", { name: "诊断模式" }),
+    ).toHaveText("自定义组合（2–6 策略）");
+    await workspace
+      .getByRole("combobox", { name: "执行方式" })
+      .selectOption("archive");
   };
   await openCustom();
   const add = workspace.getByRole("button", { name: "添加分仓" });
@@ -630,7 +651,7 @@ test("custom sleeves validate, save a local preset, run a real job and restore i
 
   await workspace.getByLabel("本地组合预设名称").fill("双策略预设");
   await workspace.getByRole("button", { name: "保存本地预设" }).click();
-  await page.reload();
+  await page.reload({ waitUntil: "networkidle" });
   await openCustom();
   await workspace.getByRole("combobox", { name: "本地组合预设" }).click();
   await page.getByRole("option", { name: "双策略预设" }).click();
@@ -660,7 +681,9 @@ test("custom sleeves validate, save a local preset, run a real job and restore i
     timeout: 60_000,
   });
   await receipt.getByRole("button", { name: "查看归档" }).click();
-  const rerun = workspace.getByRole("button", { name: "用相同参数复跑" });
+  const rerun = page
+    .getByRole("region", { name: "诊断归档详情" })
+    .getByRole("button", { name: "用相同参数复跑" });
   await rerun.click();
   await expect(workspace.getByText(/复跑参数来自归档/)).toBeVisible();
   await expectDiagnosisSymbols(page, ["sh600000", "sh600001"]);
@@ -701,7 +724,7 @@ test("archive downloads Markdown and all twelve JSON cells from a paginated arch
   page,
 }) => {
   await page.goto(archiveHref(archiveIds.export));
-  const workspace = page.getByRole("region", { name: "诊断工作台" });
+  const workspace = page.getByRole("region", { name: "诊断归档详情" });
   await expect(workspace.getByText("第 1 / 2 页 · 共 12 个单元")).toBeVisible();
   const download = async (label: string, extension: string) => {
     const [file] = await Promise.all([
@@ -731,7 +754,7 @@ test("Back from an archive fill preserves page two, the selected cell and the se
   page,
 }) => {
   await page.goto(archiveHref(archiveIds.export));
-  const workspace = page.getByRole("region", { name: "诊断工作台" });
+  const workspace = page.getByRole("region", { name: "诊断归档详情" });
   const secondPage = workspace.getByText("第 2 / 2 页 · 共 12 个单元");
   await workspace.getByRole("button", { name: "下一页", exact: true }).click();
   await expect(secondPage).toBeVisible();

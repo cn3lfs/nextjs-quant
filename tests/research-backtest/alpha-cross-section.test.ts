@@ -890,3 +890,25 @@ it("真实 tRPC 和 worker 完成两段任务；评估排队后更改配置会�
     sqlite().close();
   }
 }, 30000);
+it("内置价量公式因子 momentum/reversal/volatility 均使用合法 N1 参数且可编译求值", async () => {
+  const { compileFactors } = await import("~/server/research/alpha/panel");
+  const { alphaExperimentSchema } =
+    await import("~/lib/research/alpha-experiment");
+  const compiled = compileFactors(
+    alphaExperimentSchema.parse({
+      factors: [
+        { factorId: "momentum", direction: 1 },
+        { factorId: "reversal", direction: 1, parameters: { N: 5 } },
+        { factorId: "volatility", direction: -1, parameters: { N1: 10 } },
+        { factorId: "turnover", direction: -1 },
+        { factorId: "amount", direction: 1 },
+      ],
+    }),
+  );
+  expect(compiled).toHaveLength(5);
+  expect(typeof compiled[0]).toBe("object");
+  expect(typeof compiled[1]).toBe("object");
+  expect(typeof compiled[2]).toBe("object");
+  expect(compiled[3]).toBe("turnover");
+  expect(compiled[4]).toBe("amount");
+});

@@ -1,5 +1,19 @@
 import { z } from "zod";
 
+export const accountWorkspaceTabs = [
+  { value: "holdings", label: "持仓总览" },
+  { value: "ledger", label: "手工记账" },
+  { value: "trades", label: "成交明细" },
+  { value: "paper", label: "本地模拟盘" },
+  { value: "attribution", label: "策略归因" },
+  { value: "monthly", label: "月度复盘" },
+  { value: "weekly", label: "周度复盘" },
+  { value: "risk", label: "账户风控与实施缺口" },
+] as const;
+
+export const accountRiskHref = "/accounts?tab=risk";
+export type AccountRiskScope = "real" | "paper";
+
 export const accountKinds = ["real", "paper", "exchange-simulation"] as const;
 export type AccountKind = (typeof accountKinds)[number];
 export type AccountMarket = "cn-equity" | "crypto";

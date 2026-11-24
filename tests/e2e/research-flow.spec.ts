@@ -20,7 +20,9 @@ test("current baseline backtest renders a real worker report within budget", asy
   page,
 }, testInfo) => {
   await waitForIdleServer(page);
-  await page.goto("/lab/backtest", { waitUntil: "networkidle" });
+  await page.goto("/lab/backtest?view=compose&template=ma-baseline-5m", {
+    waitUntil: "networkidle",
+  });
   await page.getByLabel("基线证券代码").fill("sh600000");
   await page.getByRole("button", { name: "读取本地覆盖", exact: true }).click();
   await expect(page.getByLabel("基线结束日期")).toHaveValue("2026-10-12");
@@ -35,6 +37,9 @@ test("current baseline backtest renders a real worker report within budget", asy
     contentType: "text/plain",
   });
   expect(elapsedMs).toBeLessThanOrEqual(budgets.backtestClickToResultMs);
+  await expect(
+    page.getByRole("tab", { name: "结果", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
   await expect(report).toContainText("规则自检");
   await expect(report).toContainText("1 笔");
 });

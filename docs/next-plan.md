@@ -21,17 +21,17 @@
 | **M3** | 威科夫口径对齐 + 94-key 真实健康基线                   | 完成 | 对齐 `WY08` `MA60 上升`文字（未改阈值）；`sh600519` `strict` 摸底全部 94 个 catalog key **95/95 ok、0 P0**（88 正常成交 / 6 稀有结构零入场），见[94-key 健康基线](research-backtest/2026-11-23-catalog-94-health.md)                                     |
 | **M4** | 历史成分/退市/ST、周末 bar 第二源、桌面发版与实盘样本  | 挂起 | 依赖外部数据或显式授权；无本地证据前不做横截面外推                                                                                                                                                                                                       |
 
-## 下一大迭代（Iteration 4 已定稿，待下个会话按 Wave 0–4 执行）：全市场多因子 Alpha 实验室、ETF 轮动与执行现实引擎、账户风控/实施缺口、`/lab` 研究工作室归一与全天候作战室/Bar Replay
+## 当前阶段（2026-11-24 Iteration 4 Wave 0–4 已交付验收，Milestone 1 已提交 `master@fcf4cdb8`，Milestone 2 待授权提交）：全市场多因子 Alpha、ETF 轮动与执行现实引擎、研究工作室归一、三账实施缺口、全天候作战室与 Bar Replay
 
-基线提交：`master@e8ef49c0`（Iteration 3 已提交并完成 `release\win-unpacked\GuanlanQuant.exe` 打包）。三路并行只读旗舰架构摸底与 Wave 0–4（两里程碑）完整实施蓝图见 [Iteration 4 旗舰主实施计划](project/2026-11-24-iter4-flagship-plan.md)：
+基线提交：`master@e8ef49c0` → `master@fcf4cdb8`（Milestone 1）→ 当前工作树（Milestone 2）。完整蓝图见 [Iteration 4 旗舰主实施计划](project/2026-11-24-iter4-flagship-plan.md)，基于只读 `E:/new_tdx64`（截至 `2026-11-23`）的全市场实证见 [Iteration 4 全市场实证报告](research-backtest/2026-11-24-iter4-flagship-empirical.md)：
 
-- **里程碑 1（Wave 0 + Wave 1 · 数据地基与盈利新赛道）**：
-  - **Wave 0（基础设施大升级）**：新建只读 `E:/new_tdx64` 驱动的全市场 5,923 股 + 21 ETF 列式面板 `MarketPanelStore`（32 日分块、52 B/格、热读 0.3–2s）；补齐按证券×交易日多品种规则（含 ETF 免印花税与债券/黄金/跨境 ETF T+0）、回测/纸面/实盘同源账户级 `PortfolioRiskEngine`（5%/8% 回撤熔断、5% 总止损敞口、25% 行业上限、ATR 0.5% 定仓）与 **Execution Reality Engine**（10 万/30 万/100 万本金 × 开盘/09:35/09:45/10:00 人工 5m 窗口、ADV20 动态冲击滑点与高开拒追、四大危机切片）；SQLite 安全向后兼容升至 **`user_version = 24`**（新增 `factor_composites` 与 `rebalance_plans`）。
-  - **Wave 1（盈利新赛道上线）**：全市场截面多因子 Alpha 引擎（按市场日历 `t+h` 修复停牌错期、行业与 `log(GP16)` 中性化、RankIC/ICIR/10 分组/衰减、一键转 `quant-backtest` Top-N 组合回测）+ 三大 A 股 ETF 轮动策略族（多资产双动量、行业 ETF 相对强弱、股债金风险预算）+ `/lab/analysis` 升级多因子 Alpha 实验室。
-- **里程碑 2（Wave 2 + Wave 3 + Wave 4 · 工作台大重构、作战室、Bar Replay 与全量实证打包）**：
-  - **Wave 2（`/lab` 三引擎归一 + 三账实施缺口）**：整合 `/lab/backtest` 三套割裂入口为统一「编排 / 结果 / 归档」研究工作室（6 模板可视化编排、100% 兼容旧 URL/归档、9 格执行现实卡、强绑定 PBO/DSR 的 2D 参数稳健性高原热力图、逐笔 MAE/MFE 与 Top-5 回撤表）；落地「策略理论账 → 可执行基线账 → 实际账」Perold 实施缺口与纪律偏差对账及 `/accounts` 账户风控仪表盘。
-  - **Wave 3（全天候作战室 + 全来源复盘与 Bar Replay）**：`/` 落地 0–100 历史市场温度计与滞回状态机、30 行业 RRG 四象限、持仓/自选/候选财联社快讯（独立刷新零阻塞主轮询）及收盘→次日可执行 `RebalanceTicket`（精确整手与风险预算、人工确认零自动下单）；主图打通全来源（含 `/accounts` 实盘交割单）盈亏区间盒与 MAE/MFE 复盘，新增严格因果独立视窗 **Bar Replay 逐根盲测训练**。
-  - **Wave 4（全市场实证与 v24 正式打包）**：只读 `E:/new_tdx64` 实跑全市场面板测速、ETF 轮动与 Alpha 9 格执行现实矩阵、危机切片、风控消融与实施缺口/Bar Replay 验证，完成 `pnpm check` 6/6、Playwright E2E、`pnpm desktop:pack`（v24、0 告警、0 `.env*`）及双冒烟收尾后待授权提交。
+- **Milestone 1（Wave 0 + Wave 1 · 已提交 `master@fcf4cdb8`）**：
+  - **Wave 0（底座与 Schema v24）**：落地只读 `E:/new_tdx64` 驱动的隔离列式面板 `MarketPanelStore`（实测 5,923 股 + 1,847 ETF + 8 指数 × 8,832 日，冷建 143.15s / 暖校验复用 19.85s / 单日全市场截面 **1.5–1.7 ms**，与 `tstdx/local` 0 价量误差）；补齐按证券×交易日多品种规则（ETF 0 印花税与债券/黄金/跨境 ETF T+0）、回测/纸面/实盘同源 `PortfolioRiskEngine`（5%/8% 回撤熔断、5% 总止损敞口、25% 行业上限、Wilder ATR(14) 0.5% 定仓）与 `ExecutionRealityEngine`（10万/30万/100万 × 多窗口、ADV20 冲击滑点、高开拒追、四大危机切片）；SQLite 向后兼容升至 **`user_version = 24`**（新增 `factor_composites`、`rebalance_plans`，桌面版升 `0.2.0`）。
+  - **Wave 1（盈利新赛道）**：全市场截面多因子 Alpha 引擎（按四指数并集日历 `t+h` 对齐、`compileFormula`/`compileScreenFormula` 统一编译、OLS 行业/市值中性化、严格因果已到期滚动 ICIR、5 项基线对照与 Top-N `scheduledTargets` 回测）；3 族 A 股 ETF 轮动策略（`etf-dual-momentum`、`etf-sector-rotation`、`etf-risk-budget`）覆盖 21 只本地 ETF；`/lab/analysis` 升级为多因子 Alpha 实验室默认入口（`?tab=evidence` 完整保留证据解读）。
+- **Milestone 2（Wave 2 + Wave 3 + Wave 4 · 已验收待授权提交）**：
+  - **Wave 2（研究工作室归一 + 三账实施缺口与风控）**：整合 `/lab/backtest` 为「编排 / 结果 / 归档」统一研究工作室（6 模板编排、100% 兼容旧 URL 与既有归档、新增 SHA-256 `fill-evidence.json` 成交证据边车、dev-only 2D 参数稳健性高原热力图强绑定 CSCV PBO/DSR/$N_{\mathrm{eff}}$、逐笔 MAE/MFE 与 U1 拼接 Top-5 回撤表）；落地 Perold 三账本五维实施缺口（延迟/滑点/漏单机会成本/纪律偏差/费用差，0 数值残差对平校验，POST 读接口防 URL 截断，严格 GBBQ 覆盖截止日核验）与 `/accounts?tab=risk` 账户级风控仪表盘。
+  - **Wave 3（全天候作战室 + 全来源 K 线复盘与 Bar Replay）**：`/` 升级为 A 股全天候作战室（0–100 市场温度计与滞回状态机、30 申万行业 8 周 RRG 四象限、独立刷新的持仓/自选/候选财联社快讯、收盘→次日可执行 `RebalanceTicket` 整手调仓单且人工确认零自动下单）；主图打通五类来源（含交割单与模拟盘）盈亏区间盒与 MAE/MFE 复盘，新增严格因果独立视窗 **Bar Replay 盲测训练**（零未来日期泄露、逐根前进、`next-open` 撮合与受控主线程串行 CZSC v22 叠加）。
+  - **Wave 4（全市场实证、全量门禁、E2E 与 v24 打包双冒烟）**：完成只读 `E:/new_tdx64` 全市场实证报告（实测 `etf-risk-budget` 2020–2026 基准 `+34.04%` / Sharpe `0.879` / MDD `3.83%`、`etf-sector-rotation` 开风控 MDD 从 `34.63%` 降至 `8.15%`、3 因子因果 ICIR 合成 T+5 RankIC `+0.0682` / ICIR `0.388` 优于等权，同时诚实暴露全市场 Top-10 实盘换手损耗与 `.lc5` 独立实证缺口，并修复内置公式参数名 `N`→`N1`）；完整工程门禁 6/6 通过（根仓 **8,703 passed** + 7 子包 **878 passed** = **9,581 passed / 0 failed**，0 依赖错误、0 lint/typecheck/format 错误）；Playwright Iteration 4 全部新增与涉及 E2E 套件全绿（`alpha-studio` 3/3、`bar-replay` 3/3、`chart-trade-marks` 3/3、`lab-diagnose` 15/15、`screening-flow` 3/3、`research-flow` 4/4、`execution-quality` 4/4、`thsdk-acceptance` 3/3、`theory-strategies` 2/2）；`pnpm desktop:pack` 完成 v0.2.0 / v24 正式打包（0 Turbopack 告警、0 `.env*`）并通过 `--diagnose-smoke --packaged` 与 `--lifecycle-smoke --packaged`（`schemaVersion: 24`、`czsc.apiVersion: 22`、`thsdk.rejected: true`、0 残留进程）。
 
 ## 前一阶段（2026-11-24 已交付 `master@e8ef49c0` 并打包）：零 `.env` 打包与底座硬化、停牌证据计分、同族 CSCV PBO、自定义分仓与 K 线买卖点主图闭环
 

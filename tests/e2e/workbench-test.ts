@@ -10,6 +10,7 @@ const localMutations = new Set([
   "factorEvaluate",
   "maBaseline",
   "cancel",
+  "saveWorkspacePreferences",
 ]);
 
 export async function guardWorkbenchPage(

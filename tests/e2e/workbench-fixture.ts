@@ -1,10 +1,58 @@
 import assert from "node:assert/strict";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import type Database from "better-sqlite3";
+import { GBBQ_KEY_BASE64, parseGbbqFile } from "tstdx/local";
 import { commitDeliveryImport } from "../../src/server/portfolio/delivery-import-service";
 import { fixtureDirectory } from "./fixture-directory";
 import czscRegression from "../fixtures/czsc-sse.json" with { type: "json" };
+
+function encryptGbbqRecord(record: Buffer) {
+  const key = Buffer.from(GBBQ_KEY_BASE64, "base64");
+  const box = (offset: number, index: number) =>
+    key.readUInt32LE(offset + index * 4);
+  const feistel = (value: number) => {
+    const mixed =
+      (box(0x48, value >>> 24) + box(0x448, (value >>> 16) & 0xff)) >>> 0;
+    return (
+      ((mixed ^ box(0x848, (value >>> 8) & 0xff)) +
+        box(0xc48, value & 0xff)) >>>
+      0
+    );
+  };
+  for (let offset = 0; offset < 24; offset += 8) {
+    let left = (record.readUInt32LE(offset) ^ key.readUInt32LE(0)) >>> 0;
+    let right = record.readUInt32LE(offset + 4);
+    for (let round = 4; round <= 64; round += 4) {
+      const next =
+        (right ^ ((feistel(left) ^ key.readUInt32LE(round)) >>> 0)) >>> 0;
+      right = left;
+      left = next;
+    }
+    record.writeUInt32LE((right ^ key.readUInt32LE(0x44)) >>> 0, offset);
+    record.writeUInt32LE(left, offset + 4);
+  }
+  return record;
+}
+
+function appendSyntheticGbbqCoverage(existing: Buffer, endDate: string) {
+  const count = existing.readUInt32LE(0);
+  const marker = Buffer.alloc(29);
+  marker.writeUInt8(1, 0);
+  marker.write("609999", 1, "ascii");
+  marker.writeUInt32LE(Number(endDate.replaceAll("-", "")), 8);
+  marker.writeUInt8(5, 12);
+  marker.writeFloatLE(10000, 13);
+  marker.writeFloatLE(10000, 17);
+  marker.writeFloatLE(10000, 21);
+  marker.writeFloatLE(10000, 25);
+  encryptGbbqRecord(marker);
+  const combined = Buffer.concat([existing, marker]);
+  combined.writeUInt32LE(count + 1, 0);
+  const parsed = parseGbbqFile(combined);
+  assert.equal(parsed.issues.length, 0);
+  return combined;
+}
 
 // Synthetic weekdays, prices and fills: these are workload inputs, never
 // historical market observations or attainable strategy performance.
@@ -111,6 +159,12 @@ export async function seedWorkbenchFixture(
   }
   await mkdir(join(root, "T0002/hq_cache"), { recursive: true });
   await writeFile(join(root, "T0002/hq_cache/shs.tnf"), names);
+  const gbbqPath = join(root, "T0002/hq_cache/gbbq");
+  const existingGbbq = await readFile(gbbqPath).catch(() => Buffer.alloc(4));
+  await writeFile(
+    gbbqPath,
+    appendSyntheticGbbqCoverage(existingGbbq, workbenchFixturePeriod.end),
+  );
   const accounts = [];
   for (const [account, rounds, securityCount] of [
     ["big", 1111, 20],

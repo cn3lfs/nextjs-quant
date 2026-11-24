@@ -24,6 +24,11 @@ import { SleeveAttributionCard } from "./sleeve-attribution-card";
 import { TheoryDisclosurePanel } from "./theory-disclosure-panel";
 import { TimeHoldoutCard } from "./time-holdout-card";
 
+import { DiagnosePagination } from "../studio/studio-pagination";
+import { StudioResultView } from "../studio/studio-result-view";
+
+export { DiagnosePagination } from "../studio/studio-pagination";
+
 const sourceLabels = {
   "lab-archive": "Lab 诊断运行",
   "cli-report": "CLI 诊断报告",
@@ -34,45 +39,6 @@ const scenarioOrder = (id: string) => {
   return index === -1 ? scenarioPriority.length : index;
 };
 
-export function DiagnosePagination({
-  page,
-  hasNext,
-  onPageChange,
-  label,
-}: {
-  page: number;
-  hasNext: boolean;
-  onPageChange: (page: number) => void;
-  label?: string;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-2 text-sm">
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        disabled={page <= 1}
-        onClick={() => onPageChange(page - 1)}
-      >
-        上一页
-      </Button>
-      <span className="text-nc-text-3 tabular-nums">
-        {label ?? `第 ${page} 页`}
-      </span>
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        disabled={!hasNext || page >= 1_000_000}
-        onClick={() => onPageChange(page + 1)}
-      >
-        下一页
-      </Button>
-    </div>
-  );
-}
-
-/** Shared renderer for one archive page: comparison, checks and disclosures. */
 export function DiagnoseDetailView({
   detail,
   active,
@@ -143,6 +109,14 @@ export function DiagnoseDetailView({
     scenarioId: diagnoseScenarioIdSchema.safeParse(scenario?.scenarioId).data,
     defaultSymbol: cell?.symbols.length === 1 ? cell.symbols[0] : undefined,
   };
+  const studio = api.studioArchiveDetail.useQuery(
+    {
+      archiveId: detail.summary.id,
+      cellIndex: cell ? (page - 1) * pageSize + cellIndex : undefined,
+      scenarioId: scenario?.scenarioId,
+    },
+    { enabled: active && !!cell && !!scenario, retry: false },
+  );
   const suspension =
     scenario?.sessionEvidence ?? detail.summary.suspensionSummary;
   const family = scenario?.familyHoldout ?? detail.summary.familyHoldout;
@@ -314,6 +288,25 @@ export function DiagnoseDetailView({
           investment={scenario.sleeveInvestment}
           trades={scenario.sleeveTrades}
         />
+      )}
+      {studio.data && (
+        <StudioResultView
+          key={chartContext.cellId + ":" + scenario?.scenarioId}
+          result={studio.data}
+          archiveDetail
+        />
+      )}
+      {studio.isError && (
+        <div className="flex items-center gap-2 text-sm text-nc-warn">
+          <p>统一绩效证据读取失败：{studio.error.message}</p>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void studio.refetch()}
+          >
+            重试绩效证据
+          </Button>
+        </div>
       )}
       <TheoryDisclosurePanel
         nativeChan={scenario?.nativeChan}

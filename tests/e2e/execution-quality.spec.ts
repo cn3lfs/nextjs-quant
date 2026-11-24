@@ -24,6 +24,9 @@ test("review reads only the selected section and preserves hidden section drafts
     ).toBeVisible({ timeout: 30000 });
     await page.waitForLoadState("networkidle");
   });
+  await expect(
+    page.getByRole("link", { name: "查看账户风控与实施缺口", exact: true }),
+  ).toHaveAttribute("href", "/accounts?tab=risk");
   expect(calls).toContain("tradeReviewSnapshot");
   expect(
     calls.filter((name) => sectionReads.has(name)),

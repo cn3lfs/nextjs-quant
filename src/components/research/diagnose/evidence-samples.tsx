@@ -22,6 +22,9 @@ import {
   type DiagnosticFocusTab,
 } from "./format";
 
+import { DiagnosePagination } from "../studio/studio-pagination";
+import { formatCount } from "./format";
+
 const focusRowClass = "border-l-2 border-nc-accent bg-nc-inset text-nc-text";
 const rowClass = "border-l-2 border-transparent";
 
@@ -66,7 +69,15 @@ export function EvidenceSamples({
     };
   };
   const orders = scenario.sampleOrders;
-  const fills = scenario.sampleFills;
+  const fills = scenario.fullFills ?? scenario.sampleFills;
+  const [fillPage, setFillPage] = useState(1);
+  const fillPageSize = 50;
+  const fillPageCount = Math.max(1, Math.ceil(fills.length / fillPageSize));
+  const shownPage = Math.min(fillPage, fillPageCount);
+  const visibleFills = fills.slice(
+    (shownPage - 1) * fillPageSize,
+    shownPage * fillPageSize,
+  );
   const unknownTriggerCount = countUnknownSellTriggers(
     tradeFillsFromDiagnose(scenario),
   );
@@ -74,6 +85,11 @@ export function EvidenceSamples({
   const rowsByTab = { fills, orders, rejections };
   if (focus !== previousFocus) {
     setPreviousFocus(focus);
+    if (focus) {
+      const focusIndex = fills.findIndex(match);
+      if (focusIndex >= 0)
+        setFillPage(Math.floor(focusIndex / fillPageSize) + 1);
+    }
     const preferred = focus?.tab ?? "fills";
     const alternatives = ["fills", "orders", "rejections"] as const;
     setTab(
@@ -105,7 +121,9 @@ export function EvidenceSamples({
       <div className="flex flex-wrap items-baseline gap-2">
         <h4 className="text-sm font-semibold text-nc-text">证据样本</h4>
         <span className="text-sub text-nc-text-3">
-          每类最多 50 条；完整列表在归档产物中。
+          {scenario.fullFills
+            ? "成交为完整归档记录，委托与拒绝为样本。"
+            : "每类最多 50 条；完整列表在归档产物中。"}
         </span>
         {unknownTriggerCount > 0 && (
           <span role="status" className="text-sub text-nc-text-3">
@@ -139,7 +157,9 @@ export function EvidenceSamples({
         onValueChange={(value) => setTab(value as DiagnosticFocusTab)}
       >
         <TabsList>
-          <TabsTrigger value="fills">成交 {fills.length}</TabsTrigger>
+          <TabsTrigger value="fills">
+            成交 {formatCount(fills.length)}
+          </TabsTrigger>
           <TabsTrigger value="orders">委托 {orders.length}</TabsTrigger>
           <TabsTrigger value="rejections">拒绝 {rejections.length}</TabsTrigger>
         </TabsList>
@@ -183,9 +203,9 @@ export function EvidenceSamples({
                     </td>
                   </tr>
                 ) : (
-                  fills.map((fill) => (
+                  visibleFills.map((fill, index) => (
                     <tr
-                      key={`${fill.orderId}-${fill.symbol}-${fill.date}-${fill.side}`}
+                      key={`${fill.orderId}-${fill.symbol}-${fill.date}-${fill.side}-${index}`}
                       {...rowProps(fill)}
                     >
                       <td className="px-3 py-1.5 tabular-nums">{fill.date}</td>
@@ -249,6 +269,14 @@ export function EvidenceSamples({
               </tbody>
             </table>
           </div>
+          {fillPageCount > 1 && (
+            <DiagnosePagination
+              page={shownPage}
+              hasNext={shownPage < fillPageCount}
+              onPageChange={setFillPage}
+              label={`成交第 ${shownPage} / ${fillPageCount} 页`}
+            />
+          )}
         </TabsContent>
         <TabsContent value="orders">
           <div className="overflow-x-auto rounded-lg border border-nc-border-soft">

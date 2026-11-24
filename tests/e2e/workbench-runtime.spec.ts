@@ -1,4 +1,5 @@
 import { expect, test, guardWorkbenchPage } from "./workbench-test";
+import { navItems } from "../../src/components/workbench/navigation";
 import {
   budgets,
   metrics,
@@ -23,7 +24,7 @@ function readyPanel(
     case "/system/notifications":
       return page.getByRole("tablist", { name: "监控工作区" });
     case "/lab/backtest":
-      return page.getByRole("region", { name: "策略回测实验室" });
+      return page.getByRole("region", { name: "研究工作室" });
     case "/system/tasks":
       return page.getByRole("combobox", { name: "任务类型" });
   }
@@ -87,9 +88,25 @@ test("first load ships a small bundle and panels load on first visit", async ({
     await session.waitForTimeout(2000);
     const times: Record<string, number> = {};
     for (const path of panelPaths) {
+      const entry = navItems.find((item) => item.href === path);
+      if (entry) {
+        const groupBtn = session
+          .getByRole("navigation", { name: "工作台导航", exact: true })
+          .getByRole("button", { name: entry.group, exact: true });
+        if (
+          (await groupBtn.count()) > 0 &&
+          (await groupBtn.getAttribute("aria-expanded")) === "false"
+        ) {
+          await groupBtn.click();
+        }
+      }
+      const target = new URL(path, "http://workbench");
       const started = await session.evaluate(() => performance.now());
       await session.locator(`a[href="${path}"]`).first().click();
-      await expect(session).toHaveURL((url) => url.pathname === path);
+      await expect(session).toHaveURL(
+        (url) =>
+          url.pathname === target.pathname && url.search === target.search,
+      );
       await readyPanel(session, path).waitFor({ state: "visible" });
       times[path] = (await session.evaluate(() => performance.now())) - started;
       // Let this panel finish its own loads and renders so the next timing is
@@ -158,7 +175,6 @@ test("after touring every page, hidden panels stay quiet", async ({
     );
     await page.waitForLoadState("networkidle");
   };
-  await visitViaSidebar("选股筛选", "盘中记录", "/?tab=intraday");
   await visitViaSidebar("今日交易", "大盘总览", "/?tab=overview");
   await visit(page, "/scan");
   for (const [group, label, tab] of [

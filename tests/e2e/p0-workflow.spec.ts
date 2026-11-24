@@ -426,11 +426,9 @@ test("sidebar counts old active tasks beyond the recent list and refreshes their
 test("current backtest reports missing warmup, recovers, restores and exports real worker output", async ({
   page,
 }) => {
-  const hydrated = page.waitForResponse(
-    (response) => procedure(response, "maBaselineHistory") && response.ok(),
-  );
-  await page.goto("/lab/backtest");
-  await hydrated;
+  await page.goto("/lab/backtest?view=compose&template=ma-baseline-5m", {
+    waitUntil: "networkidle",
+  });
   await expect(
     page.getByRole("button", { name: "开始回测", exact: true }),
   ).toBeDisabled();
@@ -488,7 +486,10 @@ test("current backtest reports missing warmup, recovers, restores and exports re
   expect(archive.inputSnapshot.bars).toHaveLength(68);
   expect(archive.manifest.warmupBars).toBe(20);
   await page.reload();
-  await page
+  await page.getByRole("tab", { name: "归档", exact: true }).click();
+  const archives = page.getByRole("region", { name: "历史诊断档案和实验" });
+  await archives.getByRole("textbox", { name: "检索归档" }).fill(job.id);
+  await archives
     .getByRole("button", { name: `恢复实验 ${job.id}`, exact: true })
     .click();
   await expect(report).toContainText(job.id);
@@ -839,7 +840,7 @@ test("research draft survives framework navigation and settings owns its control
     if (request.method() === "POST" && request.url().includes("/api/trpc/"))
       mutations.push(new URL(request.url()).pathname);
   });
-  await page.goto("/lab/analysis");
+  await page.goto("/lab/analysis?tab=evidence");
   const question = page.getByRole("textbox", { name: "研究问题", exact: true });
   await expect(
     page.getByRole("button", { name: "开始研究", exact: true }),
@@ -875,7 +876,9 @@ test("research draft survives framework navigation and settings owns its control
   await expect(
     page.getByRole("button", { name: "扫描已保存目录", exact: true }),
   ).toBeEnabled();
-  await openWorkspacePage(page, "AI 研判");
+  await openWorkspacePage(page, "Alpha 与研究");
+  await page.getByRole("radio", { name: "证据解读", exact: true }).click();
+  await expect(page).toHaveURL(/\/lab\/analysis\?tab=evidence$/);
   await expect(question).toHaveValue("P2 保留当前研究问题");
   await expect(
     page.getByRole("button", { name: "开始研究", exact: true }),

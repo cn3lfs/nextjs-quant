@@ -2,6 +2,7 @@ import { expect, it } from "vitest";
 import {
   evaluatePerformance,
   performancePeriods,
+  topDrawdownEpisodes,
   type PerformancePoint,
 } from "../src/index.js";
 
@@ -10,6 +11,43 @@ const points: PerformancePoint[] = [
   { date: "2025-01-03", value: 88, benchmarkReturn: -0.03 },
   { date: "2025-01-06", value: 110, benchmarkReturn: 0.01 },
 ];
+
+it("finds a recovered drawdown across the gap left by the deepest episode", () => {
+  const values = [110, 130, 60, 130, 90, 120];
+  const dates = [
+    "2025-01-02",
+    "2025-01-03",
+    "2025-01-06",
+    "2025-01-07",
+    "2025-01-08",
+    "2025-01-10",
+  ];
+  const episodes = topDrawdownEpisodes(
+    100,
+    values.map((value, i) => ({ date: dates[i]!, value })),
+  );
+  expect(episodes).toEqual([
+    {
+      peakDate: dates[1],
+      valleyDate: dates[2],
+      recoveryDate: dates[3],
+      depth: expect.closeTo(70 / 130, 12),
+      recoveryDays: 1,
+      observedRecoveryDays: 1,
+      underwaterDays: 4,
+    },
+    {
+      peakDate: dates[0],
+      valleyDate: dates[4],
+      recoveryDate: dates[5],
+      depth: expect.closeTo(20 / 110, 12),
+      recoveryDays: 2,
+      observedRecoveryDays: 2,
+      underwaterDays: 8,
+    },
+  ]);
+});
+
 it("includes the first day, uses arithmetic excess/sample risk and measures calendar recovery", () => {
   const r = evaluatePerformance(100, points);
   expect(r.totalReturn.value).toBeCloseTo(0.1, 12);

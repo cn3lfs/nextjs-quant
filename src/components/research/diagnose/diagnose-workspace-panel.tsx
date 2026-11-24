@@ -15,6 +15,15 @@ import {
 import { taskHistoryHref } from "~/lib/research/workflow/task-history-location";
 import { usePanelVisible } from "../../workbench/keep-alive";
 import { DiagnosticTaskIndicator } from "../../workbench/task-evidence";
+import type { ResearchStudioDraftInput } from "~/lib/research/studio-result";
+import { researchStudioDraftSchema } from "~/lib/research/studio-result";
+import {
+  RiskPolicyFields,
+  StrategyPicker,
+  StudioStep,
+} from "../studio/studio-fields";
+import { FrozenJson } from "../studio/frozen-json";
+import type { StudioCatalog } from "../studio/studio-fields";
 import { Pill } from "../../panels";
 import { Button } from "../../ui/button";
 import { Checkbox } from "../../ui/checkbox";
@@ -26,11 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
-import { DiagnoseComparePanel } from "./diagnose-compare-panel";
-import { DiagnoseDetailView, DiagnosePagination } from "./diagnose-detail-view";
 import {
-  boundaryLabels,
   equalizeSleeveWeights,
   formatCount,
   formatPercent,
@@ -40,15 +45,7 @@ import {
   type SleeveDraft,
 } from "./format";
 
-const sourceOptions = [
-  { value: "all", label: "全部来源" },
-  { value: "lab-archive", label: "Lab 诊断运行" },
-  { value: "cli-report", label: "CLI 诊断报告" },
-] as const;
-type SourceFilter = (typeof sourceOptions)[number]["value"];
-
 const scenarioOptions = Object.values(DIAGNOSE_SCENARIO_PRESETS);
-const archivePageSize = 10;
 
 const costScenarioOptions = [
   { value: "fixed", label: "fixed · 固定费率" },
@@ -65,450 +62,11 @@ const runModeOptions = [
 ] as const;
 type RunMode = (typeof runModeOptions)[number]["value"];
 
-const symbolPattern = /^(sh|sz|bj)\d{6}$/;
 const splitSymbols = (value: string) =>
   value
     .split(/[\s,，、]+/)
     .map((item) => item.trim())
     .filter(Boolean);
-
-function ArchiveRow({
-  archive,
-  selected,
-  onSelect,
-  compareChecked,
-  compareDisabled,
-  onToggleCompare,
-}: {
-  archive: DiagnoseArchiveSummary;
-  selected: boolean;
-  onSelect: () => void;
-  compareChecked: boolean;
-  compareDisabled: boolean;
-  onToggleCompare: (next: boolean) => void;
-}) {
-  const boundary = archive.missingFiles.length
-    ? "missing-files"
-    : archive.statusCounts.blocked ||
-        archive.statusCounts.failed ||
-        !archive.statusCounts.ok
-      ? "blocked"
-      : archive.statusCounts.ok > 0 &&
-          archive.statusCounts.ok === archive.statusCounts.zeroSignal
-        ? "zero-signal"
-        : "ok";
-  return (
-    <li
-      className={`flex items-start gap-2 rounded-lg border px-3 py-2 ${
-        selected
-          ? "border-nc-accent bg-nc-inset"
-          : "border-nc-border-soft bg-nc-card"
-      }`}
-    >
-      <Checkbox
-        data-testid={`diagnose-compare-toggle-${archive.id}`}
-        aria-label={`勾选归档 ${archive.title} 用于并排对比`}
-        className="mt-1"
-        checked={compareChecked}
-        disabled={compareDisabled}
-        onCheckedChange={(value) => onToggleCompare(value === true)}
-      />
-      <Button
-        type="button"
-        variant="plain"
-        aria-pressed={selected}
-        onClick={onSelect}
-        className="w-full flex-col items-start gap-1 text-left"
-      >
-        <span className="flex w-full flex-wrap items-baseline gap-2">
-          <span className="text-sm font-medium text-nc-text">
-            {archive.title}
-          </span>
-          <Pill
-            tone={
-              boundary === "ok"
-                ? "ok"
-                : boundary === "zero-signal"
-                  ? "warn"
-                  : "bad"
-            }
-          >
-            {boundaryLabels[boundary]}
-          </Pill>
-          <Pill tone="neutral">
-            {archive.source === "cli-report" ? "CLI" : "Lab"}
-          </Pill>
-          <span className="text-sub text-nc-text-3">{archive.generatedAt}</span>
-        </span>
-        <span className="text-sub text-nc-text-3">
-          {archive.strategyKeys.join("、") || "—"} ·{" "}
-          {archive.symbols.join("、") || "—"} · 正常{" "}
-          {formatCount(archive.statusCounts.ok)} · 零信号{" "}
-          {formatCount(archive.statusCounts.zeroSignal)}
-          {archive.driftWarnings.length
-            ? ` · 漂移 ${archive.driftWarnings.length}`
-            : ""}
-          {archive.missingFiles.length
-            ? ` · 缺文件 ${archive.missingFiles.length}`
-            : ""}
-        </span>
-      </Button>
-    </li>
-  );
-}
-
-type ArchiveFilters = {
-  source: SourceFilter;
-  strategyKey: string;
-  symbol: string;
-};
-const initialFilters: ArchiveFilters = {
-  source: "all",
-  strategyKey: "",
-  symbol: "",
-};
-
-type ArchiveRequest = { id: string };
-
-function ArchiveBrowser({
-  active,
-  archiveRequest,
-  onRerun,
-}: {
-  active: boolean;
-  archiveRequest: ArchiveRequest | null;
-  onRerun: (archive: DiagnoseArchiveSummary) => void;
-}) {
-  const visible = usePanelVisible();
-  const [draft, setDraft] = useState<ArchiveFilters>(initialFilters);
-  // Applied explicitly: reading archives touches the filesystem on every key.
-  const [applied, setApplied] = useState<ArchiveFilters>(initialFilters);
-  const [selectedId, setSelectedId] = useState<string | null>(
-    archiveRequest?.id ?? null,
-  );
-  const [page, setPage] = useState(1);
-  const [listPage, setListPage] = useState(1);
-  const [compareIds, setCompareIds] = useState<string[]>([]);
-  const [compareOpen, setCompareOpen] = useState(false);
-  const [appliedArchive, setAppliedArchive] = useState(archiveRequest);
-  const detailRef = useRef<HTMLDivElement>(null);
-  const focusedArchive = useRef<ArchiveRequest | null>(null);
-  if (archiveRequest !== appliedArchive) {
-    setAppliedArchive(archiveRequest);
-    if (archiveRequest) {
-      if (archiveRequest.id !== selectedId) {
-        setSelectedId(archiveRequest.id);
-        setPage(1);
-      }
-      setCompareOpen(false);
-    }
-  }
-  const symbolInput = applied.symbol.trim();
-  const validSymbol = symbolPattern.test(symbolInput) ? symbolInput : undefined;
-  const dirty =
-    draft.source !== applied.source ||
-    draft.strategyKey !== applied.strategyKey ||
-    draft.symbol !== applied.symbol;
-  const filtered =
-    applied.source !== "all" ||
-    applied.strategyKey.trim() !== "" ||
-    applied.symbol.trim() !== "";
-  const archives = api.strategyLabDiagnoseArchives.useQuery(
-    {
-      page: listPage,
-      pageSize: archivePageSize,
-      ...(applied.source === "all" ? {} : { source: applied.source }),
-      ...(applied.strategyKey.trim()
-        ? { strategyKey: applied.strategyKey.trim() }
-        : {}),
-      ...(validSymbol ? { symbol: validSymbol } : {}),
-    },
-    { enabled: visible && active },
-  );
-  const detail = api.strategyLabDiagnoseArchiveDetail.useQuery(
-    { id: selectedId ?? "", page, pageSize: 10 },
-    { enabled: visible && active && selectedId !== null },
-  );
-  const comparison = api.strategyLabDiagnoseCompare.useQuery(
-    {
-      leftId: compareIds[0] ?? "",
-      rightId: compareIds[1] ?? "",
-    },
-    {
-      enabled: visible && active && compareOpen && compareIds.length === 2,
-    },
-  );
-  useEffect(() => {
-    if (!archiveRequest || !visible || !active || detail.isPending) return;
-    if (focusedArchive.current === archiveRequest || !detailRef.current) return;
-    focusedArchive.current = archiveRequest;
-    detailRef.current.focus({ preventScroll: true });
-    detailRef.current.scrollIntoView({ block: "nearest" });
-  }, [archiveRequest, visible, active, detail.isPending]);
-  const setField = <K extends keyof ArchiveFilters>(
-    key: K,
-    value: ArchiveFilters[K],
-  ) => setDraft((current) => ({ ...current, [key]: value }));
-  const toggleCompare = (id: string, next: boolean) => {
-    setCompareOpen(false);
-    setCompareIds((current) => {
-      if (!next) return current.filter((value) => value !== id);
-      if (current.includes(id) || current.length >= 2) return current;
-      return [...current, id];
-    });
-  };
-  return (
-    <div className="space-y-3">
-      <form
-        className="space-y-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          setApplied(draft);
-          setListPage(1);
-          setSelectedId(null);
-        }}
-      >
-        <div className="grid gap-2 sm:grid-cols-3">
-          <label className="block text-sm">
-            来源
-            <Select
-              value={draft.source}
-              onValueChange={(value) => {
-                if (
-                  value === "all" ||
-                  value === "lab-archive" ||
-                  value === "cli-report"
-                )
-                  setField("source", value);
-              }}
-            >
-              <SelectTrigger
-                aria-label="诊断归档来源"
-                className="mt-1 max-w-full"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {sourceOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
-          <label className="block text-sm">
-            策略键
-            <Input
-              aria-label="按策略键筛选"
-              className="mt-1"
-              value={draft.strategyKey}
-              maxLength={100}
-              placeholder="例如 research-chan-third"
-              onChange={(event) => setField("strategyKey", event.target.value)}
-            />
-          </label>
-          <label className="block text-sm">
-            标的
-            <Input
-              aria-label="按标的筛选"
-              className="mt-1"
-              value={draft.symbol}
-              placeholder="例如 sz300750"
-              onChange={(event) => setField("symbol", event.target.value)}
-            />
-          </label>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button type="submit" size="sm" variant="outline" disabled={!dirty}>
-            应用筛选
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="plain"
-            disabled={!dirty && !filtered}
-            onClick={() => {
-              setDraft(initialFilters);
-              setApplied(initialFilters);
-              setListPage(1);
-              setSelectedId(null);
-            }}
-          >
-            清空
-          </Button>
-          {dirty && (
-            <span role="status" className="text-sub text-nc-text-3">
-              筛选已修改，尚未应用。
-            </span>
-          )}
-        </div>
-      </form>
-      {symbolInput && !validSymbol && (
-        <p role="status" className="text-sub text-nc-warn">
-          标的需为 sh/sz/bj + 6 位数字；当前输入未参与筛选。
-        </p>
-      )}
-
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="text-nc-text-3">
-          对比勾选 {compareIds.length}/2（最多两份）
-        </span>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          data-testid="diagnose-compare-open"
-          disabled={compareIds.length !== 2}
-          onClick={() => {
-            if (!selectedId) {
-              setSelectedId(compareIds[0] ?? null);
-              setPage(1);
-            }
-            setCompareOpen(true);
-          }}
-        >
-          并排对比
-        </Button>
-        {(compareIds.length > 0 || compareOpen) && (
-          <Button
-            type="button"
-            size="sm"
-            variant="plain"
-            onClick={() => {
-              setCompareIds([]);
-              setCompareOpen(false);
-            }}
-          >
-            清除对比
-          </Button>
-        )}
-      </div>
-
-      {archives.isError && (
-        <div role="alert" className="space-y-2 text-sm text-nc-warn">
-          <p>读取诊断归档失败：{archives.error.message}</p>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void archives.refetch()}
-          >
-            重试
-          </Button>
-        </div>
-      )}
-      {archives.isPending && (
-        <p role="status" className="text-sm text-nc-text-3">
-          正在读取诊断归档…
-        </p>
-      )}
-      {archives.data?.length === 0 && (
-        <p className="text-sm text-nc-text-3">
-          {listPage === 1
-            ? "没有匹配的诊断归档。可新建诊断运行或调整筛选条件。"
-            : "此页没有更多归档。"}
-        </p>
-      )}
-      {archives.data &&
-        (listPage > 1 || archives.data.length === archivePageSize) && (
-          <DiagnosePagination
-            page={listPage}
-            hasNext={archives.data.length === archivePageSize}
-            onPageChange={setListPage}
-          />
-        )}
-      {archives.data && archives.data.length > 0 && (
-        <ul className="max-h-72 space-y-1.5 overflow-y-auto pr-1">
-          {archives.data.map((archive) => (
-            <ArchiveRow
-              key={archive.id}
-              archive={archive}
-              selected={archive.id === selectedId}
-              onSelect={() => {
-                setCompareOpen(false);
-                setSelectedId(archive.id);
-                setPage(1);
-              }}
-              compareChecked={compareIds.includes(archive.id)}
-              compareDisabled={
-                compareIds.length === 2 && !compareIds.includes(archive.id)
-              }
-              onToggleCompare={(next) => toggleCompare(archive.id, next)}
-            />
-          ))}
-        </ul>
-      )}
-
-      {compareOpen && (
-        <>
-          {comparison.isError && (
-            <div role="alert" className="space-y-2 text-sm text-nc-warn">
-              <p>读取归档对比失败：{comparison.error.message}</p>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void comparison.refetch()}
-              >
-                重试
-              </Button>
-            </div>
-          )}
-          {comparison.isPending && compareIds.length === 2 && (
-            <p role="status" className="text-sm text-nc-text-3">
-              正在读取两份诊断归档…
-            </p>
-          )}
-          {comparison.data && (
-            <DiagnoseComparePanel
-              left={comparison.data.left}
-              right={comparison.data.right}
-              onClose={() => setCompareOpen(false)}
-            />
-          )}
-        </>
-      )}
-
-      <div ref={detailRef} tabIndex={-1} hidden={compareOpen}>
-        {selectedId && detail.isError && (
-          <div role="alert" className="space-y-2 text-sm text-nc-warn">
-            <p>读取归档明细失败：{detail.error.message}</p>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => void detail.refetch()}
-            >
-              重试
-            </Button>
-          </div>
-        )}
-        {selectedId && detail.isPending && (
-          <p role="status" className="text-sm text-nc-text-3">
-            正在读取归档明细…
-          </p>
-        )}
-        {detail.data && (
-          <DiagnoseDetailView
-            key={`${detail.data.summary.id}:${detail.data.pagination.page}`}
-            detail={detail.data}
-            active={visible && active && !compareOpen}
-            onPageChange={setPage}
-            onRerun={onRerun}
-          />
-        )}
-        {selectedId && detail.isSuccess && detail.data === null && (
-          <p role="status" className="text-sm text-nc-text-3">
-            此诊断归档尚不可查看。
-          </p>
-        )}
-        {!selectedId && (
-          <p className="text-sm text-nc-text-3">
-            选择一个归档以查看执行情景对比、15 项检查与理论口径披露。
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
 
 export type DiagnoseRunPrefill = {
   symbol?: string;
@@ -533,14 +91,17 @@ function prefillRunMode(prefill: DiagnoseRunPrefill | null): RunMode {
   return prefill?.mode ?? "per-symbol";
 }
 
-type RunFormRequest =
+export type DiagnoseRunRequest =
   { handoff: DiagnoseRunPrefill } | { archive: DiagnoseArchiveSummary };
 
 function toSleeveDrafts(sleeves: readonly DiagnoseBookSleeve[]): SleeveDraft[] {
   return sleeves.map((row) => ({ ...row, share: String(row.share) }));
 }
 
-function runDraft(request: RunFormRequest | null) {
+function runDraft(
+  request: DiagnoseRunRequest | null,
+  template: "single" | "multi-book",
+) {
   const prefill = request && "handoff" in request ? request.handoff : null;
   const archive = request && "archive" in request ? request.archive : null;
   const run = archive?.run;
@@ -562,7 +123,11 @@ function runDraft(request: RunFormRequest | null) {
         ? missingBook
           ? ""
           : (run?.mode ?? "")
-        : prefillRunMode(prefill);
+        : prefill
+          ? prefillRunMode(prefill)
+          : template === "multi-book"
+            ? "custom"
+            : "portfolio";
   const missing = !archive
     ? []
     : !run
@@ -583,6 +148,10 @@ function runDraft(request: RunFormRequest | null) {
         ? ""
         : (run?.strategyKey ?? prefill?.strategyKey ?? ""),
     archivedStrategies: missingBook ? undefined : run?.strategies,
+    poolId: run?.poolId,
+    poolKind: run?.poolId ?? "custom",
+    bookControl: run?.bookControl,
+    riskPolicy: run?.riskPolicy,
     sleeves: custom
       ? toSleeveDrafts(custom)
       : equalizeSleeveWeights([
@@ -839,22 +408,30 @@ function CustomBookEditor({
   );
 }
 
-function RunForm({
+export function DiagnoseWorkspacePanel({
   request,
-  active,
+  template,
+  catalog,
   onViewArchive,
-  onRerun,
+  onStudioRun,
+  studioBusy,
 }: {
-  request: RunFormRequest | null;
-  active: boolean;
+  request: DiagnoseRunRequest | null;
+  template: "single" | "multi-book";
+  catalog: StudioCatalog | undefined;
   onViewArchive: (archiveId: string) => void;
-  onRerun: (archive: DiagnoseArchiveSummary) => void;
+  onStudioRun: (draft: ResearchStudioDraftInput) => void;
+  studioBusy: boolean;
 }) {
   const visible = usePanelVisible();
-  const [baseline, setBaseline] = useState(() => runDraft(request));
+  const [baseline, setBaseline] = useState(() => runDraft(request, template));
   const [draft, setDraft] = useState(baseline);
   const [seenRequest, setSeenRequest] = useState(request);
-  const [pending, setPending] = useState<RunFormRequest | null>(null);
+  const [seenTemplate, setSeenTemplate] = useState(template);
+  const [submission, setSubmission] = useState<"archive" | "studio">(
+    request ? "archive" : "studio",
+  );
+  const [pending, setPending] = useState<DiagnoseRunRequest | null>(null);
   const [error, setError] = useState("");
   const [jobId, setJobId] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState("");
@@ -882,13 +459,25 @@ function RunForm({
         "strategyKey" in fields ||
         "sleeves" in fields) && { archivedStrategies: undefined }),
     }));
-  const applyRequest = (next: RunFormRequest) => {
-    const nextDraft = runDraft(next);
+  const applyRequest = (next: DiagnoseRunRequest) => {
+    const nextDraft = runDraft(next, template);
+    setSubmission("archive");
     setBaseline(nextDraft);
     setDraft(nextDraft);
     setPending(null);
     setError("");
   };
+  if (template !== seenTemplate) {
+    setSeenTemplate(template);
+    if (!request || request === seenRequest) {
+      const mode = template === "multi-book" ? "custom" : "portfolio";
+      if (
+        (runMode === "custom" || runMode === "core-4") !==
+        (template === "multi-book")
+      )
+        edit({ runMode: mode });
+    }
+  }
   if (request !== seenRequest) {
     setSeenRequest(request);
     if (request) {
@@ -928,8 +517,62 @@ function RunForm({
       chosen: next ? [...chosen, id] : chosen.filter((value) => value !== id),
     });
 
+  const rawRun = {
+    symbols: splitSymbols(symbols),
+    poolId: draft.poolId,
+    mode: runMode === "core-4" || runMode === "custom" ? "portfolio" : runMode,
+    ...(runMode === "core-4"
+      ? { book: { preset: "core-4" as const } }
+      : runMode === "custom"
+        ? { book: sleeveValidation.book }
+        : { strategyKey }),
+    bookControl:
+      runMode === "core-4" || runMode === "custom"
+        ? draft.bookControl
+        : undefined,
+    riskPolicy: draft.riskPolicy,
+    strategies: draft.archivedStrategies,
+    includeHoldout,
+    holdoutStart: includeHoldout
+      ? holdoutStart
+      : draft.archive?.run?.holdoutStart,
+    start: autoStart ? "auto" : start,
+    end,
+    initial: initial === "" ? undefined : Number(initial),
+    costScenario,
+    scenarios: chosen,
+    confirmed,
+  };
+  const studioInput = {
+    universe:
+      draft.poolId === "core-12" || draft.poolId === "core-30-v1"
+        ? draft.poolId
+        : rawRun.symbols,
+    start,
+    end,
+    initial: rawRun.initial,
+    costScenario,
+    riskPolicy: draft.riskPolicy,
+    holdoutStart: includeHoldout ? holdoutStart : undefined,
+    ...("book" in rawRun && rawRun.book
+      ? {
+          template: "multi-book",
+          book: rawRun.book,
+          bookControl: rawRun.bookControl,
+        }
+      : { template: "single", strategy: strategyKey }),
+  };
+  const effectiveSubmission =
+    autoStart ||
+    runMode === "per-symbol" ||
+    draft.archive ||
+    draft.poolId === "core-5" ||
+    draft.poolId === "chan-core-7"
+      ? "archive"
+      : submission;
+
   const submit = () => {
-    if (submitting.current || awaitingResult) return;
+    if (submitting.current || awaitingResult || studioBusy) return;
     setError("");
     setCopyStatus("");
     if (
@@ -941,32 +584,17 @@ function RunForm({
       return;
     }
     if (runMode === "custom" && !sleeveValidation.book) return;
-    const archivedRun = draft.archive?.run;
-    const parsed = labDiagnoseRunInputSchema.safeParse({
-      symbols: splitSymbols(symbols),
-      mode:
-        runMode === "core-4" || runMode === "custom" ? "portfolio" : runMode,
-      ...(runMode === "core-4"
-        ? { book: { preset: "core-4" as const } }
-        : runMode === "custom"
-          ? { book: sleeveValidation.book }
-          : { strategyKey }),
-      ...(draft.archivedStrategies
-        ? { strategies: draft.archivedStrategies }
-        : {}),
-      includeHoldout,
-      ...(includeHoldout
-        ? { holdoutStart }
-        : archivedRun && !archivedRun.includeHoldout && archivedRun.holdoutStart
-          ? { holdoutStart: archivedRun.holdoutStart }
-          : {}),
-      start: autoStart ? "auto" : start,
-      end,
-      initial: Number(initial),
-      costScenario,
-      scenarios: chosen,
-      confirmed,
-    });
+    if (draft.poolKind === "single" && rawRun.symbols.length !== 1) {
+      setError("单股证券池须填写一个标的。");
+      return;
+    }
+    if (effectiveSubmission === "studio") {
+      const parsed = researchStudioDraftSchema.safeParse(studioInput);
+      if (parsed.success) onStudioRun(parsed.data);
+      else setError(parsed.error.issues[0]?.message ?? "请检查研究参数。");
+      return;
+    }
+    const parsed = labDiagnoseRunInputSchema.safeParse(rawRun);
     if (!parsed.success) {
       const issue = parsed.error.issues[0];
       const field = issue?.path[0];
@@ -1032,9 +660,6 @@ function RunForm({
         submit();
       }}
     >
-      <p className="text-sm text-nc-text-3">
-        所选执行情景共用同一份冻结行情样本。
-      </p>
       {pending && (
         <div
           role="alert"
@@ -1069,198 +694,309 @@ function RunForm({
           )}
         </div>
       )}
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-        <label className="block text-sm">
-          标的（最多 12 个）
-          <Input
-            data-testid="diagnose-run-symbols"
-            aria-label="诊断标的"
-            className="mt-1"
-            value={symbols}
-            placeholder="sz300750, sh600000"
-            onChange={(event) => edit({ symbols: event.target.value })}
-          />
-        </label>
-        <label className="block text-sm">
-          诊断模式
-          <Select
-            value={runMode}
-            onValueChange={(value) => {
-              const mode = runModeOptions.find(
-                (option) => option.value === value,
-              );
-              if (mode) edit({ runMode: mode.value });
-            }}
-          >
-            <SelectTrigger aria-label="诊断模式" className="mt-1 max-w-full">
-              <SelectValue placeholder="选择诊断模式" />
-            </SelectTrigger>
-            <SelectContent>
-              {runModeOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </label>
-        {runMode !== "custom" && (
+      <StudioStep title="2. 策略选择">
+        <div className="grid gap-2 sm:grid-cols-2">
           <label className="block text-sm">
-            策略键
+            诊断模式
+            <Select
+              value={runMode}
+              onValueChange={(value) => {
+                const mode = runModeOptions.find(
+                  (option) => option.value === value,
+                );
+                if (mode) edit({ runMode: mode.value });
+              }}
+            >
+              <SelectTrigger aria-label="诊断模式" className="mt-1 max-w-full">
+                <SelectValue placeholder="选择诊断模式" />
+              </SelectTrigger>
+              <SelectContent>
+                {runModeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
+          {runMode !== "custom" && runMode !== "core-4" && (
+            <StrategyPicker
+              label="诊断策略键"
+              value={strategyKey}
+              groups={catalog?.strategyGroups ?? []}
+              onChange={(value) => edit({ strategyKey: value })}
+            />
+          )}
+        </div>
+      </StudioStep>
+      <StudioStep title="3. 证券池与历史区间">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          <label className="block text-sm">
+            证券池
+            <select
+              className="mt-1 block w-full"
+              value={draft.poolKind}
+              onChange={(event) => {
+                const value = event.target.value;
+                const pool = catalog?.pools.find((item) => item.id === value);
+                const poolId =
+                  value === "core-12" || value === "core-30-v1"
+                    ? value
+                    : undefined;
+                edit({
+                  poolId,
+                  poolKind: value,
+                  symbols:
+                    pool?.symbols.join(", ") ??
+                    (value === "single"
+                      ? (splitSymbols(symbols)[0] ?? "")
+                      : symbols),
+                });
+              }}
+            >
+              <option value="custom">自定义（1–12 股）</option>
+              <option value="single">单股</option>
+              {catalog?.pools
+                .filter((pool) => pool.id !== "etf-21")
+                .map((pool) => (
+                  <option key={pool.id} value={pool.id}>
+                    {pool.label} · {pool.id}
+                  </option>
+                ))}
+              {(draft.poolId === "core-5" ||
+                draft.poolId === "chan-core-7") && (
+                <option value={draft.poolId}>{draft.poolId}</option>
+              )}
+            </select>
+          </label>
+          <label className="block text-sm">
+            {draft.poolId
+              ? "具名池成员"
+              : draft.poolKind === "single"
+                ? "单股标的"
+                : "标的（最多 12 个）"}
             <Input
-              aria-label="诊断策略键"
+              data-testid="diagnose-run-symbols"
+              aria-label="诊断标的"
               className="mt-1"
-              value={runMode === "core-4" ? "core-4" : strategyKey}
-              maxLength={100}
-              disabled={runMode === "core-4"}
-              placeholder="例如 research-chan-third"
-              onChange={(event) => edit({ strategyKey: event.target.value })}
+              value={symbols}
+              placeholder="sz300750, sh600000"
+              readOnly={!!draft.poolId}
+              onChange={(event) => edit({ symbols: event.target.value })}
             />
           </label>
-        )}
-        <label className="block text-sm">
-          独立本金
-          <Input
-            aria-label="诊断独立本金"
-            type="number"
-            min={0}
-            max={1e9}
-            step="any"
-            className="mt-1"
-            value={initial}
-            onChange={(event) => edit({ initial: event.target.value })}
-          />
-        </label>
-        <label className="block text-sm">
-          开始日期
-          <Input
-            aria-label="诊断开始日期"
-            type="date"
-            className="mt-1"
-            value={start}
-            disabled={autoStart}
-            onChange={(event) => edit({ start: event.target.value })}
-          />
-        </label>
-        <label className="block text-sm">
-          结束日期
-          <Input
-            aria-label="诊断结束日期"
-            type="date"
-            className="mt-1"
-            value={end}
-            onChange={(event) => edit({ end: event.target.value })}
-          />
-        </label>
-        <label className="block text-sm">
-          成本情景
-          <Select
-            value={costScenario}
-            onValueChange={(value) => {
-              if (
-                value === "fixed" ||
-                value === "base" ||
-                value === "double-cost"
-              )
-                edit({ costScenario: value });
-            }}
-          >
-            <SelectTrigger
-              aria-label="诊断成本情景"
-              className="mt-1 max-w-full"
-            >
-              <SelectValue placeholder="选择成本情景" />
-            </SelectTrigger>
-            <SelectContent>
-              {costScenarioOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </label>
-      </div>
-
-      {runMode === "custom" && (
-        <CustomBookEditor
-          sleeves={sleeves}
-          validation={sleeveValidation}
-          onChange={(next) => edit({ sleeves: next })}
-        />
-      )}
-
-      {runMode === "core-4" && (
-        <div className="rounded-lg border border-nc-border-soft bg-nc-inset px-3 py-2 text-sm">
-          <p className="font-medium text-nc-text">四策略核心组合 (core-4)</p>
-          <p className="mt-1 text-nc-text-3">
-            组合模式固定为 4 分仓等权、跨分仓合计最多 10 个持仓、单票上限
-            10%。「0.5% 容量裁剪」情景按日成交额在分仓间共享容量。
-          </p>
+          <label className="block text-sm">
+            独立本金
+            <Input
+              aria-label="诊断独立本金"
+              type="number"
+              min={0}
+              max={1e9}
+              step="any"
+              className="mt-1"
+              value={initial}
+              onChange={(event) => edit({ initial: event.target.value })}
+            />
+          </label>
+          <label className="block text-sm">
+            开始日期
+            <Input
+              aria-label="诊断开始日期"
+              type="date"
+              className="mt-1"
+              value={start}
+              disabled={autoStart}
+              onChange={(event) => edit({ start: event.target.value })}
+            />
+          </label>
+          <label className="block text-sm">
+            结束日期
+            <Input
+              aria-label="诊断结束日期"
+              type="date"
+              className="mt-1"
+              value={end}
+              onChange={(event) => edit({ end: event.target.value })}
+            />
+          </label>
         </div>
-      )}
-
-      <label className="flex items-center gap-2 text-sm">
-        <Checkbox
-          checked={autoStart}
-          onCheckedChange={(value) => edit({ autoStart: value === true })}
-        />
-        自动起始（auto，使用最早可用数据）
-      </label>
-
-      <fieldset className="space-y-1.5 rounded-lg border border-nc-border-soft px-3 py-2">
-        <legend className="px-1 text-sm text-nc-text-3">时间留出验证</legend>
-        <label className="flex items-start gap-2 text-sm">
+        <label className="flex items-center gap-2 text-sm">
           <Checkbox
-            checked={includeHoldout ?? "indeterminate"}
-            onCheckedChange={(value) =>
-              edit({ includeHoldout: value === true })
-            }
-            className="mt-0.5"
+            checked={autoStart}
+            onCheckedChange={(value) => edit({ autoStart: value === true })}
           />
-          包含历史留出复核（includeHoldout）
+          自动起始（auto，使用最早可用数据）
         </label>
-        <label className="block text-sm">
-          留出切点 holdoutStart
-          <Input
-            aria-label="留出切点"
-            type="date"
-            className="mt-1 max-w-56"
-            value={holdoutStart}
-            disabled={!includeHoldout}
-            onChange={(event) => edit({ holdoutStart: event.target.value })}
+        {catalog?.pools.find((pool) => pool.id === draft.poolId)
+          ?.disclosure && (
+          <p className="text-xs text-nc-text-3">
+            {catalog.pools.find((pool) => pool.id === draft.poolId)?.disclosure}
+          </p>
+        )}
+      </StudioStep>
+      <StudioStep title="4. 分仓与账户风控">
+        {runMode === "custom" && (
+          <CustomBookEditor
+            sleeves={sleeves}
+            validation={sleeveValidation}
+            onChange={(next) => edit({ sleeves: next })}
           />
-        </label>
-        <p className="text-sub text-nc-text-4">
-          历史留出复核，不宣称新鲜样本外收益；默认切点 {defaultHoldoutStart}。
-        </p>
-      </fieldset>
+        )}
 
-      <fieldset className="space-y-1.5">
-        <legend className="text-sm text-nc-text-3">执行情景</legend>
-        <div className="flex flex-wrap gap-3">
-          {scenarioOptions.map((option) => (
-            <label key={option.id} className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={chosen.includes(option.id)}
-                onCheckedChange={(value) =>
-                  toggleScenario(option.id, value === true)
-                }
-              />
-              {option.label}
-            </label>
-          ))}
-        </div>
-      </fieldset>
+        {runMode === "core-4" && (
+          <div className="rounded-lg border border-nc-border-soft bg-nc-inset px-3 py-2 text-sm">
+            <p className="font-medium text-nc-text">四策略核心组合 (core-4)</p>
+            <p className="mt-1 text-nc-text-3">
+              组合模式固定为 4 分仓等权、跨分仓合计最多 10 个持仓、单票上限
+              10%。「0.5% 容量裁剪」情景按日成交额在分仓间共享容量。
+            </p>
+          </div>
+        )}
 
-      <label className="flex items-start gap-2 text-sm">
-        <Checkbox
-          checked={confirmed}
-          onCheckedChange={(value) => edit({ confirmed: value === true })}
-          className="mt-0.5"
+        {(runMode === "custom" || runMode === "core-4") && (
+          <label className="block text-sm">
+            分仓调配（bookControl）
+            <select
+              className="mt-1 block"
+              value={draft.bookControl ?? "none"}
+              onChange={(event) => {
+                const value = event.target.value;
+                if (
+                  value === "none" ||
+                  value === "equal-month-end" ||
+                  value === "risk-parity-60"
+                )
+                  edit({ bookControl: value });
+              }}
+            >
+              <option value="none">固定初始权重</option>
+              <option value="equal-month-end">月末等权</option>
+              <option value="risk-parity-60">60 日协方差风险平价</option>
+            </select>
+          </label>
+        )}
+        <RiskPolicyFields
+          value={draft.riskPolicy}
+          onChange={(riskPolicy) => edit({ riskPolicy })}
         />
-        确认以诊断专用只读/记录口径运行（不影响常规回测默认）
-      </label>
+      </StudioStep>
+      <StudioStep title="5. 成本与执行">
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="block text-sm">
+            成本情景
+            <Select
+              value={costScenario}
+              onValueChange={(value) => {
+                if (
+                  value === "fixed" ||
+                  value === "base" ||
+                  value === "double-cost"
+                )
+                  edit({ costScenario: value });
+              }}
+            >
+              <SelectTrigger
+                aria-label="诊断成本情景"
+                className="mt-1 max-w-full"
+              >
+                <SelectValue placeholder="选择成本情景" />
+              </SelectTrigger>
+              <SelectContent>
+                {costScenarioOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </label>
+          <label className="block text-sm">
+            执行方式
+            <select
+              className="mt-1 block w-full"
+              value={effectiveSubmission}
+              disabled={
+                autoStart ||
+                runMode === "per-symbol" ||
+                !!draft.archive ||
+                draft.poolId === "core-5" ||
+                draft.poolId === "chan-core-7"
+              }
+              onChange={(event) =>
+                setSubmission(
+                  event.target.value === "studio" ? "studio" : "archive",
+                )
+              }
+            >
+              <option value="studio">工作室成本敏感性</option>
+              <option value="archive">成组情景诊断（写入本地归档）</option>
+            </select>
+          </label>
+        </div>
+        <fieldset className="space-y-1.5 rounded-lg border border-nc-border-soft px-3 py-2">
+          <legend className="px-1 text-sm text-nc-text-3">时间留出验证</legend>
+          <label className="flex items-start gap-2 text-sm">
+            <Checkbox
+              checked={includeHoldout ?? "indeterminate"}
+              onCheckedChange={(value) =>
+                edit({ includeHoldout: value === true })
+              }
+              className="mt-0.5"
+            />
+            包含历史留出复核（includeHoldout）
+          </label>
+          <label className="block text-sm">
+            留出切点 holdoutStart
+            <Input
+              aria-label="留出切点"
+              type="date"
+              className="mt-1 max-w-56"
+              value={holdoutStart}
+              disabled={!includeHoldout}
+              onChange={(event) => edit({ holdoutStart: event.target.value })}
+            />
+          </label>
+          <p className="text-sub text-nc-text-4">
+            历史留出复核，不宣称新鲜样本外收益；默认切点 {defaultHoldoutStart}。
+          </p>
+        </fieldset>
+
+        {effectiveSubmission === "archive" && (
+          <>
+            <fieldset className="space-y-1.5">
+              <legend className="text-sm text-nc-text-3">执行情景</legend>
+              <div className="flex flex-wrap gap-3">
+                {scenarioOptions.map((option) => (
+                  <label
+                    key={option.id}
+                    className="flex items-center gap-2 text-sm"
+                  >
+                    <Checkbox
+                      checked={chosen.includes(option.id)}
+                      onCheckedChange={(value) =>
+                        toggleScenario(option.id, value === true)
+                      }
+                    />
+                    {option.label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <label className="flex items-start gap-2 text-sm">
+              <Checkbox
+                checked={confirmed}
+                onCheckedChange={(value) => edit({ confirmed: value === true })}
+                className="mt-0.5"
+              />
+              确认以诊断专用只读/记录口径运行（不影响常规回测默认）
+            </label>
+          </>
+        )}
+        <FrozenJson
+          value={effectiveSubmission === "studio" ? studioInput : rawRun}
+        />
+      </StudioStep>
 
       <div className="flex flex-wrap items-center gap-2">
         <Button
@@ -1268,7 +1004,8 @@ function RunForm({
           disabled={
             run.isPending ||
             awaitingResult ||
-            !confirmed ||
+            studioBusy ||
+            (effectiveSubmission === "archive" && !confirmed) ||
             (runMode === "custom" && !sleeveValidation.book)
           }
           aria-busy={run.isPending || (awaitingResult && !result.isError)}
@@ -1279,7 +1016,9 @@ function RunForm({
               ? "诊断运行中…"
               : awaitingResult
                 ? "等待诊断状态"
-                : "运行成组情景诊断"}
+                : effectiveSubmission === "archive"
+                  ? "运行成组情景诊断"
+                  : "运行研究回测"}
         </Button>
         {jobId && <DiagnosticTaskIndicator />}
         {result.data && (
@@ -1361,112 +1100,6 @@ function RunForm({
           </div>
         </div>
       )}
-
-      {result.data?.detail && (
-        <DiagnoseDetailView
-          key={`${result.data.detail.summary.id}:${result.data.detail.pagination.page}`}
-          detail={result.data.detail}
-          active={visible && active}
-          onRerun={onRerun}
-        />
-      )}
     </form>
-  );
-}
-
-/** `/lab/backtest` diagnostic workspace: archived reports or a grouped run. */
-export function DiagnoseWorkspacePanel({
-  prefill = null,
-  archiveId = null,
-}: {
-  prefill?: DiagnoseRunPrefill | null;
-  archiveId?: string | null;
-}) {
-  const visible = usePanelVisible();
-  const [tab, setTab] = useState(prefill ? "run" : "archives");
-  const [runVisited, setRunVisited] = useState(prefill !== null);
-  const [archiveRequest, setArchiveRequest] = useState<ArchiveRequest | null>(
-    archiveId ? { id: archiveId } : null,
-  );
-  const [request, setRequest] = useState<RunFormRequest | null>(
-    prefill ? { handoff: prefill } : null,
-  );
-  const prefillKey = prefill ? JSON.stringify(prefill) : null;
-  const [lastHandoffKey, setLastHandoffKey] = useState(prefillKey);
-  const [seenArchiveId, setSeenArchiveId] = useState(archiveId);
-  // Keep-alive can regenerate the same handoff object on return. Only a
-  // different payload is a new request to replace the retained draft.
-  const newHandoff = visible && prefill && prefillKey !== lastHandoffKey;
-  // Returning from a chart keeps the mounted archive page and detail selection.
-  const newArchive = visible && archiveId !== seenArchiveId;
-  if (newArchive) {
-    setSeenArchiveId(archiveId);
-    if (archiveId) setArchiveRequest({ id: archiveId });
-  }
-  if (newHandoff) {
-    setLastHandoffKey(prefillKey);
-    setRequest({ handoff: prefill });
-    setTab("run");
-    setRunVisited(true);
-  } else if (newArchive && archiveId) {
-    setTab("archives");
-  }
-  const openRerun = (archive: DiagnoseArchiveSummary) => {
-    setRequest({ archive });
-    setTab("run");
-    setRunVisited(true);
-  };
-  return (
-    <section
-      aria-label="诊断工作台"
-      className="mt-4 space-y-3 rounded-lg border border-nc-border bg-nc-card p-4"
-    >
-      <header className="flex flex-wrap items-baseline gap-2">
-        <h3 className="text-base font-semibold text-nc-text">诊断工作台</h3>
-        <span className="text-sub text-nc-text-3">
-          历史诊断档案与成组情景运行；工程健康与研究有效性分开验收。
-        </span>
-      </header>
-      <Tabs
-        value={tab}
-        onValueChange={(value) => {
-          setTab(value);
-          if (value === "run") setRunVisited(true);
-        }}
-      >
-        <TabsList className="flex-wrap justify-start">
-          <TabsTrigger value="archives">历史诊断档案</TabsTrigger>
-          <TabsTrigger value="run">成组情景诊断运行</TabsTrigger>
-        </TabsList>
-        <TabsContent
-          value="archives"
-          forceMount
-          className="data-[state=inactive]:hidden"
-        >
-          <ArchiveBrowser
-            active={tab === "archives"}
-            archiveRequest={archiveRequest}
-            onRerun={openRerun}
-          />
-        </TabsContent>
-        <TabsContent
-          value="run"
-          forceMount
-          className="data-[state=inactive]:hidden"
-        >
-          {runVisited && (
-            <RunForm
-              request={request}
-              active={tab === "run"}
-              onRerun={openRerun}
-              onViewArchive={(id) => {
-                setArchiveRequest({ id });
-                setTab("archives");
-              }}
-            />
-          )}
-        </TabsContent>
-      </Tabs>
-    </section>
   );
 }

@@ -1,4 +1,8 @@
-export { evaluatePerformance, performancePeriods } from "./performance.js";
+export {
+  evaluatePerformance,
+  performancePeriods,
+  topDrawdownEpisodes,
+} from "./performance.js";
 export { pairPositionCycles, evaluateTrades } from "./trades.js";
 export type {
   TradeCycle,
@@ -6,6 +10,13 @@ export type {
   TradeAction,
   TradeEvaluation,
 } from "./trades.js";
+export { computeTradeExcursions } from "./performance.js";
+export type {
+  TradeExcursionInput,
+  TradeExcursionBar,
+  TradeExcursionBarsBySymbol,
+  TradeExcursion,
+} from "./performance.js";
 export type {
   PerformanceMetric,
   PerformancePoint,

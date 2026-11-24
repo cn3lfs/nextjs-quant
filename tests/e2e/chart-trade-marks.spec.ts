@@ -2,11 +2,22 @@ import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { mkdir, rmdir, unlink, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
+import { initTRPC } from "@trpc/server";
+import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
+import SuperJSON from "superjson";
 import {
   diagnoseArchiveDetailSchema,
   type DiagnoseScenarioMetrics,
 } from "../../src/lib/research/diagnose-contract";
 import type { Bar } from "../../src/lib/domain";
+import { tradeChartHref } from "../../src/lib/chart/chart-trade-marks";
+import { chartColor } from "../../src/lib/chart/chart-theme";
+import {
+  tradeReviewRefSchema,
+  tradeReviewSourceKinds,
+  type ChartTradeReview,
+  type TradeReviewBox,
+} from "../../src/lib/chart/trade-review-ref";
 import { fixtureDirectory } from "./fixture-directory";
 import { trpcHeaders } from "./helpers";
 import { installOfflineVisualApi } from "./offline-visual-api";
@@ -130,6 +141,7 @@ function archiveFixture() {
 }
 
 const localArchiveReads = new Set([
+  "studioArchiveDetail",
   "strategyLabDiagnoseArchives",
   "strategyLabDiagnoseArchiveDetail",
   "workspacePreferences",
@@ -212,10 +224,13 @@ test("archive fill opens the main chart and preserves the selected scenario on B
     });
     await scenario.click();
     await expect(scenario).toHaveAttribute("aria-pressed", "true");
-    const fill = page.getByRole("button", {
-      name: `看K线 ${symbol} ${at}`,
-      exact: true,
-    });
+    const fill = page
+      .getByRole("region", { name: "诊断归档详情", exact: true })
+      .getByRole("button", {
+        name: `看K线 ${symbol} ${at}`,
+        exact: true,
+      })
+      .first();
     await fill.click();
     await expect(page).toHaveURL(
       (url) =>
@@ -360,5 +375,201 @@ test("RPS columns and the last loaded page survive reload without replaying page
   await expect(
     picker.getByRole("checkbox", { name: "RPS120", exact: true }),
   ).toBeChecked();
+  expect([...offline.unknown]).toEqual([]);
+});
+
+test("five evidence sources share the daily chart overlay and bracket navigation", async ({
+  page,
+}) => {
+  const offline = await installOfflineVisualApi(page);
+  await allowArchiveReads(page);
+  const received = new Set<string>();
+  const frame = await page.request.get("/api/trpc/barReplayFrame", {
+    headers: trpcHeaders,
+    params: {
+      input: JSON.stringify(
+        SuperJSON.serialize({
+          symbol,
+          cutoffDate: daily.bars[132]!.date,
+        }),
+      ),
+    },
+  });
+  expect(frame.ok()).toBe(true);
+  const { bars } = SuperJSON.deserialize<{ bars: Bar[] }>(
+    (await frame.json()).result.data,
+  );
+  await page.addInitScript(
+    ({ gain, loss }) => {
+      const fillText = CanvasRenderingContext2D.prototype.fillText;
+      const strokeRect = CanvasRenderingContext2D.prototype.strokeRect;
+      CanvasRenderingContext2D.prototype.fillText = function (
+        text,
+        x,
+        y,
+        maxWidth,
+      ) {
+        if (text === "MAE" || text === "MFE")
+          this.canvas.setAttribute(`data-drew-${text.toLowerCase()}`, "");
+        fillText.call(this, text, x, y, maxWidth);
+      };
+      CanvasRenderingContext2D.prototype.strokeRect = function (
+        x,
+        y,
+        width,
+        height,
+      ) {
+        if (this.strokeStyle === gain || this.strokeStyle === loss)
+          this.canvas.setAttribute("data-drew-pnl-box", "");
+        strokeRect.call(this, x, y, width, height);
+      };
+    },
+    { gain: chartColor.up, loss: chartColor.down },
+  );
+  const t = initTRPC.create({ transformer: SuperJSON });
+  const chartTradeReview = t.procedure
+    .input(tradeReviewRefSchema)
+    .query(({ input: ref }): ChartTradeReview => {
+      received.add(ref.source);
+      const boxes: TradeReviewBox[] = [
+        { start: 95, end: 105, pnl: -120 },
+        { start: 125, end: 132, pnl: 205 },
+      ].map(({ start, end, pnl }, index) => {
+        const entry = bars.find((bar) => bar.date === daily.bars[start]!.date)!;
+        const exit = bars.find((bar) => bar.date === daily.bars[end]!.date)!;
+        const range = bars.filter(
+          (bar) => bar.date >= entry.date && bar.date <= exit.date,
+        );
+        const low = range.reduce((a, b) => (a.low < b.low ? a : b));
+        const high = range.reduce((a, b) => (a.high > b.high ? a : b));
+        return {
+          entryDate: entry.date,
+          entryPrice: entry.close,
+          exitDate: exit.date,
+          exitPrice: exit.close,
+          pnlAmount: pnl,
+          pnlPct: pnl / entry.close,
+          maeDate: low.date,
+          maePrice: low.low,
+          maePct: (low.low / entry.close - 1) * 100,
+          mfeDate: high.date,
+          mfePrice: high.high,
+          mfePct: (high.high / entry.close - 1) * 100,
+          holdingDays: end - start + 1,
+          excursionReason: null,
+          pnlReason: null,
+          backHref: `${ref.backHref}#round-${index + 1}`,
+          tradeIds: [`buy-${index}`, `sell-${index}`],
+        };
+      });
+      return {
+        ref,
+        adjustment: "none",
+        boxes,
+        warnings: [],
+        fills: boxes.flatMap((box) => [
+          {
+            symbol,
+            side: "buy",
+            date: box.entryDate,
+            price: box.entryPrice,
+            quantity: 100,
+            tradeId: box.tradeIds[0]!,
+            backHref: box.backHref,
+          },
+          {
+            symbol,
+            side: "sell",
+            date: box.exitDate,
+            price: box.exitPrice,
+            quantity: 100,
+            tradeId: box.tradeIds[1]!,
+            backHref: box.backHref,
+          },
+        ]),
+      };
+    });
+  await page.route("**/api/trpc/**", async (route) => {
+    const request = route.request();
+    const names = decodeURIComponent(
+      new URL(request.url()).pathname.split("/api/trpc/")[1] ?? "",
+    ).split(",");
+    if (!names.includes("chartTradeReview")) return route.fallback();
+    const router = t.router(
+      Object.fromEntries(
+        names.map((name) => [
+          name,
+          name === "chartTradeReview"
+            ? chartTradeReview
+            : t.procedure
+                .input((input: unknown) => input)
+                .query(async ({ input }) => {
+                  const read = await page.request.get(`/api/trpc/${name}`, {
+                    headers: trpcHeaders,
+                    params: {
+                      input: JSON.stringify(SuperJSON.serialize(input)),
+                    },
+                  });
+                  expect(read.ok()).toBe(true);
+                  return SuperJSON.deserialize((await read.json()).result.data);
+                }),
+        ]),
+      ),
+    );
+    const reply = await fetchRequestHandler({
+      endpoint: "/api/trpc",
+      req: new Request(request.url(), { headers: request.headers() }),
+      router,
+      createContext: () => ({}),
+    });
+    await route.fulfill({
+      status: reply.status,
+      headers: Object.fromEntries(reply.headers),
+      body: await reply.text(),
+    });
+  });
+
+  for (const source of tradeReviewSourceKinds) {
+    const backHref = `/accounts?tab=trades&trade=${source}`;
+    await page.goto(
+      tradeChartHref({
+        symbol,
+        at,
+        review: {
+          source,
+          symbol,
+          label: `验收 ${source}`,
+          refId: source,
+          backHref,
+        },
+      }),
+    );
+    const review = page.getByRole("region", { name: "交易复盘", exact: true });
+    await expect(review).toContainText(`验收 ${source}`, { timeout: 30_000 });
+    const overlay = review.getByTestId("chart-trade-review-overlay");
+    await expect(overlay).toHaveAttribute("data-box-count", "2");
+    await expect(overlay).toHaveAttribute("data-extreme-count", "4");
+    await expect(page.getByTestId("chart-trade-marks")).toHaveAttribute(
+      "data-mark-count",
+      "4",
+    );
+    await expect(
+      page
+        .getByTestId("market-chart")
+        .locator("canvas[data-drew-pnl-box][data-drew-mae][data-drew-mfe]"),
+    ).toHaveCount(1);
+    const round = review.getByTestId("trade-review-round");
+    const back = review.getByRole("link", { name: "返回原证据 / 原批次" });
+    await expect(round).toContainText("盈亏 -120.00");
+    await expect(round).toContainText("MAE");
+    await expect(round).toContainText("MFE");
+    await expect(back).toHaveAttribute("href", `${backHref}#round-1`);
+    await page.keyboard.press("]");
+    await expect(round).toContainText("盈亏 205.00");
+    await expect(back).toHaveAttribute("href", `${backHref}#round-2`);
+    await page.keyboard.press("[");
+    await expect(round).toContainText("盈亏 -120.00");
+  }
+  expect([...received]).toEqual([...tradeReviewSourceKinds]);
   expect([...offline.unknown]).toEqual([]);
 });

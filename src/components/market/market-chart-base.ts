@@ -25,8 +25,10 @@ import type {
   MarketChartState,
   ChartViewport,
   ChartCompare,
+  ChartTradeMarksValue,
 } from "./market-chart-state";
 import { compareColors } from "./market-chart-palette";
+import { reviewFillMarkers } from "./charts/trade-review-overlay";
 
 export function updateMarketBase(
   n: MarketChartState,
@@ -45,6 +47,7 @@ export function updateMarketBase(
     showPatterns,
     tradeMarks,
     showTradeMarks,
+    review,
     focusAt,
     compare,
     setHistoryStart,
@@ -66,35 +69,69 @@ export function updateMarketBase(
     /** Daily-only fills already projected onto existing bar dates. */
     tradeMarks?: readonly TradeMark[];
     showTradeMarks?: boolean;
-    focusAt?: { date: string; consume: () => boolean } | null;
+    review?: ChartTradeMarksValue["review"];
+    focusAt?: ChartTradeMarksValue["focusAt"];
     compare?: readonly ChartCompare[];
     setHistoryStart: (start: number) => void;
   },
 ) {
   const { chart, candles } = n;
   if (n.bars !== bars || n.asOf !== breakoutIndex) {
-    const saved = viewport.current;
-    const restored = viewportKey ? restoreChartRange(viewportKey, bars) : null;
+    const ephemeral = n.viewportPolicy === "ephemeral";
+    const saved = ephemeral ? null : viewport.current;
+    const restored =
+      !ephemeral && viewportKey ? restoreChartRange(viewportKey, bars) : null;
+    // Replay updates keep the local zoom and follow the latest bar only when
+    // the trainee was already viewing the trailing edge.
+    const previousLength = ephemeral ? n.bars.length : 0;
+    const replayRange =
+      ephemeral && previousLength > 0
+        ? chart.timeScale().getVisibleLogicalRange()
+        : null;
+    const appended =
+      replayRange && replayRange.to >= previousLength - n.start - 2
+        ? bars.length - previousLength
+        : 0;
     const same =
       saved?.bars === bars &&
       saved.period === period &&
       saved.asOf === breakoutIndex;
-    n.start = same
-      ? saved.start
-      : (restored?.start ?? initialHistoryStart(bars.length));
+    if (!replayRange)
+      n.start = same
+        ? saved.start
+        : (restored?.start ?? initialHistoryStart(bars.length));
     n.bars = bars;
     n.asOf = breakoutIndex;
     n.cursor = null;
     n.byTime = new Map(
       bars.map((bar, index) => [chartTime(bar.date, period), index]),
     );
-    n.pendingRange = same ? saved.range : (restored?.range ?? null);
+    n.pendingRange = replayRange
+      ? { from: replayRange.from + appended, to: replayRange.to + appended }
+      : same
+        ? saved.range
+        : (restored?.range ?? null);
     setHistoryStart(n.start);
   }
   // `at=` centres the window once. It must never be written into the
   // persistent viewport store (rememberChartRange owns that state).
   if (period === "day" && focusAt && bars.length) {
-    const focus = tradeMarkFocusRange(bars, focusAt.date);
+    const first = n.byTime.get(chartTime(focusAt.date, period));
+    const last = focusAt.through
+      ? n.byTime.get(chartTime(focusAt.through, period))
+      : undefined;
+    const midpoint =
+      first !== undefined && last !== undefined
+        ? Math.floor((first + last) / 2)
+        : undefined;
+    const halfWindow =
+      midpoint === undefined ? 60 : Math.max(60, last! - midpoint + 6);
+    const focus = tradeMarkFocusRange(
+      bars,
+      midpoint === undefined ? focusAt.date : bars[midpoint]!.date,
+      halfWindow,
+      Math.max(120, halfWindow),
+    );
     if (focus && focusAt.consume()) {
       n.temporaryRange = true;
       n.start = Math.min(n.start, focus.start);
@@ -204,8 +241,10 @@ export function updateMarketBase(
           : []),
         ...(overlay?.markers ?? []),
         ...(patternOverlay?.markers ?? []),
-        ...(showTradeMarks
-          ? tradeChartMarkers(tradeMarks ?? [], bars[start], period)
+        ...(showTradeMarks && period === "day"
+          ? review
+            ? reviewFillMarkers(review, n.byTime, start)
+            : tradeChartMarkers(tradeMarks ?? [], bars[start], period)
           : []),
       ].sort((a, b) => String(a.time).localeCompare(String(b.time))),
     );
