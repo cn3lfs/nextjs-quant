@@ -1,6 +1,15 @@
 import type { Bar } from "trading-strategy-core/bars";
-import { chanNativeCandidates } from "./research/chan/research-chan-native.js";
+import {
+  chanNativeCandidates,
+  isNativeChanV3Profile,
+  nativeChanV3Configs,
+  nativeChanV3Profiles,
+  type NativeChanV3Profile,
+} from "./research/chan/research-chan-native.js";
 import { czscSourceCommit, type CzscResult } from "./research/chan/czsc.js";
+
+export { isNativeChanV3Profile, nativeChanV3Configs, nativeChanV3Profiles };
+export type { NativeChanV3Profile };
 
 export const nativeStudyStrategies = ["research-chan"] as const;
 export type NativeStudyStrategy = (typeof nativeStudyStrategies)[number];
@@ -54,9 +63,37 @@ export type FrozenChanPoint = FrozenChanSignal & {
   kind: NativeChanPointKind;
   divergence?: { semantic: number; flags: number };
 };
+export type FrozenChanV3Signal = {
+  key: string;
+  kind: 1 | 2 | 3;
+  endpointIndex: number;
+  endpointDate: string;
+  confirmedAt: number;
+  confirmedDate: string;
+  containment?: {
+    highStart: number;
+    highEnd: number;
+    lowStart: number;
+    lowEnd: number;
+  };
+};
+export type FrozenChanV3Projection = {
+  configs: typeof nativeChanV3Configs;
+  profiles: Readonly<
+    Record<
+      NativeChanV3Profile,
+      {
+        signals: readonly FrozenChanV3Signal[];
+        gaps: readonly string[];
+      }
+    >
+  >;
+};
+export type NativeChanProjectionVersion = 1 | 2 | 3;
 export type FrozenChanObservation = {
-  projectionVersion?: 2;
+  projectionVersion?: 2 | 3;
   points?: readonly FrozenChanPoint[];
+  v3?: FrozenChanV3Projection;
   date: string;
   prefixHash: string;
   identity: NativeStudyIdentity;
@@ -184,6 +221,148 @@ export function nativeChanSharedPoints(
   return decodePoints(bars, result, "chan-hold-cash-native");
 }
 
+/** Decode all three controls from the same two-level snapshot. */
+export function nativeChanV3Projection(
+  bars: readonly Bar[],
+  result: CzscResult,
+): FrozenChanV3Projection {
+  if (
+    result.sourceCommit !== czscSourceCommit ||
+    nativeChanV3Configs.some(
+      (config) => !result.families.some((family) => family.config === config),
+    )
+  )
+    throw new Error("v3 原生投影须包含锁定版本的 config 0 与 1100");
+  const last = bars.length - 1;
+  const profiles = {} as Record<
+    NativeChanV3Profile,
+    FrozenChanV3Projection["profiles"][NativeChanV3Profile]
+  >;
+  for (const profile of nativeChanV3Profiles) {
+    const { signals, gaps } = chanNativeCandidates(profile, result, bars, 0);
+    const byKey = new Map<string, FrozenChanV3Signal>();
+    for (const signal of signals) {
+      if (signal.kind !== 1 && signal.kind !== 2 && signal.kind !== 3) continue;
+      // CH07's native cross-level association has both confirmations but
+      // carries no confirmation index. It is knowable on this prefix.
+      const confirmedAt =
+        profile === "chan-nested-native" ? last : signal.confirmedAt;
+      if ((signal.revokedAt ?? -1) >= 0 || confirmedAt === -1) continue;
+      const confirmedDate =
+        confirmedAt === undefined ? undefined : bars[confirmedAt]?.date;
+      if (
+        !confirmedDate ||
+        confirmedAt! < signal.index ||
+        bars[signal.index]?.date !== signal.date
+      ) {
+        gaps.push(`${signal.date}：原生组合确认时点无效`);
+        continue;
+      }
+      const key = `${signal.date}:${signal.kind}`;
+      if (byKey.has(key)) continue;
+      const reference = signal.containment;
+      byKey.set(key, {
+        key,
+        kind: signal.kind,
+        endpointIndex: signal.index,
+        endpointDate: signal.date,
+        confirmedAt: confirmedAt!,
+        confirmedDate,
+        ...(reference && {
+          containment: {
+            highStart: reference.highCandidate.segmentStart!,
+            highEnd: reference.highCandidate.segmentEnd!,
+            lowStart: reference.lowStart,
+            lowEnd: reference.lowEnd,
+          },
+        }),
+      });
+    }
+    profiles[profile] = { signals: [...byKey.values()], gaps };
+  }
+  return { configs: nativeChanV3Configs, profiles };
+}
+
+function validateV3Projection(
+  row: FrozenChanObservation,
+  bars: readonly Bar[],
+  index: number,
+  selected: NativeChanV3Profile | undefined,
+  seen: Set<string>,
+) {
+  const data = row.v3;
+  if (
+    row.projectionVersion !== 3 ||
+    !data ||
+    data.configs?.length !== 2 ||
+    data.configs[0] !== 0 ||
+    data.configs[1] !== 1100
+  )
+    throw new Error("原生组合投影结构缺口：需要完整的 v3 双级投影");
+  for (const profile of nativeChanV3Profiles) {
+    const facts = data.profiles?.[profile];
+    if (!Array.isArray(facts?.signals) || !Array.isArray(facts.gaps))
+      throw new Error("v3 原生组合观察缺失");
+    if (profile === selected && facts.gaps.length)
+      throw new Error(`v3 原生组合投影存在结构缺口：${profile}`);
+    for (const signal of facts.signals as readonly FrozenChanV3Signal[]) {
+      const {
+        key,
+        kind,
+        endpointIndex,
+        endpointDate,
+        confirmedAt,
+        confirmedDate,
+        containment,
+      } = signal;
+      const id = `${profile}:${key}`;
+      if (
+        seen.has(id) ||
+        key !== `${endpointDate}:${kind}` ||
+        !Number.isInteger(endpointIndex) ||
+        endpointIndex < 0 ||
+        !Number.isInteger(confirmedAt) ||
+        confirmedAt < endpointIndex ||
+        confirmedAt > index ||
+        ![1, 2, 3].includes(kind) ||
+        bars[endpointIndex]?.date !== endpointDate ||
+        bars[confirmedAt]?.date !== confirmedDate
+      )
+        throw new Error("v3 原生组合信号重复或引用超出当前已知前缀");
+      if (profile === "chan-overlap-native") {
+        if (containment || (kind !== 2 && kind !== 3))
+          throw new Error("v3 二三买重合信号类别无效");
+      } else {
+        if (!containment) throw new Error("v3 原生组合缺少高级别区间");
+        const { highStart, highEnd, lowStart, lowEnd } = containment;
+        if (
+          ![highStart, highEnd, lowStart, lowEnd].every(Number.isInteger) ||
+          highStart < 0 ||
+          highStart >= highEnd ||
+          highEnd > index ||
+          lowStart < highStart ||
+          lowStart > lowEnd ||
+          lowEnd > highEnd ||
+          lowEnd !== endpointIndex ||
+          (profile === "chan-nested-native" &&
+            (kind !== 1 ||
+              confirmedAt !== index ||
+              lowStart === lowEnd ||
+              (lowStart === highStart && lowEnd === highEnd))) ||
+          (profile === "chan-rebound-native" && lowStart !== lowEnd)
+        )
+          throw new Error("v3 原生组合级别区间无效");
+      }
+      seen.add(id);
+    }
+  }
+}
+
+export function nativeChanV3Rules(profile: NativeChanV3Profile) {
+  const entry = { kind: "external", id: profile, side: "entry" } as const;
+  return { entry, exit: { maxBars: 5 } };
+}
+
 export function resolveNativeChanFirstIndex(
   bars: readonly Bar[],
   observations: readonly FrozenChanObservation[],
@@ -206,7 +385,7 @@ function validateObservations(
   bars: readonly Bar[],
   first: number,
   observations: readonly FrozenChanObservation[],
-  profile?: NativeChanProfile,
+  profile?: NativeChanProfile | NativeChanV3Profile,
 ) {
   if (
     !Number.isInteger(first) ||
@@ -217,6 +396,8 @@ function validateObservations(
     throw new Error("原生观察必须完整覆盖基线及全部执行日期");
   let identity: string | undefined;
   const seen = new Set<string>();
+  const selectedV3 =
+    profile && isNativeChanV3Profile(profile) ? profile : undefined;
   for (let j = 0; j < observations.length; j++) {
     const row = observations[j]!,
       i = first - 1 + j,
@@ -251,8 +432,11 @@ function validateObservations(
     if (identity !== undefined && identity !== currentIdentity)
       throw new Error("回放期间原生DLL或配置变化");
     identity = currentIdentity;
+    if (selectedV3 || row.projectionVersion === 3)
+      validateV3Projection(row, bars, i, selectedV3, seen);
     if (
       profile &&
+      !selectedV3 &&
       profile !== "chan-third-native" &&
       row.pointGaps !== undefined &&
       (!Array.isArray(row.pointGaps) || row.pointGaps.length > 0)
@@ -265,7 +449,8 @@ function validateObservations(
         profile !== "chan-third-native");
     if (
       projected &&
-      (row.projectionVersion !== 2 || !Array.isArray(row.points))
+      ((row.projectionVersion !== 2 && row.projectionVersion !== 3) ||
+        !Array.isArray(row.points))
     )
       throw new Error("原生策略需要完整的 v2 买卖点投影");
     let thirdIndex = 0;
@@ -339,13 +524,17 @@ function validateObservations(
     return {
       enter:
         !row.baseline &&
-        (points
-          ? points.some((p) => (hold ? p.kind > 0 : p.kind === kind))
-          : row.signals.length > 0),
+        (selectedV3
+          ? row.v3!.profiles[selectedV3].signals.length > 0
+          : points
+            ? points.some((p) => (hold ? p.kind > 0 : p.kind === kind))
+            : row.signals.length > 0),
       exit:
         !!position &&
         position.entry > 0 &&
-        (hold ? points!.some((p) => p.kind < 0) : i - position.entryIndex >= 5),
+        (hold
+          ? points!.some((p) => p.kind < 0)
+          : i - position.entryIndex >= (selectedV3 ? 4 : 5)),
     };
   };
 }
@@ -374,7 +563,7 @@ export function createNativeStudyRule(
 }
 
 export function createNativeChanProfileRule(
-  profile: NativeChanProfile,
+  profile: NativeChanProfile | NativeChanV3Profile,
   bars: readonly Bar[],
   observations: readonly FrozenChanObservation[],
   explicitFirst?: number,

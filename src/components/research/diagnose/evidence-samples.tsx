@@ -1,7 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import type { DiagnoseScenarioMetrics } from "~/lib/research/diagnose-contract";
+import type {
+  DiagnoseChartContext,
+  DiagnoseScenarioMetrics,
+} from "~/lib/research/diagnose-contract";
+import {
+  countUnknownSellTriggers,
+  tradeChartHref,
+  tradeFillsFromDiagnose,
+} from "~/lib/chart/chart-trade-marks";
+import { useOpenChart } from "../../market/open-chart";
+import { Button } from "../../ui/button";
 import { Pill } from "../../panels";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 import {
@@ -18,10 +29,14 @@ const rowClass = "border-l-2 border-transparent";
 export function EvidenceSamples({
   scenario,
   focus,
+  chartContext,
 }: {
   scenario: DiagnoseScenarioMetrics;
   focus: DiagnosticFocusTarget | null;
+  /** Archive identity for 「看K线」; absent callers keep the plain evidence view. */
+  chartContext?: DiagnoseChartContext;
 }) {
+  const openChart = useOpenChart();
   const section = useRef<HTMLElement>(null);
   const [previousFocus, setPreviousFocus] =
     useState<DiagnosticFocusTarget | null>(null);
@@ -52,6 +67,9 @@ export function EvidenceSamples({
   };
   const orders = scenario.sampleOrders;
   const fills = scenario.sampleFills;
+  const unknownTriggerCount = countUnknownSellTriggers(
+    tradeFillsFromDiagnose(scenario),
+  );
   const rejections = scenario.sampleRejections;
   const rowsByTab = { fills, orders, rejections };
   if (focus !== previousFocus) {
@@ -89,6 +107,11 @@ export function EvidenceSamples({
         <span className="text-sub text-nc-text-3">
           每类最多 50 条；完整列表在归档产物中。
         </span>
+        {unknownTriggerCount > 0 && (
+          <span role="status" className="text-sub text-nc-text-3">
+            {unknownTriggerCount} 笔卖出成交缺少触发原因，K 线标为「卖」。
+          </span>
+        )}
         {focus && (
           <Pill tone="accent">
             {rowsByTab[tab].some(match) ? "已定位" : "待核对"}
@@ -147,12 +170,15 @@ export function EvidenceSamples({
                   <th scope="col" className="px-3 py-1.5 font-medium">
                     委托
                   </th>
+                  <th scope="col" className="px-3 py-1.5 font-medium">
+                    复盘
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-nc-border-soft">
                 {fills.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-3 py-3 text-nc-text-3">
+                    <td colSpan={8} className="px-3 py-3 text-nc-text-3">
                       没有成交样本。
                     </td>
                   </tr>
@@ -180,6 +206,42 @@ export function EvidenceSamples({
                       </td>
                       <td className="px-3 py-1.5 tabular-nums">
                         #{fill.orderId}
+                      </td>
+                      <td className="px-3 py-1.5">
+                        {openChart ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            aria-label={`看K线 ${fill.symbol} ${fill.date.slice(0, 10)}`}
+                            onClick={() =>
+                              openChart(fill.symbol, {
+                                at: fill.date.slice(0, 10),
+                                diagnose: chartContext?.archiveId,
+                                cell: chartContext?.cellId,
+                                scenario: chartContext?.scenarioId,
+                              })
+                            }
+                          >
+                            看K线
+                          </Button>
+                        ) : (
+                          <Button asChild size="sm" variant="ghost">
+                            <Link
+                              href={tradeChartHref({
+                                symbol: fill.symbol,
+                                at: fill.date.slice(0, 10),
+                                diagnose: chartContext?.archiveId,
+                                cell: chartContext?.cellId,
+                                scenario: chartContext?.scenarioId,
+                              })}
+                              prefetch={false}
+                              scroll={false}
+                            >
+                              看K线
+                            </Link>
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   ))

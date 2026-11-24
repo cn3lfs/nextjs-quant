@@ -1,11 +1,13 @@
 import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 import {
   buildLabDraftFromHandoff,
+  diagnoseBookInputSchema,
   DIAGNOSE_CHECK_GROUPS,
   DIAGNOSE_CONDITIONAL_CHECK_GROUPS,
   type DiagnoseCheck,
   type DiagnoseCheckMetadata,
   type DiagnoseCheckStatus,
+  type DiagnoseBookSleeve,
 } from "~/lib/research/diagnose-contract";
 import type { Tone } from "../../panels/tone";
 
@@ -211,8 +213,48 @@ export const handoffSourceLabels = {
   formula: "公式选股",
   pattern: "形态筛选",
   rps: "RPS 排名",
+  watchlist: "我的自选",
+  pool: "股票池",
   "account-review": "月度复盘",
 } as const;
+
+export type SleeveDraft = Omit<DiagnoseBookSleeve, "share"> & {
+  share: string;
+};
+
+export const minSleeves = 2;
+export const maxSleeves = 6;
+
+export function equalizeSleeveWeights(rows: readonly SleeveDraft[]) {
+  return rows.map((row) => ({ ...row, share: String(1 / rows.length) }));
+}
+
+export function validateSleeveDraft(rows: readonly SleeveDraft[]) {
+  const sleeves = rows.map(({ id, strategyKey, share }) => ({
+    id: id.trim(),
+    strategyKey: strategyKey.trim(),
+    share: share.trim() ? Number(share) : NaN,
+  }));
+  const sum = sleeves.reduce(
+    (total, row) => total + (Number.isFinite(row.share) ? row.share : 0),
+    0,
+  );
+  let error = "";
+  if (rows.length < minSleeves || rows.length > maxSleeves)
+    error = "自定义组合须包含 2 至 6 个分仓。";
+  else if (sleeves.some((row) => !row.id)) error = "请填写每个分仓的编号。";
+  else if (new Set(sleeves.map((row) => row.id)).size !== sleeves.length)
+    error = "分仓编号不能重复。";
+  else if (sleeves.some((row) => !row.strategyKey))
+    error = "请填写每个分仓的策略键。";
+  else if (sleeves.some((row) => !Number.isFinite(row.share) || row.share <= 0))
+    error = "每个分仓的权重须大于 0。";
+  else if (Math.abs(sum - 1) > 1e-9) error = "分仓权重合计须为 100%。";
+
+  const parsed = diagnoseBookInputSchema.safeParse({ sleeves });
+  if (!error && !parsed.success) error = "请检查分仓策略键与分仓编号。";
+  return { sum, error, book: error ? null : { sleeves } };
+}
 
 export const boundaryLabels = {
   ok: "正常",

@@ -11,6 +11,7 @@ extraResources:
     to: server
     filter:
       - "**/*"
+      - "!**/.[eE][nN][vV]{,.*}{,/**/*}"
       - "!node_modules{,/**/*}"
       - "!release{,/**/*}"
       - "!.test-data{,/**/*}"
@@ -23,6 +24,7 @@ extraResources:
     to: server/node_modules
     filter:
       - "**/*"
+      - "!**/.[eE][nN][vV]{,.*}{,/**/*}"
 asar: true
 npmRebuild: false
 win:

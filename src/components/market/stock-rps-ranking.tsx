@@ -34,7 +34,7 @@ import { ChartSymbolLink } from "./chart-symbol-link";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { Input } from "../ui/input";
-import { useAccumulatedPages, useTablePage } from "../ui/use-infinite-table";
+import { useAccumulatedPages } from "../ui/use-infinite-table";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
 import { usePanelVisible } from "../workbench/keep-alive";
 import {
@@ -56,6 +56,12 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 
 const rowKey = (row: MarketPoolRow) => row.symbol;
+const pageSize = 20;
+
+export function recoverRpsPage(page: number, rowCount: number, total: number) {
+  const lastPage = Math.max(1, Math.ceil(total / pageSize));
+  return rowCount === 0 && total > 0 && page > lastPage ? lastPage : null;
+}
 type RankingFilters = {
   period: number;
   search: string;
@@ -94,7 +100,11 @@ function readRankingFilters(query: string | null): RankingFilters {
   };
 }
 
-function rpsRankingHref({ period, search, conditions, order }: RankingFilters) {
+function rpsRankingHref(
+  { period, search, conditions, order }: RankingFilters,
+  columns: readonly number[] | undefined,
+  page: number,
+) {
   const params = new URLSearchParams({ tab: "rps", period: String(period) });
   if (search) params.set("search", search);
   for (const condition of conditions)
@@ -109,7 +119,58 @@ function rpsRankingHref({ period, search, conditions, order }: RankingFilters) {
     else params.set("sortColumn", order.id);
     params.set("descending", String(order.desc));
   }
+  if (columns) params.set("rpsCols", columns.join(","));
+  if (page > 1) params.set("page", String(page));
   return `/scan?${params}`;
+}
+
+/** Visible RPS columns, with the primary and sorted period always included so
+ *  a restored URL can never hide the column the table is ranked by. */
+export function mergeRpsColumns(
+  columns: readonly number[],
+  period: number,
+  sortedPeriod: number | undefined,
+) {
+  const allowed = new Set<number>(rpsPeriods);
+  const merged = new Set<number>();
+  for (const value of columns) if (allowed.has(value)) merged.add(value);
+  merged.add(period);
+  if (sortedPeriod !== undefined) merged.add(sortedPeriod);
+  return [...merged].sort((a, b) => a - b);
+}
+
+/** `rpsCols` + one-based `page`; page 1 is omitted from the URL. */
+export function readRpsTableState(
+  query: string | null,
+  period: number,
+  sortedPeriod: number | undefined,
+) {
+  const params = new URLSearchParams(query ?? "");
+  const columns = (params.get("rpsCols") ?? "")
+    .split(",")
+    .map((value) => Number(value.trim()))
+    .filter((value) => (rpsPeriods as readonly number[]).includes(value));
+  const pageParam = params.get("page") ?? "";
+  const page = /^\d+$/.test(pageParam) ? Number(pageParam) : 1;
+  return {
+    columns: mergeRpsColumns(
+      columns.length ? columns : defaultRpsTablePeriods,
+      period,
+      sortedPeriod,
+    ),
+    page: marketPoolQuerySchema.shape.page.safeParse(page - 1).success
+      ? page
+      : 1,
+  };
+}
+
+function writeRpsTableUrl(href: string) {
+  if (
+    window.location.pathname === "/scan" &&
+    new URLSearchParams(window.location.search).get("tab") === "rps" &&
+    href !== window.location.pathname + window.location.search
+  )
+    window.history.replaceState(null, "", href + window.location.hash);
 }
 
 const rpsRankingMethodology = [
@@ -180,49 +241,75 @@ export function StockRpsRanking() {
   const visible = usePanelVisible();
   const router = useRouter();
   const route = useSearchParams();
-  const linkedFilters =
-    visible && route?.get("tab") === "rps" && route.has("period")
-      ? route.toString()
-      : null;
-  // Applied conditions are the only ones in the query key; draft edits wait for
-  // 「应用条件」 so typing a threshold cannot produce a request per keystroke.
-  const [filters, setFilters] = useState(() =>
-    readRankingFilters(linkedFilters),
-  );
-  const [appliedLink, setAppliedLink] = useState(linkedFilters);
-  if (appliedLink !== linkedFilters) {
-    setAppliedLink(linkedFilters);
-    if (linkedFilters) setFilters(readRankingFilters(linkedFilters));
-  }
+  const linked =
+    visible && route.get("tab") === "rps" ? route.toString() : null;
+  const [retainedLink, setRetainedLink] = useState(linked);
+  if (linked !== null && linked !== retainedLink) setRetainedLink(linked);
+  const link = linked ?? retainedLink;
+  const filters = useMemo(() => readRankingFilters(link), [link]);
   const { period, search, conditions, order } = filters;
-  const updateFilters = (patch: Partial<RankingFilters>) =>
-    setFilters((current) => ({ ...current, ...patch }));
-  const returnTo = rpsRankingHref(filters);
-  const resetKey = JSON.stringify([search, period, conditions, order]);
-  const cursor = useTablePage(resetKey);
   const [conditionsOpen, setConditionsOpen] = useState(false);
-  // RPS column visibility is page-local UI state; the primary period is forced
-  // visible below so choosing RPS1/RPS120 in the period select always shows it.
-  const [visibleRpsPeriods, setVisibleRpsPeriods] = useState<number[]>([
-    ...defaultRpsTablePeriods,
-  ]);
   const sortedPeriod = rpsPeriods.find((p) => order?.id === rpsSortColumnId(p));
-  const displayedRpsPeriods = useMemo(
-    () =>
-      [
-        ...new Set([
-          ...visibleRpsPeriods,
-          period,
-          ...(sortedPeriod ? [sortedPeriod] : []),
-        ]),
-      ].sort((a, b) => a - b),
-    [visibleRpsPeriods, period, sortedPeriod],
+  const { columns: displayedRpsPeriods, page: linkedPage } = readRpsTableState(
+    link,
+    period,
+    sortedPeriod,
   );
+  const filterKey = JSON.stringify(filters);
+  const [cursor, setCursor] = useState({
+    filterKey,
+    linkedPage,
+    startPage: linkedPage,
+    offset: 0,
+  });
+  // A newly completed page updates the URL while keeping the loaded prefix.
+  // An external link starts at its own page and does not replay that prefix.
+  const position =
+    cursor.filterKey !== filterKey ||
+    (cursor.linkedPage !== linkedPage &&
+      cursor.startPage + cursor.offset !== linkedPage)
+      ? { filterKey, linkedPage, startPage: linkedPage, offset: 0 }
+      : cursor.linkedPage !== linkedPage
+        ? { ...cursor, linkedPage }
+        : cursor;
+  if (position !== cursor) setCursor(position);
+  const { startPage, offset } = position;
+  const pageIndex = startPage - 1 + offset;
+  const resetKey = JSON.stringify([filterKey, startPage]);
+  const explicitColumns = new URLSearchParams(link ?? "").has("rpsCols");
+  const returnTo = rpsRankingHref(
+    filters,
+    explicitColumns ? displayedRpsPeriods : undefined,
+    linkedPage,
+  );
+  const updateFilters = (patch: Partial<RankingFilters>) => {
+    const next = { ...filters, ...patch };
+    const nextSort = rpsPeriods.find(
+      (p) => next.order?.id === rpsSortColumnId(p),
+    );
+    writeRpsTableUrl(
+      rpsRankingHref(
+        next,
+        explicitColumns
+          ? mergeRpsColumns(displayedRpsPeriods, next.period, nextSort)
+          : undefined,
+        1,
+      ),
+    );
+  };
+  const updateColumns = (next: number[]) =>
+    writeRpsTableUrl(
+      rpsRankingHref(
+        filters,
+        mergeRpsColumns(next, period, sortedPeriod),
+        linkedPage,
+      ),
+    );
   const toggleRpsPeriod = (target: number) =>
-    setVisibleRpsPeriods((current) =>
-      current.includes(target)
-        ? current.filter((value) => value !== target)
-        : [...current, target].sort((a, b) => a - b),
+    updateColumns(
+      displayedRpsPeriods.includes(target)
+        ? displayedRpsPeriods.filter((value) => value !== target)
+        : [...displayedRpsPeriods, target],
     );
   // Ranks only change when an RPS batch writes a new day: poll while one runs.
   const job = api.rpsStatus.useQuery(undefined, {
@@ -239,35 +326,86 @@ export function StockRpsRanking() {
       conditions,
       sort: "rps",
       order,
-      page: cursor.pageIndex,
+      page: pageIndex,
     },
     {
       enabled: visible,
       staleTime: 0,
-      refetchInterval: running && cursor.pageIndex === 0 ? 10000 : false,
+      refetchInterval: running && offset === 0 ? 10000 : false,
     },
   );
   // Only a successful response for the current query key is evidence for this
   // page. A same-key refetch keeps it; a key change or a failed refresh does not.
   const result =
     page.isSuccess && !page.isPlaceholderData ? page.data : undefined;
+  const recoveryPage =
+    visible && result && !page.isFetching
+      ? recoverRpsPage(pageIndex + 1, result.rows.length, result.total)
+      : null;
   const snapshotKey = `${result?.rps?.date ?? ""}:${result?.rps?.inputHash ?? ""}:${result?.rps?.observation?.createdAt ?? ""}`;
+  const restart = () => {
+    setCursor({ ...position, offset: 0 });
+    writeRpsTableUrl(rpsRankingHref(filters, displayedRpsPeriods, startPage));
+  };
   const batches = useAccumulatedPages({
     resetKey,
-    pageIndex: cursor.pageIndex,
+    pageIndex: offset,
     items: result?.rows,
     total: result?.total,
-    isSuccess: !page.isFetching,
+    isSuccess: !page.isFetching && recoveryPage === null,
     snapshotKey,
-    onSnapshotDrift: cursor.restart,
-    pageSize: 20,
+    onSnapshotDrift: restart,
+    pageSize,
     metadata: result,
+    offset: (startPage - 1) * pageSize,
     getKey: rowKey,
   });
+  const rawUrlPage = new URLSearchParams(link ?? "").get("page");
+  const expectedUrlPage = pageIndex === 0 ? null : String(pageIndex + 1);
+  const normalizeUrlPage =
+    visible &&
+    result &&
+    !page.isFetching &&
+    recoveryPage === null &&
+    rawUrlPage !== null &&
+    rawUrlPage !== expectedUrlPage;
+  const completedHref =
+    visible &&
+    offset > 0 &&
+    result &&
+    batches.metadata === result &&
+    !page.isFetching
+      ? rpsRankingHref(filters, displayedRpsPeriods, pageIndex + 1)
+      : null;
+  useEffect(() => {
+    if (recoveryPage === null && !completedHref && !normalizeUrlPage) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.toString() !== link) return;
+    if (recoveryPage !== null) {
+      setCursor({ filterKey, linkedPage, startPage: recoveryPage, offset: 0 });
+      if (recoveryPage === 1) params.delete("page");
+      else params.set("page", String(recoveryPage));
+      writeRpsTableUrl(`/scan?${params}`);
+    } else if (completedHref) {
+      writeRpsTableUrl(completedHref);
+    } else if (normalizeUrlPage) {
+      if (expectedUrlPage === null) params.delete("page");
+      else params.set("page", expectedUrlPage);
+      writeRpsTableUrl(`/scan?${params}`);
+    }
+  }, [
+    completedHref,
+    expectedUrlPage,
+    link,
+    filterKey,
+    linkedPage,
+    normalizeUrlPage,
+    recoveryPage,
+  ]);
   const confirmed = page.isError ? undefined : batches.metadata;
   function refresh() {
-    if (cursor.pageIndex === 0) void page.refetch();
-    else cursor.restart();
+    if (offset === 0) void page.refetch();
+    else restart();
   }
   const rankingReady = confirmed?.availability.rps === "ready";
   const wasRunning = useRef(false);
@@ -314,7 +452,7 @@ export function StockRpsRanking() {
     batchReady
       ? JSON.stringify([
           resetKey,
-          cursor.pageIndex,
+          pageIndex,
           snapshotKey,
           job.data?.progress?.id,
           page.dataUpdatedAt,
@@ -514,9 +652,7 @@ export function StockRpsRanking() {
                   size="sm"
                   className="flex-1"
                   title="恢复默认列 RPS3/5/10/20/50"
-                  onClick={() =>
-                    setVisibleRpsPeriods([...defaultRpsTablePeriods])
-                  }
+                  onClick={() => updateColumns([...defaultRpsTablePeriods])}
                 >
                   默认
                 </Button>
@@ -525,7 +661,7 @@ export function StockRpsRanking() {
                   size="sm"
                   className="flex-1"
                   title="显示全部 RPS 周期"
-                  onClick={() => setVisibleRpsPeriods([...rpsPeriods])}
+                  onClick={() => updateColumns([...rpsPeriods])}
                 >
                   全选
                 </Button>
@@ -703,7 +839,7 @@ export function StockRpsRanking() {
         <DataTable
           columns={columns}
           data={
-            conditionUnavailable || (page.isError && cursor.pageIndex === 0)
+            conditionUnavailable || (page.isError && offset === 0)
               ? []
               : batches.rows
           }
@@ -714,13 +850,23 @@ export function StockRpsRanking() {
           }
           getRowId={rowKey}
           label="个股RPS排名"
-          loading={page.isFetching || page.isPending}
+          loading={page.isFetching || page.isPending || recoveryPage !== null}
           error={page.error?.message}
           onRetry={() => void page.refetch()}
           infiniteScroll={{
-            hasMore: !conditionUnavailable && batches.hasMore,
-            loadingMore: cursor.pageIndex > 0 && page.isFetching,
-            onLoadMore: cursor.loadMore,
+            hasMore:
+              !conditionUnavailable &&
+              batches.hasMore &&
+              marketPoolQuerySchema.shape.page.safeParse(pageIndex + 1).success,
+            loadingMore: offset > 0 && page.isFetching,
+            startOffset: (startPage - 1) * pageSize,
+            onLoadMore: () => {
+              setCursor((current) =>
+                current === position
+                  ? { ...position, offset: offset + 1 }
+                  : current,
+              );
+            },
           }}
           emptyMessage={
             conditionUnavailable

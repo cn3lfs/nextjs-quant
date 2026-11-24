@@ -18,6 +18,11 @@ import {
   rpsCandidateToLabHref,
 } from "~/lib/screening/screen-candidate-navigation";
 import { rpsHandoffRowAvailable } from "~/components/market/stock-rps-ranking";
+import {
+  equalizeSleeveWeights,
+  validateSleeveDraft,
+  type SleeveDraft,
+} from "~/components/research/diagnose/format";
 
 const origin = "https://workbench.test";
 const symbol = "sh600000";
@@ -71,6 +76,31 @@ function checkDraft(
 }
 
 describe("portfolio handoff", () => {
+  it.each(["watchlist", "pool"] as const)(
+    "round-trips one to twelve %s candidates and clips overflow",
+    (handoffSource) => {
+      const returnTo = `/scan?tab=${handoffSource}`;
+      expect(
+        batchCandidatesToLabHref({ symbols: [], handoffSource }),
+      ).toBeNull();
+      for (const count of [1, 12, 13]) {
+        const input = portfolioSymbols.slice(0, count);
+        const result = batchCandidatesToLabHref({
+          symbols: [input[0]!, ...input],
+          handoffSource,
+          returnTo,
+        });
+        expect(result?.truncatedCount).toBe(count > 12 ? 1 : 0);
+        expect(readHandoff(result?.href ?? null).handoff).toMatchObject({
+          scope: "portfolio-diagnose",
+          handoffSource,
+          symbol: input[0],
+          symbols: input.slice(0, 12),
+          returnTo,
+        });
+      }
+    },
+  );
   it("reserves all 12 monthly review slots for distinct Shanghai and Shenzhen A shares in round order", () => {
     const shares = ["sz300750", ...portfolioSymbols.slice(0, 12)];
     expect(
@@ -170,6 +200,87 @@ describe("portfolio handoff", () => {
       expect(() =>
         buildScanToLabHandoffHref({ ...accountHandoff, returnTo: unsafe }),
       ).toThrow();
+  });
+});
+
+describe("custom sleeve editor", () => {
+  const rows: SleeveDraft[] = [
+    "dual-ma",
+    "double-breakout",
+    "formula",
+    "research-chan-first",
+    "research-chan-second",
+    "research-sepa-pit",
+    "research-canslim-pit",
+  ].map((strategyKey, i) => ({
+    id: `sleeve-${i + 1}`,
+    strategyKey,
+    share: "",
+  }));
+
+  it.each([2, 3, 4, 5, 6])(
+    "equalizes %i sleeves without rounding out of tolerance",
+    (count) => {
+      const selected = rows.slice(0, count);
+      const result = validateSleeveDraft(equalizeSleeveWeights(selected));
+      expect(result.error).toBe("");
+      expect(Math.abs(result.sum - 1)).toBeLessThanOrEqual(1e-9);
+      expect(result.book?.sleeves).toEqual(
+        selected.map((row) => ({ ...row, share: 1 / count })),
+      );
+    },
+  );
+
+  it.each([0, 1, 7])("rejects %i sleeves", (count) => {
+    expect(
+      validateSleeveDraft(equalizeSleeveWeights(rows.slice(0, count))).book,
+    ).toBeNull();
+  });
+
+  it("enforces the 1e-9 tolerance on each side of 100%", () => {
+    const book = (share: string) =>
+      validateSleeveDraft([
+        { ...rows[0]!, share: "0.5" },
+        { ...rows[1]!, share },
+      ]).book;
+    expect(book("0.4999999995")).not.toBeNull();
+    expect(book("0.5000000005")).not.toBeNull();
+    expect(book("0.499999998")).toBeNull();
+    expect(book("0.500000002")).toBeNull();
+  });
+
+  it("accepts repeated strategies under distinct IDs and rejects duplicate trimmed IDs", () => {
+    const first = { id: "sleeve-1", strategyKey: "dual-ma", share: "0.5" };
+    const second = { id: " sleeve-2 ", strategyKey: " dual-ma ", share: "0.5" };
+    const valid = validateSleeveDraft([first, second]);
+    expect(valid.error).toBe("");
+    expect(valid.book?.sleeves).toEqual([
+      { id: "sleeve-1", strategyKey: "dual-ma", share: 0.5 },
+      { id: "sleeve-2", strategyKey: "dual-ma", share: 0.5 },
+    ]);
+
+    const duplicate = validateSleeveDraft([
+      first,
+      { ...second, id: " sleeve-1 " },
+    ]);
+    expect(duplicate.book).toBeNull();
+    expect(duplicate.error).toBe("分仓编号不能重复。");
+  });
+
+  it.each([
+    { strategyKey: " " },
+    { strategyKey: "unknown-strategy" },
+    { id: " " },
+    { id: "../sleeve-2" },
+    { share: "" },
+    { share: "0" },
+    { share: "-0.5" },
+    { share: "Infinity" },
+  ])("rejects invalid sleeve fields %j", (override) => {
+    const [first, second] = equalizeSleeveWeights(rows.slice(0, 2));
+    expect(
+      validateSleeveDraft([first!, { ...second!, ...override }]).book,
+    ).toBeNull();
   });
 });
 

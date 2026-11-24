@@ -38,6 +38,18 @@ export const chanNativeProfiles = {
   "chan-third-native": ["CH03", "原生三买 · 中枢上首次回试", 3],
 } as const;
 export type ChanNativeId = keyof typeof chanNativeProfiles;
+export const nativeChanV3Configs = [0, 1100] as const;
+export const nativeChanV3Profiles = [
+  "chan-overlap-native",
+  "chan-nested-native",
+  "chan-rebound-native",
+] as const satisfies readonly ChanNativeId[];
+export type NativeChanV3Profile = (typeof nativeChanV3Profiles)[number];
+export const isNativeChanV3Profile = (
+  profile: string,
+): profile is NativeChanV3Profile =>
+  (nativeChanV3Profiles as readonly string[]).includes(profile);
+
 type ChanMaRows = NonNullable<CzscFamily["diagnostics"]>["ma"];
 type ChanMaChunk = {
   start: number;

@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
+import { build } from "esbuild";
 import {
   existsSync,
   mkdirSync,
@@ -10,10 +11,26 @@ import {
   writeFileSync,
 } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
+import { buildRuntimeBundle } from "../../scripts/build-runtime.mjs";
 import {
   runLocalChecks,
   spawnCommand,
 } from "../../scripts/lib/local-check.mjs";
+import { scripts } from "../../package.json";
+
+function buildCalls(...entries: string[]): string[] {
+  const buildScripts = new Set(["packages:build", "runtime:build"]);
+  const workspaceScripts: Record<string, string> = scripts;
+  return entries.flatMap((entry) => [
+    ...(buildScripts.has(entry) ? [entry] : []),
+    ...workspaceScripts[entry]!.split(" && ").flatMap((command) => {
+      const name = /^pnpm (?:run )?([\w:-]+)$/.exec(command)?.[1];
+      return name && Object.hasOwn(workspaceScripts, name)
+        ? buildCalls(name)
+        : [];
+    }),
+  ]);
+}
 
 const roots: string[] = [];
 afterEach(() => {
@@ -38,6 +55,68 @@ function fixture() {
   vi.stubEnv("QUANT_DATA_DIR", production);
   return { root, production };
 }
+
+it.each(["cold", "warm"])(
+  "does not cache a stale runtime bundle when an input changes during a %s build",
+  async (cache) => {
+    const { root } = fixture();
+    const dependency = join(root, "dependency.js");
+    const entryPoint = join(root, "entry.js");
+    const outfile = join(root, "bundle.cjs");
+    writeFileSync(entryPoint, 'export { label } from "./dependency.js";');
+    writeFileSync(dependency, 'export const label = "before-edit";');
+    const options = {
+      entryPoints: [entryPoint],
+      outfile,
+      bundle: true,
+      format: "cjs" as const,
+    };
+    const previous =
+      cache === "warm" ? (await buildRuntimeBundle(options)).entry : null;
+    const liveContents = "previous live output";
+    writeFileSync(outfile, liveContents);
+    let builds = 0;
+    const result = await buildRuntimeBundle(
+      options,
+      previous?.files,
+      async (config) => {
+        expect(readFileSync(outfile, "utf8")).toBe(liveContents);
+        const output = await build(config);
+        builds++;
+        if (builds === (cache === "cold" ? 2 : 1))
+          writeFileSync(dependency, 'export const label = "after-edit";');
+        return output;
+      },
+    );
+    expect(builds).toBe(cache === "cold" ? 3 : 2);
+    expect(readFileSync(outfile, "utf8")).toContain("after-edit");
+    expect(readFileSync(outfile, "utf8")).not.toContain("before-edit");
+
+    const rebuilt = await buildRuntimeBundle(options, result.entry.files);
+    expect(result.entry).toEqual(rebuilt.entry);
+    expect(result.contents).toBe(rebuilt.contents);
+  },
+);
+
+it("leaves the live bundle intact when both retries see another input edit", async () => {
+  const { root } = fixture();
+  const entryPoint = join(root, "entry.js");
+  const outfile = join(root, "bundle.cjs");
+  const options = { entryPoints: [entryPoint], outfile, bundle: true };
+  writeFileSync(entryPoint, "export const revision = 0;");
+  const previous = await buildRuntimeBundle(options);
+  const liveContents = readFileSync(outfile, "utf8");
+  let builds = 0;
+  await expect(
+    buildRuntimeBundle(options, previous.entry.files, async (config) => {
+      const output = await build(config);
+      writeFileSync(entryPoint, `export const revision = ${++builds};`);
+      return output;
+    }),
+  ).rejects.toThrow("Runtime bundle inputs did not stabilize");
+  expect(builds).toBe(3);
+  expect(readFileSync(outfile, "utf8")).toBe(liveContents);
+});
 
 it("uses fresh data and temp directories, preserves the caller's data, and includes the requested build", async () => {
   const { root, production } = fixture();
@@ -66,6 +145,16 @@ it("uses fresh data and temp directories, preserves the caller's data, and inclu
     "format:check",
     "check:dependencies",
     "runtime:build",
+    "typecheck:prepared",
+    "lint",
+    "test:prepared",
+    "build:prepared",
+  ]);
+  expect(buildCalls(...steps)).toEqual(["runtime:build", "packages:build"]);
+  expect(first.steps.map(({ name }) => name)).toEqual([
+    "format:check",
+    "check:dependencies",
+    "runtime:build",
     "typecheck",
     "lint",
     "test",
@@ -91,6 +180,12 @@ it("uses fresh data and temp directories, preserves the caller's data, and inclu
   expect(process.env.QUANT_DATA_DIR).toBe(production);
 });
 
+it("public build, typecheck and test scripts still prepare their own dependencies", () => {
+  expect(buildCalls("typecheck")).toEqual(["packages:build"]);
+  expect(buildCalls("test")).toEqual(["runtime:build", "packages:build"]);
+  expect(buildCalls("build")).toEqual(["runtime:build", "packages:build"]);
+});
+
 it("stops on nonzero exit or launch failure and writes a reviewable result", async () => {
   const { root } = fixture();
   const summary = vi.spyOn(console, "table").mockImplementation(() => {});
@@ -113,7 +208,7 @@ it("stops on nonzero exit or launch failure and writes a reviewable result", asy
     "format:check",
     "check:dependencies",
     "runtime:build",
-    "typecheck",
+    "typecheck:prepared",
     "lint",
   ]);
   expect(
@@ -125,7 +220,7 @@ it("stops on nonzero exit or launch failure and writes a reviewable result", asy
   expect(report.totalElapsedMs).toBe(report.finishedAt! - report.startedAt);
   expect(summary).toHaveBeenCalledWith([
     ...commands.slice(0, -1).map((name) => ({
-      Step: name,
+      Step: name.replace(":prepared", ""),
       "Elapsed (ms)": 17,
       Exit: 0,
       Timeout: false,
@@ -355,9 +450,22 @@ it("rejects a requested data root outside the workspace test area before running
   expect(readdirSync(production)).toEqual(["sentinel"]);
 });
 
-it.each(["format:check", "check:dependencies", "typecheck"])(
+it.each([
+  ["format:check", ["format:check"]],
+  ["check:dependencies", ["format:check", "check:dependencies"]],
+  ["runtime:build", ["format:check", "check:dependencies", "runtime:build"]],
+  [
+    "typecheck:prepared",
+    [
+      "format:check",
+      "check:dependencies",
+      "runtime:build",
+      "typecheck:prepared",
+    ],
+  ],
+])(
   "propagates a real %s child failure without starting later stages",
-  (failedStage) => {
+  (failedStage, expectedStages) => {
     const { root, production } = fixture();
     const pnpm = join(root, "pnpm.cjs");
     writeFileSync(
@@ -396,11 +504,7 @@ it.each(["format:check", "check:dependencies", "typecheck"])(
     expect(run.status, run.stderr).toBe(23);
     const output = join(checkRoot, readdirSync(checkRoot)[0]!);
     expect(readFileSync(join(output, "stages"), "utf8")).toBe(
-      failedStage === "format:check"
-        ? "format:check\n"
-        : failedStage === "check:dependencies"
-          ? "format:check\ncheck:dependencies\n"
-          : "format:check\ncheck:dependencies\nruntime:build\ntypecheck\n",
+      expectedStages.join("\n") + "\n",
     );
     expect(existsSync(join(production, "stages"))).toBe(false);
   },

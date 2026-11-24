@@ -1,17 +1,157 @@
+import { spawn } from "node:child_process";
+import { once } from "node:events";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { exitedResult, spawnErrorResult } from "../../electron/startup-health";
+import {
+  checkSmokeShutdown,
+  createSmokeJob,
+  defaultSmokePassed,
+  observeSmokeProcess,
+  terminateSmokeProcess,
+  windowsProcesses,
+} from "../../scripts/desktop-smoke.mjs";
 import {
   desktopStartupLine,
   type DesktopStartupOutcome,
 } from "../../electron/startup-log";
 import {
+  diagnoseSmokePassed,
+  isThsdkDisabledRejection,
+  lifecycleSmokePassed,
   readStartupConclusion,
   smokePassed,
 } from "../../scripts/lib/desktop-smoke-result.mjs";
 
+const noResiduals = {
+  backend: 0,
+  worker: 0,
+  czscWorker: 0,
+  thsdkWorker: 0,
+  other: 0,
+};
+
 const at = new Date("2026-11-19T01:02:03.456Z");
 const record = (outcome: DesktopStartupOutcome) =>
   desktopStartupLine(outcome, at);
+
+it.skipIf(process.platform !== "win32")(
+  "terminates a surviving smoke descendant by job handle and leaves unrelated processes running",
+  async () => {
+    const job = createSmokeJob();
+    const unrelated = spawn(
+      process.execPath,
+      ["-e", "setInterval(() => {}, 1000)"],
+      { windowsHide: true },
+    );
+    const unrelatedExit = once(unrelated, "exit");
+    const launcher = spawn(
+      process.execPath,
+      [
+        "-e",
+        `
+    process.once("message", () => {
+      const child = require("node:child_process").spawn(process.execPath,
+        ["-e", "setInterval(() => {}, 1000)"], { detached: true, stdio: "ignore", windowsHide: true });
+      child.once("spawn", () => process.exit(0));
+      child.once("error", () => process.exit(1));
+    });
+  `,
+      ],
+      { stdio: ["ignore", "ignore", "ignore", "ipc"], windowsHide: true },
+    );
+    const launcherExit = once(launcher, "exit");
+    try {
+      expect(job.attach(launcher)).toBe(true);
+      launcher.send("start");
+      expect(await launcherExit).toEqual([0, null]);
+      await expect.poll(() => job.activeProcesses()).toBe(1);
+      job.terminate();
+      await expect.poll(() => job.activeProcesses()).toBe(0);
+      expect(unrelated.exitCode).toBeNull();
+      expect(unrelated.signalCode).toBeNull();
+      expect(unrelated.kill()).toBe(true);
+    } finally {
+      job.close();
+      launcher.kill();
+      unrelated.kill();
+      await Promise.all([launcherExit, unrelatedExit]);
+    }
+  },
+);
+
+it.skipIf(process.platform !== "win32")(
+  "reports and reaps a process outside the job only when live identity and profile match",
+  async () => {
+    const data = join(process.env.QUANT_DATA_DIR!, "escape fixture");
+    const launch = (profile: string) =>
+      spawn(
+        process.execPath,
+        [
+          "-e",
+          "setInterval(() => {}, 1000)",
+          "--",
+          `--user-data-dir=${profile}`,
+        ],
+        { detached: true, stdio: "ignore", windowsHide: true },
+      );
+    const escaped = launch(join(data, "electron-profile"));
+    const unrelated = launch(`${data} other`);
+    const escapedExit = once(escaped, "exit");
+    const unrelatedExit = once(unrelated, "exit");
+    const desktop = observeSmokeProcess(
+      () =>
+        spawn(
+          process.execPath,
+          ["-e", "process.once('message', () => process.exit(0))"],
+          {
+            stdio: ["ignore", "ignore", "ignore", "ipc"],
+            windowsHide: true,
+          },
+        ),
+      data,
+    );
+    try {
+      expect(desktop.contained).toBe(true);
+      desktop.child.send("quit");
+      expect(await desktop.outcome).toEqual({ code: 0, launchFailed: false });
+      expect(desktop.jobProcessIds()).not.toContain(escaped.pid);
+      const processes = windowsProcesses(data);
+      const escapedIdentity = processes.find(({ pid }) => pid === escaped.pid)!;
+      const otherIdentity = processes.find(({ pid }) => pid === unrelated.pid)!;
+      expect(escapedIdentity.matchesProfile).toBe(true);
+      expect(otherIdentity.matchesProfile).toBe(false);
+      expect(
+        terminateSmokeProcess(
+          { ...escapedIdentity, creationTime: "old" },
+          data,
+        ),
+      ).toBe(false);
+      expect(
+        terminateSmokeProcess({ ...otherIdentity, matchesProfile: true }, data),
+      ).toBe(false);
+      expect(escaped.exitCode).toBeNull();
+      expect(unrelated.exitCode).toBeNull();
+
+      const shutdown = { failedAt: null, residualProcesses: null };
+      await checkSmokeShutdown(shutdown, desktop);
+      expect(shutdown).toEqual({
+        failedAt: "residual-processes",
+        residualProcesses: { ...noResiduals, other: 1 },
+      });
+      expect(await escapedExit).toEqual([1, null]);
+      expect(unrelated.exitCode).toBeNull();
+      expect(unrelated.signalCode).toBeNull();
+    } finally {
+      desktop.close();
+      desktop.child.kill();
+      escaped.kill();
+      unrelated.kill();
+      await Promise.all([desktop.outcome, escapedExit, unrelatedExit]);
+    }
+  },
+  25_000,
+);
 
 describe("startup conclusion", () => {
   it("accepts exactly one writer record and keeps its bounded outcome", () => {
@@ -222,6 +362,22 @@ describe("smoke pass gate", () => {
     }
   });
 
+  it("requires a successful process census with zero residuals in both modes", () => {
+    for (const base of [allGood, startupOnlyGood]) {
+      const clean = { ...base, failedAt: null, residualProcesses: noResiduals };
+      expect(defaultSmokePassed(clean)).toBe(true);
+      expect(defaultSmokePassed({ ...clean, residualProcesses: null })).toBe(
+        false,
+      );
+      expect(
+        defaultSmokePassed({
+          ...clean,
+          residualProcesses: { ...noResiduals, other: 1 },
+        }),
+      ).toBe(false);
+    }
+  });
+
   it("fails a valid exited or timeout record with the rest all good", () => {
     for (const outcome of [
       exitedResult(0, null),
@@ -235,5 +391,139 @@ describe("smoke pass gate", () => {
         false,
       );
     }
+  });
+});
+
+describe("lifecycle smoke pass gate", () => {
+  const passedExit = { failurePageShown: true, restartRecovered: true };
+  const clean = {
+    exitCode: 0,
+    timedOut: false,
+    launchFailed: false,
+    cleaned: true,
+    windowHidden: true,
+    trayAlive: true,
+    windowRestored: true,
+    unexpectedCleanExit: { ...passedExit, code: 0, signal: null },
+    unexpectedSignalExit: { ...passedExit, code: null, signal: "SIGTERM" },
+    taskRecovered: true,
+    gracefulQuit: true,
+    residualProcesses: noResiduals,
+  };
+  it("requires both runtime exits, restarted services, task recovery and a clean quit", () => {
+    expect(lifecycleSmokePassed(clean)).toBe(true);
+    for (const patch of [
+      { exitCode: null },
+      { timedOut: true },
+      { launchFailed: true },
+      { cleaned: false },
+      { windowHidden: false },
+      { trayAlive: false },
+      { windowRestored: false },
+      { unexpectedCleanExit: undefined },
+      { unexpectedCleanExit: { ...clean.unexpectedCleanExit, code: 1 } },
+      {
+        unexpectedCleanExit: {
+          ...clean.unexpectedCleanExit,
+          failurePageShown: false,
+        },
+      },
+      { unexpectedSignalExit: { ...clean.unexpectedSignalExit, signal: null } },
+      {
+        unexpectedSignalExit: {
+          ...clean.unexpectedSignalExit,
+          restartRecovered: false,
+        },
+      },
+      { taskRecovered: false },
+      { gracefulQuit: false },
+      { residualProcesses: null },
+    ])
+      expect(lifecycleSmokePassed({ ...clean, ...patch })).toBe(false);
+    for (const kind of Object.keys(noResiduals))
+      expect(
+        lifecycleSmokePassed({
+          ...clean,
+          residualProcesses: { ...noResiduals, [kind]: 1 },
+        }),
+      ).toBe(false);
+  });
+});
+
+describe("diagnose smoke pass gate", () => {
+  const clean = {
+    failedAt: null,
+    readOnlyWithoutDatabase: true,
+    healthReady: true,
+    archiveRead: true,
+    jobStatus: "completed",
+    boundaryState: "zero-signal",
+    schemaVersion: 23,
+    czsc: {
+      apiVersion: 22,
+      dllHash: "ab".repeat(32),
+      bundledHashMatches: true,
+      workerObserved: true,
+    },
+    thsdk: {
+      enabled: false,
+      state: "disabled",
+      rejected: true,
+      workerCount: 0,
+      sessionCreated: false,
+    },
+    gracefulShutdown: true,
+    residualProcesses: noResiduals,
+    cleaned: true,
+  };
+
+  it("requires the packaged CZSC version, file hash, observed worker and verified teardown", () => {
+    expect(diagnoseSmokePassed(clean)).toBe(true);
+    for (const czsc of [
+      null,
+      { ...clean.czsc, apiVersion: 21 },
+      { ...clean.czsc, dllHash: "g".repeat(64) },
+      { ...clean.czsc, dllHash: clean.czsc.dllHash + "\n" },
+      { ...clean.czsc, bundledHashMatches: false },
+      { ...clean.czsc, workerObserved: false },
+    ])
+      expect(diagnoseSmokePassed({ ...clean, czsc })).toBe(false);
+    expect(
+      diagnoseSmokePassed({
+        ...clean,
+        residualProcesses: { ...noResiduals, czscWorker: 1 },
+      }),
+    ).toBe(false);
+    expect(diagnoseSmokePassed({ ...clean, residualProcesses: null })).toBe(
+      false,
+    );
+  });
+
+  it("requires a real default-disabled THSDK response and zero workers", () => {
+    for (const thsdk of [
+      null,
+      { ...clean.thsdk, enabled: true },
+      { ...clean.thsdk, state: "unconfigured" },
+      { ...clean.thsdk, rejected: false },
+      { ...clean.thsdk, workerCount: 1 },
+      { ...clean.thsdk, sessionCreated: true },
+    ])
+      expect(diagnoseSmokePassed({ ...clean, thsdk })).toBe(false);
+    const rejection = {
+      status: 500,
+      code: "INTERNAL_SERVER_ERROR",
+      message: "同花顺数据源未启用",
+    };
+    expect(isThsdkDisabledRejection(rejection)).toBe(true);
+    expect(isThsdkDisabledRejection({ ...rejection, status: 403 })).toBe(false);
+    expect(
+      isThsdkDisabledRejection({ ...rejection, code: "BAD_REQUEST" }),
+    ).toBe(false);
+    expect(
+      isThsdkDisabledRejection({
+        ...rejection,
+        message: "请先配置同花顺数据源",
+      }),
+    ).toBe(false);
   });
 });

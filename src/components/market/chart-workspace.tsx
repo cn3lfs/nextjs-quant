@@ -46,7 +46,15 @@ import {
 } from "~/lib/chart/crosshair-link";
 import { CzscMarketChart, MarketChart } from "./chart";
 import { IntelAnnotations } from "../news/intel-annotations";
-import type { ChartCompare } from "./market-chart-state";
+import {
+  ChartTradeMarksContext,
+  type ChartCompare,
+  type ChartTradeMarksValue,
+} from "./market-chart-state";
+import {
+  normalizeTradeSymbol,
+  tradeFillsFromDiagnose,
+} from "~/lib/chart/chart-trade-marks";
 import { compareColors } from "./market-chart-palette";
 import { SecuritySelect } from "./security-select";
 import { ChartCompareSectors } from "./chart-compare-sectors";
@@ -54,7 +62,11 @@ import { drawingPointCount } from "~/lib/chart/chart-drawings";
 import { IntradayChart } from "./intraday-chart";
 import { tradableSymbol } from "./tdx-side-panel";
 import { isTypingTarget } from "./chart-hotkeys";
-import type { ChartMode, MarketSnapshot } from "~/lib/stores/market-session";
+import {
+  useMarketSession,
+  type ChartMode,
+  type MarketSnapshot,
+} from "~/lib/stores/market-session";
 import { useWorkbenchUiStore } from "~/lib/stores/workbench-ui-store";
 import { StateBanner } from "../panels";
 
@@ -189,6 +201,8 @@ export function ChartWorkspace({
       }
       onRpsRetry={() => void rps.refetch()}
       bars={aggregate.data.bars}
+      barsConfirmed={!aggregate.isPlaceholderData}
+      historyLimit={limit}
       cost={
         adjustment === "none" ? chartCost(position.data ?? undefined) : null
       }
@@ -222,6 +236,8 @@ function EditableChart({
   onChartModeChange,
   initial,
   bars,
+  barsConfirmed,
+  historyLimit,
   cost,
   positionMessage,
   aggregateErrors,
@@ -245,6 +261,8 @@ function EditableChart({
   initial: ChartView;
   onHistoryRequest?: () => void;
   bars: Snapshot["bars"];
+  barsConfirmed: boolean;
+  historyLimit: number;
   cost: number | null;
   positionMessage?: string;
   aggregateErrors?: string[];
@@ -258,6 +276,137 @@ function EditableChart({
     [label, setLabel] = useState("标注"),
     [message, setMessage] = useState("");
   const visible = useScreenVisible();
+  // Backtest trade marks: only the symbol the fills belong to may paint them.
+  const [sessionTradeContext, setSessionTradeContext] = useState(
+    () => useMarketSession.getState().tradeContext,
+  );
+  useEffect(() => {
+    const unsubscribe = useMarketSession.subscribe((state, previous) => {
+      if (state.tradeContext !== previous.tradeContext)
+        setSessionTradeContext(state.tradeContext);
+    });
+    setSessionTradeContext(useMarketSession.getState().tradeContext);
+    return unsubscribe;
+  }, []);
+  const tradeContext =
+    sessionTradeContext &&
+    normalizeTradeSymbol(sessionTradeContext.symbol) ===
+      normalizeTradeSymbol(snapshot.symbol)
+      ? sessionTradeContext
+      : null;
+  const focusDate = tradeContext?.focusPending ? tradeContext.at : undefined;
+  const firstDate = bars[0]?.date;
+  useEffect(() => {
+    if (
+      visible &&
+      barsConfirmed &&
+      period === "day" &&
+      focusDate &&
+      firstDate &&
+      focusDate < firstDate
+    )
+      onHistoryRequest?.();
+  }, [
+    visible,
+    barsConfirmed,
+    period,
+    focusDate,
+    firstDate,
+    onHistoryRequest,
+    historyLimit,
+  ]);
+  const cellIndex = Number(tradeContext?.cell);
+  const hasCellIndex =
+    /^\d+$/.test(tradeContext?.cell ?? "") && Number.isSafeInteger(cellIndex);
+  // Archive fills are sampled server-side; ask for the page holding the cell.
+  const archive = api.strategyLabDiagnoseArchiveDetail.useQuery(
+    {
+      id: tradeContext?.diagnose ?? "",
+      page: hasCellIndex ? Math.floor(cellIndex / 50) + 1 : 1,
+      pageSize: 50,
+    },
+    {
+      enabled:
+        visible &&
+        Boolean(tradeContext?.diagnose) &&
+        !tradeContext?.portfolioFills,
+      retry: false,
+      refetchOnWindowFocus: false,
+      staleTime: 60_000,
+    },
+  );
+  const hasSymbol = (row: { symbols: string[] }) =>
+    row.symbols.some(
+      (symbol) =>
+        normalizeTradeSymbol(symbol) === normalizeTradeSymbol(snapshot.symbol),
+    );
+  const cell = tradeContext?.cell
+    ? hasCellIndex
+      ? archive.data?.cells[cellIndex % 50]
+      : undefined
+    : tradeContext?.diagnose
+      ? archive.data?.cells.find(hasSymbol)
+      : undefined;
+  const scenario =
+    cell && hasSymbol(cell)
+      ? tradeContext?.scenario
+        ? cell.scenarios.find((row) => row.scenarioId === tradeContext.scenario)
+        : cell.scenarios[0]
+      : undefined;
+  const tradeFills = useMemo(
+    () => tradeContext?.portfolioFills ?? tradeFillsFromDiagnose(scenario),
+    [tradeContext?.portfolioFills, scenario],
+  );
+  const archiveMessage =
+    tradeContext?.diagnose && !tradeContext.portfolioFills
+      ? archive.isError
+        ? `诊断归档读取失败：${archive.error.message}`
+        : !archive.data
+          ? "正在读取诊断归档成交样本…"
+          : !scenario
+            ? "诊断归档中没有对应的证券和执行情景"
+            : undefined
+      : undefined;
+  const tradeMarksValue = useMemo<ChartTradeMarksValue | null>(
+    () =>
+      tradeContext
+        ? {
+            symbol: snapshot.symbol,
+            fills: tradeFills,
+            sourceLabel: tradeContext.portfolioFills
+              ? "组合回放成交（当前页）"
+              : tradeContext.diagnose
+                ? "诊断归档成交样本"
+                : null,
+            archiveMessage,
+            barsConfirmed,
+            visible: tradeContext.visible,
+            focusAt:
+              visible &&
+              barsConfirmed &&
+              tradeContext.focusPending &&
+              tradeContext.at
+                ? {
+                    date: tradeContext.at,
+                    consume: () =>
+                      useMarketSession
+                        .getState()
+                        .consumeTradeFocus(tradeContext.focusToken),
+                  }
+                : null,
+            onVisibilityChange:
+              useMarketSession.getState().setTradeMarksVisible,
+          }
+        : null,
+    [
+      tradeContext,
+      tradeFills,
+      snapshot.symbol,
+      archiveMessage,
+      visible,
+      barsConfirmed,
+    ],
+  );
   const zenMode = useWorkbenchUiStore((state) => state.zenMode);
   const toggleZen = useWorkbenchUiStore((state) => state.toggleZen);
   const [dirty, setDirty] = useState(false);
@@ -507,14 +656,16 @@ function EditableChart({
   const renderPane = (
     events?: IntelEvent[],
     onSelect?: (id: string) => void,
-  ) =>
-    showIntraday ? (
-      <IntradayChart
-        symbol={snapshot.symbol}
-        snapshotId={snapshot.id}
-        pricePrecision={common.pricePrecision}
-      />
-    ) : (
+  ) => {
+    if (showIntraday)
+      return (
+        <IntradayChart
+          symbol={snapshot.symbol}
+          snapshotId={snapshot.id}
+          pricePrecision={common.pricePrecision}
+        />
+      );
+    const mainChart = (
       <CzscMarketChart
         {...common}
         // Crypto has no news layer here: never pass markers or a select
@@ -530,6 +681,14 @@ function EditableChart({
         sharedDrawings={shared}
       />
     );
+    return tradeMarksValue ? (
+      <ChartTradeMarksContext.Provider value={tradeMarksValue}>
+        {mainChart}
+      </ChartTradeMarksContext.Provider>
+    ) : (
+      mainChart
+    );
+  };
   return (
     <div
       data-testid="chart-workspace"

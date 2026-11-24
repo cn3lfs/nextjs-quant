@@ -20,6 +20,40 @@ import type {
 import { attachDrawingInteractions } from "./market-chart-drawings";
 import { attachChartStructure } from "./market-chart-structure";
 
+type HorizontalRange = { from: number; to: number };
+
+// The chart handles native scroll/zoom synchronously. Compare the range on
+// either side of that input event so an asynchronous programmatic focus,
+// resize, or linked-chart update cannot turn into a saved user viewport.
+export function observeRangeGesture(
+  target: EventTarget,
+  type: "mousemove" | "touchmove" | "wheel",
+  readRange: () => HorizontalRange | null,
+  onChange: () => void,
+) {
+  let before: HorizontalRange | null = null;
+  const capture = () => {
+    before = readRange();
+  };
+  const finish = () => {
+    const after = before && readRange();
+    if (
+      before &&
+      after &&
+      (Math.abs(after.from - before.from) > 1e-6 ||
+        Math.abs(after.to - before.to) > 1e-6)
+    )
+      onChange();
+    before = null;
+  };
+  target.addEventListener(type, capture, { capture: true, passive: true });
+  target.addEventListener(type, finish, { passive: true });
+  return () => {
+    target.removeEventListener(type, capture, true);
+    target.removeEventListener(type, finish);
+  };
+}
+
 /** One native canvas and all resources whose lifetime belongs to it. */
 export function createMarketChartInstance(
   element: HTMLDivElement,
@@ -97,6 +131,7 @@ export function createMarketChartInstance(
     indicatorLines: [],
     panes: new Map(),
     costLine: null,
+    temporaryRange: false,
     cursor: null,
   };
   const removeDrawingListeners = attachDrawingInteractions(
@@ -141,11 +176,12 @@ export function createMarketChartInstance(
     dragging = true;
   };
   const endDrag = () => {
+    if (!dragging) return;
     dragging = false;
     reveal(chart.timeScale().getVisibleLogicalRange());
   };
   const reveal = (range: LogicalRange | null) => {
-    if (!range || updating) return;
+    if (!range || updating || state.temporaryRange) return;
     remember(range);
     if (dragging || range.from > 12 || frame) return;
     if (!state.start) {
@@ -157,7 +193,8 @@ export function createMarketChartInstance(
     frame = requestAnimationFrame(() => {
       frame = 0;
       const current = chart.timeScale().getVisibleLogicalRange();
-      if (dragging || !current || current.from > 12) return;
+      if (state.temporaryRange || dragging || !current || current.from > 12)
+        return;
       const next = revealHistory(state.start, current);
       updating = true;
       state.start = next.start;
@@ -172,19 +209,36 @@ export function createMarketChartInstance(
   // Replacing series during a pressed-mouse gesture resets the library's
   // scroll anchor. Reveal older bars after release, preserving the viewport.
   container.addEventListener("pointerdown", beginDrag, true);
+  const rangeDuringReview = () =>
+    state.temporaryRange && !updating && !linking.current
+      ? chart.timeScale().getVisibleLogicalRange()
+      : null;
+  const dragRange = () => (dragging ? rangeDuringReview() : null);
+  const allowRangeSave = () => {
+    state.temporaryRange = false;
+    reveal(chart.timeScale().getVisibleLogicalRange());
+  };
+  const removeGestures = [
+    observeRangeGesture(window, "mousemove", dragRange, allowRangeSave),
+    observeRangeGesture(window, "touchmove", dragRange, allowRangeSave),
+    observeRangeGesture(container, "wheel", rangeDuringReview, allowRangeSave),
+  ];
   window.addEventListener("pointerup", endDrag);
   window.addEventListener("pointercancel", endDrag);
   chart.timeScale().subscribeVisibleLogicalRangeChange(reveal);
   const dispose = () => {
     removeDrawingListeners();
     container.removeEventListener("pointerdown", beginDrag, true);
+    for (const remove of removeGestures) remove();
     window.removeEventListener("pointerup", endDrag);
     window.removeEventListener("pointercancel", endDrag);
     cancelAnimationFrame(frame);
-    const range = chart.timeScale().getVisibleLogicalRange();
-    remember(range);
-    if (viewportKey)
-      rememberChartRange(viewportKey, state.bars, state.start, range);
+    if (!state.temporaryRange) {
+      const range = chart.timeScale().getVisibleLogicalRange();
+      remember(range);
+      if (viewportKey)
+        rememberChartRange(viewportKey, state.bars, state.start, range);
+    }
     chart.remove();
   };
 

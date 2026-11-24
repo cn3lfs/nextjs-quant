@@ -10,12 +10,19 @@ import {
   shell,
   type IpcMainInvokeEvent,
 } from "electron";
-import { join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { createServer } from "node:net";
 import { randomBytes } from "node:crypto";
-import { appendFileSync, mkdirSync } from "node:fs";
+import {
+  appendFileSync,
+  mkdirSync,
+  realpathSync,
+  writeFileSync,
+} from "node:fs";
 import { stat } from "node:fs/promises";
 import { spawn, type ChildProcess } from "node:child_process";
+import { once } from "node:events";
+import { setTimeout as delay } from "node:timers/promises";
 import {
   SERVICE_STOPPED_MARKUP,
   exitedResult,
@@ -27,6 +34,7 @@ import {
 } from "./startup-health";
 import {
   createDesktopStartupRecorder,
+  recordUnexpectedServiceExit,
   safeAppend,
   type DesktopStartupRecorder,
 } from "./startup-log";
@@ -46,6 +54,25 @@ let window: BrowserWindow | undefined,
   stopping: Promise<void> | undefined,
   startupLog: DesktopStartupRecorder | undefined;
 const token = randomBytes(32).toString("hex");
+const lifecycleSmoke =
+  process.env.QUANT_DESKTOP_LIFECYCLE_SMOKE === "1" &&
+  process.argv.includes("--quant-desktop-lifecycle-smoke");
+
+function isolateLifecycleProfile() {
+  const data = process.env.QUANT_DATA_DIR ?? "";
+  if (
+    !isAbsolute(data) ||
+    basename(dirname(data)) !== ".test-data" ||
+    !/^quant-desktop-[A-Za-z0-9]{6}$/.test(basename(data)) ||
+    realpathSync.native(data).toLowerCase() !== resolve(data).toLowerCase()
+  )
+    throw new Error("Invalid isolated desktop lifecycle profile");
+  const profile = join(data, "electron-profile");
+  mkdirSync(profile, { recursive: true });
+  if (realpathSync.native(profile).toLowerCase() !== profile.toLowerCase())
+    throw new Error("Invalid isolated Electron userData");
+  app.setPath("userData", profile);
+}
 function page(markup: string) {
   return "data:text/html;charset=utf-8," + encodeURIComponent(markup);
 }
@@ -144,7 +171,8 @@ async function finishStartupFailure(
   // Rendering can take a turn; do not let a late failure exit override a
   // normal quit that started meanwhile.
   if (quitting || win.isDestroyed()) return;
-  if (process.env.QUANT_DESKTOP_SMOKE === "1") return failStartup();
+  if (process.env.QUANT_DESKTOP_SMOKE === "1" || lifecycleSmoke)
+    return failStartup();
   showWindow(win);
 }
 async function freePort(): Promise<number> {
@@ -191,6 +219,7 @@ async function main() {
   let restartPending: Promise<void> | undefined;
   let attempt: Promise<void>;
   let hiddenByClose = false;
+  let runtimeFailureNavigation: Promise<void> | undefined;
 
   async function syncPreferences(selection?: boolean) {
     try {
@@ -416,12 +445,18 @@ async function main() {
           abortStartup(exitedResult(code, signal));
           return;
         }
-        if (phase === "running" && !quitting && code !== 0) {
+        if (phase === "running") {
+          recordUnexpectedServiceExit(logPath, code, signal);
           phase = "failed";
-          if (window) void showFailure(window, SERVICE_STOPPED_MARKUP);
+          if (window) {
+            const navigation = showFailure(window, SERVICE_STOPPED_MARKUP);
+            if (lifecycleSmoke) runtimeFailureNavigation = navigation;
+          }
           refreshTray();
         }
       });
+      if (lifecycleSmoke && child.pid)
+        appendFileSync(join(data, "lifecycle-backends.txt"), child.pid + "\n");
       child.stderr?.on("data", (chunk) =>
         safeAppend(
           logPath,
@@ -515,8 +550,124 @@ async function main() {
   }
   attempt = launch();
   await attempt;
+  if (lifecycleSmoke && !quitting) await runLifecycleSmoke();
+
+  async function runLifecycleSmoke() {
+    const win = window;
+    const icon = tray;
+    const initial = service;
+    if (!win || !icon || !initial?.pid || phase !== "running")
+      throw new Error("Desktop lifecycle smoke did not start");
+
+    await syncPreferences(true);
+    win.close();
+    const windowHidden =
+      hiddenByClose && !win.isDestroyed() && !win.isVisible();
+    const trayAlive =
+      !icon.isDestroyed() && service === initial && !serviceStopped();
+    icon.emit("double-click");
+    const windowRestored = !hiddenByClose && win.isVisible();
+
+    // The runner seeds an interrupted task owned by this exact backend PID
+    // after startup recovery, then permits the fault injection.
+    writeFileSync(
+      join(data, "lifecycle-ready.json"),
+      JSON.stringify(initial.pid),
+    );
+    const deadline = Date.now() + 20_000;
+    for (;;) {
+      if (quitting || serviceStopped() || Date.now() >= deadline)
+        throw new Error("Desktop lifecycle smoke lost its backend or runner");
+      if (
+        await stat(join(data, "lifecycle-crash")).then(
+          () => true,
+          () => false,
+        )
+      )
+        break;
+      await delay(100);
+    }
+
+    const unexpectedCleanExit = await crashAndRestart(
+      win,
+      initial,
+      async () => {
+        const response = await fetch(origin + "/api/shutdown", {
+          method: "POST",
+          headers: { "x-quant-session": token },
+          redirect: "error",
+          signal: AbortSignal.timeout(3500),
+        });
+        if (!response.ok || (await response.json()).status !== "shutting-down")
+          throw new Error("Desktop lifecycle smoke shutdown request failed");
+      },
+    );
+    const replacement = service;
+    if (!replacement || !unexpectedCleanExit.restartRecovered)
+      throw new Error("Desktop lifecycle smoke restart failed");
+    const unexpectedSignalExit = await crashAndRestart(win, replacement, () => {
+      if (!replacement.kill()) throw new Error("Desktop smoke kill failed");
+    });
+    const finalService = service;
+    app.once("will-quit", () => {
+      writeFileSync(
+        join(data, "lifecycle-result.json"),
+        JSON.stringify({
+          windowHidden,
+          trayAlive,
+          windowRestored,
+          unexpectedCleanExit,
+          unexpectedSignalExit,
+          gracefulQuit:
+            finalService?.exitCode === 0 && finalService.signalCode === null,
+        }),
+      );
+    });
+    app.quit();
+
+    async function crashAndRestart(
+      win: BrowserWindow,
+      child: ChildProcess,
+      trigger: () => void | Promise<void>,
+    ) {
+      runtimeFailureNavigation = undefined;
+      const [[code, signal]] = await Promise.all([
+        once(child, "exit"),
+        Promise.resolve().then(trigger),
+      ]);
+      await runtimeFailureNavigation;
+      const failurePageShown =
+        phase === "failed" &&
+        win.webContents.getURL() === page(SERVICE_STOPPED_MARKUP) &&
+        (await win.webContents.executeJavaScript(
+          "document.querySelector('h2')?.textContent",
+        )) === "本地服务已停止";
+      await restart();
+      return {
+        code,
+        signal,
+        failurePageShown,
+        restartRecovered:
+          phase === "running" &&
+          !!service?.pid &&
+          service.pid !== child.pid &&
+          !serviceStopped() &&
+          new URL(win.webContents.getURL()).origin === origin,
+      };
+    }
+  }
 }
-if (!app.requestSingleInstanceLock()) app.quit();
+function prepareLifecycleProfile() {
+  if (!lifecycleSmoke) return true;
+  try {
+    isolateLifecycleProfile();
+    return true;
+  } catch {
+    return false;
+  }
+}
+if (!prepareLifecycleProfile()) app.exit(1);
+else if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on("second-instance", () => {
     window?.show();

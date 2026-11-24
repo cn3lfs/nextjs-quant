@@ -13,6 +13,26 @@ import { scoreValidationResult } from "./validation-replay";
 import { validationHash, type ValidationDataset } from "./validation-capture";
 import { economicFillList } from "~/lib/backtest/economic-fills";
 
+/** Count eligible symbol/session pairs once across strategies in all sleeves. */
+export function summarizePortfolioSuspensions(
+  result: ReturnType<typeof runPortfolio>,
+) {
+  const byDate = new Map<string, Set<string>>();
+  for (const row of result.dailyDecisionCounts ?? []) {
+    if (!row.suspendedSymbols?.length) continue;
+    const symbols = byDate.get(row.date) ?? new Set<string>();
+    for (const symbol of row.suspendedSymbols) symbols.add(symbol);
+    byDate.set(row.date, symbols);
+  }
+  return {
+    symbolSuspensionDays: [...byDate.values()].reduce(
+      (sum, symbols) => sum + symbols.size,
+      0,
+    ),
+    portfolioAffectedDays: byDate.size,
+  };
+}
+
 /** Same completed-day clock for engine, OOS statistics and forward distributions. */
 export function lifecycleDailyEvidence(
   result: ReturnType<typeof runPortfolio>,
@@ -38,6 +58,8 @@ export function lifecycleDailyEvidence(
         bars: new Set<string>(),
       };
     current.entries += c.entries;
+    // Suspended symbols already count toward expected. Other unknowns, even
+    // in the same sleeve on the same session, still invalidate the period.
     current.unknown += c.unknown + (c.expected ? 0 : 1);
     current.bars.add(c.date);
     count.set(date, current);
@@ -67,6 +89,7 @@ export function lifecycleDailyEvidence(
     const missing =
       value === undefined ||
       !Number.isFinite(value) ||
+      value < 0 ||
       !(previous > 0) ||
       !observations ||
       observations.unknown > 0 ||
@@ -133,6 +156,9 @@ export function scoreLifecycleResult(
             sharpe: null,
             benchmarkSharpe: null,
             sharpeDifference: null,
+            calmar: null,
+            benchmarkCalmar: null,
+            calmarDifference: null,
           },
         }
       : {}),

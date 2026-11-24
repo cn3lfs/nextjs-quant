@@ -2,6 +2,8 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join, resolve, matchesGlob } from "node:path";
 
 const traceExcludes = [
+  "./**/.env",
+  "./**/.env.*",
   "./release/**/*",
   "./.test-data/**/*",
   "./test-results/**/*",
@@ -23,7 +25,9 @@ const config = {
   // Invalidates the persisted client query cache whenever a new build ships.
   env: { NEXT_PUBLIC_CACHE_BUSTER: String(Date.now()) },
   serverExternalPackages: ["better-sqlite3", "koffi"],
-  outputFileTracingIncludes: { "/*": ["./runtime/**/*"] },
+  outputFileTracingIncludes: {
+    "/*": ["./runtime/**/*", "./node_modules/better-sqlite3/LICENSE"],
+  },
   outputFileTracingExcludes: { "**": traceExcludes },
   compiler: {
     // Turbopack emits the instrumentation NFT outside the route exclude pass.

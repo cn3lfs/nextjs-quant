@@ -218,6 +218,7 @@ beforeEach(async () => {
   h.dataDir = await mkdtemp(join(tmpdir(), "quant-desktop-wiring-"));
   vi.stubEnv("QUANT_DATA_DIR", h.dataDir);
   vi.stubEnv("QUANT_DESKTOP_SMOKE", "");
+  vi.stubEnv("QUANT_DESKTOP_LIFECYCLE_SMOKE", "");
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, options?: RequestInit) => {
@@ -1104,6 +1105,100 @@ describe("desktop background monitoring", () => {
       value,
     );
   }
+  async function serviceExitLines() {
+    return (await readFile(join(h.dataDir, "server.log"), "utf8"))
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith("[desktop-service-exit]"));
+  }
+
+  it.each([
+    { env: "1", flag: false, expectedExit: [] },
+    { env: "", flag: true, expectedExit: [] },
+    { env: "1", flag: true, expectedExit: [1] },
+  ])(
+    "requires both lifecycle opt-ins and rejects a non-isolated profile",
+    async ({ env, flag, expectedExit }) => {
+      vi.stubEnv("QUANT_DESKTOP_LIFECYCLE_SMOKE", env);
+      const flagLength = process.argv.length;
+      if (flag) process.argv.push("--quant-desktop-lifecycle-smoke");
+      try {
+        await import("../../electron/main");
+        await flush();
+        expect(h.exitCalls).toEqual(expectedExit);
+        expect(h.spawnCalls).toHaveLength(expectedExit.length ? 0 : 1);
+      } finally {
+        process.argv.length = flagLength;
+      }
+    },
+  );
+
+  it.each([
+    { code: 0, signal: null, detail: "code=0" },
+    { code: 7, signal: null, detail: "code=7" },
+    { code: null, signal: "SIGTERM", detail: "signal=SIGTERM" },
+  ])(
+    "reports unexpected backend exit $detail after startup",
+    async ({ code, signal, detail }) => {
+      await import("../../electron/main");
+      await flush();
+      const runningTray = h.trayMenus.at(-1);
+      h.child.exitCode = code;
+      h.child.signalCode = signal;
+      h.child.emit("exit", code, signal);
+      await flush();
+
+      expect(h.loadCalls).toHaveLength(2);
+      expect(decodeURIComponent(h.loadCalls[1]!.split(",")[1]!)).toBe(
+        SERVICE_STOPPED_MARKUP,
+      );
+      const failedTray = h.trayMenus.at(-1);
+      expect(failedTray).not.toBe(runningTray);
+      expect(failedTray).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ type: "checkbox", enabled: false }),
+          expect.objectContaining({ label: "重启后台服务", enabled: true }),
+        ]),
+      );
+      expect(await serviceExitLines()).toEqual([
+        expect.stringMatching(
+          new RegExp(`^\\[desktop-service-exit\\] .+ exited ${detail}$`),
+        ),
+      ]);
+      await expectSingleStartup("ready");
+    },
+  );
+
+  it("does not show a failure page or log a crash when the service exits during an intentional restart", async () => {
+    await import("../../electron/main");
+    await flush();
+    const stopped = h.child;
+    const restarting = trayClick("重启后台服务");
+    await flush();
+    h.child = makeChild();
+    stopped.exitCode = 0;
+    stopped.emit("exit", 0, null);
+    await restarting;
+
+    expect(h.spawnCalls).toHaveLength(2);
+    expect(h.loadCalls).toEqual([
+      "http://127.0.0.1:3911",
+      "http://127.0.0.1:3911",
+    ]);
+    expect(await serviceExitLines()).toEqual([]);
+  });
+
+  it("does not show a failure page or log a crash when the service exits during intentional quit", async () => {
+    await import("../../electron/main");
+    await flush();
+    await trayClick("彻底退出并停止监控");
+    h.child.exitCode = 0;
+    h.child.emit("exit", 0, null);
+    await flush();
+    expect(h.loadCalls).toEqual(["http://127.0.0.1:3911"]);
+    expect(await serviceExitLines()).toEqual([]);
+    expect(h.spawnSync).not.toHaveBeenCalled();
+  });
+
   it("keeps smoke auto-exit and the ready record even with a saved tray preference", async () => {
     vi.stubEnv("QUANT_DESKTOP_SMOKE", "1");
     await writeFile(

@@ -12,6 +12,7 @@ import { boll, kdj, ma, macd, rsi, type IndicatorValue } from "../indicators";
 import { bias, cci, ema, obv, williams } from "./chart-extra-indicators";
 import type { LineData, Time, UTCTimestamp } from "lightweight-charts";
 import type { SeriesMarker } from "lightweight-charts";
+import type { TradeMark } from "./chart-trade-marks";
 import type { PatternBreakoutMatch } from "trading-strategies";
 import { classifyCzscSignals } from "trading-strategies/research/chan/chan-signal-evaluator";
 import type {
@@ -21,6 +22,24 @@ import type {
 import type { BreakoutResult } from "trading-strategies/research/breakout/breakout";
 
 const breakoutColors = { long: "#7c3aed", short: "#28977f" };
+
+export function tradeChartMarkers(
+  marks: readonly TradeMark[],
+  firstBar: Bar | undefined,
+  period: Period,
+): SeriesMarker<Time>[] {
+  if (!firstBar || period !== "day") return [];
+  // An unloaded marker date would be clamped to the first rendered candle.
+  return marks
+    .filter(({ date }) => date >= firstBar.date)
+    .map(({ date, position, color, shape, text }) => ({
+      time: chartTime(date, period),
+      position,
+      color,
+      shape,
+      text,
+    }));
+}
 
 /** Render as-of evidence only; no chart-side fitting or indicator formulas. */
 export function breakoutChartData(

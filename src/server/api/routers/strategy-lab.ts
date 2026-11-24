@@ -16,7 +16,7 @@ import { researchCommandSchema } from "~/lib/research/research-command";
 import { background, runWorker, updateJob } from "../../jobs/jobs";
 import { prepareLabBacktest } from "../../research/lab-backtest";
 import { readJobResultSnapshot } from "../../db/job-results";
-import { readJob } from "../../db/jobs";
+import { getJobStatus } from "../../db/jobs";
 import { atomic } from "../../db";
 import {
   diagnoseArchiveDetailInputSchema,
@@ -27,9 +27,11 @@ import {
 } from "~/lib/research/diagnose-contract";
 import {
   listDiagnoseArchives,
+  exportDiagnoseArchive,
   createDiagnoseStagingDir,
   cleanupDiagnoseStagingDir,
   publishStagedDiagnoseArchive,
+  stageDiagnoseSummary,
   readDiagnoseArchive,
   resolveDiagnoseArchiveKey,
   removeUnpublishedDiagnoseArchive,
@@ -62,6 +64,16 @@ export const strategyLabRouter = createTRPCRouter({
   strategyLabDiagnoseArchiveDetail: p("backtest", "read")
     .input(diagnoseArchiveDetailInputSchema)
     .query(({ input: { id, ...page } }) => readDiagnoseArchive(id, page)),
+  strategyLabDiagnoseExport: p("backtest", "read")
+    .input(
+      z
+        .object({
+          archiveId: diagnoseArchiveDetailInputSchema.shape.id,
+          format: z.enum(["markdown", "json"]),
+        })
+        .strict(),
+    )
+    .query(({ input }) => exportDiagnoseArchive(input.archiveId, input.format)),
   strategyLabDiagnoseCompare: p("backtest", "read")
     .input(diagnoseCompareInputSchema)
     .query(async ({ input }) => {
@@ -106,21 +118,25 @@ export const strategyLabRouter = createTRPCRouter({
           let published = false;
           const archiveId = `lab-${job.id}`;
           try {
-            const receipt = await runWorker<LabDiagnoseWorkerResult>(
-              {
-                type: "lab-diagnose",
-                input,
-                config: settings(),
-                stagingDir,
-                jobId: job.id,
-              },
-              job.id,
-            );
+            const { receipt, sidecar } =
+              await runWorker<LabDiagnoseWorkerResult>(
+                {
+                  type: "lab-diagnose",
+                  input,
+                  config: settings(),
+                  stagingDir,
+                  jobId: job.id,
+                },
+                job.id,
+              );
             if (receipt.archiveId !== archiveId)
               throw new Error("诊断归档与任务 ID 不一致");
+            signal.throwIfAborted();
+            await stageDiagnoseSummary(stagingDir, archiveId, sidecar, {
+              signal,
+            });
             atomic(() => {
-              const current = readJob(job.id);
-              if (signal.aborted || current?.status !== "running")
+              if (signal.aborted || getJobStatus(job.id) !== "running")
                 throw new Error("诊断任务已取消或不再运行");
               const completed = updateJob(job.id, {
                 status: "completed",

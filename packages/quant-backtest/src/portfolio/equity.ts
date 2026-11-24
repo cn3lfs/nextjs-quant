@@ -1,4 +1,5 @@
 import { transferStrategyBook } from "trading-strategies";
+import { big } from "trading-strategy-core/money";
 import { type PortfolioState } from "./state.js";
 
 export function rebalanceAndMarkEquity(
@@ -40,18 +41,25 @@ export function rebalanceAndMarkEquity(
           request.rebalance!.drift!,
       );
     if (due || drift || target?.date === date) {
-      let pool = 0;
+      let poolAtoms = 0n;
       for (const s of targets) {
         const a = accounts.get(s.id)!,
-          amount = Math.min(a.cash, Math.max(0, a.equity - total * s.share));
-        if (amount > 0) {
-          a.transfer(-amount);
-          pool += amount;
-          transfers.push({ date, sleeve: s.id, amount: -amount });
-          for (const strategy of strategies.filter((v) => v.sleeve === s.id)) {
-            const state = bookStates.get(strategy.id);
-            if (state)
-              bookStates.set(strategy.id, transferStrategyBook(state, -amount));
+          excess = Math.max(0, a.equity - total * s.share);
+        if (excess > 0 && a.cashAtoms > 0n) {
+          const moved = a.transferOutUpToCash(excess);
+          if (moved.atoms > 0n) {
+            poolAtoms += moved.atoms;
+            transfers.push({ date, sleeve: s.id, amount: -moved.amount });
+            for (const strategy of strategies.filter(
+              (v) => v.sleeve === s.id,
+            )) {
+              const state = bookStates.get(strategy.id);
+              if (state)
+                bookStates.set(
+                  strategy.id,
+                  transferStrategyBook(state, -moved.amount),
+                );
+            }
           }
         }
       }
@@ -60,25 +68,42 @@ export function rebalanceAndMarkEquity(
         need: Math.max(0, total * s.share - accounts.get(s.id)!.equity),
       }));
       const totalNeed = needs.reduce((n, x) => n + x.need, 0);
-      let allocated = 0;
-      needs
-        .filter((x) => x.need > 0)
-        .forEach((x, i, all) => {
-          const amount =
-            i === all.length - 1
-              ? pool - allocated
-              : (pool * x.need) / totalNeed;
-          accounts.get(x.s.id)!.transfer(amount);
-          allocated += amount;
-          transfers.push({ date, sleeve: x.s.id, amount });
-          for (const strategy of strategies.filter(
-            (v) => v.sleeve === x.s.id,
-          )) {
-            const state = bookStates.get(strategy.id);
-            if (state)
-              bookStates.set(strategy.id, transferStrategyBook(state, amount));
-          }
-        });
+      if (poolAtoms > 0n && totalNeed > 0) {
+        let allocatedAtoms = 0n;
+        needs
+          .filter((x) => x.need > 0)
+          .forEach((x, i, all) => {
+            const receiver = accounts.get(x.s.id)!;
+            const step = receiver.cashTransferStep;
+            const remaining = poolAtoms - allocatedAtoms;
+            const rawShare =
+              i === all.length - 1
+                ? remaining
+                : BigInt(
+                    big(poolAtoms.toString())
+                      .times(x.need)
+                      .div(totalNeed)
+                      .toFixed(0, 0),
+                  );
+            const quantized =
+              i === all.length - 1 ? remaining : (rawShare / step) * step;
+            const clamped = quantized > remaining ? remaining : quantized;
+            if (clamped <= 0n) return;
+            const amount = receiver.transferAtoms(clamped);
+            allocatedAtoms += clamped;
+            transfers.push({ date, sleeve: x.s.id, amount });
+            for (const strategy of strategies.filter(
+              (v) => v.sleeve === x.s.id,
+            )) {
+              const state = bookStates.get(strategy.id);
+              if (state)
+                bookStates.set(
+                  strategy.id,
+                  transferStrategyBook(state, amount),
+                );
+            }
+          });
+      }
     }
   }
   const rows = sleeves.map((s) => ({

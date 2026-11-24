@@ -1,7 +1,9 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import type { NativeStudyIdentity } from "trading-strategies";
-import { fork, type ChildProcess } from "node:child_process";
+import { execFile, fork, type ChildProcess } from "node:child_process";
+import { promisify } from "node:util";
+import { runIfJobRunning } from "../../db/jobs";
 import { recordRuntimeError } from "../../infra/runtime-errors";
 import { resolve } from "node:path";
 import { isMainThread } from "node:worker_threads";
@@ -37,22 +39,142 @@ const scope = globalThis as typeof globalThis & {
   czscQueue?: Promise<unknown>;
   czscRequestId?: number;
   czscSchema?: Promise<CzscConfigSchema>;
+  czscClosed?: Promise<void>;
+  czscIdleTimer?: NodeJS.Timeout;
+  czscStats?: {
+    requests: number;
+    cancellations: number;
+    timeouts: number;
+    pending: number;
+    lastQueueWaitMs: number | null;
+    lastDllCallMs: number | null;
+  };
 };
 
-function worker() {
-  if (!isMainThread)
-    throw new Error("原生缠论工作进程只能由主线程创建，请通过主线程代理调用");
-  if (!scope.czscWorker) {
-    const child = fork(resolve("runtime/czsc-worker.cjs"), [], {
-      stdio: ["ignore", "inherit", "inherit", "ipc"],
-      execArgv: [],
-    });
-    scope.czscWorker = child;
-    child.once("exit", () => {
-      if (scope.czscWorker === child) scope.czscWorker = undefined;
-    });
+const stats = (scope.czscStats ??= {
+  requests: 0,
+  cancellations: 0,
+  timeouts: 0,
+  pending: 0,
+  lastQueueWaitMs: null,
+  lastDllCallMs: null,
+});
+function duration(value: string | undefined, fallback: number) {
+  const ms = Number(value);
+  return Number.isSafeInteger(ms) && ms > 0 && ms <= 2_147_483_647
+    ? ms
+    : fallback;
+}
+
+/** Host-lifetime counts for queue submissions, skips at dispatch and timed-out
+ * requests. DLL call time includes the IPC round trip and cold worker startup.
+ * RSS is sampled only here and is null when no live reading is available. */
+export async function getCzscTelemetry() {
+  const child = scope.czscWorker;
+  const pid = child?.pid;
+  let workerRssBytes: number | null = null;
+  if (pid) {
+    const windows = process.platform === "win32";
+    try {
+      const { stdout } = await promisify(execFile)(
+        windows ? "tasklist.exe" : "ps",
+        windows
+          ? ["/fi", `PID eq ${pid}`, "/fo", "csv", "/nh"]
+          : ["-o", "rss=", "-p", String(pid)],
+        { windowsHide: true, timeout: 3000 },
+      );
+      const kib = windows
+        ? stdout
+            .trim()
+            .match(/,"([\d.,\s]+)\s*K"$/i)?.[1]
+            ?.replace(/\D/g, "")
+        : stdout.trim();
+      if (kib && Number(kib) > 0 && scope.czscWorker === child)
+        workerRssBytes = Number(kib) * 1024;
+    } catch {
+      // Sandboxed OS queries or a worker exiting during sampling have no reading.
+    }
   }
-  return scope.czscWorker;
+  return { ...stats, workerPid: scope.czscWorker?.pid ?? null, workerRssBytes };
+}
+
+function forgetWorker(child: ChildProcess) {
+  if (scope.czscWorker !== child) return;
+  scope.czscWorker = undefined;
+  scope.czscSchema = undefined;
+  scope.czscClosed = undefined;
+}
+
+function workerExit(child: ChildProcess) {
+  return (scope.czscClosed ??= new Promise<void>((done) => {
+    const stopped = () => {
+      child.off("exit", stopped);
+      child.off("close", stopped);
+      forgetWorker(child);
+      done();
+    };
+    // Parent-initiated IPC disconnect can produce exit without close on
+    // Windows. Failed spawns, conversely, can produce close without exit.
+    child.once("exit", stopped).once("close", stopped);
+  }));
+}
+
+/** Reserve the queue until exit, or detach this PID after the kill deadline. */
+function retireWorker(
+  child: ChildProcess,
+  closed: Promise<void>,
+  graceful = false,
+) {
+  forgetWorker(child);
+  const report = (error: unknown) => recordRuntimeError("czsc-worker", error);
+  // Kill/disconnect may emit errors even after the deadline and a replacement fork.
+  child.on("error", report);
+  const disconnect = () => {
+    try {
+      if (child.connected) child.disconnect();
+    } catch (error) {
+      report(error);
+    }
+  };
+  return new Promise<void>((done) => {
+    let timer: NodeJS.Timeout;
+    const force = () => {
+      timer = setTimeout(
+        () => {
+          report(
+            Object.assign(new Error("CZSC worker did not exit after SIGKILL"), {
+              code: "ETIMEDOUT",
+            }),
+          );
+          child.channel?.unref();
+          child.unref();
+          disconnect();
+          done();
+        },
+        duration(process.env.QUANT_CZSC_KILL_GRACE_MS, 5000),
+      );
+      try {
+        child.kill("SIGKILL");
+      } catch (error) {
+        report(error);
+      }
+    };
+    void closed.then(() => {
+      clearTimeout(timer);
+      done();
+    });
+    if (graceful) {
+      timer = setTimeout(force, 1000);
+      disconnect();
+    } else force();
+  });
+}
+
+function worker() {
+  return (scope.czscWorker ??= fork(resolve("runtime/czsc-worker.cjs"), [], {
+    stdio: ["ignore", "inherit", "inherit", "ipc"],
+    execArgv: [],
+  }));
 }
 
 /** One api v22 build (both levels by default) in the serial DLL worker. */
@@ -60,6 +182,7 @@ export function projectCzsc(
   input: CzscInput,
   request: CzscRequest = {},
   shouldSkip?: () => boolean,
+  jobId?: string,
 ): Promise<CzscSnapshot> {
   return dispatch<CzscSnapshot>(
     {
@@ -67,6 +190,7 @@ export function projectCzsc(
       request: structuredClone(request),
     },
     shouldSkip,
+    jobId,
   );
 }
 
@@ -113,6 +237,7 @@ export async function getCurrentCzscIdentity(
   runtime?: Awaited<ReturnType<typeof czscRuntimeFingerprint>>,
   probe?: () => Promise<CzscSnapshot>,
   shouldSkip?: () => boolean,
+  jobId?: string,
 ): Promise<NativeStudyIdentity> {
   const local =
     runtime ??
@@ -125,6 +250,7 @@ export async function getCurrentCzscIdentity(
       { high: [1], low: [1], close: [1], volume: [1] },
       { levels: [0], bars: false },
       shouldSkip,
+      jobId,
     ));
   const identity = nativeIdentityFromSnapshot(raw);
   if (local && identity.dllHash !== local.dllHash)
@@ -143,62 +269,136 @@ export function czscConfigSchema(): Promise<CzscConfigSchema> {
   }));
 }
 
+function sendToWorker<T>(
+  message: Record<string, unknown>,
+  resolveResult: (value: T) => void,
+  reject: (reason: Error) => void,
+) {
+  const child = worker();
+  child.ref();
+  child.channel?.ref();
+  const closed = workerExit(child);
+  const id = (scope.czscRequestId = (scope.czscRequestId ?? 0) + 1);
+  const started = performance.now();
+  let settled = false;
+  const cleanup = () => {
+    settled = true;
+    stats.lastDllCallMs = performance.now() - started;
+    clearTimeout(timeout);
+    child.off("message", onMessage);
+    child.off("exit", onExit);
+    child.off("disconnect", onDisconnect);
+  };
+  const fail = (error: Error) => {
+    if (settled) return;
+    cleanup();
+    void retireWorker(child, closed).then(() => reject(error));
+    child.off("error", fail);
+  };
+  const onExit = (code: number | null) =>
+    fail(new Error(`CZSC worker exited (${code})`));
+  const onDisconnect = () => fail(new Error("CZSC worker disconnected"));
+  const onMessage = (reply: { id: number; result: T; error?: string }) => {
+    if (reply.id !== id) return;
+    cleanup();
+    child.off("error", fail);
+    if (reply.error) reject(new Error(reply.error));
+    else resolveResult(reply.result);
+  };
+  const timeout = setTimeout(
+    () => {
+      stats.timeouts++;
+      fail(
+        Object.assign(new Error("CZSC worker IPC timeout"), {
+          code: "ETIMEDOUT",
+        }),
+      );
+    },
+    duration(process.env.QUANT_CZSC_TIMEOUT_MS, 60_000),
+  );
+  child
+    .on("message", onMessage)
+    .once("exit", onExit)
+    .once("disconnect", onDisconnect)
+    .once("error", fail);
+  try {
+    child.send({ id, ...message }, (error) => {
+      if (error) fail(error);
+    });
+  } catch (error) {
+    fail(error as Error);
+  }
+}
+
 function dispatch<T>(
   message: Record<string, unknown>,
   shouldSkip?: () => boolean,
+  jobId?: string,
 ): Promise<T> {
-  // Queue entire jobs; retain the singleton across Next HMR.
-  const job = (scope.czscQueue ?? Promise.resolve()).then(
-    () =>
-      new Promise<T>((resolveResult, reject) => {
-        if (shouldSkip?.()) throw new DOMException("任务已取消", "AbortError");
-        const child = worker(),
-          id = (scope.czscRequestId = (scope.czscRequestId ?? 0) + 1);
-        const cleanup = () => {
-          child.off("message", onMessage);
-          child.off("exit", onExit);
-          child.off("error", onError);
-        };
-        const onError = (error: Error) => {
-          cleanup();
-          reject(error);
-        };
-        const onExit = (code: number | null) =>
-          onError(new Error(`CZSC worker exited (${code})`));
-        const onMessage = (reply: {
-          id: number;
-          result: T;
-          error?: string;
-        }) => {
-          if (reply.id !== id) return;
-          cleanup();
-          if (reply.error) reject(new Error(reply.error));
-          else resolveResult(reply.result);
-        };
-        child
-          .on("message", onMessage)
-          .once("exit", onExit)
-          .once("error", onError);
-        child.send({ id, ...message }, (error) => {
-          if (error) onError(error);
-        });
-      }),
-  );
+  if (!isMainThread)
+    return Promise.reject(
+      new Error("原生缠论工作进程只能由主线程创建，请通过主线程代理调用"),
+    );
+  const queuedAt = performance.now();
+  stats.requests++;
+  stats.pending++;
+  clearTimeout(scope.czscIdleTimer);
+  const job = (scope.czscQueue ?? Promise.resolve())
+    .then(
+      () =>
+        new Promise<T>((resolveResult, reject) => {
+          stats.lastQueueWaitMs = performance.now() - queuedAt;
+          if (shouldSkip?.()) {
+            stats.cancellations++;
+            throw new DOMException("任务已取消", "AbortError");
+          }
+          const send = () => {
+            sendToWorker<T>(message, resolveResult, reject);
+          };
+          // A cancelling writer cannot commit between the status check and IPC submission.
+          // Only the synchronous send is inside the reservation, never the DLL round trip.
+          if (jobId) {
+            if (!runIfJobRunning(jobId, send)) {
+              stats.cancellations++;
+              throw new DOMException("任务已取消", "AbortError");
+            }
+          } else {
+            send();
+          }
+        }),
+    )
+    .finally(() => {
+      stats.pending--;
+      if (!stats.pending && scope.czscWorker) {
+        scope.czscWorker.unref();
+        scope.czscWorker.channel?.unref();
+        scope.czscIdleTimer = setTimeout(
+          () => {
+            void closeCzsc();
+          },
+          duration(process.env.QUANT_CZSC_IDLE_TTL_MS, 60_000),
+        ).unref();
+      }
+    });
   scope.czscQueue = job.catch((error) => {
     recordRuntimeError("czsc-worker", error);
   });
   return job;
 }
 
-export async function closeCzsc() {
-  await scope.czscQueue;
-  const child = scope.czscWorker;
-  if (child) {
-    await new Promise<void>((done) => {
-      child.once("exit", () => done());
-      child.disconnect();
-    });
-  }
+export function closeCzsc(): Promise<void> {
+  // Enqueue the shutdown itself so a simultaneous request waits for the old PID.
+  const closing = (scope.czscQueue ?? Promise.resolve()).then(async () => {
+    clearTimeout(scope.czscIdleTimer);
+    const child = scope.czscWorker;
+    if (!child) return;
+    child.ref();
+    await retireWorker(child, workerExit(child), true);
+  });
+  scope.czscQueue = closing.catch((error) => {
+    recordRuntimeError("czsc-worker", error);
+  });
+  return closing;
 }
 
 /** One-based table id; 0 = absent (native -1). */

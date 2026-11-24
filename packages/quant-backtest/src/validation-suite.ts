@@ -312,6 +312,7 @@ export function runValidationSuite(
   score: (
     result: ReturnType<typeof runPortfolio>,
     request: PortfolioRequest,
+    candidateId: string,
   ) => ValidationScore,
   progress: (done: number, total: number) => void = () => {},
   signal?: AbortSignal,
@@ -406,6 +407,9 @@ export function runValidationSuite(
           ...instrument,
           bars: instrument.bars.filter((b) => throughEnd(b.date)),
           signalBars: instrument.signalBars.filter((b) => throughEnd(b.date)),
+          certifiedSuspensions: instrument.certifiedSuspensions?.filter(
+            (session) => session.resumptionDate <= end,
+          ),
           actions: instrument.actions?.filter((a) => a.date <= end),
           external: instrument.external && {
             ...instrument.external,
@@ -450,6 +454,7 @@ export function runValidationSuite(
     return score(
       runPortfolio(request, undefined, prefix.preparation, signal),
       request,
+      candidate.id,
     );
   };
   const stress = (

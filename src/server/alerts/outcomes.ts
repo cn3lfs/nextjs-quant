@@ -9,7 +9,8 @@ import { AlertRepository } from "../db/alert-repository";
 export async function settleAlertOutcomes(now: number, repo: AlertRepository) {
   const config = settings();
   const events = repo.pendingOutcomes();
-  if (!events.length) return;
+  let item = events.next();
+  if (item.done) return;
   const reference = await localCalendarReference(
     config.tdxRoot,
     config.calendar,
@@ -20,15 +21,16 @@ export async function settleAlertOutcomes(now: number, repo: AlertRepository) {
   } catch {
     /* Unknown coverage stays blank. */
   }
-  const coverageEnd = actions
-    ? [...actions.events.values()]
-        .flat()
-        .reduce<string | null>(
-          (last, e) => (!last || e.date > last ? e.date : last),
-          null,
-        )
-    : null;
-  for (const event of events) {
+  let coverageEnd: string | null = null;
+  if (actions) {
+    for (const entries of actions.events.values()) {
+      for (const { date } of entries) {
+        if (!coverageEnd || date > coverageEnd) coverageEnd = date;
+      }
+    }
+  }
+  for (; !item.done; item = events.next()) {
+    const event = item.value;
     if (event.type === "plan-expired") {
       repo.outcomes(
         event.key,

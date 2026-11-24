@@ -19,7 +19,7 @@ export function batchCandidatesToLabHref({
   returnTo,
 }: {
   symbols: readonly string[];
-  handoffSource: "formula" | "pattern" | "rps";
+  handoffSource: Exclude<ScanToLabHandoff["handoffSource"], "account-review">;
   label?: string;
   frozenDate?: string | null;
   returnTo?: string;

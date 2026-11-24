@@ -1,4 +1,5 @@
 "use client";
+import { useRouter } from "next/navigation";
 import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 
 import { rpsPeriods } from "quant-rps";
@@ -20,10 +21,18 @@ import {
   rpsSortColumnId,
   type MarketPoolRow,
 } from "~/lib/market/market-pool";
-import type {
-  MarketPoolLocation,
-  MarketPoolLocationQuery,
+import {
+  marketPoolLocationHref,
+  type MarketPoolLocation,
+  type MarketPoolLocationQuery,
 } from "~/lib/market/market-pool-location";
+import { isAShareStockSymbol } from "~/lib/market/security-classification";
+import {
+  batchCandidatesToLabHref,
+  portfolioHandoffLimit,
+  portfolioHandoffLimitMessage,
+  useCandidateBatchSelection,
+} from "~/lib/screening/screen-candidate-navigation";
 import { rpsPeriodLabel } from "~/lib/screening/rps";
 import { Segmented } from "../panels/panel";
 import { Button } from "../ui/button";
@@ -140,6 +149,7 @@ export function MarketPoolBrowser({
   onLocationChange: (action: SetStateAction<MarketPoolLocation>) => void;
   onSelect: (symbol: string) => void;
 }) {
+  const router = useRouter();
   const visible = usePanelVisible();
   const { category, query } = location;
   const symbol = query.selected ?? "";
@@ -269,18 +279,37 @@ export function MarketPoolBrowser({
     setQuery((q) => ({ ...q, ...patch, page: 0 }));
   const result =
     ready && page.isSuccess && !page.isPlaceholderData ? page.data : undefined;
+  const snapshotKey = `${result?.rps?.date ?? ""}:${result?.rps?.inputHash ?? ""}:${result?.rps?.observation?.createdAt ?? ""}:${result?.source?.hash ?? ""}:${result?.total ?? ""}`;
   const batches = useAccumulatedPages({
     pageIndex: cursor.pageIndex,
     offset: query.page * 20,
     resetKey,
     items: result?.rows,
     total: result?.total,
-    snapshotKey: `${page.data?.rps?.date ?? ""}:${page.data?.rps?.inputHash ?? ""}:${page.data?.rps?.observation?.createdAt ?? ""}:${page.data?.source?.hash ?? ""}:${page.data?.total ?? ""}`,
+    snapshotKey,
     onSnapshotDrift: cursor.restart,
     metadata: result,
     getKey: rowKey,
   });
   const { rows, metadata } = batches;
+  const batchReady =
+    visible && ready && !page.isError && metadata !== undefined;
+  const batchSelection = useCandidateBatchSelection(
+    batchReady
+      ? JSON.stringify([resetKey, metadata.rps, metadata.source?.hash])
+      : null,
+  );
+  const selectedSymbols = batchSelection.symbols.filter((selected) =>
+    rows.some((row) => row.symbol === selected),
+  );
+  const batchHandoff = batchCandidatesToLabHref({
+    symbols: selectedSymbols,
+    handoffSource: "pool",
+    label: query.pool
+      ? `股票池 · ${poolLabel(query.pool.name)}`
+      : "股票池 · 全部沪深",
+    returnTo: marketPoolLocationHref(location),
+  });
   const navigate = (
     neighbor: { symbol: string; page: number } | null | undefined,
   ) => {
@@ -291,6 +320,26 @@ export function MarketPoolBrowser({
     onSelect(neighbor.symbol);
   };
   const columns: DataTableColumn<MarketPoolRow>[] = [
+    {
+      id: "portfolio-select",
+      header: "勾选",
+      enableSorting: false,
+      cell: ({ row }) => {
+        const { symbol } = row.original;
+        if (!batchReady || !isAShareStockSymbol(symbol)) return null;
+        const checked = batchSelection.symbols.includes(symbol);
+        return (
+          <Checkbox
+            aria-label={`选择 ${symbol}`}
+            checked={checked}
+            disabled={
+              !checked && batchSelection.symbols.length >= portfolioHandoffLimit
+            }
+            onCheckedChange={() => batchSelection.toggle(symbol)}
+          />
+        );
+      },
+    },
     {
       id: "symbol",
       enableSorting: true,
@@ -614,6 +663,24 @@ export function MarketPoolBrowser({
             >
               导出当前筛选
             </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={!batchHandoff}
+              onClick={() =>
+                batchHandoff &&
+                router.push(batchHandoff.href, { scroll: false })
+              }
+            >
+              批量带入组合诊断 ({selectedSymbols.length}/{portfolioHandoffLimit}
+              )
+            </Button>
+            {batchSelection.symbols.length === portfolioHandoffLimit && (
+              <span className="text-sub text-nc-text-3">
+                {portfolioHandoffLimitMessage}
+              </span>
+            )}
           </div>
           <div className="max-h-[32rem] overflow-auto">
             <DataTable

@@ -1,11 +1,12 @@
 import type { ChildProcess } from "node:child_process";
 import { channel } from "node:diagnostics_channel";
-import { once } from "node:events";
+import { EventEmitter, once } from "node:events";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Worker } from "node:worker_threads";
 import { build } from "esbuild";
+import Database from "better-sqlite3";
 import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import { settingsSchema } from "~/lib/domain";
 import type { LabDiagnoseRunInput } from "~/lib/research/diagnose-contract";
@@ -16,7 +17,11 @@ import * as jobStore from "~/server/db/jobs";
 import { saveSettings } from "~/server/infra/settings";
 import * as jobs from "~/server/jobs/jobs";
 import * as archives from "~/server/research/diagnose/archive";
+import { recoverRuntimeJobs } from "~/server/runtime";
 import * as czsc from "~/server/strategies/chan/czsc";
+import * as strategyNative from "~/server/strategies/strategy-center-native";
+import { strategyCenterJob } from "~/server/strategies/strategy-center-service";
+import * as runtimeErrors from "~/server/infra/runtime-errors";
 import gbbq from "../../fixtures/tdx-gbbq.json";
 
 const data = process.env.QUANT_DATA_DIR!;
@@ -173,11 +178,12 @@ it("两个真实诊断 Worker 共用一个原生进程，第三个任务排队�
   const realIdentity = czsc.getCurrentCzscIdentity;
   const identity = vi
     .spyOn(czsc, "getCurrentCzscIdentity")
-    .mockImplementation(async () => {
+    .mockImplementation(async (...args) => {
       await hold.pending;
-      return realIdentity();
+      return realIdentity(...args);
     });
   const project = vi.spyOn(czsc, "projectCzsc");
+  const writes = vi.spyOn(jobStore, "saveJob");
   const children: ChildProcess[] = [];
   const observe = (message: unknown) => {
     children.push((message as { process: ChildProcess }).process);
@@ -214,6 +220,18 @@ it("两个真实诊断 Worker 共用一个原生进程，第三个任务排队�
       ["sh600519"],
     ]);
     expect(project.mock.calls.length).toBeGreaterThan(2);
+    for (const job of [first, second]) {
+      expect(project.mock.calls.some((call) => call[3] === job.id)).toBe(true);
+      expect(identity.mock.calls.some((call) => call[4] === job.id)).toBe(true);
+      const phases = writes.mock.calls
+        .map(([entry]) => entry)
+        .filter(
+          (entry) =>
+            entry.id === job.id && entry.phase?.startsWith("原生缠论前缀"),
+        );
+      expect(phases[0]?.phase).toMatch(/ 1\/\d+$/);
+      expect(phases.at(-1)?.progress).toBeGreaterThan(phases[0]!.progress);
+    }
     expect(
       children.filter((child) =>
         child.spawnargs.some((arg) => arg.endsWith("czsc-worker.cjs")),
@@ -300,6 +318,279 @@ it("投影与冷启动身份请求排队期间取消后不发送原生 IPC", asy
   } finally {
     hold.release();
   }
+});
+
+const nativeBars = { high: [1], low: [1], close: [1], volume: [1] };
+function nativeChild() {
+  return (globalThis as typeof globalThis & { czscWorker: ChildProcess })
+    .czscWorker;
+}
+
+it("另一个 SQLite 连接取消排队请求后，只有第一项调用 DLL", async () => {
+  const job = jobs.newJob("research", {});
+  jobs.updateJob(job.id, { status: "running" });
+  const other = new Database(sqlite().name, { fileMustExist: true });
+  await czsc.projectCzsc(nativeBars);
+  const child = nativeChild();
+  const send = child.send.bind(child);
+  const sent = gate();
+  const ipc = vi
+    .spyOn(child, "send")
+    .mockImplementationOnce((...args: Parameters<typeof send>) => {
+      const ok = send(...args);
+      sent.release();
+      return ok;
+    });
+  try {
+    const first = czsc.projectCzsc(nativeBars);
+    const second = czsc.projectCzsc(nativeBars, {}, () => false, job.id);
+    const cancelled = expect(second).rejects.toMatchObject({
+      name: "AbortError",
+    });
+    await sent.pending;
+    expect(
+      other
+        .prepare(
+          "UPDATE records SET payload=json_set(payload,'$.status','cancelled') WHERE kind='job' AND id=?",
+        )
+        .run(job.id).changes,
+    ).toBe(1);
+    await first;
+    await cancelled;
+    expect(ipc).toHaveBeenCalledTimes(1);
+    expect(jobStore.getJobStatus(job.id)).toBe("cancelled");
+  } finally {
+    other.close();
+  }
+});
+
+it("策略中心排队的首个原生前缀在轮询前识别另一连接的取消，新增 DLL 调用为零", async () => {
+  await czsc.projectCzsc(nativeBars);
+  const send = vi.spyOn(nativeChild(), "send");
+  const capture = vi.spyOn(strategyNative, "captureNativeChanObservations");
+  const hold = gate();
+  const queue = globalThis as typeof globalThis & {
+    czscQueue: Promise<unknown>;
+  };
+  queue.czscQueue = hold.pending;
+  const other = new Database(sqlite().name, { fileMustExist: true });
+  vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+  try {
+    const job = strategyCenterJob({
+      strategyId: "research-chan",
+      symbol: "sh600000",
+      start: "2021-07-28",
+      end: input.end,
+    });
+    await vi.waitFor(() => expect(capture).toHaveBeenCalledOnce());
+    expect(queue.czscQueue).not.toBe(hold.pending);
+    const rejected = expect(
+      capture.mock.results[0]!.value,
+    ).rejects.toMatchObject({ name: "AbortError" });
+    expect(
+      other
+        .prepare(
+          "UPDATE records SET payload=json_set(payload,'$.status','cancelled') WHERE kind='job' AND id=?",
+        )
+        .run(job.id).changes,
+    ).toBe(1);
+    expect(capture.mock.calls[0]![2]?.aborted).toBe(false);
+    hold.release();
+    await rejected;
+    expect(send).not.toHaveBeenCalled();
+  } finally {
+    hold.release();
+    other.close();
+    vi.useRealTimers();
+  }
+});
+
+it("超时终止无回复子进程后，下一项由新进程接手", async () => {
+  await czsc.projectCzsc(nativeBars);
+  const child = nativeChild();
+  const before = await czsc.getCzscTelemetry();
+  const sent = gate();
+  vi.spyOn(child, "send").mockImplementationOnce(() => {
+    sent.release();
+    return true;
+  });
+  vi.stubEnv("QUANT_CZSC_TIMEOUT_MS", "5000");
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  try {
+    const timeout = expect(czsc.projectCzsc(nativeBars)).rejects.toMatchObject({
+      code: "ETIMEDOUT",
+    });
+    const next = czsc.projectCzsc(nativeBars);
+    await sent.pending;
+    vi.advanceTimersByTime(5000);
+    await timeout;
+    expect(child.exitCode !== null || child.signalCode !== null).toBe(true);
+    await expect(next).resolves.toHaveProperty("apiVersion", 22);
+    const after = await czsc.getCzscTelemetry();
+    expect(after).toMatchObject({
+      requests: before.requests + 2,
+      timeouts: before.timeouts + 1,
+      pending: 0,
+    });
+    expect(after.workerPid).not.toBe(child.pid);
+    expect(after.workerRssBytes).toBeGreaterThan(0);
+    expect(after.lastDllCallMs).toBeGreaterThanOrEqual(0);
+    expect(after.lastQueueWaitMs).toBeGreaterThanOrEqual(0);
+  } finally {
+    vi.useRealTimers();
+    vi.unstubAllEnvs();
+    await czsc.closeCzsc();
+  }
+});
+
+it.each(["request timeout", "idle TTL"] as const)(
+  "%s bounds SIGKILL failures and late child errors without blocking the next projection",
+  async (mode) => {
+    await czsc.closeCzsc();
+    const child = Object.assign(new EventEmitter(), {
+      connected: true,
+      ref: vi.fn(),
+      unref: vi.fn(),
+      disconnect: vi.fn(),
+      send: vi.fn(),
+      kill: vi.fn(() => {
+        child.emit("error", new Error("kill error event"));
+        throw new Error("kill threw");
+      }),
+    });
+    const queue = globalThis as typeof globalThis & {
+      czscWorker?: ChildProcess;
+      czscQueue: Promise<unknown>;
+    };
+    queue.czscWorker = child as unknown as ChildProcess;
+    const report = vi.spyOn(runtimeErrors, "recordRuntimeError");
+    vi.stubEnv("QUANT_CZSC_KILL_GRACE_MS", "50");
+    vi.stubEnv("QUANT_CZSC_TIMEOUT_MS", "1000");
+    vi.stubEnv("QUANT_CZSC_IDLE_TTL_MS", "10");
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const projection = czsc.projectCzsc(nativeBars);
+      await Promise.resolve();
+      expect(child.send).toHaveBeenCalledOnce();
+      let retired: Promise<unknown>;
+      if (mode === "idle TTL") {
+        const { id } = child.send.mock.calls[0]![0];
+        child.emit("message", { id, result: {} });
+        await projection;
+        await vi.advanceTimersByTimeAsync(10);
+        retired = queue.czscQueue;
+        expect(child.disconnect).toHaveBeenCalledOnce();
+      } else {
+        retired = expect(projection).rejects.toMatchObject({
+          code: "ETIMEDOUT",
+        });
+      }
+      const next = czsc.projectCzsc(nativeBars);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(child.kill).toHaveBeenCalledExactlyOnceWith("SIGKILL");
+      expect(queue.czscWorker).toBeUndefined();
+      expect(report).toHaveBeenCalledWith(
+        "czsc-worker",
+        new Error("kill error event"),
+      );
+      expect(report).toHaveBeenCalledWith(
+        "czsc-worker",
+        new Error("kill threw"),
+      );
+      await vi.advanceTimersByTimeAsync(49);
+      expect(queue.czscWorker).toBeUndefined();
+      await vi.advanceTimersByTimeAsync(1);
+      await retired;
+      expect(report).toHaveBeenCalledWith(
+        "czsc-worker",
+        expect.objectContaining({
+          message: "CZSC worker did not exit after SIGKILL",
+        }),
+      );
+      expect(child.unref).toHaveBeenCalled();
+      expect(child.disconnect).toHaveBeenCalled();
+      child.emit("error", new Error("late kill error"));
+      child.emit("exit", 1);
+      await expect(next).resolves.toHaveProperty("apiVersion", 22);
+      expect(nativeChild().pid).toBeDefined();
+    } finally {
+      vi.useRealTimers();
+      vi.unstubAllEnvs();
+      await czsc.closeCzsc();
+    }
+  },
+);
+
+it("空闲 TTL 到期才回收进程，稍后的请求可重新启动", async () => {
+  vi.stubEnv("QUANT_CZSC_IDLE_TTL_MS", "50");
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  try {
+    await czsc.projectCzsc(nativeBars);
+    const child = nativeChild();
+    vi.advanceTimersByTime(49);
+    expect(child.connected).toBe(true);
+    const closed = once(child, "exit");
+    vi.advanceTimersByTime(1);
+    await closed;
+    expect(await czsc.getCzscTelemetry()).toMatchObject({
+      workerPid: null,
+      workerRssBytes: null,
+    });
+    await czsc.projectCzsc(nativeBars);
+    expect(nativeChild().pid).not.toBe(child.pid);
+  } finally {
+    vi.useRealTimers();
+    vi.unstubAllEnvs();
+    await czsc.closeCzsc();
+  }
+});
+
+it("启动恢复保留完成归档，仅隔离 rename 后未提交的目录，重复恢复无副作用", async () => {
+  const interrupted = jobs.newJob("research", {});
+  jobs.updateJob(interrupted.id, { status: "running", ownerPid: undefined });
+  const orphan = `lab-${interrupted.id}`;
+  const imported = "lab-job-a1a1a1a1-aaaa-4aaa-aaaa-a1a1a1a1a1a1";
+  const partial = "lab-job-a1a1a1a1-aaaa-4aaa-aaaa-a1a1a1a1a1a2";
+  const standalone = "lab-imported";
+  const valid = await completed(
+    (await api.strategyLabDiagnoseRun({ ...input, strategyKey: "hold" })).id,
+  );
+  const published = join(archiveRoot, valid.summary.id, "diagnose-group.json");
+  const bytes = await readFile(published);
+  for (const id of [orphan, imported])
+    await archives.publishDiagnoseArchive({
+      ...valid,
+      summary: { ...valid.summary, id },
+    });
+  await mkdir(join(archiveRoot, partial));
+  await mkdir(join(archiveRoot, standalone));
+  const original = await readFile(
+    join(archiveRoot, orphan, "diagnose-group.json"),
+    "utf8",
+  );
+  const copied = await readFile(
+    join(archiveRoot, imported, "diagnose-group.json"),
+  );
+  expect(jobStore.getJobStatus(imported.slice(4))).toBeUndefined();
+  expect(recoverRuntimeJobs()).toEqual([orphan, partial].sort());
+  expect(existsSync(join(archiveRoot, `.orphan-${partial}`))).toBe(true);
+  expect(
+    await readFile(join(archiveRoot, imported, "diagnose-group.json")),
+  ).toEqual(copied);
+  expect((await archives.readDiagnoseArchive(imported))?.cells).toEqual(
+    valid.cells,
+  );
+  expect(existsSync(join(archiveRoot, standalone))).toBe(true);
+  expect(readJob(interrupted.id)?.status).toBe("failed");
+  expect(existsSync(join(archiveRoot, orphan))).toBe(false);
+  expect(
+    await readFile(
+      join(archiveRoot, `.orphan-${orphan}`, "diagnose-group.json"),
+      "utf8",
+    ),
+  ).toBe(original);
+  expect(await readFile(published)).toEqual(bytes);
+  expect(recoverRuntimeJobs()).toEqual([]);
 });
 
 it("真实 Worker 的 hold 成交可从列表和详情读取", async () => {

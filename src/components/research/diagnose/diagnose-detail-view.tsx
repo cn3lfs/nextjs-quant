@@ -1,12 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { api } from "~/trpc/react";
 import {
   DIAGNOSE_SCENARIO_PRESETS,
+  diagnoseScenarioIdSchema,
   type DiagnoseArchiveDetail,
+  type DiagnoseArchiveSummary,
+  type DiagnoseChartContext,
 } from "~/lib/research/diagnose-contract";
 import { Pill } from "../../panels";
 import { Button } from "../../ui/button";
+import { useArchiveDownload } from "../use-archive-download";
 import { DiagnosticChecksDrawer } from "./diagnostic-checks-drawer";
 import { EvidenceSamples } from "./evidence-samples";
 import { ExecutionScenarioCard } from "./execution-scenario-card";
@@ -72,15 +77,40 @@ export function DiagnoseDetailView({
   detail,
   active,
   onPageChange,
+  onRerun,
 }: {
   detail: DiagnoseArchiveDetail;
   active: boolean;
   onPageChange?: (page: number) => void;
+  onRerun?: (archive: DiagnoseArchiveSummary) => void;
 }) {
   const [cellIndex, setCellIndex] = useState(0);
   const [scenarioId, setScenarioId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [focus, setFocus] = useState<DiagnosticFocusTarget | null>(null);
+  const [exporting, setExporting] = useState<"markdown" | "json" | null>(null);
+  const [exportError, setExportError] = useState("");
+  const utils = api.useUtils();
+  const download = useArchiveDownload();
+
+  async function exportArchive(format: "markdown" | "json") {
+    setExporting(format);
+    setExportError("");
+    try {
+      const file = await utils.strategyLabDiagnoseExport.fetch({
+        archiveId: detail.summary.id,
+        format,
+      });
+      const mime = format === "json" ? "application/json" : "text/markdown";
+      download.save(() => file.content, file.filename, `${mime};charset=utf-8`);
+    } catch (error) {
+      setExportError(
+        error instanceof Error ? error.message : "无法读取归档导出内容。",
+      );
+    } finally {
+      setExporting(null);
+    }
+  }
 
   const cells = detail.cells;
   const cell =
@@ -107,6 +137,15 @@ export function DiagnoseDetailView({
   const pageSize = detail.pagination.pageSize;
   const totalCells = detail.pagination.totalCells;
   const lastPage = Math.max(1, Math.ceil(totalCells / pageSize));
+  const chartContext: DiagnoseChartContext = {
+    archiveId: detail.summary.id,
+    cellId: cell ? String((page - 1) * pageSize + cellIndex) : undefined,
+    scenarioId: diagnoseScenarioIdSchema.safeParse(scenario?.scenarioId).data,
+    defaultSymbol: cell?.symbols.length === 1 ? cell.symbols[0] : undefined,
+  };
+  const suspension =
+    scenario?.sessionEvidence ?? detail.summary.suspensionSummary;
+  const family = scenario?.familyHoldout ?? detail.summary.familyHoldout;
   return (
     <div className="space-y-3">
       <header className="space-y-1">
@@ -149,6 +188,42 @@ export function DiagnoseDetailView({
           </div>
         )}
       </header>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={exporting !== null}
+          onClick={() => void exportArchive("markdown")}
+        >
+          {exporting === "markdown" ? "正在导出 Markdown…" : "导出 Markdown"}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={exporting !== null}
+          onClick={() => void exportArchive("json")}
+        >
+          {exporting === "json" ? "正在导出全量 JSON…" : "导出全量 JSON"}
+        </Button>
+        {onRerun && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => onRerun(detail.summary)}
+          >
+            用相同参数复跑
+          </Button>
+        )}
+        {exportError || download.error ? (
+          <p role="alert" className="text-sm text-nc-warn">
+            {exportError || download.error}
+          </p>
+        ) : null}
+      </div>
 
       {cells.length > 1 && (
         <div className="flex flex-wrap gap-1.5">
@@ -221,13 +296,24 @@ export function DiagnoseDetailView({
           key={`${cellIndex}:${scenario.scenarioId}`}
           scenario={scenario}
           focus={focus}
+          {...{ chartContext }}
         />
       )}
-      {scenario?.timeHoldout && (
-        <TimeHoldoutCard result={scenario.timeHoldout} />
+      {(scenario?.timeHoldout || suspension || family) && (
+        <TimeHoldoutCard
+          result={scenario?.timeHoldout}
+          suspension={suspension}
+          family={family}
+        />
       )}
-      {scenario?.sleeveAttribution && (
-        <SleeveAttributionCard attribution={scenario.sleeveAttribution} />
+      {(scenario?.sleeveAttribution ||
+        scenario?.sleeveInvestment ||
+        scenario?.sleeveTrades) && (
+        <SleeveAttributionCard
+          attribution={scenario.sleeveAttribution}
+          investment={scenario.sleeveInvestment}
+          trades={scenario.sleeveTrades}
+        />
       )}
       <TheoryDisclosurePanel
         nativeChan={scenario?.nativeChan}

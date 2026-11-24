@@ -1,4 +1,10 @@
-import { readJob, createJob, saveJob, activeJobIds } from "../db/jobs";
+import {
+  readJob,
+  createJob,
+  saveJob,
+  activeJobIds,
+  getJobStatus,
+} from "../db/jobs";
 import { Worker } from "node:worker_threads";
 import { join } from "node:path";
 import { randomUUID, createHash } from "node:crypto";
@@ -41,7 +47,7 @@ function watchCancellation() {
       ...state.computeControllers,
     ]) {
       try {
-        if (readJob(id)?.status === "cancelled") {
+        if (getJobStatus(id) === "cancelled") {
           updateJob(id, {});
           controller.abort();
           void workers.get(id)?.terminate();
@@ -208,7 +214,7 @@ export async function runWorker<T>(work: Work, jobId?: string): Promise<T> {
       state.computeControllers.set(jobId, controller);
       watchCancellation();
       updateJob(jobId, { phase: "等待计算资源" });
-      if (readJob(jobId)?.status === "cancelled") controller.abort();
+      if (getJobStatus(jobId) === "cancelled") controller.abort();
     }
     // Single-security reads take precedence over queued scans/backtests, with
     // aging in PrioritySlots ensuring older bulk work eventually receives a slot.
@@ -216,7 +222,7 @@ export async function runWorker<T>(work: Work, jobId?: string): Promise<T> {
       work.type === "snapshot" ? 1 : 0,
       controller.signal,
     );
-    if (jobId && readJob(jobId)?.status === "cancelled")
+    if (jobId && getJobStatus(jobId) === "cancelled")
       throw new Error("任务已取消");
     worker = state.idle.pop();
     if (!worker) {
@@ -297,7 +303,7 @@ export async function runWorker<T>(work: Work, jobId?: string): Promise<T> {
         if (native) {
           const { requestId } = native;
           try {
-            if (jobId && readJob(jobId)?.status === "cancelled") {
+            if (jobId && getJobStatus(jobId) !== "running") {
               onError(new Error("任务已取消"));
               return;
             }
@@ -308,12 +314,14 @@ export async function runWorker<T>(work: Work, jobId?: string): Promise<T> {
                   message.czscProject.input,
                   message.czscProject.request,
                   shouldSkip,
+                  jobId,
                 )
               : getCurrentCzscIdentity(
                   undefined,
                   undefined,
                   undefined,
                   shouldSkip,
+                  jobId,
                 );
             void pending.then(
               (result) => reply({ requestId, ok: true, result }),
@@ -393,10 +401,12 @@ export async function runWorker<T>(work: Work, jobId?: string): Promise<T> {
   }
 }
 
+export type JobSignal = AbortSignal & { readonly jobId?: string };
+
 export function background(
   type: Job["type"],
   input: unknown,
-  fn: (job: Job, signal: AbortSignal) => Promise<unknown>,
+  fn: (job: Job, signal: JobSignal) => Promise<unknown>,
   dedupe?: unknown,
 ): Job {
   const claim =
@@ -432,7 +442,10 @@ export function background(
         "cancelled"
       )
         return;
-      const result = await fn(job, controller.signal);
+      const result = await fn(
+        job,
+        Object.assign(controller.signal, { jobId: job.id }),
+      );
       if (!controller.signal.aborted && readJob(job.id)?.status !== "cancelled")
         updateJob(job.id, {
           status: "completed",

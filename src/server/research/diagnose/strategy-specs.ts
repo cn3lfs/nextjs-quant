@@ -1,8 +1,10 @@
+import { isDeepStrictEqual } from "node:util";
 import { scanHandoffStrategyRules } from "~/lib/research/diagnose-contract";
 import {
   createExtendedStudyRule,
   nativeStudyDefinition,
   studyStrategies,
+  strategyRuleSchema,
   studyWarmup,
   wyckoffStudyBindings,
   strategyObjectSchema,
@@ -19,7 +21,15 @@ import {
 } from "./growth-pit";
 import type { DiagnoseMode } from "./types";
 import { coreBookCapacity } from "./sleeve-attribution";
-import { NATIVE_CHAN_ZD_STOP_KEY, nativeChanZdStopRules } from "./chan-native";
+import {
+  NATIVE_CHAN_ZD_STOP_KEY,
+  nativeChanZdStopRules,
+  NATIVE_CHAN_ZD_ATR_STOP_KEY,
+  nativeChanZdAtrStopRules,
+  nativeChanCh04Rules,
+  nativeChanCh07Rules,
+  nativeChanCh12Rules,
+} from "./chan-native";
 
 /** The five adapter families approved for the first diagnostic batch. */
 const ADAPTER_STRATEGY_KEYS = [
@@ -104,6 +114,10 @@ export const NATIVE_STRATEGY_KEYS = [
   "research-chan-third",
   "research-chan-hold-cash",
   NATIVE_CHAN_ZD_STOP_KEY,
+  NATIVE_CHAN_ZD_ATR_STOP_KEY,
+  "research-chan-ch04",
+  "research-chan-ch07",
+  "research-chan-ch12",
 ] as const;
 export type NativeStrategyKey = (typeof NATIVE_STRATEGY_KEYS)[number];
 export const isNativeStrategyKey = (
@@ -172,6 +186,10 @@ function rulesFor(
 ): Pick<StrategyObjectInput, "entry" | "exit"> {
   if (isWyckoffFunnelKey(key)) key = wyckoffFunnelStudies[key];
   if (key === NATIVE_CHAN_ZD_STOP_KEY) return nativeChanZdStopRules();
+  if (key === NATIVE_CHAN_ZD_ATR_STOP_KEY) return nativeChanZdAtrStopRules();
+  if (key === "research-chan-ch04") return nativeChanCh04Rules();
+  if (key === "research-chan-ch07") return nativeChanCh07Rules();
+  if (key === "research-chan-ch12") return nativeChanCh12Rules();
   const handoffRules = scanHandoffStrategyRules(key);
   if (handoffRules) return handoffRules;
   if (isPitStrategyKey(key)) return growthPitRulesFor(key);
@@ -213,6 +231,7 @@ export function buildStrategy(
 
 export type DiagnosePlanOptions = {
   book?: DiagnoseBookKey;
+  family?: string;
   symbols: readonly string[];
   strategies: readonly string[];
   controls: readonly string[];
@@ -257,6 +276,54 @@ export function buildDiagnoseCellStrategies(item: PlannedDiagnoseCell) {
   ];
 }
 
+/** Family identity follows the entry rule even when the candidate/strategy is renamed. */
+function entryFamily(entry: StrategyObjectInput["entry"]) {
+  const rule = strategyRuleSchema.parse(entry);
+  if (rule.kind === "factor")
+    return {
+      kind: rule.kind,
+      side: rule.side,
+      conditions: rule.strategy[rule.side],
+    };
+  return rule;
+}
+
+export function assertSharedEntryFamily(
+  candidates: readonly {
+    id: string;
+    entries: StrategyObjectInput["entry"][];
+  }[],
+) {
+  const entries = candidates.flatMap((c) => c.entries.map(entryFamily));
+  if (entries.some((entry) => !isDeepStrictEqual(entry, entries[0])))
+    throw new Error(
+      `--family 候选须属于同一策略家族（入场逻辑）：${candidates.map((c) => c.id).join(", ")}`,
+    );
+}
+
+export function resolveDiagnoseFamily(name: string) {
+  const keys =
+    name === "ch14-exits"
+      ? [
+          "research-chan-hold-cash",
+          NATIVE_CHAN_ZD_STOP_KEY,
+          NATIVE_CHAN_ZD_ATR_STOP_KEY,
+        ]
+      : name.trim().split(/[,\s]+/);
+  if (
+    keys.length < 2 ||
+    new Set(keys).size !== keys.length ||
+    !keys.every(
+      (key): key is SignalStrategyKey => isStrategyKey(key) && key !== "hold",
+    )
+  )
+    throw new Error("--family 需要至少两个不同的同族信号策略");
+  assertSharedEntryFamily(
+    keys.map((id) => ({ id, entries: [rulesFor(id).entry] })),
+  );
+  return keys;
+}
+
 /** Pure cell planning: used by `--plan` and by the runner, never reads data. */
 export function planDiagnoseCells(
   options: DiagnosePlanOptions,
@@ -272,7 +339,15 @@ export function planDiagnoseCells(
   );
   if (unknown.length)
     throw new Error(`未知诊断策略：${[...new Set(unknown)].join(", ")}`);
-  const signalKeys = options.strategies as SignalStrategyKey[];
+  if (
+    options.family !== undefined &&
+    (options.book || options.strategies.length)
+  )
+    throw new Error("--family 与 --book、--strategies 互斥");
+  const signalKeys =
+    options.family !== undefined
+      ? resolveDiagnoseFamily(options.family)
+      : (options.strategies as SignalStrategyKey[]);
   const controlKeys = options.controls as ControlKey[];
   if (!options.book && !signalKeys.length && !controlKeys.length)
     throw new Error("至少需要一条策略或对照");

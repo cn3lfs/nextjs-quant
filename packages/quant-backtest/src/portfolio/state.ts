@@ -69,8 +69,33 @@ export function createPortfolioState(
   const samePeriod = strategies.every(
     (s) => s.period === strategies[0]!.period,
   );
+  const suspensionDates = new Map<string, Set<string>>();
+  let sessions: Set<string> | undefined;
+  for (const [symbol, { instrument, indices }] of instruments) {
+    if (market !== "cn-equity" || !instrument.certifiedSuspensions) continue;
+    sessions ??= new Set(request.calendar);
+    const first = instrument.bars[0]?.date;
+    const dates = new Set<string>();
+    for (const day of instrument.certifiedSuspensions) {
+      const resume = indices.get(day.resumptionDate);
+      if (
+        day.symbol === symbol &&
+        first &&
+        first < day.date &&
+        day.date < day.resumptionDate &&
+        day.resumptionDate <= request.end &&
+        sessions.has(day.resumptionDate) &&
+        resume !== undefined &&
+        instrument.bars[resume]!.volume > 0
+      )
+        dates.add(day.date);
+    }
+    suspensionDates.set(symbol, dates);
+  }
   const collectDailyDecisionCounts =
-    lifecycle || Boolean(request.collectDailyDecisionCounts);
+    lifecycle ||
+    Boolean(request.collectDailyDecisionCounts) ||
+    suspensionDates.size > 0;
   const dailyCapacityUsed = new Map<string, number>();
   const observationDay = (date: string) =>
     lifecycle || samePeriod
@@ -85,6 +110,8 @@ export function createPortfolioState(
     date: string;
     entries: number;
     unknown: number;
+    suspended?: number;
+    suspendedSymbols?: string[];
     expected: number;
   }[] = [];
   const openingEquities = new Map<string, number>();
@@ -255,7 +282,10 @@ export function createPortfolioState(
     )
       return false;
     if (strategy.universe.kind === "symbols")
-      return symbolUniverses.get(strategy.id)!.has(symbol);
+      return (
+        symbolUniverses.get(strategy.id)!.has(symbol) &&
+        (membershipByStrategy.get(strategy.id)?.get(date)?.has(symbol) ?? true)
+      );
     if (strategy.universe.kind === "rps") {
       const point = rpsBySymbol.get(source.instrument.symbol)?.get(date),
         value =
@@ -290,6 +320,7 @@ export function createPortfolioState(
     dailyCapacityUsed,
     observationDay,
     dailyDecisionCounts,
+    suspensionDates,
     openingEquities,
     identities,
     orders,

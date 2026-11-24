@@ -1,11 +1,15 @@
 import { createHash } from "node:crypto";
 import type { Bar } from "~/lib/domain";
+import type { JobSignal } from "../jobs/jobs";
 import {
   nativeChanSharedPoints,
+  nativeChanV3Profiles,
+  nativeChanV3Projection,
   nativeStudyDefinition,
   type FrozenChanObservation,
   type FrozenChanPoint,
   type FrozenChanSignal,
+  type NativeChanV3Profile,
   type NativeStudyIdentity,
 } from "trading-strategies";
 import {
@@ -24,6 +28,7 @@ type NativeAudit = {
   reason?: string;
   before?: AuditPoint;
   after?: AuditPoint;
+  profile?: NativeChanV3Profile;
 };
 const digest = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -32,10 +37,10 @@ const digest = (value: unknown) =>
 export async function captureNativeChanObservations(
   bars: readonly Bar[],
   first: number = nativeStudyDefinition.warmupBars,
-  signal?: AbortSignal,
+  signal?: JobSignal,
   project: typeof projectCzsc = projectCzsc,
   progress?: (done: number, total: number) => void,
-  projection: "third-buy" | "full-reference" = "third-buy",
+  projection: "third-buy" | "full-reference" | "v3" = "third-buy",
 ) {
   if (
     !Number.isInteger(first) ||
@@ -47,6 +52,7 @@ export async function captureNativeChanObservations(
     audit: NativeAudit[] = [];
   const pending: { date: string; details: string[] }[] = [];
   const seen = new Set<string>();
+  const seenV3 = new Set<string>();
   let active = new Map<string, FrozenChanPoint>();
   let identity: NativeStudyIdentity | undefined;
   for (let index = first - 1; index < bars.length; index++) {
@@ -56,7 +62,12 @@ export async function captureNativeChanObservations(
     const wrapped: typeof projectCzsc = async (input, request) => {
       if (captured) throw new Error("同一收盘原生观察重复调用DLL");
       signal?.throwIfAborted();
-      const raw = await project(input, request);
+      const raw = await project(
+        input,
+        request,
+        () => signal?.aborted === true,
+        signal?.jobId,
+      );
       signal?.throwIfAborted();
       captured = nativeIdentityFromSnapshot(raw);
       if (identity && JSON.stringify(captured) !== JSON.stringify(identity))
@@ -64,9 +75,9 @@ export async function captureNativeChanObservations(
       return raw;
     };
     const result =
-      projection === "full-reference"
-        ? await analyzeCzsc(prefix, true, wrapped, true, 1)
-        : await analyzeNativeThirdBuy(prefix, wrapped);
+      projection === "third-buy"
+        ? await analyzeNativeThirdBuy(prefix, wrapped)
+        : await analyzeCzsc(prefix, true, wrapped, true, 1);
     signal?.throwIfAborted();
     if (!captured) throw new Error("原生观察未捕获DLL身份");
     identity ??= captured;
@@ -121,12 +132,38 @@ export async function captureNativeChanObservations(
     }
     const freshKeys = new Set(points.map((p) => p.key));
     active = current;
+    const v3 =
+      projection === "v3" ? nativeChanV3Projection(prefix, result) : undefined;
+    if (v3) {
+      for (const profile of nativeChanV3Profiles) {
+        const facts = v3.profiles[profile];
+        v3.profiles = {
+          ...v3.profiles,
+          [profile]: {
+            ...facts,
+            signals: facts.signals.filter(({ key }) => {
+              const id = `${profile}:${key}`;
+              if (seenV3.has(id)) return false;
+              seenV3.add(id);
+              audit.push({
+                date,
+                key,
+                profile,
+                event: baseline ? "baseline" : "first-seen",
+              });
+              return true;
+            }),
+          },
+        };
+      }
+    }
     observations.push({
       date,
       prefixHash: digest(prefix),
       identity: captured,
       baseline,
-      projectionVersion: 2,
+      projectionVersion: v3 ? 3 : 2,
+      ...(v3 && { v3 }),
       points,
       signals: decoded.signals.filter((signal) => freshKeys.has(signal.key)),
       gaps: decoded.gaps,
@@ -135,7 +172,10 @@ export async function captureNativeChanObservations(
     progress?.(observations.length, bars.length - first + 1);
   }
   return {
-    version: "strategy-center-native-2",
+    version:
+      projection === "v3"
+        ? "strategy-center-native-3"
+        : "strategy-center-native-2",
     identity: identity!,
     originDate: bars[0]!.date,
     baselineDate: bars[first - 1]!.date,

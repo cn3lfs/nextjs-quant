@@ -12,6 +12,7 @@ const suites = [
     ignore: [
       "p0-workflow.spec.ts",
       "stock-pool.spec.ts",
+      "chart-shared-drawings.spec.ts",
       "route-visual.spec.ts",
       "p1-acceptance.spec.ts",
       "r3a-daily-path.spec.ts",

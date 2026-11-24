@@ -111,17 +111,18 @@ export function createOrderExecutor(state: PortfolioState) {
     reference?: number,
     decision?: StrategyDecision,
   ) => {
-    order.attempts++;
     const source = instruments.get(order.symbol)!;
-    const index = source.indices.get(date),
-      bar = index === undefined ? undefined : source.instrument.bars[index];
+    const index = source.indices.get(date);
+    const strategy = strategies.find((s) => s.id === order.strategyId)!;
+    // Missing opens use the normal quote/rejection path: buys expire, sells retry.
+    order.attempts++;
+    const bar = index === undefined ? undefined : source.instrument.bars[index];
     const rules = quantityRules(
-        source.instrument,
-        date,
-        bar,
-        index === undefined ? undefined : source.instrument.bars[index - 1],
-      ),
-      strategy = strategies.find((s) => s.id === order.strategyId)!;
+      source.instrument,
+      date,
+      bar,
+      index === undefined ? undefined : source.instrument.bars[index - 1],
+    );
     const account = accounts.get(order.sleeve)!,
       key = keyFor(order.strategyId, order.symbol),
       holding = account.positions.get(key);

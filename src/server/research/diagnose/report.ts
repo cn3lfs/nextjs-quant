@@ -1,6 +1,10 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { DiagnoseCell, UniversePoolDisclosure } from "./types";
+import type {
+  DiagnoseCell,
+  DiagnoseComparison,
+  UniversePoolDisclosure,
+} from "./types";
 
 const escapeCell = (value: string) =>
   value.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
@@ -29,6 +33,11 @@ function poolSection(pool: UniversePoolDisclosure) {
     "",
     `> ${pool.survivorBiasDisclosure}`,
   ];
+  if (pool.overlapWithCore12)
+    lines.push(
+      "",
+      `与 core-12 重叠 ${pool.overlapWithCore12.count} 股（${pool.overlapWithCore12.symbols.join("、") || "无"}）。`,
+    );
   if (pool.members?.length) {
     lines.push(
       "",
@@ -166,6 +175,13 @@ function nativeSection(cells: readonly DiagnoseCell[]) {
     "> 原生缠论结构由本机 DLL 生成；下表固定来源指纹、起点与前缀规模，供复核与复现。",
     "",
     markdownTable(header, body),
+    ...rows.flatMap(({ row }) =>
+      row.insufficientWarmup
+        ? [
+            `${row.symbol} 预热不足：已有 ${row.insufficientWarmup.availableBars} 根，需 ${row.insufficientWarmup.requiredWarmupBars} 根预热行情和一根观察行情。可用观察 0 根。`,
+          ]
+        : [],
+    ),
   ].join("\n");
 }
 
@@ -366,8 +382,8 @@ function attributionSection(cell: DiagnoseCell) {
         "分仓",
         "期初权益",
         "期末权益",
-        "收益",
-        "最大回撤",
+        "账面收益",
+        "账面最大回撤",
         "成交笔数",
         "平均权重",
         "峰谷回撤贡献",
@@ -397,7 +413,100 @@ function attributionSection(cell: DiagnoseCell) {
       ]),
     ),
     "",
+    ...(cell.sleeveInvestment
+      ? [
+          markdownTable(
+            [
+              "分仓",
+              "投资收益（剔除划转）",
+              "投资最大回撤",
+              "交易损益贡献（元）",
+            ],
+            cell.sleeveInvestment.sleeves.map((s) => [
+              s.id,
+              percent(s.investmentReturn),
+              percent(s.investmentMaxDrawdown),
+              s.tradingPnlContribution.toFixed(2),
+            ]),
+          ),
+          "",
+          "### 剔除划转的投资收益相关性",
+          "",
+          markdownTable(
+            ["分仓 A", "分仓 B", "重叠日", "相关系数", "缺失原因"],
+            cell.sleeveInvestment.correlations.map((p) => [
+              p.left,
+              p.right,
+              p.overlap,
+              metric(p.correlation),
+              p.reason ?? "",
+            ]),
+          ),
+          "",
+        ]
+      : []),
     a.transferBasis,
+    "",
+    ...(cell.bookControl
+      ? [
+          `分配政策 ${cell.bookControl.policy}，目标 ${cell.bookControl.targetCount} 次，现金划转 ${cell.bookControl.transferCount} 笔。`,
+          ...(cell.bookControl.policy === "risk-parity-60"
+            ? [
+                "权重取自同一执行情景下无划转基线的历史分仓投资收益，在下一交易日调拨闲置现金。",
+              ]
+            : []),
+          "",
+        ]
+      : []),
+    ...(cell.sleeveTrades
+      ? [
+          "### 完整交易轮次与成本",
+          "",
+          markdownTable(
+            [
+              "分仓",
+              "完整轮次",
+              "胜率",
+              "盈亏比",
+              "利润因子",
+              "持有交易日 P25/P50/P75/P90",
+              "现金率",
+              "单边换手",
+              "佣金（元）",
+              "印花税（元）",
+              "过户费（元）",
+              "滑点（元）",
+              "滑点未知笔数",
+            ],
+            [
+              { id: "组合", ...cell.sleeveTrades.portfolio },
+              ...cell.sleeveTrades.sleeves,
+            ].map((s) => [
+              s.id,
+              s.roundTrips,
+              percent(s.winRate),
+              metric(s.profitLossRatio),
+              metric(s.profitFactor),
+              [
+                s.holdingPeriod.p25,
+                s.holdingPeriod.p50,
+                s.holdingPeriod.p75,
+                s.holdingPeriod.p90,
+              ]
+                .map(metric)
+                .join(" / "),
+              percent(s.cashRatio),
+              percent(s.oneSidedTurnover),
+              metric(s.costs.commission),
+              metric(s.costs.stampDuty),
+              metric(s.costs.transferFee),
+              metric(s.costs.slippage),
+              s.costs.slippageMissingFills,
+            ]),
+          ),
+          "",
+        ]
+      : []),
     "",
   ];
 }
@@ -440,7 +549,18 @@ function holdoutSection(cell: DiagnoseCell) {
       `### Holdout · ${holdoutRange.start} 至 ${holdoutRange.end}`,
       "",
       markdownTable(
-        ["情景", "收益", "超额收益", "最大回撤", "夏普", "交易数", "费用"],
+        [
+          "情景",
+          "收益",
+          "超额收益",
+          "最大回撤",
+          "夏普",
+          "Calmar",
+          "基准 Calmar",
+          "Calmar 差值",
+          "交易数",
+          "费用",
+        ],
         legs.map((leg) => {
           const s = holdout[leg];
           return [
@@ -449,6 +569,9 @@ function holdoutSection(cell: DiagnoseCell) {
             percent(s.excess),
             percent(s.drawdown),
             metric(s.sharpe),
+            metric(s.calmar),
+            metric(s.benchmarkCalmar),
+            metric(s.calmarDifference),
             s.trades,
             s.fees.toFixed(2),
           ];
@@ -477,9 +600,164 @@ function holdoutSection(cell: DiagnoseCell) {
   ];
 }
 
+function suspensionSection(cell: DiagnoseCell) {
+  const evidence = cell.suspensionEvidence;
+  if (!evidence) return [];
+  const { symbolSuspensionDays, portfolioAffectedDays, certificates } =
+    evidence;
+  const lines = [
+    `### 停牌证据 · ${cellLabel(cell)}`,
+    "",
+    `证券停牌日数 ${symbolSuspensionDays}，组合受影响日数 ${portfolioAffectedDays}。缺少认证的行情缺口按未知处理。`,
+    "",
+  ];
+  if (certificates.length)
+    lines.push(
+      markdownTable(
+        [
+          "标的",
+          "停牌日",
+          "复牌日",
+          "证据",
+          "来源文件",
+          "SHA-256",
+          "记录位置",
+          "生效日",
+          "获知时间",
+        ],
+        certificates.flatMap((c) =>
+          c.sources.map((s) => [
+            c.symbol,
+            c.date,
+            c.resumptionDate,
+            s.kind,
+            s.sourcePath,
+            s.sourceSha256,
+            s.kind === "GP29" ? s.offset : s.recordId,
+            s.effectiveDate,
+            s.knownAt ?? "未知",
+          ]),
+        ),
+      ),
+      "",
+    );
+  return lines;
+}
+
+function comparisonSection(c: DiagnoseComparison) {
+  const scope = `${c.mode}/${c.symbols.join("+")}`;
+  const lines: string[] = [];
+  if (c.family) lines.push(`## 同族历史留出 · ${c.family} · ${scope}`, "");
+  if (c.unavailable) lines.push(...c.unavailable, "");
+  if (c.familyHoldout) {
+    const r = c.familyHoldout,
+      s = r.statistics;
+    lines.push(
+      r.disclosure,
+      "",
+      s.pboBasis,
+      "",
+      `切点 ${r.holdoutStart}，开发段滚动 OOS ${s.devOosDays} 日，CSCV 组合数 ${s.combinations}。${r.holdoutRange ? `留出期 ${r.holdoutRange.start} 至 ${r.holdoutRange.end}。` : ""}`,
+      "",
+      markdownTable(
+        ["PBO(Sharpe)", "N_eff", "DSR 候选", "DSR", "DSR 门槛"],
+        [
+          [
+            metric(s.pbo),
+            s.effectiveTrials,
+            s.dsrCandidateId,
+            metric(s.dsr),
+            s.dsrThreshold,
+          ],
+        ],
+      ),
+      "",
+      ...r.candidates.flatMap((c) =>
+        c.holdoutFailure ? [`${c.id} 留出段不可用：${c.holdoutFailure}`] : [],
+      ),
+      `聚类成员：${s.clusters.map((g) => g.join(" + ")).join("；") || "无"}`,
+      `排除原因：${s.excluded.map((e) => e.id + " · " + e.reason).join("；") || "无"}`,
+      ...[s.pboReason, s.dsrReason].filter((v): v is string => !!v),
+      "",
+      markdownTable(
+        [
+          "候选",
+          "DSR",
+          "留出情景",
+          "收益",
+          "超额收益",
+          "最大回撤",
+          "夏普",
+          "Calmar",
+          "基准 Calmar",
+          "Calmar 差值",
+          "交易数",
+          "费用（元）",
+        ],
+        r.candidates.flatMap((candidate) =>
+          Object.entries(candidate.holdout).map(([leg, m]) => [
+            candidate.id,
+            metric(candidate.dsr),
+            leg,
+            percent(m.return),
+            percent(m.excess),
+            percent(m.drawdown),
+            metric(m.sharpe),
+            metric(m.calmar),
+            metric(m.benchmarkCalmar),
+            metric(m.calmarDifference),
+            m.trades ?? "—",
+            metric(m.fees),
+          ]),
+        ),
+      ),
+      "",
+    );
+  }
+  if (c.chanZdImpact) {
+    const z = c.chanZdImpact;
+    lines.push(
+      `## CH14 vs CH14+ZD · ${scope}`,
+      "",
+      `初始 ZD 无效拒单 ${z.initialZdInvalidRejections.length} 笔，共同入场提前止损 ${z.sharedEntryEarlyStops.length} 轮，提前止损净损益差额 ${z.sharedEntryEarlyStopNetPnlDelta.toFixed(2)} 元。`,
+      "",
+    );
+    if (z.initialZdInvalidRejections.length)
+      lines.push(
+        markdownTable(
+          ["标的", "信号日", "拒单日", "基线入场", "基线净损益"],
+          z.initialZdInvalidRejections.map((r) => [
+            r.symbol,
+            r.signalAt,
+            r.date ?? "—",
+            r.baselineEntryDate ?? "—",
+            metric(r.baselineNetPnl),
+          ]),
+        ),
+        "",
+      );
+    if (z.sharedEntryEarlyStops.length)
+      lines.push(
+        markdownTable(
+          ["标的", "入场日", "基线退出", "ZD 退出", "净损益差额"],
+          z.sharedEntryEarlyStops.map((r) => [
+            r.symbol,
+            r.entryDate,
+            r.baseExitDate,
+            r.zdExitDate,
+            metric(r.netPnlDelta),
+          ]),
+        ),
+        "",
+      );
+  }
+  return lines;
+}
+
 export function renderReport(
   cells: readonly DiagnoseCell[],
   pool?: UniversePoolDisclosure,
+  comparisons: readonly DiagnoseComparison[] = [],
 ): string {
   const perSymbol = cells.filter((cell) => cell.mode === "per-symbol");
   const portfolio = cells.filter((cell) => cell.mode === "portfolio");
@@ -508,9 +786,33 @@ export function renderReport(
     "",
     portfolio.length ? table(portfolio) : "（无）",
     "",
+    ...portfolio.flatMap((cell) => {
+      const delayed = cell.portfolioEligibility?.filter(
+        (row) => !row.readyDate || (cell.start && row.readyDate > cell.start),
+      );
+      return delayed?.length
+        ? [
+            `### 分标的预热 · ${cellLabel(cell)}`,
+            "",
+            markdownTable(
+              ["策略", "标的", "首根行情", "预热根数", "首次可参与日"],
+              delayed.map((row) => [
+                row.strategyId,
+                row.symbol,
+                row.firstBar ?? "—",
+                row.warmupBars,
+                row.readyDate ?? "本期预热不足",
+              ]),
+            ),
+            "",
+          ]
+        : [];
+    }),
     ...(native ? [native, ""] : []),
     ...(growthPit ? [growthPit, ""] : []),
     ...(wyckoff ? [wyckoff, ""] : []),
+    ...cells.flatMap(suspensionSection),
+    ...comparisons.flatMap(comparisonSection),
     ...cells.flatMap(attributionSection),
     ...cells.flatMap(holdoutSection),
     "## 问题分级",
@@ -524,9 +826,15 @@ export async function writeReport(
   outDir: string,
   cells: readonly DiagnoseCell[],
   pool?: UniversePoolDisclosure,
+  comparisons: readonly DiagnoseComparison[] = [],
 ): Promise<string> {
   const path = join(outDir, "report.md");
-  await writeFile(path, renderReport(cells, pool), {
+  await writeFile(
+    join(outDir, "report.json"),
+    JSON.stringify({ pool, cells, comparisons }, null, 2) + "\n",
+    { encoding: "utf8", flag: "wx" },
+  );
+  await writeFile(path, renderReport(cells, pool, comparisons), {
     encoding: "utf8",
     flag: "wx",
   });

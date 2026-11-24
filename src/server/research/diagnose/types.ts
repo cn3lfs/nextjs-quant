@@ -1,6 +1,7 @@
 import type { PortfolioRequest } from "quant-backtest";
 import type { NativeStudyIdentity } from "trading-strategies";
 import type {
+  SleeveAttribution as ArchiveSleeveAttribution,
   DiagnoseArchiveSummary,
   DiagnoseCheck,
   DiagnoseCounts,
@@ -9,7 +10,13 @@ import type {
 } from "~/lib/research/diagnose-contract";
 import type { FrozenLabBacktest, replayLabBacktest } from "../lab-backtest";
 
-import type { NativeChanMultiDisclosure } from "./chan-native";
+import type { CertifiedSuspensionDay } from "./session-evidence";
+import type { SleeveTradeMetrics } from "./sleeve-trades";
+import type { DiagnoseFamilyTimeHoldoutResult } from "./time-holdout";
+import type {
+  decomposeChanZdImpact,
+  NativeChanMultiDisclosure,
+} from "./chan-native";
 import type { GrowthPitDisclosure } from "./growth-pit";
 import type { DiagnoseTimeHoldoutResult } from "./time-holdout";
 import type { SleeveAttribution } from "./sleeve-attribution";
@@ -46,10 +53,23 @@ export type RejectionReason =
   DiagnoseScenarioMetrics["rejectionReasons"][number];
 export type UniversePoolDisclosure = NonNullable<
   DiagnoseArchiveSummary["pool"]
->;
+> & { overlapWithCore12?: { count: number; symbols: readonly string[] } };
+
+export type HoldoutLegMetrics = {
+  return: number | null;
+  excess: number | null;
+  drawdown: number | null;
+  sharpe: number | null;
+  trades: number;
+  fees: number;
+  calmar: number | null;
+  benchmarkCalmar: number | null;
+  calmarDifference: number | null;
+};
 
 export type NativeChanDisclosure = {
   symbol: string;
+  insufficientWarmup?: { availableBars: number; requiredWarmupBars: number };
   identity: NativeStudyIdentity;
   originDate: string;
   baselineDate: string;
@@ -77,9 +97,48 @@ export type CanslimPitDisclosure = {
   boundary: string;
 };
 
+export type BookControl = "none" | "equal-month-end" | "risk-parity-60";
+export type DiagnoseComparison = {
+  mode: DiagnoseMode;
+  symbols: string[];
+  family?: string;
+  familyHoldout?: DiagnoseFamilyTimeHoldoutResult;
+  unavailable?: string[];
+  chanZdImpact?: ReturnType<typeof decomposeChanZdImpact>;
+};
+
 export type StrategyDisclosures = {
+  portfolioEligibility?: {
+    strategyId: string;
+    symbol: string;
+    warmupBars: number;
+    firstBar: string | null;
+    readyDate: string | null;
+  }[];
+  suspensionEvidence?: {
+    symbolSuspensionDays: number;
+    portfolioAffectedDays: number;
+    certificates: CertifiedSuspensionDay[];
+  };
+  sleeveTrades?: SleeveTradeMetrics;
+  bookControl?: {
+    policy: BookControl;
+    targetCount: number;
+    transferCount: number;
+  };
   timeHoldout?: DiagnoseTimeHoldoutResult;
-  sleeveAttribution?: SleeveAttribution;
+  sleeveAttribution?: ArchiveSleeveAttribution;
+  sleeveInvestment?: {
+    sleeves: Pick<
+      SleeveAttribution["sleeves"][number],
+      | "id"
+      | "investmentReturn"
+      | "investmentMaxDrawdown"
+      | "dailyInvestmentReturns"
+      | "tradingPnlContribution"
+    >[];
+    correlations: SleeveAttribution["investmentCorrelations"];
+  };
   nativeChan?: (NativeChanMultiDisclosure & { strategyKey?: string })[];
   canslimPit?: (GrowthPitDisclosure & { strategyKey?: string })[];
   growthPit?: (GrowthPitDisclosure & { strategyKey?: string })[];

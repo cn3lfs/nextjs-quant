@@ -24,6 +24,13 @@ export type PortfolioInstrument = {
   bars: readonly Bar[];
   /** Already adjusted at a fixed historical denominator; never used for fills. */
   signalBars: readonly Bar[];
+  /** Ex-post daily scoring evidence only. Include the real resumption date
+   * so a shorter replay cannot inherit a full-history certification. */
+  certifiedSuspensions?: readonly {
+    symbol: string;
+    date: string;
+    resumptionDate: string;
+  }[];
   /** A local pure facts adapter may quote from frozen bars on demand. It is
    * reconstructed by the research loader, never serialized as executable code. */
   execution:

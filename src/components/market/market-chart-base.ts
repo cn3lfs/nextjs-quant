@@ -1,10 +1,6 @@
 import { type IntelEvent } from "~/lib/news/intel-events";
 import type { RefObject } from "react";
-import {
-  LineSeries,
-  type LogicalRange,
-  type LineSeriesPartialOptions,
-} from "lightweight-charts";
+import { LineSeries, type LineSeriesPartialOptions } from "lightweight-charts";
 import { chartColor } from "~/lib/chart/chart-theme";
 import {
   chartTime,
@@ -13,8 +9,13 @@ import {
   czscChartLines,
   czscChartMarkers,
   patternChartData,
+  tradeChartMarkers,
 } from "~/lib/chart/chart-data";
 import { restoreChartRange } from "~/lib/chart/chart-viewport";
+import {
+  tradeMarkFocusRange,
+  type TradeMark,
+} from "~/lib/chart/chart-trade-marks";
 import type { Bar } from "~/lib/domain";
 import type { ChartPeriod } from "~/lib/chart/chart-view";
 import type { BreakoutResult } from "trading-strategies/research/breakout/breakout";
@@ -42,6 +43,9 @@ export function updateMarketBase(
     showBreakout,
     patternBreakout,
     showPatterns,
+    tradeMarks,
+    showTradeMarks,
+    focusAt,
     compare,
     setHistoryStart,
     newsEvents: _newsEvents,
@@ -59,6 +63,10 @@ export function updateMarketBase(
     showBreakout: boolean;
     patternBreakout?: PatternBreakoutResult;
     showPatterns?: boolean;
+    /** Daily-only fills already projected onto existing bar dates. */
+    tradeMarks?: readonly TradeMark[];
+    showTradeMarks?: boolean;
+    focusAt?: { date: string; consume: () => boolean } | null;
     compare?: readonly ChartCompare[];
     setHistoryStart: (start: number) => void;
   },
@@ -80,10 +88,23 @@ export function updateMarketBase(
     n.byTime = new Map(
       bars.map((bar, index) => [chartTime(bar.date, period), index]),
     );
-    n.pendingRange = same
-      ? saved.range
-      : ((restored?.range as LogicalRange | undefined) ?? null);
+    n.pendingRange = same ? saved.range : (restored?.range ?? null);
     setHistoryStart(n.start);
+  }
+  // `at=` centres the window once. It must never be written into the
+  // persistent viewport store (rememberChartRange owns that state).
+  if (period === "day" && focusAt && bars.length) {
+    const focus = tradeMarkFocusRange(bars, focusAt.date);
+    if (focus && focusAt.consume()) {
+      n.temporaryRange = true;
+      n.start = Math.min(n.start, focus.start);
+      const offset = focus.start - n.start;
+      n.pendingRange = {
+        from: focus.range.from + offset,
+        to: focus.range.to + offset,
+      };
+      setHistoryStart(n.start);
+    }
   }
   if (n.costLine) candles.removePriceLine(n.costLine);
   n.costLine =
@@ -183,6 +204,9 @@ export function updateMarketBase(
           : []),
         ...(overlay?.markers ?? []),
         ...(patternOverlay?.markers ?? []),
+        ...(showTradeMarks
+          ? tradeChartMarkers(tradeMarks ?? [], bars[start], period)
+          : []),
       ].sort((a, b) => String(a.time).localeCompare(String(b.time))),
     );
   };

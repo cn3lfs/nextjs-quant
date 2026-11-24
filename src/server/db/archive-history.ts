@@ -30,8 +30,16 @@ const projection = `WITH source AS MATERIALIZED (
 )
 `;
 
+// The workbench displays an exact total on every page. Cache just the last
+// filter per connection, invalidated by v23's transactional kind revisions.
+const lastTotal = new WeakMap<
+  ReturnType<typeof sqlite>,
+  { filter: string; revision: number; total: number }
+>();
+
 export function researchArchiveHistory(
   raw: ArchiveFilter & { cursor?: unknown },
+  { includeTotal = true } = {},
 ) {
   const input = archiveHistoryInput.parse(raw);
   const kinds = [...new Set(input.kinds ?? archiveKinds)].sort();
@@ -75,28 +83,24 @@ export function researchArchiveHistory(
   }
   const condition = where.join(" AND ");
   const db = sqlite();
+  const cacheable = !db.inTransaction;
   return db.transaction(() => {
     const pageArgs = [...args];
     let boundary = "";
     if (input.cursor) {
-      boundary = " WHERE (createdAt,kind,id)<(?,?,?)";
+      boundary = " AND (createdAt,kind,id)<(?,?,?)";
       pageArgs.push(input.cursor.createdAt, input.cursor.kind, input.cursor.id);
     }
-    // Materialize bounded metadata once for both count and page. JSONB is only
-    // an in-query parse representation; stored reports remain original text.
-    const result = db
+    const rows = db
       .prepare(
         projection +
-          `, filtered AS MATERIALIZED (
-            SELECT id,kind,createdAt,substr(CAST(title AS TEXT),1,128) title,symbol,substr(CAST(archivedName AS TEXT),1,80) archivedName,valid,typeof(title) titleType FROM projected WHERE ${condition}
-          )
-          SELECT page.*, totals.n FROM (SELECT count(*) n FROM filtered) totals
-          LEFT JOIN (SELECT * FROM filtered${boundary} ORDER BY createdAt DESC,kind DESC,id DESC LIMIT 21) page ON 1
-          ORDER BY page.createdAt DESC,page.kind DESC,page.id DESC`,
+          `SELECT id,kind,createdAt,substr(CAST(title AS TEXT),1,128) title,symbol,
+           substr(CAST(archivedName AS TEXT),1,80) archivedName,valid,typeof(title) titleType
+           FROM projected WHERE ${condition}${boundary}
+           ORDER BY createdAt DESC,kind DESC,id DESC LIMIT 21`,
       )
       .all(...pageArgs) as {
-      id: string | null;
-      n: number;
+      id: string;
       kind: (typeof archiveKinds)[number];
       createdAt: number;
       title: string | null;
@@ -105,10 +109,47 @@ export function researchArchiveHistory(
       valid: number;
       titleType: string;
     }[];
-    const filteredTotal = result[0]!.n;
-    const rows = result.filter(
-      (row): row is typeof row & { id: string } => row.id !== null,
-    );
+    const hasMore = rows.length > 20;
+    let filteredTotal: number | undefined;
+    if (includeTotal) {
+      if (!input.cursor && !hasMore) filteredTotal = rows.length;
+      else {
+        const revision = db
+          .prepare(
+            input.symbol
+              ? "SELECT coalesce(sum(revision),0) FROM record_kind_revisions WHERE kind IN ('report','snapshot','signal','job')"
+              : "SELECT revision FROM record_kind_revisions WHERE kind='report'",
+          )
+          .pluck()
+          .get() as number | undefined;
+        const cached = cacheable ? lastTotal.get(db) : undefined;
+        if (
+          cached &&
+          cached.filter === filter &&
+          cached.revision === (revision ?? 0)
+        )
+          filteredTotal = cached.total;
+        else {
+          const metadataFilters =
+            input.symbol || input.keyword || input.from || input.to;
+          filteredTotal = db
+            .prepare(
+              metadataFilters
+                ? projection +
+                    `SELECT count(*) FROM projected WHERE ${condition}`
+                : `SELECT count(*) FROM records WHERE ${condition}`,
+            )
+            .pluck()
+            .get(...args) as number;
+          if (cacheable)
+            lastTotal.set(db, {
+              filter,
+              revision: revision ?? 0,
+              total: filteredTotal,
+            });
+        }
+      }
+    }
     const items = rows.slice(0, 20).map((row) => {
       const symbol = symbolSchema.safeParse(row.symbol);
       const readable = !!row.valid && row.titleType === "text" && !!row.title;
@@ -127,8 +168,9 @@ export function researchArchiveHistory(
     return {
       items,
       filteredTotal,
+      hasMore,
       nextCursor:
-        rows.length > 20 && last
+        hasMore && last
           ? { createdAt: last.createdAt, kind: last.kind, id: last.id, filter }
           : null,
     };

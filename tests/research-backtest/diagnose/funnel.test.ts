@@ -208,8 +208,8 @@ it("does not report false equity failure when a dividend re-marks a suspended po
   expect(report.status).toBe("ok");
 });
 
-it("aligns the latest member's warmup-ready date to the next benchmark session only for native portfolios", async () => {
-  const bars = flatBars(240);
+it("starts the portfolio on its first ready member and aligns that start to the benchmark", async () => {
+  const bars = flatBars(375);
   const late = bars.slice(55);
   const ready = late[140]!.date;
   const cache = new Map([
@@ -222,7 +222,17 @@ it("aligns the latest member's warmup-ready date to the next benchmark session o
   for (const key of ["research-chan", "research-chan-hold-cash"] as const)
     expect(
       await resolveAutoStart(key, symbols, "portfolio", "", end, cache),
-    ).toBe(late[141]!.date);
+    ).toBe(bars[140]!.date);
+  expect(
+    await resolveAutoStart(
+      "research-chan",
+      ["sh688981"],
+      "portfolio",
+      "",
+      end,
+      cache,
+    ),
+  ).toBe(late[141]!.date);
   expect(
     await resolveAutoStart(
       "research-growth",
@@ -232,7 +242,7 @@ it("aligns the latest member's warmup-ready date to the next benchmark session o
       end,
       cache,
     ),
-  ).toBe(late[0]!.date);
+  ).toBe(bars[300]!.date);
   cache.set("sh688981", late.slice(0, 140));
   await expect(
     resolveAutoStart(
@@ -243,7 +253,21 @@ it("aligns the latest member's warmup-ready date to the next benchmark session o
       end,
       cache,
     ),
-  ).rejects.toThrow(/sh688981.*140/);
+  ).resolves.toBe(bars[140]!.date);
+  cache.set(
+    "sh000001",
+    bars.filter((b) => b.date !== bars[140]!.date),
+  );
+  expect(
+    await resolveAutoStart(
+      "research-chan",
+      symbols,
+      "portfolio",
+      "",
+      end,
+      cache,
+    ),
+  ).toBe(bars[141]!.date);
 });
 
 it("writes each Wyckoff profile's scored funnel to the cell, run.json and Markdown for preset and catalog keys", async () => {

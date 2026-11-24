@@ -173,11 +173,77 @@ export function TodayWorkspace() {
           <Intraday />
         </>
       ) : (
-        <DailyDecision />
+        <>
+          <DailyDecision />
+          <RecentDiagnoseArchives />
+        </>
       )}
     </div>
   );
 }
+
+function RecentDiagnoseArchives() {
+  const [expanded, setExpanded] = useState(false);
+  const archives = api.strategyLabDiagnoseArchives.useQuery(
+    { page: 1, pageSize: 5 },
+    { enabled: expanded },
+  );
+  return (
+    <section className="rounded-lg border border-nc-border bg-nc-card p-3">
+      <h2 className="m-0 text-base">
+        <Button
+          type="button"
+          variant="plain"
+          className="w-full justify-between"
+          aria-expanded={expanded}
+          aria-controls="today-diagnose-archives"
+          onClick={() => setExpanded(!expanded)}
+        >
+          最近诊断归档{" "}
+          <span aria-hidden="true">{expanded ? "收起" : "展开"}</span>
+        </Button>
+      </h2>
+      <div
+        id="today-diagnose-archives"
+        hidden={!expanded}
+        className="space-y-2 px-3 py-2 text-sm"
+      >
+        {expanded && archives.isPending && (
+          <p role="status">正在读取诊断归档…</p>
+        )}
+        {expanded && archives.isError && (
+          <p role="alert" className="text-nc-warn">
+            读取诊断归档失败：{archives.error.message}
+          </p>
+        )}
+        {expanded && archives.data?.length === 0 && (
+          <p className="text-nc-text-3">暂无诊断归档。</p>
+        )}
+        {expanded && !!archives.data?.length && (
+          <ul className="space-y-1">
+            {archives.data.map((archive) => (
+              <li
+                key={archive.id}
+                className="flex flex-wrap items-baseline gap-x-2"
+              >
+                <Link
+                  className="underline"
+                  href={`/lab/backtest?archive=${encodeURIComponent(archive.id)}`}
+                >
+                  {archive.title}
+                </Link>
+                <span className="text-sub text-nc-text-3">
+                  {archive.generatedAt}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function DailyDecision() {
   const visible = useScreenVisible();
   const { data: names } = useSecurityNames();

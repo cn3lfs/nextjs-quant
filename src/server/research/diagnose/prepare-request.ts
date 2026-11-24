@@ -1,4 +1,7 @@
-import type { StrategyObjectInput } from "trading-strategies";
+import {
+  isNativeChanV3Profile,
+  type StrategyObjectInput,
+} from "trading-strategies";
 import type { PortfolioRequest } from "quant-backtest";
 import type { Bar } from "trading-strategy-core/bars";
 import type { ResearchCostScenario } from "trading-strategy-core/costs";
@@ -22,11 +25,20 @@ import {
   isGrowthPitStrategyKey,
   type GrowthPitSignalOptions,
 } from "./growth-pit";
+import { isAStock } from "tstdx/local";
+import {
+  readGp29Evidence,
+  resolveSessionEvidence,
+  type CertifiedSuspensionDay,
+} from "./session-evidence";
 import type { StrategyDisclosures } from "./types";
 
 export const BENCHMARK_CALENDAR_SYMBOL = "sh000001";
 
-export type PrepareDiagnoseRequestInput = NativeChanOptions &
+export type PrepareDiagnoseRequestInput = Omit<
+  NativeChanOptions,
+  "projectionVersion"
+> &
   Pick<
     PortfolioRequest,
     | "accountMaxUniqueSymbols"
@@ -79,6 +91,7 @@ export type PreparedDiagnoseRequest = Pick<
   calendar: string[];
   benchmarkBars?: readonly Bar[];
   dataQuality: DiagnoseSourceQuality[];
+  suspensionCertificates?: CertifiedSuspensionDay[];
 };
 
 function sourceQuality(sources: readonly Record<string, unknown>[]) {
@@ -152,7 +165,11 @@ export async function prepareDiagnoseRequest(
     )
       throw new Error("多策略诊断需要唯一策略及一一对应的独立分仓");
   }
-  const nativeStrategies = strategies.filter(usesNativeChan);
+  const usesV3 = (s: StrategyObjectInput) =>
+    s.entry.kind === "external" && isNativeChanV3Profile(s.entry.id);
+  const nativeStrategies = strategies.filter(
+    (s) => usesNativeChan(s) || usesV3(s),
+  );
   const frozen = await prepareLabBacktest(
     {
       type: "lab-backtest",
@@ -188,14 +205,12 @@ export async function prepareDiagnoseRequest(
     root: input.config.tdxRoot,
     period: "day",
     adjustment: "none",
-    to: input.end,
     live: false,
   });
-  const signalCalendar = benchmark.bars.map((bar) => bar.date);
-  const calendar = signalCalendar.filter(
-    (date) =>
-      date.slice(0, 10) >= input.start && date.slice(0, 10) <= input.end,
-  );
+  const evidenceCalendar = benchmark.bars.map((bar) => bar.date);
+  const benchmarkBars = benchmark.bars.filter((bar) => bar.date <= input.end);
+  const signalCalendar = benchmarkBars.map((bar) => bar.date);
+  const calendar = signalCalendar.filter((date) => date >= input.start);
   if (!calendar.length)
     throw new Error(
       `基准日历 ${BENCHMARK_CALENDAR_SYMBOL} 在 ${input.start} 至 ${input.end} 无交易日`,
@@ -209,6 +224,7 @@ export async function prepareDiagnoseRequest(
   // date. A larger gap is still a benchmark-calendar defect.
   const calendarSet = new Set(calendar);
   const { start, end } = frozen.request;
+  const suspensionCertificates: CertifiedSuspensionDay[] = [];
   for (const instrument of frozen.request.instruments) {
     const inWindowBars = instrument.bars.filter((bar) => {
       const date = bar.date.slice(0, 10);
@@ -223,6 +239,38 @@ export async function prepareDiagnoseRequest(
           .filter((date) => !calendarSet.has(date)),
       ),
     ].sort();
+    if (
+      isAStock(instrument.symbol) &&
+      inWindowBars.length - offCalendar.length < calendar.length
+    ) {
+      const gp29 = await readGp29Evidence(
+        input.config.tdxRoot,
+        instrument.symbol,
+      );
+      const { certifiedSuspensions } = resolveSessionEvidence({
+        symbol: instrument.symbol,
+        calendar: evidenceCalendar.filter(
+          (date) => date >= (instrument.bars[0]?.date ?? start),
+        ),
+        replayEnd: end,
+        bars: instrument.bars,
+        asOf: new Date().toISOString(),
+        gp29,
+      });
+      const certificates = certifiedSuspensions.filter((day) =>
+        calendarSet.has(day.date),
+      );
+      if (certificates.length) {
+        instrument.certifiedSuspensions = certificates.map(
+          ({ symbol, date, resumptionDate }) => ({
+            symbol,
+            date,
+            resumptionDate,
+          }),
+        );
+        suspensionCertificates.push(...certificates);
+      }
+    }
     if (!offCalendar.length) continue;
     const threshold = Math.max(20, Math.floor(inWindowBars.length * 0.005));
     if (offCalendar.length > threshold) {
@@ -289,12 +337,20 @@ export async function prepareDiagnoseRequest(
   input.signal?.throwIfAborted();
   const disclosures: StrategyDisclosures = {};
   if (nativeStrategies.length) {
-    const rows = await attachNativeChanMulti(frozen, input);
+    const rows = await attachNativeChanMulti(frozen, {
+      ...input,
+      projectionVersion: nativeStrategies.some(usesV3) ? 3 : undefined,
+    });
     disclosures.nativeChan = nativeStrategies.flatMap((strategy) =>
-      rows.map(({ zdStop, ...row }) => ({
+      rows.map(({ zdStop, zdAtrStop, ...row }) => ({
         ...row,
         ...(multi && { strategyKey: strategy.id.replace(/^diag-/, "") }),
-        ...(strategy.exit.stop?.kind === "structure" && zdStop && { zdStop }),
+        ...(strategy.exit.stop?.kind === "structure" &&
+          strategy.exit.stop.field === "chan-zd" &&
+          zdStop && { zdStop }),
+        ...(strategy.exit.stop?.kind === "structure" &&
+          strategy.exit.stop.field === "chan-zd-atr" &&
+          zdAtrStop && { zdAtrStop }),
       })),
     );
   }
@@ -354,7 +410,8 @@ export async function prepareDiagnoseRequest(
   return {
     frozen,
     calendar,
-    benchmarkBars: benchmark.bars,
+    benchmarkBars,
+    suspensionCertificates,
     dataQuality: sourceQuality(frozen.sources),
     ...disclosures,
   };

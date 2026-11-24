@@ -46,6 +46,13 @@ function axesReason(trials: readonly OosTrial[]) {
     ? "incomplete-or-misaligned-oos-returns"
     : null;
 }
+function isDailyDate(date: string) {
+  return (
+    /^\d{4}-\d{2}-\d{2}$/.test(date) &&
+    Number.isFinite(Date.parse(date)) &&
+    new Date(date).toISOString().slice(0, 10) === date
+  );
+}
 function correlation(
   a: readonly (number | null)[],
   b: readonly (number | null)[],
@@ -106,6 +113,7 @@ export function clusterOosTrials(
 export function assessValidationCandidates(
   candidates: readonly ValidationMethodCandidate[],
   policy: ValidationPolicy & { minimumDsr: number },
+  devOosDates?: readonly string[],
 ) {
   if (
     policy.method !== "lifecycle-2" ||
@@ -121,6 +129,18 @@ export function assessValidationCandidates(
     throw new Error("Missing declared lifecycle method parameters / purpose");
   if (new Set(candidates.map((c) => c.row.id)).size !== candidates.length)
     throw new Error("Duplicate method candidate IDs");
+  if (
+    devOosDates &&
+    (!isDailyDate(policy.holdoutStart ?? "") ||
+      !devOosDates.length ||
+      devOosDates.some(
+        (date, i) =>
+          !isDailyDate(date) ||
+          date >= policy.holdoutStart! ||
+          (i > 0 && date <= devOosDates[i - 1]!),
+      ))
+  )
+    throw new Error("Expected strictly pre-cut development OOS daily axis");
   const familyKey = (candidate: ValidationMethodCandidate) =>
     `${candidate.market}:${candidate.sleeve}`;
   const centerOf = (candidate: ValidationMethodCandidate) =>
@@ -160,6 +180,25 @@ export function assessValidationCandidates(
         }
       }
       const trial = validationOosTrial(member.row);
+      if (
+        devOosDates &&
+        (trial.dates.length !== devOosDates.length ||
+          trial.dates.some((day, i) => day !== devOosDates[i]) ||
+          axesReason([trial]) ||
+          member.row.windows.some(
+            (w) =>
+              !w.base.dailyDates?.length ||
+              w.base.dailyDates.length !== w.base.daily.length ||
+              w.base.dailyDates[0] !== w.start ||
+              w.base.dailyDates.at(-1) !== w.end,
+          ))
+      ) {
+        excluded.push({
+          id: trial.id,
+          reason: "incomplete-or-misaligned-oos-returns",
+        });
+        continue;
+      }
       const identity = JSON.stringify([trial.dates, trial.returns]);
       if (unique.has(identity))
         excluded.push({ id: trial.id, reason: "identical-oos-series" });
@@ -198,18 +237,18 @@ export function assessValidationCandidates(
       policy,
       provenance,
     );
+    const returns = devOosDates
+      ? (family.trials.find((trial) => trial.id === candidate.row.id)
+          ?.returns ?? [])
+      : validationOosTrial(candidate.row).returns;
     const testing = family.cluster.effectiveTrials
       ? effectiveMultipleTesting(
-          validationOosTrial(candidate.row).returns,
+          returns,
           family.trials.map((trial) => sharpeDaily(trial.returns)),
           family.cluster.effectiveTrials,
           candidate.market === "crypto" ? 365 : 252,
         )
-      : multipleTesting(
-          validationOosTrial(candidate.row).returns,
-          [],
-          candidate.market === "crypto" ? 365 : 252,
-        );
+      : multipleTesting(returns, [], candidate.market === "crypto" ? 365 : 252);
     const reasons = [
       ...validationRowReasons({ ...candidate.row, neighbors }, policy),
       ...validationAdditionalReasons({

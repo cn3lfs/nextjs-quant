@@ -2,6 +2,8 @@ import { z } from "zod";
 import { isAShareStockSymbol } from "~/lib/market/security-classification";
 import {
   nativeStudyDefinition,
+  studyStrategies,
+  wyckoffStudyBindings,
   type StrategyObjectInput,
 } from "trading-strategies";
 import { researchDateSchema } from "trading-strategies/research/contracts/date";
@@ -13,6 +15,12 @@ export const diagnoseScenarioIdSchema = z.enum([
   "cap-0.5-clip",
 ]);
 export type DiagnoseScenarioId = z.infer<typeof diagnoseScenarioIdSchema>;
+export type DiagnoseChartContext = {
+  archiveId: string;
+  cellId?: string;
+  scenarioId?: DiagnoseScenarioId;
+  defaultSymbol?: string;
+};
 
 export const DIAGNOSE_SCENARIO_PRESETS = {
   strict: { id: "strict", label: "Strict 基线", executionProfile: "strict" },
@@ -185,12 +193,106 @@ export function isDiagnosticOnlyStrategyKey(key: string): boolean {
 }
 
 const bookPresetSchema = z.literal("core-4");
-export const labDiagnoseRunInputSchema = z
+// Account-state studies have no standalone diagnostic signal rule.
+const accountStudies = new Set([
+  "ma",
+  "breakout",
+  "pullback",
+  "range",
+  "grid",
+  "hold80",
+  "vol-target",
+  "constant-mix",
+  "cppi",
+  "dca",
+]);
+const sleeveStrategyKeys = new Set<string>([
+  ...studyStrategies.filter((key) => !accountStudies.has(key)),
+  "dual-ma",
+  "double-breakout",
+  "formula",
+  wyckoffStudyBindings["research-wy-lps-protected"],
+  wyckoffStudyBindings["research-wy-reaccumulation-protected"],
+  wyckoffStudyBindings["research-wy-trend-pullback-protected"],
+  "research-chan",
+  "research-chan-first",
+  "research-chan-second",
+  "research-chan-third",
+  "research-chan-hold-cash",
+  "research-chan-hold-cash-zd-stop",
+  "research-chan-hold-cash-zd-atr",
+  "research-chan-ch04",
+  "research-chan-ch07",
+  "research-chan-ch12",
+  "research-canslim-pit",
+  "research-canslim-pit-m",
+  "research-canslim-pit-stop8",
+  "research-canslim-pit-stop7",
+  "research-canslim-pit-ma50",
+  "research-canslim-pit-ma20",
+  "research-sepa-pit",
+  "research-sepa-pit-m",
+  "research-sepa-pit-stop8",
+  "research-sepa-pit-ma50",
+  "research-sepa-vcp-close-price",
+  "research-sepa-vcp-close-pit",
+  "research-sepa-vcp-close-pit-strict-finance",
+]);
+const sleeveSchema = z
+  .object({
+    id: z
+      .string()
+      .trim()
+      .min(1)
+      .max(100)
+      .regex(/^[\p{L}\p{N}_-]+$/u),
+    strategyKey: z
+      .string()
+      .trim()
+      .refine((key) => sleeveStrategyKeys.has(key), "未知诊断策略"),
+    share: numeric.positive(),
+  })
+  .strict();
+export type DiagnoseBookSleeve = z.infer<typeof sleeveSchema>;
+const customSleeves = z
+  .array(sleeveSchema)
+  .min(2)
+  .max(6)
+  .refine((rows) => unique(rows.map((row) => row.id)), "分仓 ID 重复")
+  .transform((rows) =>
+    rows.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
+  )
+  .refine(
+    (rows) =>
+      Math.abs(rows.reduce((sum, row) => sum + row.share, 0) - 1) <= 1e-9,
+    "分仓权重之和须为 1",
+  );
+export const diagnoseBookInputSchema = z.union([
+  bookPresetSchema,
+  z.object({ preset: bookPresetSchema }).strict(),
+  z.object({ sleeves: customSleeves }).strict(),
+]);
+export type DiagnoseBookInput = z.input<typeof diagnoseBookInputSchema>;
+export function normalizeDiagnoseBookInput(book: DiagnoseBookInput) {
+  const parsed = diagnoseBookInputSchema.parse(book);
+  return typeof parsed === "string" ? { preset: parsed } : parsed;
+}
+export function customBookId(sleeves: readonly DiagnoseBookSleeve[]): string {
+  const definitions = customSleeves
+    .parse(sleeves)
+    .map(({ id, strategyKey, share }) => [id, strategyKey, share]);
+  let hash = 0x811c9dc5;
+  for (const byte of new TextEncoder().encode(JSON.stringify(definitions)))
+    hash = Math.imul(hash ^ byte, 0x01000193);
+  return `custom-${(hash >>> 0).toString(16).padStart(8, "0")}`;
+}
+const runFields = z
   .object({
     symbols: z.array(symbolSchema).min(1).max(12).refine(unique, "标的重复"),
     mode: z.enum(["per-symbol", "portfolio"]).optional(),
     strategyKey: z.string().trim().min(1).max(100).optional(),
     bookPreset: bookPresetSchema.optional(),
+    book: diagnoseBookInputSchema.optional(),
     includeHoldout: z.boolean().default(false),
     holdoutStart: researchDateSchema.optional(),
     start: z.union([z.literal("auto"), researchDateSchema]),
@@ -202,16 +304,36 @@ export const labDiagnoseRunInputSchema = z
       .min(1)
       .max(3)
       .refine(unique, "执行情景重复"),
-    confirmed: z.literal(true),
   })
-  .strict()
+  .strict();
+export const diagnoseArchiveRunSchema = runFields.extend({
+  strategies: textList,
+  family: z.string().min(1).optional(),
+});
+export type DiagnoseArchiveRun = z.infer<typeof diagnoseArchiveRunSchema>;
+export const labDiagnoseRunInputSchema = runFields
+  .extend({ confirmed: z.literal(true), strategies: textList.optional() })
   .refine(
     (v) => v.start === "auto" || v.start < v.end,
     "开始日期须早于结束日期",
   )
   .transform((v, ctx) => {
-    const strategyKey = v.bookPreset ?? v.strategyKey;
-    if (!strategyKey || (strategyKey === "core-4" && !v.bookPreset)) {
+    const rawBook = v.book ?? v.bookPreset;
+    const book = rawBook && normalizeDiagnoseBookInput(rawBook);
+    if (book && "sleeves" in book && v.bookPreset) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["book"],
+        message: "自定义组合与预设互斥",
+      });
+      return z.NEVER;
+    }
+    const strategyKey = book
+      ? "preset" in book
+        ? book.preset
+        : customBookId(book.sleeves)
+      : v.strategyKey;
+    if (!strategyKey || (strategyKey === "core-4" && !book)) {
       ctx.addIssue({
         code: "custom",
         path: ["strategyKey"],
@@ -219,11 +341,11 @@ export const labDiagnoseRunInputSchema = z
       });
       return z.NEVER;
     }
-    if (v.bookPreset && v.mode === "per-symbol") {
+    if (book && v.mode === "per-symbol") {
       ctx.addIssue({
         code: "custom",
         path: ["mode"],
-        message: "四策略组合须使用组合模式",
+        message: "分仓组合须使用组合模式",
       });
       return z.NEVER;
     }
@@ -242,8 +364,10 @@ export const labDiagnoseRunInputSchema = z
     }
     return {
       ...v,
+      book,
+      bookPreset: book && "preset" in book ? book.preset : undefined,
       strategyKey,
-      mode: v.bookPreset ? ("portfolio" as const) : v.mode,
+      mode: book ? ("portfolio" as const) : v.mode,
       holdoutStart,
     };
   });
@@ -456,6 +580,9 @@ const holdoutLeg = z
     excess: nullableMetric,
     drawdown: nullableMetric,
     sharpe: nullableMetric,
+    calmar: nullableMetric.optional(),
+    benchmarkCalmar: nullableMetric.optional(),
+    calmarDifference: nullableMetric.optional(),
     trades: count,
     fees: numeric,
   })
@@ -550,6 +677,125 @@ export const diagnoseSleeveAttributionSchema = z
   .strict();
 export type SleeveAttribution = z.infer<typeof diagnoseSleeveAttributionSchema>;
 
+export const diagnoseSleeveInvestmentSchema = z.object({
+  sleeves: z.array(
+    z.object({
+      id: z.string(),
+      investmentReturn: nullableMetric,
+      investmentMaxDrawdown: nullableMetric,
+      tradingPnlContribution: numeric,
+      dailyInvestmentReturns: z.array(
+        z.object({
+          date: researchDateSchema,
+          return: nullableMetric,
+          invested: z.boolean(),
+        }),
+      ),
+    }),
+  ),
+  correlations: z.array(
+    z.intersection(
+      z.object({ left: z.string(), right: z.string(), overlap: count }),
+      z.union([
+        z.object({ correlation: numeric, reason: z.null() }),
+        z.object({ correlation: z.null(), reason: z.string() }),
+      ]),
+    ),
+  ),
+});
+const tradeMetrics = z.object({
+  roundTrips: count,
+  winRate: nullableMetric,
+  profitLossRatio: nullableMetric,
+  profitFactor: nullableMetric,
+  holdingPeriod: z.object({
+    p25: nullableMetric,
+    p50: nullableMetric,
+    p75: nullableMetric,
+    p90: nullableMetric,
+  }),
+  cashRatio: nullableMetric,
+  oneSidedTurnover: nullableMetric,
+  costs: z.object({
+    commission: numeric,
+    stampDuty: numeric,
+    transferFee: numeric,
+    slippage: nullableMetric,
+    slippageMissingFills: count,
+    totalFees: numeric,
+  }),
+});
+export const diagnoseSleeveTradesSchema = z.object({
+  portfolio: tradeMetrics,
+  sleeves: z.array(tradeMetrics.extend({ id: z.string() })),
+});
+export const diagnoseSuspensionSummarySchema = z.object({
+  symbolSuspensionDays: count,
+  portfolioAffectedDays: count,
+  unknownDays: count.optional(),
+});
+const provenance = z.object({
+  symbol: z.string(),
+  sourcePath: z.string(),
+  sourceSha256: z.string(),
+  effectiveDate: researchDateSchema,
+  knownAt: z.string().nullable(),
+});
+export const diagnoseSessionEvidenceSchema =
+  diagnoseSuspensionSummarySchema.extend({
+    certificates: z.array(
+      z.object({
+        symbol: z.string(),
+        date: researchDateSchema,
+        resumptionDate: researchDateSchema,
+        sources: z.array(
+          z.discriminatedUnion("kind", [
+            provenance.extend({
+              kind: z.literal("GP29"),
+              offset: count,
+              suspendedSessions: count,
+            }),
+            provenance.extend({
+              kind: z.literal("announcement"),
+              throughDate: researchDateSchema,
+              recordId: z.string(),
+            }),
+          ]),
+        ),
+      }),
+    ),
+  });
+export const diagnoseFamilyHoldoutSchema = z.object({
+  family: z.string(),
+  pbo: nullableMetric,
+  effectiveTrials: count,
+  rawCandidateCount: count,
+  clusters: z.array(textList),
+  excluded: z.array(z.object({ id: z.string(), reason: z.string() })),
+  dsr: nullableMetric,
+  dsrThreshold: numeric,
+  note: z.string().optional(),
+  devOosDays: count.optional(),
+  combinations: count.optional(),
+  discardedCscvDays: count.optional(),
+  includedCandidateIds: textList.optional(),
+  dsrCandidateId: z.string().optional(),
+  pboReason: z.string().nullish(),
+  dsrReason: z.string().nullish(),
+  pboBasis: z.string().optional(),
+});
+export type DiagnoseSleeveInvestment = z.infer<
+  typeof diagnoseSleeveInvestmentSchema
+>;
+export type DiagnoseSleeveTrades = z.infer<typeof diagnoseSleeveTradesSchema>;
+export type DiagnoseFamilyHoldout = z.infer<typeof diagnoseFamilyHoldoutSchema>;
+export type DiagnoseSuspensionSummary = z.infer<
+  typeof diagnoseSuspensionSummarySchema
+>;
+export type DiagnoseSessionEvidence = z.infer<
+  typeof diagnoseSessionEvidenceSchema
+>;
+
 const tradeIdentity = z.object({
   symbol: z.string(),
   strategyId: z.string(),
@@ -575,6 +821,7 @@ export const diagnoseSampleOrderSchema = tradeIdentity.extend({
 });
 export const diagnoseSampleFillSchema = tradeIdentity.extend({
   orderId: count,
+  trigger: diagnoseSampleOrderSchema.shape.trigger.optional(),
   date: z.string(),
   price: numeric,
   quantity: numeric,
@@ -622,6 +869,17 @@ export const diagnoseScenarioMetricsSchema = z.object({
   wyckoffFunnel: z.array(wyckoffFunnel).optional(),
   timeHoldout: diagnoseTimeHoldoutSchema.optional(),
   sleeveAttribution: diagnoseSleeveAttributionSchema.optional(),
+  sleeveInvestment: diagnoseSleeveInvestmentSchema.optional(),
+  sleeveTrades: diagnoseSleeveTradesSchema.optional(),
+  sessionEvidence: diagnoseSessionEvidenceSchema.optional(),
+  familyHoldout: diagnoseFamilyHoldoutSchema.optional(),
+  bookControl: z
+    .object({
+      policy: z.enum(["none", "equal-month-end", "risk-parity-60"]),
+      targetCount: count,
+      transferCount: count,
+    })
+    .optional(),
   sampleOrders: z.array(diagnoseSampleOrderSchema).max(DIAGNOSE_SAMPLE_LIMIT),
   sampleFills: z.array(diagnoseSampleFillSchema).max(DIAGNOSE_SAMPLE_LIMIT),
   sampleRejections: z
@@ -647,6 +905,10 @@ export const diagnoseArchiveSummarySchema = z.object({
   source: sourceSchema,
   title: z.string(),
   generatedAt: z.string(),
+  book: diagnoseBookInputSchema.optional(),
+  run: diagnoseArchiveRunSchema.optional(),
+  suspensionSummary: diagnoseSuspensionSummarySchema.optional(),
+  familyHoldout: diagnoseFamilyHoldoutSchema.optional(),
   bookPreset: bookPresetSchema.optional(),
   holdoutStart: researchDateSchema.nullish(),
   strategyKeys: textList,
@@ -761,7 +1023,14 @@ export function monthlyReviewHandoffSymbols(symbols: readonly string[]) {
 
 const handoffFields = z
   .object({
-    handoffSource: z.enum(["formula", "pattern", "rps", "account-review"]),
+    handoffSource: z.enum([
+      "formula",
+      "pattern",
+      "rps",
+      "watchlist",
+      "pool",
+      "account-review",
+    ]),
     symbol: symbolSchema,
     symbols: handoffSymbols.optional(),
     frozenDate: researchDateSchema.optional(),
@@ -926,6 +1195,8 @@ export function buildLabDraftFromHandoff(payload: ScanToLabHandoff) {
     formula: "formula",
     pattern: "double-breakout",
     rps: "dual-ma",
+    watchlist: "dual-ma",
+    pool: "dual-ma",
     "account-review": "dual-ma",
   }[handoff.handoffSource];
   const hintedRules =

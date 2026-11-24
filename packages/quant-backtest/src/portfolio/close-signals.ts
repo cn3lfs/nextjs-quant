@@ -5,6 +5,7 @@ import {
   nextStrategyProtection,
   strategyReentryAllowed,
   type BookCandidate,
+  type StrategyDecision,
 } from "trading-strategies";
 import { nextBar } from "./clock.js";
 import { keyFor } from "./preparation.js";
@@ -40,11 +41,12 @@ export function observeClosingSignals(
   for (const strategy of strategies) {
     const usesBook = usesStrategyBook(strategy);
     const candidates: BookCandidate[] = [];
-    const count = {
+    const count: (typeof dailyDecisionCounts)[number] = {
       strategyId: strategy.id,
       date,
       entries: 0,
       unknown: 0,
+      ...(state.suspensionDates.size && { suspended: 0 }),
       expected: 0,
     };
     for (const [symbol, source] of instruments) {
@@ -52,7 +54,15 @@ export function observeClosingSignals(
       if (eligible) count.expected++;
       const i = source.indices.get(date);
       if (i === undefined) {
-        if (eligible) count.unknown++;
+        if (eligible) {
+          if (
+            strategy.period === "day" &&
+            state.suspensionDates.get(symbol)?.has(date)
+          ) {
+            (count.suspendedSymbols ??= []).push(symbol);
+            count.suspended = count.suspendedSymbols.length;
+          } else count.unknown++;
+        }
         if (usesBook)
           candidates.push({
             symbol,
@@ -127,16 +137,20 @@ export function observeClosingSignals(
         }
         continue;
       }
-      const decision = source.evaluators.get(strategy.id)!.evaluate(
-        i,
-        current
-          ? control?.studyEntry
-          : {
-              entry: 0,
-              entryIndex: i,
-              lastExitIndex: lastExitIndices.get(key),
-            },
-      );
+      // A held position still needs exit signals after leaving the universe.
+      const decision: StrategyDecision =
+        !eligible && !current
+          ? { entry: null, exit: null, stopLevel: null }
+          : source.evaluators.get(strategy.id)!.evaluate(
+              i,
+              current
+                ? control?.studyEntry
+                : {
+                    entry: 0,
+                    entryIndex: i,
+                    lastExitIndex: lastExitIndices.get(key),
+                  },
+            );
       const timed = !!current && strategyTimeExit(strategy.exit, control!.bars);
       const fraction = (decision as { exitFraction?: number }).exitFraction;
       const partial =

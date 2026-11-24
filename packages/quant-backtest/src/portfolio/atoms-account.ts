@@ -127,12 +127,43 @@ export class AtomsPortfolioAccount {
     return this.money(this.ledger.settlePendingCash(date));
   }
 
+  get cashAtoms(): Atoms {
+    return this.ledger.cash;
+  }
+
   transfer(amount: number) {
     if (!Number.isFinite(amount)) throw new Error("Invalid cash transfer");
     const decimals = this.ledger.cashDecimals;
     this.ledger.transferCash(
       parseDecimal(big(amount).toFixed(decimals), decimals),
     );
+  }
+
+  /** Transfer out up to exact available cash atoms, quantized to 4 decimal
+   * places so the float64 transfer record round-trips bit-exact in independent
+   * ledger reconciliation without overdrawing the 24-decimal balance. */
+  transferOutUpToCash(requested: number): { atoms: Atoms; amount: number } {
+    if (!Number.isFinite(requested) || requested < 0)
+      throw new Error("Invalid cash transfer");
+    const decimals = this.ledger.cashDecimals;
+    const step = decimals > 4 ? 10n ** BigInt(decimals - 4) : 1n;
+    const wanted = parseDecimal(big(requested).toFixed(decimals), decimals);
+    const capped = wanted > this.ledger.cash ? this.ledger.cash : wanted;
+    const actual = (capped / step) * step;
+    if (actual <= 0n) return { atoms: 0n, amount: 0 };
+    this.ledger.transferCash(-actual);
+    return { atoms: actual, amount: this.money(actual) };
+  }
+
+  get cashTransferStep(): Atoms {
+    const decimals = this.ledger.cashDecimals;
+    return decimals > 4 ? 10n ** BigInt(decimals - 4) : 1n;
+  }
+
+  transferAtoms(atoms: Atoms): number {
+    if (atoms === 0n) return 0;
+    this.ledger.transferCash(atoms);
+    return this.money(atoms);
   }
 
   terminalValue(key: string, price: number) {

@@ -397,14 +397,61 @@ export class AlertRepository {
       ).map((r) => this.withOutcomes(JSON.parse(r.payload) as AlertEvent)),
     )();
   }
-  pendingOutcomes(limit = 100) {
-    return (
-      this.db
+  *pendingOutcomes(maxRows = 100): Generator<AlertEvent> {
+    if (!Number.isSafeInteger(maxRows) || maxRows < 1 || maxRows > 1000)
+      throw new RangeError("提醒结算批次须为 1–1000 的整数");
+    type Key = { bar: string; dedupe_key: string };
+    const cursor = this.state<{ after: Key; end: Key }>("outcome-scan");
+    const end =
+      cursor?.end ??
+      (this.db
         .prepare(
-          `SELECT payload FROM watch_events WHERE json_type(payload,'$.observedAt')='integer' AND status<>'missed' AND type<>'missed' AND json_extract(payload,'$.type') NOT IN ('regime','allocation') AND NOT EXISTS (SELECT 1 FROM records WHERE id='alerts:outcomes:'||dedupe_key AND json_array_length(payload)=3 AND NOT EXISTS(SELECT 1 FROM json_each(payload) WHERE json_extract(value,'$.settled')=0)) ORDER BY bar,dedupe_key LIMIT ?`,
+          "SELECT bar,dedupe_key FROM watch_events ORDER BY bar DESC,dedupe_key DESC LIMIT 1",
         )
-        .all(limit) as { payload: string }[]
-    ).map((r) => JSON.parse(r.payload) as AlertEvent);
+        .get() as Key | undefined);
+    if (!end) return;
+    // Limit physical events examined, including already settled/ineligible
+    // rows. A WHERE on eligibility could scan the entire history in one step.
+    const select = `SELECT bar,dedupe_key,CASE WHEN
+      status<>'missed' AND type<>'missed' AND json_type(payload,'$.observedAt')='integer'
+      AND json_extract(payload,'$.type') NOT IN ('regime','allocation')
+      AND NOT EXISTS (
+        SELECT 1 FROM records WHERE id='alerts:outcomes:'||dedupe_key AND json_array_length(payload)=3
+        AND NOT EXISTS(SELECT 1 FROM json_each(payload) WHERE json_extract(value,'$.settled')=0)
+      ) THEN payload END AS pending
+      FROM watch_events WHERE (bar,dedupe_key)<=(?,?)`;
+    const order = " ORDER BY bar,dedupe_key LIMIT ?";
+    const rows = (
+      cursor
+        ? this.db
+            .prepare(select + " AND (bar,dedupe_key)>(?,?)" + order)
+            .all(
+              end.bar,
+              end.dedupe_key,
+              cursor.after.bar,
+              cursor.after.dedupe_key,
+              maxRows,
+            )
+        : this.db.prepare(select + order).all(end.bar, end.dedupe_key, maxRows)
+    ) as (Key & { pending: string | null })[];
+    for (const row of rows) {
+      if (row.pending !== null) yield JSON.parse(row.pending) as AlertEvent;
+    }
+    // Each tick creates a repository. Checkpoint only after the caller finishes
+    // the page, and wrap at the original end to revisit still-pending events.
+    const last = rows.at(-1);
+    if (
+      last &&
+      rows.length === maxRows &&
+      (last.bar !== end.bar || last.dedupe_key !== end.dedupe_key)
+    ) {
+      this.saveState("outcome-scan", {
+        after: { bar: last.bar, dedupe_key: last.dedupe_key },
+        end,
+      });
+    } else if (cursor) {
+      this.saveState("outcome-scan", null);
+    }
   }
   plans(openOnly = false) {
     return (

@@ -24,6 +24,8 @@ import { saveSettings } from "~/server/infra/settings";
 import gbbq from "../../fixtures/tdx-gbbq.json";
 import {
   buildLabDraftFromHandoff,
+  customBookId,
+  normalizeDiagnoseBookInput,
   buildScanToLabHandoffHref,
   isDiagnosticOnlyStrategyKey,
   labDiagnoseRunInputSchema,
@@ -32,6 +34,7 @@ import {
   parseScanToLabHandoff,
   DIAGNOSE_SCENARIO_PRESETS,
   DIAGNOSE_CHECK_GROUPS,
+  diagnoseTimeHoldoutSchema,
   type LabDiagnoseRunInput,
   type ScanToLabHandoff,
 } from "~/lib/research/diagnose-contract";
@@ -40,6 +43,8 @@ import {
   readDiagnoseArchive,
 } from "~/server/research/diagnose/archive";
 import { runGroupedDiagnoseScenarios } from "~/server/research/diagnose/grouped-run";
+import * as diagnoseCell from "~/server/research/diagnose/cell";
+import { tradeMarks } from "~/lib/chart/chart-trade-marks";
 import type { PrepareDiagnoseRequestInput } from "~/server/research/diagnose/prepare-request";
 import { readBars, type BarSeries } from "~/server/market/bar-store/read-bars";
 import { readResearchPriceActions } from "~/server/research/causal-price-basis";
@@ -394,6 +399,59 @@ it.each([
   },
 );
 
+it("archives a stop fill from the 51st order and projects its stop marker", async () => {
+  const replayCell = diagnoseCell.replayDiagnoseCell;
+  const spy = vi
+    .spyOn(diagnoseCell, "replayDiagnoseCell")
+    .mockImplementationOnce((...args) => {
+      const cell = replayCell(...args);
+      const ledger = cell.replay.result;
+      const order = ledger.orders[0]!;
+      const rejected = Array.from({ length: 50 }, (_, i) => ({
+        ...order,
+        id: i + 1,
+        status: "rejected" as const,
+        reason: "容量受限",
+      }));
+      const stop = {
+        ...order,
+        id: 51,
+        side: "sell" as const,
+        trigger: "stop" as const,
+      };
+      ledger.orders = [...rejected, stop];
+      ledger.fills = [
+        { ...ledger.fills[0]!, side: stop.side, orderId: stop.id },
+      ];
+      return cell;
+    });
+  try {
+    const { cells } = await runGroupedDiagnoseScenarios(
+      { ...input("hold"), scenarios: ["strict"] },
+      { archiveDir: await temp(), config },
+    );
+    const scenario = cells[0]!.scenarios[0]!;
+    expect(scenario.sampleOrders).toHaveLength(50);
+    expect(scenario.sampleOrders.some((order) => order.id === 51)).toBe(false);
+    expect(scenario.sampleFills).toMatchObject([
+      { orderId: 51, trigger: "stop" },
+    ]);
+    expect(
+      tradeMarks({
+        symbol,
+        bars: marketBars(100_000_000),
+        period: "day",
+        scenario,
+      }),
+    ).toMatchObject({
+      marks: [{ text: "止损" }],
+      unknownTriggerCount: 0,
+    });
+  } finally {
+    spy.mockRestore();
+  }
+});
+
 it("discloses inactive participation when the execution bars lack turnover", async () => {
   marketFixture(0);
   const result = await runGroupedDiagnoseScenarios(input("hold"), {
@@ -606,6 +664,43 @@ async function readVisibleArchive(
   expect(detail).not.toBeNull();
   return detail!;
 }
+
+it("recovers a CLI stop from the full order ledger when only the first 50 orders are displayed", async () => {
+  const repoRoot = await temp();
+  const dir = join(repoRoot, ".test-data", "late-stop");
+  await mkdir(dir, { recursive: true });
+  await writeFile(
+    join(dir, "run.json"),
+    JSON.stringify({ strategyKey: "dual-ma", symbols: [symbol] }),
+  );
+  const orders = Array.from(
+    { length: 50 },
+    (_, i) =>
+      `${i + 1},dual-ma,main,${symbol},buy,${start},${end},rejected,"容量受限, 已拒绝",1,signal`,
+  );
+  await writeFile(
+    join(dir, "orders.csv"),
+    [
+      "id,strategyId,sleeve,symbol,side,signalAt,due,status,reason,attempts,trigger",
+      ...orders,
+      `51,dual-ma,main,${symbol},sell,${start},${end},filled,,1,stop`,
+    ].join("\n"),
+  );
+  await writeFile(
+    join(dir, "fills.csv"),
+    [
+      "orderId,strategyId,sleeve,symbol,side,signalAt,date,price,quantity,fee,cashAfter,holdingAfter",
+      `51,dual-ma,main,${symbol},sell,${start},${end},9,100,1,1000,0`,
+    ].join("\n"),
+  );
+  const archive = await readVisibleArchive("cli-late-stop", { repoRoot });
+  const scenario = archive.cells[0]!.scenarios[0]!;
+  expect(scenario.sampleOrders).toHaveLength(50);
+  expect(scenario.sampleOrders.at(-1)?.id).toBe(50);
+  expect(scenario.sampleFills).toMatchObject([
+    { orderId: 51, trigger: "stop" },
+  ]);
+});
 
 it("opens a CLI archive with a truncated fill, keeping valid rows and flagging the missing field", async () => {
   const repoRoot = await temp();
@@ -841,7 +936,90 @@ it("retains the CLI core-4 summary's holdout legs, correlations and per-sleeve c
   });
   const scenario = detail.cells[0]!.scenarios[0]!;
   expect(scenario.timeHoldout).toEqual(book!.timeHoldout);
+  const review = scenario.timeHoldout!;
+  if (review.status !== "reviewed")
+    throw new Error("Expected reviewed holdout");
+  const { calmar, benchmarkCalmar, calmarDifference, ...legacy } =
+    review.holdout.base;
+  expect([calmar, benchmarkCalmar, calmarDifference]).not.toContain(undefined);
+  const parseBase = (base: unknown) =>
+    diagnoseTimeHoldoutSchema.safeParse({
+      ...review,
+      holdout: { ...review.holdout, base },
+    }).success;
+  expect(parseBase(legacy)).toBe(true);
+  expect(parseBase({ ...legacy, calmar: Infinity })).toBe(false);
+  expect(parseBase({ ...legacy, unknownMetric: 1 })).toBe(false);
   expect(scenario.sleeveAttribution).toEqual(book!.sleeveAttribution);
+  expect(scenario.sleeveInvestment).toEqual(book!.sleeveInvestment);
+  expect(scenario.sleeveTrades).toEqual(book!.sleeveTrades);
+  expect(scenario.sessionEvidence).toEqual(book!.suspensionEvidence);
+  const statistics = {
+    pbo: null,
+    effectiveTrials: 1,
+    rawCandidateCount: 2,
+    clusters: [["a", "b"]],
+    excluded: [],
+    dsr: null,
+    dsrThreshold: 0.95,
+    pboReason: "insufficient-independent-trials",
+  };
+  // Wave 1 writes a separate comparison for each mode and universe.
+  await writeFile(
+    join(outDir, "report.json"),
+    JSON.stringify({
+      comparisons: [
+        {
+          mode: "portfolio",
+          symbols: [symbol],
+          familyHoldout: { family: "fixture-exits", statistics },
+        },
+      ],
+    }),
+  );
+  const familyDetail = await readVisibleArchive("cli-book", {
+    repoRoot,
+    currentDllHash: identity.dllHash,
+  });
+  expect(familyDetail.summary.familyHoldout).toEqual({
+    ...statistics,
+    family: "fixture-exits",
+  });
+  expect(familyDetail.cells[0]!.scenarios[0]!.familyHoldout).toEqual(
+    familyDetail.summary.familyHoldout,
+  );
+
+  // Simulate the pre-sidecar group file with no Stage 1 fields or Calmar metrics.
+  const archiveDir = join(repoRoot, "lab");
+  const id = "lab-legacy";
+  const oldScenario = { ...scenario };
+  delete oldScenario.sessionEvidence;
+  delete oldScenario.sleeveInvestment;
+  delete oldScenario.sleeveTrades;
+  for (const leg of Object.values(review.holdout)) {
+    delete leg.calmar;
+    delete leg.benchmarkCalmar;
+    delete leg.calmarDifference;
+  }
+  const oldSummary = { ...detail.summary, id, source: "lab-archive" as const };
+  await mkdir(join(archiveDir, id), { recursive: true });
+  await writeFile(
+    join(archiveDir, id, "diagnose-group.json"),
+    JSON.stringify({
+      ...detail,
+      summary: oldSummary,
+      cells: [{ ...detail.cells[0], scenarios: [oldScenario] }],
+    }),
+  );
+  const options = {
+    archiveDir,
+    source: "lab-archive" as const,
+    currentDllHash: identity.dllHash,
+  };
+  expect(await listDiagnoseArchives(options)).toEqual([oldSummary]);
+  const archived = await readVisibleArchive(id, options);
+  expect(archived.summary.run).toBeUndefined();
+  expect(archived.cells[0]!.scenarios).toEqual([oldScenario]);
 });
 
 it("rejects traversal and linked report directories for archive reads and publication", async () => {
@@ -1006,6 +1184,193 @@ it("normalizes core-4 and the historical cutoff and rejects contradictory replay
     expect(labDiagnoseRunInputSchema.safeParse(invalid).success).toBe(false);
 });
 
+it("validates 2–6 normalized sleeve identifiers, executable strategies and finite positive weights", async () => {
+  const make = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      id: `s${i}`,
+      strategyKey: "dual-ma",
+      share: 1 / n,
+    }));
+  const valid = (sleeves: ReturnType<typeof make>) =>
+    labDiagnoseRunInputSchema.safeParse({
+      ...input(""),
+      strategyKey: undefined,
+      book: { sleeves },
+    }).success;
+  for (const n of [2, 3, 4, 5, 6]) expect(valid(make(n))).toBe(true);
+  const [a, b] = make(2) as [
+    ReturnType<typeof make>[number],
+    ReturnType<typeof make>[number],
+  ];
+  for (const invalid of [
+    make(1),
+    make(7),
+    [a, { ...b, id: " s0 " }],
+    [a, { ...b, id: "../b" }],
+    [a, { ...b, id: " " }],
+    [a, { ...b, share: 0.4 }],
+    [a, { ...b, share: 0 }],
+    [a, { ...b, share: -1 }],
+    [a, { ...b, share: Infinity }],
+    [a, { ...b, share: NaN }],
+    [a, { ...b, strategyKey: "" }],
+    [a, { ...b, strategyKey: "unknown" }],
+    [a, { ...b, strategyKey: "core-4" }],
+  ])
+    expect(valid(invalid)).toBe(false);
+  const { STRATEGY_KEYS } =
+    await import("~/server/research/diagnose/strategy-specs");
+  const { studyStrategies } = await import("trading-strategies");
+  for (const key of new Set([...STRATEGY_KEYS, ...studyStrategies]))
+    expect(valid([a, { ...b, strategyKey: key }]), key).toBe(
+      (STRATEGY_KEYS as readonly string[]).includes(key),
+    );
+  const id = customBookId([a, b]);
+  expect(id).toMatch(/^custom-[0-9a-f]{8}$/);
+  expect(customBookId([{ ...b, id: " s1 " }, a])).toBe(id);
+  expect(customBookId([a, { ...b, strategyKey: "hold" }])).not.toBe(id);
+  expect(
+    customBookId([
+      { ...a, share: 0.4 },
+      { ...b, share: 0.6 },
+    ]),
+  ).not.toBe(id);
+  expect(normalizeDiagnoseBookInput("core-4")).toEqual(
+    normalizeDiagnoseBookInput({ preset: "core-4" }),
+  );
+  expect(normalizeDiagnoseBookInput({ sleeves: [b, a] })).toEqual({
+    sleeves: [a, b],
+  });
+});
+
+it.each(["watchlist", "pool"] as const)(
+  "retains %s provenance and symbol order through a portfolio link",
+  (handoffSource) => {
+    const payload = {
+      handoffSource,
+      scope: "portfolio-diagnose" as const,
+      symbols: [symbol, "sz000001"],
+    };
+    const handoff = ScanToLabHandoffSchema.parse(payload);
+    expect(
+      parseScanToLabHandoff(
+        new URL(buildScanToLabHandoffHref(payload), "https://lab.local")
+          .searchParams,
+      ),
+    ).toMatchObject({ kind: "valid", handoff: { ...payload, symbol } });
+    expect(buildLabDraftFromHandoff(handoff).strategy.universe).toEqual({
+      kind: "symbols",
+      symbols: payload.symbols,
+    });
+  },
+);
+
+it("executes two independent sleeves in the worker and publishes the same parameters and evidence in detail and sidecar", async () => {
+  await configureWorkerMarket();
+  const { strategyLabRouter } =
+    await import("~/server/api/routers/strategy-lab");
+  const caller = strategyLabRouter.createCaller({ headers: new Headers() });
+  const sleeves = [
+    { id: "first", strategyKey: "hold", share: 0.3 },
+    { id: "second", strategyKey: "hold", share: 0.7000000005 },
+  ];
+  const params = {
+    ...input("hold"),
+    strategyKey: undefined,
+    book: { sleeves },
+    start: "auto",
+    scenarios: ["strict" as const, "cap-0.5-clip" as const],
+  };
+  const job = await caller.strategyLabDiagnoseRun(params);
+  const result = await vi.waitFor(
+    async () => {
+      const row = await caller.strategyLabDiagnoseResult({ jobId: job.id });
+      expect(row.status, row.error ?? undefined).toBe("completed");
+      return row.detail!;
+    },
+    { timeout: 15_000 },
+  );
+  const { summary, cells } = result;
+  const id = customBookId(sleeves);
+  expect(summary.run).toEqual({
+    mode: "portfolio",
+    symbols: [symbol],
+    strategyKey: id,
+    strategies: ["hold", "hold"],
+    book: { sleeves },
+    start: "auto",
+    end,
+    initial: 200_000,
+    costScenario: "fixed",
+    scenarios: params.scenarios,
+    includeHoldout: false,
+  });
+  expect(
+    labDiagnoseRunInputSchema.parse({ ...summary.run, confirmed: true }),
+  ).toEqual(
+    labDiagnoseRunInputSchema.parse({
+      ...params,
+      strategies: ["hold", "hold"],
+    }),
+  );
+  expect(summary.suspensionSummary).toEqual({
+    symbolSuspensionDays: 0,
+    portfolioAffectedDays: 0,
+    unknownDays: 0,
+  });
+  expect(cells.map((c) => c.strategyKey)).toEqual([id]);
+  const sidecar = JSON.parse(
+    await readFile(
+      join(
+        process.env.QUANT_DATA_DIR!,
+        "diagnose-archives",
+        summary.id,
+        "summary.json",
+      ),
+      "utf8",
+    ),
+  );
+  expect(sidecar.run).toEqual(summary.run);
+  expect(sidecar.suspensionSummary).toEqual(summary.suspensionSummary);
+  for (const [index, s] of cells[0]!.scenarios.entries()) {
+    expect(s.status, s.error).toBe("ok");
+    expect(s.sampleFills.map((f) => f.sleeve)).toEqual(["first"]);
+    expect(s.sampleOrders).toContainEqual(
+      expect.objectContaining({
+        sleeve: "second",
+        status: "rejected",
+        reason: "账户跨分仓单票权重上限",
+      }),
+    );
+    expect(s.sleeveAttribution?.sleeves.map((r) => r.initialEquity)).toEqual([
+      expect.closeTo(60_000, 3),
+      expect.closeTo(140_000, 3),
+    ]);
+    expect(s.sleeveInvestment?.sleeves.map((r) => r.id)).toEqual([
+      "first",
+      "second",
+    ]);
+    expect(s.sleeveTrades?.sleeves.map((r) => r.id)).toEqual([
+      "first",
+      "second",
+    ]);
+    expect(sidecar.sleeveScenarios[index]).toMatchObject({
+      scenarioId: s.scenarioId,
+      sleeveInvestment: s.sleeveInvestment,
+      sleeveTrades: s.sleeveTrades,
+    });
+  }
+  expect(
+    await caller.strategyLabDiagnoseArchiveDetail({ id: summary.id }),
+  ).toEqual(result);
+  expect(
+    await caller.strategyLabDiagnoseArchives({
+      strategyKey: id,
+      source: "lab-archive",
+    }),
+  ).toContainEqual(summary);
+});
+
 it("reads completed Worker archives side by side with the historical holdout and all four sleeves", async () => {
   const symbols = Array.from({ length: 11 }, (_, i) => "sh" + (600000 + i));
   await configureWorkerMarket(symbols);
@@ -1094,6 +1459,30 @@ it("reads completed Worker archives side by side with the historical holdout and
       caller.strategyLabDiagnoseCompare({ leftId, rightId: other });
     const pair = await compare(id);
     expect(completed.detail!.cells).toHaveLength(10);
+    const exported = await caller.strategyLabDiagnoseExport({
+      archiveId: id,
+      format: "json",
+    });
+    expect(exported.filename).toBe(`${id}.json`);
+    expect(JSON.parse(exported.content)).toEqual({
+      ...pair.left,
+      allCells: pair.left.cells,
+    });
+    const markdown = await caller.strategyLabDiagnoseExport({
+      archiveId: id,
+      format: "markdown",
+    });
+    expect(markdown.filename).toBe(`${id}.md`);
+    expect(markdown.content).toContain("# 回测诊断报告");
+    for (const code of symbols) expect(markdown.content).toContain(code);
+    for (const unsafe of [
+      "lab-../outside",
+      "cli-../outside",
+      "cli-~Li4vb3V0c2lkZQ",
+    ])
+      await expect(
+        caller.strategyLabDiagnoseExport({ archiveId: unsafe, format: "json" }),
+      ).rejects.toThrow();
     expect(pair.left.cells.map((c) => c.symbols[0])).toEqual(symbols);
     expect(pair.right.cells).toEqual(right.cells);
     expect(pair.right.summary).toEqual(right.summary);

@@ -361,7 +361,7 @@ export async function runLocalChecks({
     exitCode: 0,
     steps: [],
   };
-  const commands = [
+  const steps = [
     "format:check",
     "check:dependencies",
     "runtime:build",
@@ -370,14 +370,17 @@ export async function runLocalChecks({
     "test",
     ...(includeBuild ? ["build"] : []),
   ];
-  for (const name of commands) {
+  // A failed runtime:build stops the gate before these scripts can run.
+  const preparedSteps = new Set(["typecheck", "test", "build"]);
+  for (const name of steps) {
+    const script = preparedSteps.has(name) ? `${name}:prepared` : name;
     console.log(`\n[check] ${name}`);
     const started = Date.now();
     let result;
     try {
       // stdin stays closed: a child that waits on the caller's terminal (watch
       // modes, interactive prompts) would otherwise block the whole gate.
-      result = await runCommand(process.execPath, [pnpmCli, "run", name], {
+      result = await runCommand(process.execPath, [pnpmCli, "run", script], {
         cwd: workspaceRoot,
         env,
         stdio: ["ignore", "inherit", "inherit"],

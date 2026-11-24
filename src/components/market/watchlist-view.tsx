@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { SortingState } from "@tanstack/react-table";
 import { formatNumber } from "trading-strategy-core/format-number";
 import {
@@ -16,7 +17,15 @@ import {
 import { api } from "~/trpc/react";
 import { cn } from "~/lib/common/classnames";
 import { securityDisplayName } from "~/lib/market/security-display";
+import { isAShareStockSymbol } from "~/lib/market/security-classification";
+import {
+  batchCandidatesToLabHref,
+  portfolioHandoffLimit,
+  portfolioHandoffLimitMessage,
+  useCandidateBatchSelection,
+} from "~/lib/screening/screen-candidate-navigation";
 import { Button } from "../ui/button";
+import { Checkbox } from "../ui/checkbox";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
 import { Input } from "../ui/input";
 import { useInfiniteSlice } from "../ui/use-infinite-table";
@@ -81,6 +90,7 @@ function signed(value: number, suffix = "") {
  * 过滤排序、置顶/移出与点击跳转看盘（支持 PgUp/PgDn 连续翻股）。
  */
 export function WatchlistView() {
+  const router = useRouter();
   const visible = useTaskVisible();
   const notify = useWorkbenchNotify();
   const interval = useQuoteRefreshInterval();
@@ -112,6 +122,17 @@ export function WatchlistView() {
     [groups, activeGroupId, groupsQuery.data?.defaultGroupId],
   );
   const watchlist = useMemo(() => activeGroup?.symbols ?? [], [activeGroup]);
+  const batchSelection = useCandidateBatchSelection(
+    visible && activeGroup && groupsQuery.isSuccess
+      ? JSON.stringify([activeGroup.id, filterText.trim(), watchlist])
+      : null,
+  );
+  const batchHandoff = batchCandidatesToLabHref({
+    symbols: batchSelection.symbols,
+    handoffSource: "watchlist",
+    label: activeGroup ? `我的自选 · ${activeGroup.name}` : "我的自选",
+    returnTo: "/scan?tab=watchlist",
+  });
   const names = useSecurityNames().data ?? {};
 
   const quotes = api.overviewQuotes.useQuery(watchlist, {
@@ -623,6 +644,23 @@ export function WatchlistView() {
               { value: "amount", label: "成交额优先" },
             ]}
           />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={!batchHandoff}
+            onClick={() =>
+              batchHandoff && router.push(batchHandoff.href, { scroll: false })
+            }
+          >
+            批量带入组合诊断 ({batchSelection.symbols.length}/
+            {portfolioHandoffLimit})
+          </Button>
+          {batchSelection.symbols.length === portfolioHandoffLimit && (
+            <span className="text-sub text-nc-text-3">
+              {portfolioHandoffLimitMessage}
+            </span>
+          )}
         </div>
       </section>
 
@@ -639,6 +677,7 @@ export function WatchlistView() {
           symbols={orderedSymbols}
         >
           <WatchlistTable
+            batchSelection={batchSelection}
             rows={slice.rows}
             total={rows.length}
             hasMore={slice.hasMore}
@@ -655,6 +694,7 @@ export function WatchlistView() {
 }
 
 function WatchlistTable({
+  batchSelection,
   rows,
   total,
   hasMore,
@@ -664,6 +704,7 @@ function WatchlistTable({
   onPin,
   onRemove,
 }: {
+  batchSelection: ReturnType<typeof useCandidateBatchSelection>;
   rows: readonly WatchlistRow[];
   total: number;
   hasMore: boolean;
@@ -678,6 +719,27 @@ function WatchlistTable({
 
   const columns = useMemo<DataTableColumn<WatchlistRow>[]>(
     () => [
+      {
+        id: "portfolio-select",
+        header: "勾选",
+        enableSorting: false,
+        cell: ({ row }) => {
+          const { symbol } = row.original;
+          if (!isAShareStockSymbol(symbol)) return null;
+          const checked = batchSelection.symbols.includes(symbol);
+          return (
+            <Checkbox
+              aria-label={`选择 ${symbol}`}
+              checked={checked}
+              disabled={
+                !checked &&
+                batchSelection.symbols.length >= portfolioHandoffLimit
+              }
+              onCheckedChange={() => batchSelection.toggle(symbol)}
+            />
+          );
+        },
+      },
       {
         id: "security",
         header: "证券",
@@ -808,7 +870,7 @@ function WatchlistTable({
         },
       },
     ],
-    [openChart, sort, pending, onPin, onRemove],
+    [batchSelection, openChart, sort, pending, onPin, onRemove],
   );
 
   return (

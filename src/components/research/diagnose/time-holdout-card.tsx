@@ -1,7 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { DiagnoseTimeHoldoutResult } from "~/lib/research/diagnose-contract";
+import type {
+  DiagnoseFamilyHoldout,
+  DiagnoseSuspensionSummary,
+  DiagnoseTimeHoldoutResult,
+} from "~/lib/research/diagnose-contract";
 import { Pill } from "../../panels";
 import {
   formatCount,
@@ -16,6 +20,7 @@ type HoldoutLeg = {
   excess: number | null;
   drawdown: number | null;
   sharpe: number | null;
+  calmar?: number | null;
   trades: number;
   fees: number;
 };
@@ -104,6 +109,18 @@ function LegTable({
               </td>
             ))}
           </Row>
+          {legOrder.some(({ key }) => legs[key].calmar !== undefined) && (
+            <Row label="Calmar">
+              {legOrder.map(({ key }) => (
+                <td
+                  key={key}
+                  className="px-2 py-1 align-top tabular-nums text-nc-text"
+                >
+                  {formatRatio(legs[key].calmar)}
+                </td>
+              ))}
+            </Row>
+          )}
           <Row label="成交数">
             {legOrder.map((leg) => (
               <td
@@ -205,18 +222,10 @@ function DevTable({
  * Historical holdout review. The badge and disclosure are always shown; the
  * card never renames a historical split as a fresh out-of-sample result.
  */
-export function TimeHoldoutCard({
-  result,
-}: {
-  result: DiagnoseTimeHoldoutResult;
-}) {
+function HistoricalHoldout({ result }: { result: DiagnoseTimeHoldoutResult }) {
   const reviewed = result.status === "reviewed";
   return (
-    <section
-      data-testid="diagnose-time-holdout-card"
-      aria-label="时间留出验证"
-      className="space-y-2 rounded-lg border border-nc-border-soft bg-nc-inset px-3 py-2"
-    >
+    <>
       <header className="flex flex-wrap items-baseline gap-2">
         <h4 className="text-sm font-semibold text-nc-text">
           历史留出复核（Historical Holdout Review）
@@ -320,6 +329,81 @@ export function TimeHoldoutCard({
               <li key={reason}>{reason}</li>
             ))}
           </ul>
+        </div>
+      )}
+    </>
+  );
+}
+
+export function TimeHoldoutCard({
+  result,
+  suspension,
+  family,
+}: {
+  result?: DiagnoseTimeHoldoutResult;
+  suspension?: DiagnoseSuspensionSummary;
+  family?: DiagnoseFamilyHoldout;
+}) {
+  return (
+    <section
+      data-testid="diagnose-time-holdout-card"
+      aria-label="时间留出验证"
+      className="space-y-3 rounded-lg border border-nc-border-soft bg-nc-inset px-3 py-2"
+    >
+      {result && <HistoricalHoldout result={result} />}
+      {suspension && (
+        <div className="space-y-1 text-sm">
+          <h4 className="font-semibold">认证停牌披露</h4>
+          <p className="text-nc-text-3">
+            标的停牌 {formatCount(suspension.symbolSuspensionDays)} 标的日 ·
+            组合受影响 {formatCount(suspension.portfolioAffectedDays)} 日 ·
+            未知日数{" "}
+            {suspension.unknownDays === undefined
+              ? "未记录"
+              : formatCount(suspension.unknownDays)}
+          </p>
+        </div>
+      )}
+      {family && (
+        <div className="space-y-1 text-sm">
+          <h4 className="font-semibold">{family.family} 家族 CSCV</h4>
+          <p className="text-nc-text-3">
+            PBO(Sharpe) {formatRatio(family.pbo, 3)} · N<sub>eff</sub>{" "}
+            {formatCount(family.effectiveTrials)} · 候选{" "}
+            {formatCount(family.rawCandidateCount)} · 聚类{" "}
+            {formatCount(family.clusters.length)} · 排除{" "}
+            {formatCount(family.excluded.length)}
+          </p>
+          {family.pboReason && (
+            <p className="text-nc-text-3">{family.pboReason}</p>
+          )}
+          {family.note && <p className="text-nc-text-3">{family.note}</p>}
+          {family.clusters.length > 0 && (
+            <details>
+              <summary className="cursor-pointer">
+                聚类成员（{family.clusters.length} 组）
+              </summary>
+              <ul className="list-decimal space-y-0.5 ps-5 text-nc-text-3">
+                {family.clusters.map((ids) => (
+                  <li key={JSON.stringify(ids)}>{ids.join("、")}</li>
+                ))}
+              </ul>
+            </details>
+          )}
+          {family.excluded.length > 0 && (
+            <details>
+              <summary className="cursor-pointer">
+                排除原因（{family.excluded.length} 项）
+              </summary>
+              <ul className="space-y-0.5 ps-5 text-nc-text-3">
+                {family.excluded.map(({ id, reason }) => (
+                  <li key={`${id}:${reason}`}>
+                    {id} · {reason}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
         </div>
       )}
     </section>

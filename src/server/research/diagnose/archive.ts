@@ -1,6 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { lstatSync, realpathSync, renameSync } from "node:fs";
+import {
+  lstatSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+} from "node:fs";
 import Database from "better-sqlite3";
+import { z } from "zod";
 import { and, eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import {
@@ -14,12 +21,19 @@ import {
 import { basename, dirname, join, relative, resolve } from "node:path";
 import {
   diagnoseArchiveDetailSchema,
-  diagnoseSleeveAttributionSchema,
-  diagnoseTimeHoldoutSchema,
+  diagnoseArchiveSummarySchema,
+  diagnoseFamilyHoldoutSchema,
+  diagnoseSampleOrderSchema,
+  diagnoseScenarioMetricsSchema,
   type DiagnoseArchiveDetail,
   type DiagnoseArchiveSummary,
+  type DiagnoseScenarioMetrics,
+  type DiagnoseTimeHoldoutResult,
 } from "~/lib/research/diagnose-contract";
 import { dataDirectory } from "../../infra/paths";
+import { recordRuntimeError } from "../../infra/runtime-errors";
+import { atomic } from "../../db";
+import { getJobStatus } from "../../db/jobs";
 import { records } from "../../db/schema";
 import { czscRuntimeFingerprint } from "../../strategies/chan/czsc";
 import {
@@ -36,6 +50,8 @@ import {
   decodeCliLocation,
   readCliReport,
 } from "./cli-archive";
+import { renderReport } from "./report";
+import type { DiagnoseCell } from "./types";
 
 export interface DiagnoseArchiveOptions {
   archiveDir?: string;
@@ -51,6 +67,20 @@ export interface DiagnoseArchiveOptions {
 }
 
 const maxArchiveBytes = 16 * 1024 * 1024;
+const sidecarSchema = diagnoseArchiveSummarySchema.extend({
+  dllHashes: z.array(z.string()),
+  sleeveScenarios: z
+    .array(
+      diagnoseScenarioMetricsSchema
+        .pick({
+          scenarioId: true,
+          sleeveInvestment: true,
+          sleeveTrades: true,
+        })
+        .extend({ strategyKey: z.string(), symbols: z.array(z.string()) }),
+    )
+    .optional(),
+});
 const labRoot = (options: DiagnoseArchiveOptions) =>
   resolve(
     /* turbopackIgnore: true */ options.archiveDir ??
@@ -137,6 +167,92 @@ function labArchivePath(id: string, options: DiagnoseArchiveOptions) {
   return join(/* turbopackIgnore: true */ labRoot(options), id);
 }
 
+function incompleteJobArchive(path: string, id: string) {
+  const names = readdirSync(/* turbopackIgnore: true */ path);
+  if (names.some((name) => /^\.(?:pending|staging|tmp)-|\.tmp$/.test(name)))
+    return true;
+  const file = join(/* turbopackIgnore: true */ path, "diagnose-group.json");
+  const st = lstatSync(/* turbopackIgnore: true */ file, {
+    throwIfNoEntry: false,
+  });
+  if (!st) return true;
+  if (
+    !st.isFile() ||
+    relative(file, realpathSync(/* turbopackIgnore: true */ file)) !== ""
+  )
+    throw new UnsafeArchivePath();
+  if (st.size > maxArchiveBytes) return true;
+  const bytes = readFileSync(/* turbopackIgnore: true */ file, "utf8");
+  let json: unknown;
+  try {
+    json = JSON.parse(bytes);
+  } catch {
+    return true;
+  }
+  const summary = diagnoseArchiveDetailSchema.safeParse(json).data?.summary;
+  return summary?.id !== id || summary.source !== "lab-archive";
+}
+
+/** Recover the rename-before-commit window. Keep each original directory intact,
+ * outside the visible lab-* namespace. Serialize with the publication transaction
+ * so a live host between rename and COMMIT always gets to finish first. */
+export function recoverDiagnoseArchives() {
+  const root = labRoot({});
+  const dir = lstatSync(/* turbopackIgnore: true */ root, {
+    throwIfNoEntry: false,
+  });
+  if (!dir) return [];
+  if (
+    !dir.isDirectory() ||
+    relative(root, realpathSync(/* turbopackIgnore: true */ root)) !== ""
+  )
+    throw new UnsafeArchivePath();
+  const recovered: string[] = [];
+  const ids = readdirSync(/* turbopackIgnore: true */ root)
+    .filter((id) => /^lab-[A-Za-z0-9-]+$/.test(id) && safeSegment(id))
+    .sort();
+  for (const id of ids) {
+    try {
+      const path = labArchivePath(id, {});
+      const generated =
+        /^lab-job-[\da-f]{8}(-[\da-f]{4}){3}-[\da-f]{12}$/i.test(id);
+      const isOrphan = () => {
+        const current = lstatSync(/* turbopackIgnore: true */ path);
+        if (
+          !current.isDirectory() ||
+          relative(path, realpathSync(/* turbopackIgnore: true */ path)) !== ""
+        )
+          throw new UnsafeArchivePath();
+        const status = getJobStatus(id.slice(4));
+        if (status !== undefined && status !== "completed") return true;
+        return generated && incompleteJobArchive(path, id);
+      };
+      if (!isOrphan()) continue;
+      const quarantined = atomic(() => {
+        if (!isOrphan()) return false;
+        const base = join(/* turbopackIgnore: true */ root, `.orphan-${id}`);
+        let target = base;
+        for (
+          let suffix = 1;
+          lstatSync(/* turbopackIgnore: true */ target, {
+            throwIfNoEntry: false,
+          });
+          suffix++
+        )
+          target = `${base}-${suffix}`;
+        renameSync(/* turbopackIgnore: true */ path, target);
+        return true;
+      });
+      if (quarantined) recovered.push(id);
+    } catch (error) {
+      // Concurrent recovery may have already renamed this entry.
+      if (!isAbsent(error))
+        recordRuntimeError("runtime-start", error, { jobId: id.slice(4) });
+    }
+  }
+  return recovered;
+}
+
 export async function resolveDiagnoseArchiveKey(
   id: string,
   options: DiagnoseArchiveOptions = {},
@@ -152,15 +268,71 @@ export async function resolveDiagnoseArchiveKey(
   return process.platform === "win32" ? canonical.toLowerCase() : canonical;
 }
 
+/** The worker sends this projection to its host; only the host publishes it. */
+export function diagnoseArchiveSidecar(
+  detail: DiagnoseArchiveDetail,
+): z.infer<typeof sidecarSchema> {
+  const dllHashes = new Set<string>();
+  const sleeveScenarios: NonNullable<
+    z.infer<typeof sidecarSchema>["sleeveScenarios"]
+  > = [];
+  let scenarios = 0;
+  for (const cell of detail.cells) {
+    scenarios += cell.scenarios.length;
+    for (const scenario of cell.scenarios) {
+      for (const native of scenario.nativeChan ?? [])
+        if (native.identity?.dllHash) dllHashes.add(native.identity.dllHash);
+      if (scenario.sleeveInvestment || scenario.sleeveTrades)
+        sleeveScenarios.push({
+          strategyKey: cell.strategyKey,
+          symbols: cell.symbols,
+          scenarioId: scenario.scenarioId,
+          sleeveInvestment: scenario.sleeveInvestment,
+          sleeveTrades: scenario.sleeveTrades,
+        });
+    }
+  }
+  const { ok, blocked, failed } = detail.summary.statusCounts;
+  const missingFiles = new Set(detail.summary.missingFiles);
+  if (
+    detail.pagination.totalCells !== detail.cells.length ||
+    scenarios !== ok + failed + blocked
+  )
+    missingFiles.add("diagnose-group.json:cells");
+  return {
+    ...detail.summary,
+    missingFiles: [...missingFiles],
+    dllHashes: [...dllHashes],
+    ...(sleeveScenarios.length && { sleeveScenarios }),
+  };
+}
+
+async function listedSummary(
+  {
+    dllHashes,
+    sleeveScenarios: _sleeves,
+    ...summary
+  }: ReturnType<typeof diagnoseArchiveSidecar>,
+  drift: ReturnType<typeof dllWarnings>,
+) {
+  summary.driftWarnings = [
+    ...new Set([...summary.driftWarnings, ...(await drift(dllHashes))]),
+  ];
+  return summary;
+}
+
+function visibleLab(id: string) {
+  // Standalone archives can predate job IDs or have no database at all.
+  const job = readArchiveJob(id.slice(4));
+  return !job || job.status === "completed";
+}
+
 async function readLab(
   id: string,
   options: DiagnoseArchiveOptions,
   drift: ReturnType<typeof dllWarnings>,
 ) {
   const path = labArchivePath(id, options);
-  // Standalone archives can predate job IDs or have no database at all.
-  const job = readArchiveJob(id.slice(4));
-  if (job && job.status !== "completed") return null;
   const dir = await checked(path, "directory");
   if (!dir) throw new Error("诊断归档不存在");
   const bytes = await readBounded(
@@ -204,34 +376,9 @@ async function readLab(
       boundaryState: "missing-files",
     } satisfies DiagnoseArchiveDetail;
   }
-  const hashes = detail.cells.flatMap((cell) =>
-    cell.scenarios.flatMap((scenario) =>
-      (scenario.nativeChan ?? []).flatMap((row) =>
-        row.identity?.dllHash ? [row.identity.dllHash] : [],
-      ),
-    ),
-  );
-  detail.summary.driftWarnings = [
-    ...new Set([...detail.summary.driftWarnings, ...(await drift(hashes))]),
-  ];
-  const declaredScenarios =
-    detail.summary.statusCounts.ok +
-    detail.summary.statusCounts.blocked +
-    detail.summary.statusCounts.failed;
-  const actualScenarios = detail.cells.reduce(
-    (sum, cell) => sum + cell.scenarios.length,
-    0,
-  );
-  const incompleteCells =
-    detail.pagination.totalCells !== detail.cells.length ||
-    declaredScenarios !== actualScenarios;
-  if (incompleteCells) {
-    detail.summary.missingFiles = [
-      ...new Set([...detail.summary.missingFiles, "diagnose-group.json:cells"]),
-    ];
-  }
+  const summary = await listedSummary(diagnoseArchiveSidecar(detail), drift);
   return {
-    summary: detail.summary,
+    summary,
     cells: options.allCells
       ? detail.cells
       : detail.cells.slice(offset, offset + pageSize),
@@ -241,10 +388,40 @@ async function readLab(
       totalCells: detail.cells.length,
     },
     boundaryState:
-      incompleteCells || detail.boundaryState === "missing-files"
+      detail.boundaryState === "missing-files"
         ? ("missing-files" as const)
-        : classifyArchiveBoundary(detail.summary),
+        : classifyArchiveBoundary(summary),
   };
+}
+
+async function readLabSummary(
+  id: string,
+  options: DiagnoseArchiveOptions,
+  drift: ReturnType<typeof dllWarnings>,
+) {
+  if (!visibleLab(id)) return null;
+  const path = labArchivePath(id, options);
+  if (!(await checked(path, "directory"))) return null;
+  let parsed: z.infer<typeof sidecarSchema> | undefined;
+  try {
+    const sidecar = await readBounded(
+      join(/* turbopackIgnore: true */ path, "summary.json"),
+      maxArchiveBytes,
+    );
+    if (sidecar && !sidecar.truncated)
+      parsed = sidecarSchema.parse(JSON.parse(sidecar.text));
+  } catch {
+    // The optional projection can always be reconstructed from the detail.
+  }
+  if (parsed?.id === id && parsed.source === "lab-archive") {
+    const full = await checked(
+      join(/* turbopackIgnore: true */ path, "diagnose-group.json"),
+      "file",
+    );
+    if (full && full.size <= maxArchiveBytes)
+      return listedSummary(parsed, drift);
+  }
+  return (await readLab(id, options, drift)).summary;
 }
 
 type WriteOptions = Pick<DiagnoseArchiveOptions, "archiveDir"> & {
@@ -305,6 +482,28 @@ export async function stageDiagnoseArchive(
   await rename(/* turbopackIgnore: true */ tmp, file);
 }
 
+export async function stageDiagnoseSummary(
+  stage: string,
+  id: string,
+  value: ReturnType<typeof diagnoseArchiveSidecar>,
+  options: WriteOptions = {},
+) {
+  checkLabId(id);
+  const sidecar = sidecarSchema.parse(value);
+  if (sidecar.id !== id || sidecar.source !== "lab-archive")
+    throw new Error("诊断摘要与归档 ID 不一致");
+  checkStagingPath(stage, labRoot(options));
+  if (!(await checked(stage, "directory"))) throw new UnsafeArchivePath();
+  await writeFile(
+    join(/* turbopackIgnore: true */ stage, "summary.json"),
+    JSON.stringify(sidecar),
+    {
+      flag: "wx",
+      signal: options.signal,
+    },
+  );
+}
+
 /** Synchronous so the host can hold SQLite's write reservation throughout publication. */
 export function publishStagedDiagnoseArchive(
   stage: string,
@@ -314,14 +513,16 @@ export function publishStagedDiagnoseArchive(
   checkLabId(id);
   const root = labRoot(options);
   checkStagingPath(stage, root);
-  const file = join(/* turbopackIgnore: true */ stage, "diagnose-group.json");
-  const st = lstatSync(/* turbopackIgnore: true */ file);
-  if (
-    !st.isFile() ||
-    st.size > maxArchiveBytes ||
-    relative(file, realpathSync(/* turbopackIgnore: true */ file)) !== ""
-  )
-    throw new UnsafeArchivePath();
+  for (const name of ["diagnose-group.json", "summary.json"]) {
+    const file = join(/* turbopackIgnore: true */ stage, name);
+    const st = lstatSync(/* turbopackIgnore: true */ file);
+    if (
+      !st.isFile() ||
+      st.size > maxArchiveBytes ||
+      relative(file, realpathSync(/* turbopackIgnore: true */ file)) !== ""
+    )
+      throw new UnsafeArchivePath();
+  }
   const target = join(/* turbopackIgnore: true */ root, id);
   if (lstatSync(/* turbopackIgnore: true */ target, { throwIfNoEntry: false }))
     throw new Error("诊断归档已存在");
@@ -334,7 +535,11 @@ export async function cleanupDiagnoseStagingDir(
 ) {
   checkStagingPath(stage, labRoot(options));
   if (!(await checked(stage, "directory"))) return;
-  for (const name of ["diagnose-group.tmp", "diagnose-group.json"]) {
+  for (const name of [
+    "diagnose-group.tmp",
+    "diagnose-group.json",
+    "summary.json",
+  ]) {
     await unlink(join(/* turbopackIgnore: true */ stage, name)).catch(
       (error) => {
         if (!isAbsent(error)) throw error;
@@ -354,6 +559,12 @@ export async function publishDiagnoseArchive(
   const stage = await createDiagnoseStagingDir(options.archiveDir);
   try {
     await stageDiagnoseArchive(detail, stage, options);
+    await stageDiagnoseSummary(
+      stage,
+      detail.summary.id,
+      diagnoseArchiveSidecar(detail),
+      options,
+    );
     options.signal?.throwIfAborted();
     options.beforePublish?.();
     options.signal?.throwIfAborted();
@@ -367,16 +578,26 @@ export async function removeUnpublishedDiagnoseArchive(id: string) {
   if (!safeSegment(id) || !id.startsWith("lab-")) throw new UnsafeArchivePath();
   const dir = join(/* turbopackIgnore: true */ labRoot({}), id);
   if (!(await checked(dir, "directory"))) return;
-  const file = join(/* turbopackIgnore: true */ dir, "diagnose-group.json");
-  if (await checked(file, "file"))
-    await unlink(/* turbopackIgnore: true */ file);
-  await rmdir(/* turbopackIgnore: true */ dir);
+  try {
+    for (const name of ["diagnose-group.json", "summary.json"]) {
+      const file = join(/* turbopackIgnore: true */ dir, name);
+      if (await checked(file, "file"))
+        await unlink(/* turbopackIgnore: true */ file);
+    }
+    await rmdir(/* turbopackIgnore: true */ dir);
+  } catch (error) {
+    // Another starting host may already have quarantined this rolled-back publication.
+    if (!isAbsent(error)) throw error;
+  }
 }
 
-async function readCliObject(dir: string, name: "summary.json" | "run.json") {
+async function readCliObject(
+  dir: string,
+  name: "summary.json" | "run.json" | "report.json",
+) {
   const bytes = await readBounded(
     join(/* turbopackIgnore: true */ dir, name),
-    2 * 1024 * 1024,
+    name === "report.json" ? maxArchiveBytes : 2 * 1024 * 1024,
   );
   if (!bytes || bytes.truncated) return;
   try {
@@ -386,6 +607,106 @@ async function readCliObject(dir: string, name: "summary.json" | "run.json") {
   } catch {
     /* The CLI reader already records malformed metadata. */
   }
+}
+
+const cliDisclosures = diagnoseScenarioMetricsSchema.pick({
+  timeHoldout: true,
+  sleeveAttribution: true,
+  sleeveInvestment: true,
+  sleeveTrades: true,
+  sessionEvidence: true,
+  bookControl: true,
+});
+
+/** Some CLI fills refer to orders past the independently capped order sample. */
+async function attachCliFillTriggers(
+  dir: string,
+  metrics: DiagnoseScenarioMetrics,
+) {
+  const orderById = new Map(
+    metrics.sampleOrders.map((order) => [order.id, order]),
+  );
+  const missingIds = new Set(
+    metrics.sampleFills
+      .filter((fill) => !fill.trigger && !orderById.has(fill.orderId))
+      .map((fill) => fill.orderId),
+  );
+  if (missingIds.size) {
+    const csv = await readBounded(
+      join(/* turbopackIgnore: true */ dir, "orders.csv"),
+      2 * 1024 * 1024,
+    );
+    if (csv) {
+      // Discard only the incomplete record at the CLI reader's byte limit.
+      let end = csv.text.length;
+      if (csv.truncated) {
+        end = 0;
+        let quoted = false;
+        for (let i = 0; i < csv.text.length; i++) {
+          if (csv.text[i] === '"') quoted = !quoted;
+          else if (!quoted && csv.text[i] === "\n") end = i + 1;
+        }
+      }
+      const { parseTmtCsv } =
+        await import("../../strategies/sentiment/tmt-cache");
+      let rows: Record<string, string>[] = [];
+      try {
+        rows = parseTmtCsv(csv.text.slice(0, end));
+      } catch {
+        // A malformed ledger can still supply validated orders from the original sample.
+      }
+      for (const row of rows) {
+        const id = Number(row.id);
+        if (!/^\d+$/.test(row.id ?? "") || !missingIds.has(id)) continue;
+        const order = diagnoseSampleOrderSchema.safeParse({
+          ...row,
+          id,
+          attempts: /^\d+$/.test(row.attempts ?? "")
+            ? Number(row.attempts)
+            : undefined,
+          due: row.due || null,
+          reason: row.reason || null,
+          capacityClipped:
+            row.capacityClipped === "true"
+              ? true
+              : row.capacityClipped === "false"
+                ? false
+                : row.capacityClipped || undefined,
+        });
+        if (order.success) orderById.set(id, order.data);
+      }
+    }
+  }
+  for (const fill of metrics.sampleFills) {
+    const trigger = orderById.get(fill.orderId)?.trigger;
+    if (!fill.trigger && trigger) fill.trigger = trigger;
+  }
+}
+
+async function readCliFamilies(root: string) {
+  const report = await readCliObject(root, "report.json");
+  const comparisonSchema = z.object({
+    mode: z.enum(["portfolio", "per-symbol"]),
+    symbols: z.array(z.string()),
+    familyHoldout: z.object({
+      family: z.string(),
+      disclosure: z.string().optional(),
+      statistics: z.record(z.unknown()),
+    }),
+  });
+  return (Array.isArray(report?.comparisons) ? report.comparisons : []).flatMap(
+    (value: unknown) => {
+      const comparison = comparisonSchema.safeParse(value);
+      if (!comparison.success) return [];
+      const { familyHoldout, mode, symbols } = comparison.data;
+      const summary = diagnoseFamilyHoldoutSchema.parse({
+        ...familyHoldout.statistics,
+        family: familyHoldout.family,
+        note: familyHoldout.disclosure,
+      });
+      return [{ mode, symbols, summary }];
+    },
+  );
 }
 
 /** Follow the CLI reader's sorted cell order, including legacy flat and single-cell reports.
@@ -420,36 +741,197 @@ export async function readDiagnoseArchive(
   options: DiagnoseArchiveOptions = {},
 ): Promise<DiagnoseArchiveDetail | null> {
   const drift = dllWarnings(options);
-  if (id.startsWith("lab-")) return readLab(id, options, drift);
+  if (id.startsWith("lab-"))
+    return visibleLab(id) ? readLab(id, options, drift) : null;
   const location = decodeCliLocation(id);
   const base = cliRoot(options);
   const page = options.allCells
     ? { page: 1, pageSize: Number.MAX_SAFE_INTEGER, offset: 0 }
     : archivePage(options);
   const detail = await readCliReport(base, location, page, drift);
+  const root = join(/* turbopackIgnore: true */ base, ...location);
+  const families = await readCliFamilies(root);
+  if (families.length === 1)
+    detail.summary.familyHoldout = families[0]!.summary;
   if (options.allCells)
     detail.pagination.pageSize = Math.max(1, detail.cells.length);
   if (detail.cells.length) {
     let index = 0;
-    for await (const dir of cliCellDirectories(
-      join(/* turbopackIgnore: true */ base, ...location),
-    )) {
+    for await (const dir of cliCellDirectories(root)) {
       if (index++ < page.offset) continue;
       const cell = detail.cells[index - page.offset - 1]!;
       const summary = await readCliObject(dir, "summary.json");
       const metrics = cell.scenarios[0]!;
-      if (summary?.timeHoldout !== undefined)
-        metrics.timeHoldout = diagnoseTimeHoldoutSchema.parse(
-          summary.timeHoldout,
+      await attachCliFillTriggers(dir, metrics);
+      if (summary)
+        Object.assign(
+          metrics,
+          cliDisclosures.parse({
+            ...summary,
+            sessionEvidence: summary.suspensionEvidence,
+          }),
         );
-      if (summary?.sleeveAttribution !== undefined)
-        metrics.sleeveAttribution = diagnoseSleeveAttributionSchema.parse(
-          summary.sleeveAttribution,
-        );
+      const family = families.find(
+        (f) =>
+          f.mode === cell.mode &&
+          f.symbols.length === cell.symbols.length &&
+          f.symbols.every((s) => cell.symbols.includes(s)),
+      );
+      if (family) metrics.familyHoldout = family.summary;
       if (index - page.offset === detail.cells.length) break;
     }
   }
   return { ...detail, boundaryState: classifyArchiveBoundary(detail.summary) };
+}
+
+function reportHoldout(
+  review: DiagnoseTimeHoldoutResult | undefined,
+): DiagnoseCell["timeHoldout"] {
+  if (!review || review.status === "insufficient") return undefined;
+  // The renderer uses null for unavailable metrics. Early archives omitted Calmar.
+  const leg = (row: typeof review.holdout.base) => ({
+    ...row,
+    calmar: row.calmar ?? null,
+    benchmarkCalmar: row.benchmarkCalmar ?? null,
+    calmarDifference: row.calmarDifference ?? null,
+  });
+  return {
+    ...review,
+    holdout: {
+      base: leg(review.holdout.base),
+      doubledCost: leg(review.holdout.doubledCost),
+      delayed: leg(review.holdout.delayed),
+    },
+  };
+}
+
+function renderArchiveMarkdown(detail: DiagnoseArchiveDetail) {
+  const rows = detail.cells.flatMap((cell) =>
+    cell.scenarios.map((scenario) => ({ cell, scenario })),
+  );
+  const reportCells: DiagnoseCell[] = rows.map(({ cell, scenario: s }) => ({
+    strategy: `${cell.strategyKey} · ${s.label}`,
+    symbols: cell.symbols,
+    mode: cell.mode,
+    start: cell.start,
+    end: cell.end,
+    status: s.status,
+    error: s.error,
+    runPath: "",
+    counts: s.counts,
+    findings: s.findings,
+    rejectionReasons: s.rejectionReasons,
+    checks: s.checks.flatMap((check) =>
+      check.status === "pass" ||
+      check.status === "fail" ||
+      check.status === "warn"
+        ? [{ ...check, status: check.status }]
+        : [],
+    ),
+    suspensionEvidence: s.sessionEvidence,
+    timeHoldout: reportHoldout(s.timeHoldout),
+    sleeveTrades: s.sleeveTrades,
+    sleeveInvestment: s.sleeveInvestment,
+    sleeveAttribution: s.sleeveAttribution,
+    bookControl: s.bookControl,
+  }));
+  const { summary } = detail;
+  const lines = [
+    renderReport(reportCells, summary.pool),
+    "## 归档信息",
+    "",
+    `${summary.title} · ${summary.id} · ${summary.generatedAt}`,
+    ...summary.driftWarnings.map((w) => `- ${w}`),
+    ...summary.missingFiles.map((f) => `- 缺少 ${f}`),
+  ];
+  if (summary.run)
+    lines.push(
+      "",
+      "### 复跑参数",
+      "",
+      "```json",
+      JSON.stringify(summary.run, null, 2),
+      "```",
+    );
+  for (const { cell, scenario: s } of rows) {
+    const percent = (v: number | null) =>
+      v === null ? "未记录" : `${(v * 100).toFixed(3)}%`;
+    lines.push(
+      "",
+      `### ${cell.strategyKey} · ${cell.symbols.join("、")} · ${s.label}`,
+      "",
+      `${cell.start ?? "未记录"} 至 ${cell.end ?? "未记录"} · ${s.status}`,
+      `- 收益 ${percent(s.totalReturn)}，最大回撤 ${percent(s.maxDrawdown)}，总费用 ${s.totalFees ?? "未记录"}`,
+      `- 执行情景 ${s.scenarioId}，参与率上限 ${percent(s.maxParticipation)}，容量约束${s.capacityActive ? "生效" : "未生效"}`,
+      ...(s.capacityNote ? [s.capacityNote] : []),
+      ...(s.timeHoldout?.status === "insufficient"
+        ? [
+            `- 历史留出（${s.timeHoldout.holdoutStart}）样本不足：${s.timeHoldout.reasons.join("；")}`,
+          ]
+        : []),
+      ...s.checks.map((c) => `- ${c.id} [${c.status}] ${c.message}`),
+      "",
+      "#### 情景证据与成交样本",
+      "",
+      "```json",
+      JSON.stringify(
+        {
+          inputHash: s.inputHash,
+          timingStatus: s.timingStatus,
+          layer: s.layer,
+          nativeChan: s.nativeChan,
+          growthPit: s.growthPit ?? s.canslimPit,
+          wyckoffFunnel: s.wyckoffFunnel,
+          timeHoldout:
+            s.timeHoldout?.status === "insufficient"
+              ? s.timeHoldout
+              : undefined,
+          familyHoldout: s.familyHoldout,
+          sessionEvidence: s.sessionEvidence,
+          sampleOrders: s.sampleOrders,
+          sampleFills: s.sampleFills,
+          sampleRejections: s.sampleRejections,
+        },
+        null,
+        2,
+      ),
+      "```",
+    );
+  }
+  return lines.join("\n") + "\n";
+}
+
+export async function exportDiagnoseArchive(
+  archiveId: string,
+  format: "markdown" | "json",
+) {
+  const detail = await readDiagnoseArchive(archiveId, { allCells: true });
+  if (!detail) throw new Error("诊断归档不可读取");
+  const basename =
+    archiveId.length <= 200
+      ? archiveId
+      : `cli-${decodeCliLocation(archiveId).at(-1)}`;
+  if (format === "json")
+    return {
+      filename: `${basename}.json`,
+      content: JSON.stringify({ ...detail, allCells: detail.cells }, null, 2),
+    };
+  if (detail.summary.source === "cli-report") {
+    const root = join(
+      /* turbopackIgnore: true */ cliRoot({}),
+      ...decodeCliLocation(archiveId),
+    );
+    const report = await readBounded(
+      join(/* turbopackIgnore: true */ root, "report.md"),
+      maxArchiveBytes,
+    );
+    if (report && !report.truncated)
+      return { filename: `${basename}.md`, content: report.text };
+  }
+  return {
+    filename: `${basename}.md`,
+    content: renderArchiveMarkdown(detail),
+  };
 }
 
 export async function listDiagnoseArchives(
@@ -462,12 +944,12 @@ export async function listDiagnoseArchives(
       /^lab-[a-z0-9-]+$/i.test(name),
     )) {
       try {
-        const detail = await readLab(
+        const summary = await readLabSummary(
           id,
           { ...options, page: 1, pageSize: 1 },
           drift,
         );
-        if (detail) summaries.push(detail.summary);
+        if (summary) summaries.push(summary);
       } catch (error) {
         if (!(error instanceof UnsafeArchivePath)) throw error;
       }

@@ -1,4 +1,5 @@
 import type { runPortfolio } from "quant-backtest";
+import { big, toNumber } from "trading-strategy-core/money";
 
 type PortfolioResult = ReturnType<typeof runPortfolio>;
 
@@ -58,24 +59,50 @@ function pairCorrelation(
     : { overlap, correlation: null, reason: "相关性计算结果非有限值" };
 }
 
-/** Equity attribution includes internal transfers on both sides of the ledger.
- * Daily correlations use consecutive session closes, excluding zero denominators. */
+/** Book equity is additive at the portfolio peak and trough. Investment returns
+ * remove end-of-session transfers before linking each day's growth factor. */
 export function computeSleeveAttribution(result: PortfolioResult) {
   const { curve, fills, equity } = result;
   const first = curve[0];
   if (!first || !equity.length) throw new Error("缺少组合权益曲线");
   // The first purchase precedes any transfer. Idle sleeves have only the
   // closing cash and any transfers posted at the end of the first bar.
+  const ids = first.sleeves.map((s) => s.id).sort();
+  const transfersBySleeve = new Map(
+    ids.map((id) => [id, new Map<string, ReturnType<typeof big>>()]),
+  );
+  const firstTransfers = new Map<string, ReturnType<typeof big>>();
+  for (const transfer of result.transfers) {
+    const series = transfersBySleeve.get(transfer.sleeve);
+    if (!series) throw new Error(`未知划转分仓 ${transfer.sleeve}`);
+    const day = transfer.date.slice(0, 10);
+    series.set(day, (series.get(day) ?? big(0)).plus(transfer.amount));
+    if (transfer.date === first.date)
+      firstTransfers.set(
+        transfer.sleeve,
+        (firstTransfers.get(transfer.sleeve) ?? big(0)).plus(transfer.amount),
+      );
+  }
+  const firstBuys = new Map<string, PortfolioResult["fills"][number]>();
+  const fillCounts = new Map<string, number>();
+  for (const fill of fills) {
+    fillCounts.set(fill.sleeve, (fillCounts.get(fill.sleeve) ?? 0) + 1);
+    if (
+      fill.date === first.date &&
+      fill.side === "buy" &&
+      !firstBuys.has(fill.sleeve)
+    )
+      firstBuys.set(fill.sleeve, fill);
+  }
   const opening = first.sleeves.map(({ id, cash }) => {
-    const buy = fills.find((f) => f.date === first.date && f.sleeve === id);
+    const buy = firstBuys.get(id);
     const initial = buy
-      ? buy.cashAfter + buy.quantity * buy.price + buy.fee
-      : cash -
-        result.transfers.reduce(
-          (net, t) =>
-            net + (t.date === first.date && t.sleeve === id ? t.amount : 0),
-          0,
-        );
+      ? toNumber(
+          big(buy.cashAfter)
+            .plus(big(buy.quantity).times(buy.price))
+            .plus(buy.fee),
+        )
+      : toNumber(big(cash).minus(firstTransfers.get(id) ?? 0));
     return { id, cash: initial, equity: initial };
   });
   const initial = opening.reduce((sum, sleeve) => sum + sleeve.equity, 0);
@@ -89,8 +116,8 @@ export function computeSleeveAttribution(result: PortfolioResult) {
   const peakRow = marksByDay[peak]!,
     troughRow = marksByDay[trough]!;
   if (!(peakRow.equity > 0)) throw new Error("组合峰值权益必须为正");
-  const ids = curve[0]!.sleeves.map((s) => s.id).sort();
-  const series = new Map<string, (number | null)[]>();
+  const bookSeries = new Map<string, (number | null)[]>();
+  const investmentSeries = new Map<string, (number | null)[]>();
   const sleeves = ids.map((id) => {
     const valueAt = (row: PortfolioResult["curve"][number]) => {
       const value = row.sleeves.find((s) => s.id === id)?.equity;
@@ -100,11 +127,53 @@ export function computeSleeveAttribution(result: PortfolioResult) {
     };
     const marks = marksByDay.map(valueAt);
     const closes = marks.slice(1);
-    series.set(
+    bookSeries.set(
       id,
       closes
         .slice(1)
         .map((value, i) => (closes[i]! > 0 ? value / closes[i]! - 1 : null)),
+    );
+    let tradingPnl = big(0);
+    let investmentValue: number | null = 1;
+    const investmentMarks = [1];
+    const flows = transfersBySleeve.get(id)!;
+    const dailyInvestmentReturns = equity.map(({ date, sleeves }, i) => {
+      const previous = marks[i]!;
+      const current = closes[i]!;
+      const transfer = flows.get(date) ?? big(0);
+      const pnl = big(current).minus(transfer).minus(previous);
+      // The ledger exports decimal balances as Numbers. Treat only transfer
+      // reconciliation differences within their floating-point resolution as zero.
+      const resolution =
+        Number.EPSILON *
+        Math.max(
+          Math.abs(current),
+          Math.abs(previous),
+          Math.abs(toNumber(transfer)),
+        );
+      const reconciled =
+        !transfer.eq(0) && Math.abs(toNumber(pnl)) <= resolution ? big(0) : pnl;
+      tradingPnl = tradingPnl.plus(reconciled);
+      const dailyReturn =
+        previous > 0
+          ? toNumber(reconciled.div(previous))
+          : reconciled.eq(0)
+            ? 0
+            : null;
+      investmentValue =
+        investmentValue === null || dailyReturn === null
+          ? null
+          : investmentValue * (1 + dailyReturn);
+      if (investmentValue !== null) investmentMarks.push(investmentValue);
+      return {
+        date,
+        return: dailyReturn,
+        invested: current > sleeves.find((s) => s.id === id)!.cash,
+      };
+    });
+    investmentSeries.set(
+      id,
+      dailyInvestmentReturns.map((row) => row.return),
     );
     const initialEquity = marks[0]!,
       finalEquity = marks.at(-1)!;
@@ -117,7 +186,12 @@ export function computeSleeveAttribution(result: PortfolioResult) {
       finalEquity,
       return: initialEquity > 0 ? finalEquity / initialEquity - 1 : null,
       maxDrawdown: drawdown(marks).maximum,
-      trades: fills.filter((fill) => fill.sleeve === id).length,
+      investmentReturn: investmentValue === null ? null : investmentValue - 1,
+      investmentMaxDrawdown:
+        investmentValue === null ? null : drawdown(investmentMarks).maximum,
+      dailyInvestmentReturns,
+      tradingPnlContribution: toNumber(tradingPnl),
+      trades: fillCounts.get(id) ?? 0,
       averageWeight: weights.length
         ? weights.reduce((a, b) => a + b, 0) / weights.length
         : null,
@@ -130,16 +204,18 @@ export function computeSleeveAttribution(result: PortfolioResult) {
   );
   if (!(Math.abs(contributionSum - maximum) < 1e-12))
     throw new Error("分仓峰谷权益与组合回撤不一致");
-  const correlations = ids.flatMap((left, i) =>
-    ids.slice(i + 1).map((right) => ({
-      left,
-      right,
-      ...pairCorrelation(series.get(left)!, series.get(right)!),
-    })),
-  );
+  const correlate = (series: ReadonlyMap<string, readonly (number | null)[]>) =>
+    ids.flatMap((left, i) =>
+      ids.slice(i + 1).map((right) => ({
+        left,
+        right,
+        ...pairCorrelation(series.get(left)!, series.get(right)!),
+      })),
+    );
   return {
     sleeves,
-    correlations,
+    correlations: correlate(bookSeries),
+    investmentCorrelations: correlate(investmentSeries),
     peakDate: peakRow.date,
     troughDate: troughRow.date,
     peakEquity: peakRow.equity,
@@ -147,7 +223,7 @@ export function computeSleeveAttribution(result: PortfolioResult) {
     maxDrawdown: maximum,
     contributionSum,
     transferBasis:
-      "按分仓账面权益计算。分仓收益、相关性与峰谷贡献包含内部现金划转，转出与转入在组合层面相抵。",
+      "账面收益、相邻收盘收益相关性和峰谷贡献包含内部现金划转。投资日收益从期初计，复合收益、最大回撤、相关性及账户币种交易损益均剔除内部现金划转。",
   };
 }
 

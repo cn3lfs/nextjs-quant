@@ -6,6 +6,7 @@ import { scheduleNews } from "./news/news-scheduler";
 import { drain, recoverDeliveries } from "./infra/notifications";
 import { acquireScheduler } from "./infra/lease";
 import { recoverJobs, background, runWorker } from "./jobs/jobs";
+import { recoverDiagnoseArchives } from "./research/diagnose/archive";
 import { settings } from "./infra/settings";
 import { put } from "./db";
 import type { Coverage } from "~/lib/domain";
@@ -16,11 +17,15 @@ const scope = globalThis as typeof globalThis & {
   quantDeliveriesRecovered?: boolean;
   quantPaperTicking?: boolean;
 };
+export function recoverRuntimeJobs() {
+  recoverJobs();
+  return recoverDiagnoseArchives();
+}
 export function startRuntime() {
   if (scope.quantRuntimeStarted) return;
   scope.quantRuntimeStarted = true;
   try {
-    recoverJobs();
+    recoverRuntimeJobs();
   } catch (error) {
     scope.quantRuntimeStarted = false;
     recordRuntimeError("runtime-start", error);

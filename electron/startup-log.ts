@@ -43,6 +43,18 @@ export function desktopStartupLine(
   return fields.join(" ");
 }
 
+export function recordUnexpectedServiceExit(
+  file: string,
+  code: number | null,
+  signal: NodeJS.Signals | null,
+) {
+  const line = desktopStartupLine({ status: "exited", code, signal }).replace(
+    DESKTOP_STARTUP_PREFIX,
+    "[desktop-service-exit]",
+  );
+  safeAppend(file, "\n" + line + "\n");
+}
+
 /** Log writes are diagnostics: a failed append never interrupts startup or teardown. */
 export function safeAppend(file: string, text: string): void {
   try {

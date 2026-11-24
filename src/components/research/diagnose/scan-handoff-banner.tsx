@@ -75,7 +75,11 @@ export function ScanHandoffBanner({
     <Link className="text-sm underline" href={handoff.returnTo}>
       {handoff.handoffSource === "account-review"
         ? "返回月度复盘"
-        : "返回原筛选列表"}
+        : handoff.handoffSource === "watchlist"
+          ? "返回自选股"
+          : handoff.handoffSource === "pool"
+            ? "返回股票池"
+            : "返回原筛选列表"}
     </Link>
   );
   if (lastAppliedKey === key)
@@ -103,6 +107,8 @@ export function ScanHandoffBanner({
       formula: "公式选股批量带入",
       pattern: "形态选股批量带入",
       rps: "RPS 榜单批量带入",
+      watchlist: "自选股批量带入",
+      pool: "股票池批量带入",
       "account-review": "月度复盘",
     }[handoff.handoffSource];
     return (

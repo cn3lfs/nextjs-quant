@@ -1,5 +1,6 @@
-import type { RefObject } from "react";
+import { createContext, type RefObject } from "react";
 import type { Bar } from "~/lib/domain";
+import type { TradeMarkFill } from "~/lib/chart/chart-trade-marks";
 import type {
   ChartPeriod as Period,
   ChartView,
@@ -43,10 +44,12 @@ export type MarketChartState = {
     { anchor: ISeriesApi<SeriesType>; threshold: IPriceLine | null }
   >;
   costLine: IPriceLine | null;
+  /** A review window stays temporary until the user moves the viewport. */
+  temporaryRange: boolean;
   /** Keyboard cursor bar index (TDX ←/→), null when not in cursor mode. */
   cursor: number | null;
   /** Range to apply after the next data change; undefined = keep. */
-  pendingRange?: LogicalRange | null;
+  pendingRange?: { from: number; to: number } | null;
 };
 export type ChartViewport = {
   bars: Bar[];
@@ -79,3 +82,20 @@ export type ChartInstanceOptions = {
 };
 
 export type ChartCompare = { symbol: string; label: string; bars: Bar[] };
+
+/** Provided around the main chart only; linked/compare charts never inherit it. */
+export type ChartTradeMarksValue = {
+  symbol: string;
+  fills: readonly TradeMarkFill[];
+  /** Human-readable provenance shown in the status line. */
+  sourceLabel: string | null;
+  archiveMessage?: string;
+  barsConfirmed: boolean;
+  visible: boolean;
+  /** One-shot centring request; the token changes on a new review entry. */
+  focusAt: { date: string; consume: () => boolean } | null;
+  onVisibilityChange?: (visible: boolean) => void;
+};
+
+export const ChartTradeMarksContext =
+  createContext<ChartTradeMarksValue | null>(null);

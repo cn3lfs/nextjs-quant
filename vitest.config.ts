@@ -1,6 +1,6 @@
 import { defineConfig } from "vitest/config";
 import { resolve } from "node:path";
-import { classifyTestFiles } from "./scripts/lib/test-projects";
+import { classifyTestFiles } from "./scripts/lib/test-projects.ts";
 
 const groups = classifyTestFiles();
 const isolated = {

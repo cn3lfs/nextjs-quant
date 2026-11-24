@@ -1,9 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
+import {
+  tradeChartHref,
+  type TradeMarkFill,
+} from "~/lib/chart/chart-trade-marks";
+import { useOpenChart } from "../market/open-chart";
 import { EquityChart } from "../backtest/equity-chart";
 import { MonthlyReturnsHeatmap } from "../backtest/monthly-returns-heatmap";
+import { Button } from "../ui/button";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 
@@ -16,6 +23,7 @@ export type PortfolioResultFill = {
   quantity: number;
   fee: number;
   cashAfter: number;
+  trigger?: TradeMarkFill["trigger"];
 };
 export type PortfolioResultRejection = {
   orderId: number;
@@ -226,14 +234,47 @@ export function PortfolioResultView({
 }) {
   const [tab, setTab] = useState("fills"),
     [sorting, setSorting] = useState<{ id: string; desc: boolean }[]>([]);
+  const openChart = useOpenChart();
   const pagination = (page: number) => ({ pageIndex: page, pageSize });
   const focusing = highlightedDate !== null || highlightedOrderId !== null;
   const matches = (row: { date: string; orderId: number }) =>
     (highlightedDate === null || sameDate(row.date, highlightedDate)) &&
     (highlightedOrderId === null || row.orderId === highlightedOrderId);
-  const fillCols = focusing
-    ? [focusColumn<PortfolioResultFill>(matches), ...fillColumns]
-    : fillColumns;
+  const chartColumn: DataTableColumn<PortfolioResultFill> = {
+    id: "chart",
+    enableSorting: false,
+    header: "复盘",
+    cell: ({ row }) => {
+      const symbol = row.original.symbol;
+      const at = row.original.date.slice(0, 10);
+      return openChart ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          aria-label={`看K线 ${symbol} ${at}`}
+          onClick={() => openChart(symbol, { at, portfolioFills: fills.rows })}
+        >
+          看K线
+        </Button>
+      ) : (
+        <Button asChild size="sm" variant="ghost">
+          <Link
+            href={tradeChartHref({ symbol, at })}
+            prefetch={false}
+            scroll={false}
+          >
+            看K线
+          </Link>
+        </Button>
+      );
+    },
+  };
+  const fillCols = [
+    ...(focusing ? [focusColumn<PortfolioResultFill>(matches)] : []),
+    ...fillColumns,
+    chartColumn,
+  ];
   const rejectionCols = focusing
     ? [focusColumn<PortfolioResultRejection>(matches), ...rejectionColumns]
     : rejectionColumns;

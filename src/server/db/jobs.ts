@@ -26,6 +26,30 @@ const jobSchema = z.object({
   newsAnalysisId: newsArchiveIdSchema.optional(),
 });
 
+/** The primary key locates updated_at; the v23 covering index stores status.
+ * This avoids decoding even a large completed job's JSON inside SQLite. */
+export function getJobStatus(id: string): Job["status"] | undefined {
+  return sqlite()
+    .prepare(
+      `SELECT json_extract(payload,'$.status') FROM records INDEXED BY job_recent_summary
+       WHERE kind='job' AND updated_at=(SELECT updated_at FROM records WHERE id=@id) AND id=@id`,
+    )
+    .pluck()
+    .get({ id }) as Job["status"] | undefined;
+}
+
+/** Run a brief synchronous step while holding the SQLite write reservation if
+ * the job is still running, so a cross-process cancel cannot commit in between. */
+export function runIfJobRunning(id: string, work: () => void): boolean {
+  return sqlite()
+    .transaction(() => {
+      if (getJobStatus(id) !== "running") return false;
+      work();
+      return true;
+    })
+    .immediate();
+}
+
 /** Explicit detail read. Lists/polling must use the metadata repositories. */
 export function readJob(id: string): Job | undefined {
   jobIdSchema.parse(id);

@@ -23,8 +23,8 @@ import {
 import {
   buildDiagnoseCellStrategies,
   DIAGNOSE_BOOK_PRESETS,
-  isNativeStrategyKey,
   isPitStrategyKey,
+  isNativeStrategyKey,
   isWyckoffFunnelKey,
   warmupBarsFor,
   type PlannedDiagnoseCell,
@@ -32,11 +32,18 @@ import {
 } from "./strategy-specs";
 import type { NativeChanOptions } from "./chan-native";
 import type {
+  BookControl,
   DiagnoseLayer,
   DiagnoseStatus,
   StrategyDisclosures,
 } from "./types";
 import { analyzeWyckoffFunnel } from "./wyckoff-funnel";
+import { summarizePortfolioSuspensions } from "../lifecycle-score";
+import {
+  buildMonthEndEqualRebalanceTargets,
+  buildCausalRiskParity60Targets,
+  computeSleeveTradeMetrics,
+} from "./sleeve-trades";
 import { computeSleeveAttribution } from "./sleeve-attribution";
 import { runDiagnoseTimeHoldout } from "./time-holdout";
 type ReplayReturn = ReturnType<typeof replayLabBacktest>;
@@ -138,21 +145,14 @@ export async function resolveAutoStart(
     symbols.map((symbol) => loadDaily(tdxRoot, end, symbol, cache)),
   );
   if (mode === "portfolio") {
-    const native = key === "core-4" || isNativeStrategyKey(key);
-    const listed = series
-      .map((bars, i) => {
-        if (!native) return bars[0]?.date;
-        const ready = bars[warmup];
-        if (!ready)
-          throw new Error(
-            `${symbols[i]}：${key === "core-4" ? key : "原生缠论"}需要至少 ${warmup} 根预热行情和一根执行行情`,
-          );
-        return ready.date;
-      })
-      .filter((date): date is string => date !== undefined);
-    if (!listed.length) throw new Error("自动起始日缺少本地日线");
-    const latest = listed.reduce((a, b) => (b > a ? b : a));
-    const start = await alignToBenchmark(latest, tdxRoot, end, cache);
+    const required =
+      symbols.length === 1 && key !== "core-4" && !isNativeStrategyKey(key)
+        ? 0
+        : warmup;
+    const ready = series.flatMap((bars) => bars[required]?.date ?? []).sort();
+    if (!ready.length)
+      throw new Error(`组合没有满足 ${required} 根预热行情的标的`);
+    const start = await alignToBenchmark(ready[0]!, tdxRoot, end, cache);
     if (start >= end)
       throw new Error(`自动起始日 ${start} 不早于结束日 ${end}`);
     return start;
@@ -195,6 +195,8 @@ type CellInput = DiagnosePreparationOptions & {
   cost: ResearchCostScenario;
   riskPerTrade: number;
   maxPositions: number;
+  /** Original end date, used only to confirm a post-cut listing on a development retry. */
+  retryFullEnd?: string;
   signal?: AbortSignal;
 };
 
@@ -219,17 +221,26 @@ export async function prepareDiagnoseCell(
   const forceCausalPrice = strategy !== "hold";
   const prefetched = new Map<string, Awaited<ReturnType<typeof readBars>>>();
   const read: typeof readBars = (query, ...rest) => {
-    const key = JSON.stringify([query.instrument.symbol, query.adjustment]);
+    const key = JSON.stringify([
+      query.instrument.symbol,
+      query.adjustment,
+      query.to,
+    ]);
     const snapshot = prefetched.get(key);
     return snapshot
       ? Promise.resolve(snapshot)
       : (input.read ?? readBars)(query, ...rest);
   };
   let start = input.start;
-  if (start === "auto") {
+  const excludedSymbols: string[] = [];
+  if (start === "auto" || input.retryFullEnd) {
     const cache: BarCache = new Map();
     const budget = new BarResourceBudget();
-    async function prefetch(symbol: string, benchmark: boolean) {
+    async function prefetch(
+      symbol: string,
+      benchmark: boolean,
+      end = input.end,
+    ) {
       input.signal?.throwIfAborted();
       const adjustment = benchmark || forceCausalPrice ? "none" : "forward";
       const query = {
@@ -237,7 +248,7 @@ export async function prepareDiagnoseCell(
         period: "day",
         adjustment,
         root: tdxRoot,
-        to: input.end,
+        ...(benchmark ? {} : { to: end }),
         live: false,
         ...(benchmark ? {} : { source: "local" as const, freezeRaw: true }),
       } as const;
@@ -247,20 +258,48 @@ export async function prepareDiagnoseCell(
         undefined,
         budget,
       );
-      prefetched.set(JSON.stringify([symbol, adjustment]), snapshot);
-      cache.set(symbol, snapshot.rawBars ?? snapshot.bars);
+      prefetched.set(JSON.stringify([symbol, adjustment, query.to]), snapshot);
+      return snapshot.rawBars ?? snapshot.bars;
     }
-    for (const symbol of symbols) await prefetch(symbol, false);
-    if (item.mode === "portfolio" && !cache.has(BENCHMARK_CALENDAR_SYMBOL))
-      await prefetch(BENCHMARK_CALENDAR_SYMBOL, true);
-    start = await resolveAutoStart(
-      strategy,
-      symbols,
-      item.mode,
-      tdxRoot,
-      input.end,
-      cache,
-    );
+    for (const symbol of symbols) {
+      let prefixError: unknown;
+      const bars = await prefetch(symbol, false).catch((error: unknown) => {
+        if (!input.retryFullEnd) throw error;
+        prefixError = error;
+        return [];
+      });
+      cache.set(symbol, bars);
+      if (input.retryFullEnd && !bars.some((b) => b.date <= input.end)) {
+        const full = await prefetch(symbol, false, input.retryFullEnd);
+        if (!full.length || full.some((bar) => bar.date <= input.end))
+          throw prefixError ?? new Error(`${symbol}：无法核实开发段行情覆盖`);
+        excludedSymbols.push(symbol);
+      }
+    }
+    if (excludedSymbols.length) {
+      const retained = symbols.filter(
+        (symbol) => !excludedSymbols.includes(symbol),
+      );
+      if (!retained.length)
+        throw new Error(`开发段全部标的无行情：${excludedSymbols.join(", ")}`);
+      for (const strategy of strategies)
+        strategy.universe = { kind: "symbols", symbols: retained };
+    }
+    if (start === "auto") {
+      if (item.mode === "portfolio" && !cache.has(BENCHMARK_CALENDAR_SYMBOL))
+        cache.set(
+          BENCHMARK_CALENDAR_SYMBOL,
+          await prefetch(BENCHMARK_CALENDAR_SYMBOL, true),
+        );
+      start = await resolveAutoStart(
+        strategy,
+        symbols,
+        item.mode,
+        tdxRoot,
+        input.end,
+        cache,
+      );
+    }
   }
 
   if (
@@ -281,7 +320,8 @@ export async function prepareDiagnoseCell(
     dataQuality,
     calendar: _calendar,
     benchmarkBars,
-    ...disclosures
+    suspensionCertificates,
+    ...attached
   } = await prepare({
     config: input.config,
     strategy: strategyConfig,
@@ -309,6 +349,7 @@ export async function prepareDiagnoseCell(
     captureNative: input.captureNative,
     project: input.project,
     resolveIdentity: input.resolveIdentity,
+    perInstrumentWarmup: item.mode === "portfolio" && symbols.length > 1,
     forceCausalPrice,
     read,
     indexBars: input.indexBars ?? market.marketBars,
@@ -320,6 +361,39 @@ export async function prepareDiagnoseCell(
     },
   });
   input.signal?.throwIfAborted();
+  const disclosures: StrategyDisclosures = attached;
+  if (item.mode === "portfolio" && (symbols.length > 1 || book)) {
+    const rows = frozen.request.instruments;
+    const memberships: NonNullable<
+      typeof frozen.request.memberships
+    >[number][] = [];
+    disclosures.portfolioEligibility = frozen.request.strategies.flatMap(
+      (s, i) => {
+        const warmupBars = warmupBarsFor(keys[i]!);
+        const eligibility = rows.map(({ symbol, signalBars }) => ({
+          strategyId: s.id,
+          symbol,
+          warmupBars,
+          firstBar: signalBars[0]?.date ?? null,
+          readyDate: signalBars[warmupBars]?.date ?? null,
+        }));
+        for (const date of frozen.request.calendar) {
+          const ready = eligibility.filter(
+            (row) => row.readyDate && row.readyDate <= date,
+          );
+          if (ready.length !== rows.length)
+            memberships.push({
+              strategyId: s.id,
+              date,
+              availableAt: date,
+              symbols: ready.map((row) => row.symbol),
+            });
+        }
+        return eligibility;
+      },
+    );
+    if (memberships.length) frozen.request.memberships = memberships;
+  }
   // Timing and cache hits describe the capture operation. Keep them in the
   // disclosures, outside the scientific input that replayLabBacktest hashes.
   for (const row of disclosures.nativeChan ?? []) {
@@ -340,8 +414,10 @@ export async function prepareDiagnoseCell(
     } else source.nativeChan = identity;
   }
   return {
+    excludedSymbols,
     strategyConfig,
     candidateId: item.strategy,
+    suspensionCertificates,
     benchmarkBars,
     frozen,
     dataQuality,
@@ -357,6 +433,7 @@ export async function prepareDiagnoseCell(
 
 type PreparedCell = Awaited<ReturnType<typeof prepareDiagnoseCell>>;
 type ExecutionOptions = {
+  bookControl?: BookControl;
   holdoutStart?: string;
   executionProfile?: LabExecutionProfile;
   maxParticipation?: number | null;
@@ -395,6 +472,24 @@ export function replayDiagnoseCell(
       : (options.capacityPolicy ??
         base.bookCapacity?.capacityPolicy ??
         undefined);
+  // Keep every source in the frozen pool. Replay only executable instruments
+  // when the native feed has no observation and no sleeve can trade that symbol.
+  const inactive = new Set(
+    base.disclosures.nativeChan
+      ?.filter(
+        (row) =>
+          request.sleeves.length === 1 &&
+          row.insufficientWarmup &&
+          !base.disclosures.portfolioEligibility?.some(
+            (member) =>
+              member.symbol === row.symbol && member.readyDate !== null,
+          ),
+      )
+      .map((row) => row.symbol),
+  );
+  const instruments = inactive.size
+    ? request.instruments.filter((i) => !inactive.has(i.symbol))
+    : request.instruments;
   const frozen: FrozenLabBacktest = {
     ...base.frozen,
     executionProfile: profile,
@@ -404,8 +499,8 @@ export function replayDiagnoseCell(
       ...request,
       instruments:
         profile === "strict"
-          ? request.instruments
-          : request.instruments.map((instrument) => ({
+          ? instruments
+          : instruments.map((instrument) => ({
               ...instrument,
               execution: applyProfile(
                 instrument.execution,
@@ -416,6 +511,27 @@ export function replayDiagnoseCell(
       ...(capacityPolicy === undefined ? {} : { capacityPolicy }),
     },
   };
+  const policy = options.bookControl ?? "none";
+  if (request.sleeves.length > 1 && policy !== "none") {
+    const baseline = frozen.request;
+    const calendar = baseline.calendar.filter(
+      (d) => d >= baseline.start && d <= baseline.end,
+    );
+    const targets =
+      policy === "equal-month-end"
+        ? buildMonthEndEqualRebalanceTargets(
+            calendar,
+            baseline.sleeves.map((s) => s.id),
+          )
+        : buildCausalRiskParity60Targets(
+            calendar,
+            computeSleeveAttribution(
+              replayLabBacktest(frozen, undefined, signal).result,
+            ),
+            Object.fromEntries(baseline.sleeves.map((s) => [s.id, s.share])),
+          );
+    frozen.request = { ...baseline, rebalance: {}, sleeveTargets: targets };
+  }
   const replay = replayLabBacktest(frozen, undefined, signal);
   const diagnostics = runDiagnostics({
     request: frozen.request,
@@ -426,8 +542,55 @@ export function replayDiagnoseCell(
     (f) => f.capacityClipped,
   ).length;
   const disclosures: StrategyDisclosures = { ...base.disclosures };
-  if (request.sleeves.length > 1)
-    disclosures.sleeveAttribution = computeSleeveAttribution(replay.result);
+  disclosures.suspensionEvidence = {
+    ...summarizePortfolioSuspensions(replay.result),
+    certificates: base.suspensionCertificates ?? [],
+  };
+  if (request.sleeves.length > 1) {
+    const { sleeves, investmentCorrelations, ...book } =
+      computeSleeveAttribution(replay.result);
+    // The archive validates the original sleeveAttribution object with a strict schema.
+    const investment = sleeves.map(
+      ({
+        id,
+        investmentReturn,
+        investmentMaxDrawdown,
+        tradingPnlContribution,
+        dailyInvestmentReturns,
+      }) => ({
+        id,
+        investmentReturn,
+        investmentMaxDrawdown,
+        tradingPnlContribution,
+        dailyInvestmentReturns,
+      }),
+    );
+    disclosures.sleeveInvestment = {
+      sleeves: investment,
+      correlations: investmentCorrelations,
+    };
+    disclosures.sleeveAttribution = {
+      ...book,
+      sleeves: sleeves.map(
+        ({
+          investmentReturn,
+          investmentMaxDrawdown,
+          tradingPnlContribution,
+          dailyInvestmentReturns,
+          ...ledger
+        }) => ledger,
+      ),
+    };
+    disclosures.sleeveTrades = computeSleeveTradeMetrics(
+      replay.result,
+      frozen.request,
+    );
+    disclosures.bookControl = {
+      policy,
+      targetCount: frozen.request.sleeveTargets?.length ?? 0,
+      transferCount: replay.result.transfers.length,
+    };
+  }
   if (options.holdoutStart !== undefined)
     disclosures.timeHoldout = runDiagnoseTimeHoldout(frozen.request, {
       holdoutStart: options.holdoutStart,

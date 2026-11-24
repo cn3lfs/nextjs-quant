@@ -4,6 +4,35 @@ import type { BrowseList } from "~/lib/market/browse-list";
 import type { MarketSource } from "~/lib/market/market-source";
 import type { ChartPeriod } from "~/lib/chart/chart-view";
 import type { ChartAdjustment } from "~/lib/chart/chart-adjustment";
+import {
+  normalizeTradeDate,
+  normalizeTradeSymbol,
+  type TradeMarkFill,
+} from "~/lib/chart/chart-trade-marks";
+
+/**
+ * Where the K 线 trade marks come from. `symbol` is the symbol the fills
+ * belong to; the overlay is only shown when the active chart matches it.
+ * `focusToken` makes `at` one-shot: the chart centres once per token and never
+ * writes that window into the persistent viewport store.
+ */
+export type MarketTradeContext = {
+  symbol: string;
+  at?: string;
+  diagnose?: string;
+  cell?: string;
+  scenario?: string;
+  /** In-memory portfolio fills (never persisted). */
+  portfolioFills?: TradeMarkFill[];
+  visible: boolean;
+  focusToken: number;
+  focusPending: boolean;
+};
+
+export type MarketTradeContextInput = Omit<
+  MarketTradeContext,
+  "visible" | "focusToken" | "focusPending"
+>;
 
 export type MarketSelection = {
   symbol: string;
@@ -60,6 +89,7 @@ export function planMarketRead(input: {
 /** Only shareable selection goes into history; snapshots/browse lists stay in memory. */
 export function marketSelectionHref(
   selection: MarketSelection & { period?: Period },
+  tradeContext?: MarketTradeContext | null,
 ) {
   const search = new URLSearchParams({
     symbol: selection.symbol,
@@ -69,6 +99,18 @@ export function marketSelectionHref(
   if (selection.marketSource) search.set("source", selection.marketSource);
   if (selection.period === "5m") search.set("base", "5m");
   if (selection.marketView === "financial") search.set("view", "financial");
+  // Trade-review context survives ordinary chart edits and a symbol switch
+  // away/back, but it is only written for the symbol its fills belong to.
+  if (
+    tradeContext?.visible &&
+    normalizeTradeSymbol(tradeContext.symbol) ===
+      normalizeTradeSymbol(selection.symbol)
+  ) {
+    if (tradeContext.at) search.set("at", normalizeTradeDate(tradeContext.at));
+    if (tradeContext.diagnose) search.set("diagnose", tradeContext.diagnose);
+    if (tradeContext.cell) search.set("cell", tradeContext.cell);
+    if (tradeContext.scenario) search.set("scenario", tradeContext.scenario);
+  }
   return `/scan?${search}`;
 }
 
@@ -77,8 +119,9 @@ export function rememberMarketUrl() {
     return;
   const current = new URLSearchParams(window.location.search);
   if (current.has("tab") && current.get("tab") !== "formula") return;
+  const state = useMarketSession.getState();
   const url = new URL(
-    marketSelectionHref(useMarketSession.getState()),
+    marketSelectionHref(state, state.tradeContext),
     window.location.origin,
   );
   for (const key of [
@@ -102,6 +145,13 @@ type MarketSession = MarketSelection & {
   snapshotSource: MarketSource | null;
   browse: BrowseList | null;
   revision: number;
+  tradeContext: MarketTradeContext | null;
+  /** Replace the trade-review context; a changed fill set bumps `focusToken`. */
+  setTradeContext: (context: MarketTradeContextInput) => void;
+  consumeTradeFocus: (token: number) => boolean;
+  /** Hide/show marks without discarding the fills (toggle off/on stays clean). */
+  setTradeMarksVisible: (visible: boolean) => void;
+  clearTradeContext: () => void;
   setSymbol: (symbol: string) => void;
   setPeriod: (period: Period) => void;
   setBrowse: (browse: BrowseList | null) => void;
@@ -119,6 +169,7 @@ type MarketSession = MarketSelection & {
 // Server data/view settings keep their existing query-cache owners. This store
 // owns the cross-page selection and the exact selected candidate, never the shell.
 export const useMarketSession = create<MarketSession>((set) => {
+  let focusToken = 0;
   const accept = (loaded: MarketSnapshot) => {
     // Formula candidates predate requestedSource. Their recorded local origin
     // must own list browsing even before the settings query has completed.
@@ -152,6 +203,39 @@ export const useMarketSession = create<MarketSession>((set) => {
     snapshotSource: null,
     browse: null,
     revision: 0,
+    tradeContext: null,
+    setTradeContext: (context) => {
+      set({
+        tradeContext: {
+          ...context,
+          visible: true,
+          focusToken: ++focusToken,
+          focusPending: Boolean(context.at),
+        },
+      });
+    },
+    consumeTradeFocus: (token) => {
+      let consumed = false;
+      set((state) => {
+        const context = state.tradeContext;
+        if (!context?.focusPending || context.focusToken !== token)
+          return state;
+        consumed = true;
+        return { tradeContext: { ...context, focusPending: false } };
+      });
+      return consumed;
+    },
+    setTradeMarksVisible: (visible) => {
+      set((state) =>
+        state.tradeContext && state.tradeContext.visible !== visible
+          ? { tradeContext: { ...state.tradeContext, visible } }
+          : state,
+      );
+      rememberMarketUrl();
+    },
+    clearTradeContext: () => {
+      set((state) => (state.tradeContext ? { tradeContext: null } : state));
+    },
     setSymbol: (symbol) => set({ symbol }),
     setPeriod: (period) => set({ period }),
     setBrowse: (browse) => set({ browse }),

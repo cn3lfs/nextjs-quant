@@ -10,7 +10,13 @@ import {
   updateIndicatorLines,
 } from "../market-chart-indicators";
 import { rpsColors } from "../market-chart-palette";
-import type { MarketChartState, ChartCompare } from "../market-chart-state";
+import {
+  ChartTradeMarksContext,
+  type MarketChartState,
+  type ChartCompare,
+  type ChartTradeMarksValue,
+} from "../market-chart-state";
+import { tradeMarks } from "~/lib/chart/chart-trade-marks";
 
 import { chartColor } from "~/lib/chart/chart-theme";
 import { Input } from "~/components/ui/input";
@@ -37,7 +43,14 @@ import {
   type ChartView,
   type Drawing,
 } from "~/lib/chart/chart-view";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { ColorType, type LogicalRange } from "lightweight-charts";
 import type { Bar } from "~/lib/domain";
 import type { ChartAdjustment } from "~/lib/chart/chart-adjustment";
@@ -76,6 +89,17 @@ export type ChartAnnotationVisibility = {
   czsc: boolean;
   patterns?: boolean;
 };
+
+function TradeMarksBinding({
+  sync,
+}: {
+  sync: (value: ChartTradeMarksValue | null) => void;
+}) {
+  const value = useContext(ChartTradeMarksContext);
+  useLayoutEffect(() => sync(value), [sync, value]);
+  return null;
+}
+
 export function MarketChart({
   pricePrecision = 2,
   volumeUnit = "股",
@@ -184,6 +208,24 @@ export function MarketChart({
   const { czsc: showCzsc, breakout: showBreakout } = shownAnnotations;
   // Derived, not a hook: the chart test harness pins the hook slot order.
   const showPatterns = Boolean(shownAnnotations.patterns);
+  // Only the main chart is wrapped in this context; linked/compare charts are
+  // not, so a review entry can never paint marks on a second period.
+  const [tradeContext, setTradeContext] = useState<ChartTradeMarksValue | null>(
+    null,
+  );
+  const tradeProjection = useMemo(
+    () =>
+      tradeContext?.sourceLabel
+        ? tradeMarks({
+            symbol: tradeContext.symbol,
+            bars,
+            period,
+            fills: tradeContext.barsConfirmed ? tradeContext.fills : [],
+          })
+        : null,
+    [tradeContext, bars, period],
+  );
+  const showTradeMarks = tradeContext?.visible ?? false;
   const changeAnnotation = (patch: Partial<ChartAnnotationVisibility>) => {
     const next = { ...shownAnnotations, ...patch };
     if (onAnnotationVisibilityChange) onAnnotationVisibilityChange(next);
@@ -452,6 +494,9 @@ export function MarketChart({
       showBreakout,
       patternBreakout,
       showPatterns,
+      tradeMarks: tradeProjection?.marks,
+      showTradeMarks,
+      focusAt: tradeContext?.focusAt,
       compare,
       setHistoryStart,
       newsEvents,
@@ -471,6 +516,9 @@ export function MarketChart({
     newsEvents,
     patternBreakout,
     showPatterns,
+    tradeProjection,
+    showTradeMarks,
+    tradeContext?.focusAt,
   ]);
 
   useEffect(() => {
@@ -553,7 +601,10 @@ export function MarketChart({
         last,
       );
       n.cursor = move.index;
-      if (move.range) scale.setVisibleLogicalRange(move.range);
+      if (move.range) {
+        n.temporaryRange = false;
+        scale.setVisibleLogicalRange(move.range);
+      }
       const bar = n.bars[move.index]!;
       n.chart.setCrosshairPosition(
         bar.close,
@@ -574,7 +625,13 @@ export function MarketChart({
       keyboardRange(range, key) ??
       keyboardPage(range, key, n.bars.length - n.start);
     if (!next) return false;
-    scale.setVisibleLogicalRange(next);
+    if (
+      Math.abs(next.from - range.from) > 1e-6 ||
+      Math.abs(next.to - range.to) > 1e-6
+    ) {
+      n.temporaryRange = false;
+      scale.setVisibleLogicalRange(next);
+    }
     return true;
   };
   const chartKeyRef = useRef(chartKey);
@@ -612,6 +669,7 @@ export function MarketChart({
         padding: "0 8px 8px",
       }}
     >
+      <TradeMarksBinding sync={setTradeContext} />
       <div
         className="flex flex-wrap items-center gap-x-3 gap-y-2 py-1 text-sm"
         data-testid="chart-secondary-controls"
@@ -749,6 +807,18 @@ export function MarketChart({
               />{" "}
               形态突破
             </label>
+            {tradeContext?.sourceLabel && (
+              <label>
+                <Checkbox
+                  aria-label="回测买卖点"
+                  checked={showTradeMarks}
+                  onCheckedChange={(checked) =>
+                    tradeContext.onVisibilityChange?.(checked === true)
+                  }
+                />{" "}
+                回测买卖点
+              </label>
+            )}
           </>
         )}
         {selectedSubcharts.includes("rps") && period === "day" && (
@@ -871,6 +941,31 @@ export function MarketChart({
                   ? `形态突破 ${patternBreakout.length} 处 · 橙色买点 / 青色卖点`
                   : "当前快照无形态突破"
                 : "")}
+          </span>
+        )}
+        {annotations && tradeContext && tradeProjection && (
+          <span
+            data-testid="chart-trade-marks"
+            role="status"
+            data-mark-count={showTradeMarks ? tradeProjection.matchedCount : 0}
+            data-dropped-count={tradeProjection.droppedCount}
+            data-hidden-reason={tradeProjection.hiddenReason ?? undefined}
+            data-trade-marks-visible={showTradeMarks ? "true" : "false"}
+          >
+            {[
+              !showTradeMarks && "回测买卖点已关闭",
+              tradeProjection.hiddenReason
+                ? `${tradeProjection.hiddenReason} · 当前周期隐藏 ${tradeProjection.fillCount} 笔成交`
+                : !tradeContext.barsConfirmed
+                  ? "正在读取对应的 K 线…"
+                  : (tradeContext.archiveMessage ??
+                    `回测买卖点匹配 ${tradeProjection.matchedCount} 笔`),
+              tradeContext.sourceLabel,
+              tradeProjection.droppedCount > 0 &&
+                `缺 K 线日期，丢弃 ${tradeProjection.droppedCount} 笔（${tradeProjection.droppedDates.slice(0, 3).join("、")}${tradeProjection.droppedDates.length > 3 ? " 等" : ""}）`,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </span>
         )}
       </div>

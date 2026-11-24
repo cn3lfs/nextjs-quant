@@ -6,6 +6,7 @@ import { readChartSymbolParam } from "~/lib/chart/chart-symbol";
 import { chartPeriodSchema } from "~/lib/chart/chart-view";
 import { chartAdjustmentSchema } from "~/lib/chart/chart-adjustment";
 import { marketSourceSchema } from "~/lib/market/market-source";
+import { useMarketSession } from "~/lib/stores/market-session";
 import type { MarketState } from "./use-market-state";
 
 /** Mounted only on /market, inside Suspense so the shared shell stays prerenderable. */
@@ -20,7 +21,15 @@ export function MarketRouteSelection({
   const search = useSearchParams();
   const symbol = readChartSymbolParam(search.toString());
   const view = search.get("view") === "financial" ? "financial" : "chart";
-  const period = chartPeriodSchema.safeParse(search.get("period")).data;
+  const atParam = search.get("at");
+  const at =
+    atParam && /^\d{4}-\d{2}-\d{2}$/.test(atParam) ? atParam : undefined;
+  const diagnose = search.get("diagnose") || undefined;
+  const cell = search.get("cell") || undefined;
+  const scenario = search.get("scenario") || undefined;
+  const period =
+    chartPeriodSchema.safeParse(search.get("period")).data ??
+    (at || diagnose ? "day" : undefined);
   const source = marketSourceSchema.safeParse(search.get("source")).data;
   const adjustment = chartAdjustmentSchema.safeParse(
     search.get("adjustment"),
@@ -28,7 +37,7 @@ export function MarketRouteSelection({
   const base =
     search.get("base") === "5m"
       ? "5m"
-      : search.has("period")
+      : period || search.has("period")
         ? "day"
         : undefined;
   const enter = useRef(enterMarket);
@@ -46,5 +55,34 @@ export function MarketRouteSelection({
       ...(base ? { period: base } : {}),
     });
   }, [symbol, view, period, source, adjustment, base, frozen]);
+  useEffect(() => {
+    const state = useMarketSession.getState();
+    const target = symbol ?? state.symbol;
+    const current = state.tradeContext;
+    if (frozen || (!at && !diagnose)) {
+      // The toggle removes the URL context while retaining the fills locally.
+      if (current && (frozen || current.visible || current.symbol !== target))
+        state.clearTradeContext();
+      return;
+    }
+    if (
+      current &&
+      current.symbol === target &&
+      current.at === at &&
+      current.diagnose === diagnose &&
+      current.cell === cell &&
+      current.scenario === scenario &&
+      current.visible
+    )
+      return;
+    state.setChartMode("k");
+    state.setTradeContext({
+      symbol: target,
+      at,
+      diagnose,
+      cell,
+      scenario,
+    });
+  }, [symbol, at, diagnose, cell, scenario, frozen]);
   return null;
 }

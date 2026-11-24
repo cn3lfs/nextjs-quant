@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { api } from "~/trpc/react";
 import {
   DIAGNOSE_SCENARIO_PRESETS,
+  diagnoseBookInputSchema,
   labDiagnoseRunInputSchema,
+  normalizeDiagnoseBookInput,
   type DiagnoseArchiveSummary,
+  type DiagnoseBookSleeve,
   type DiagnoseScenarioId,
 } from "~/lib/research/diagnose-contract";
 import { taskHistoryHref } from "~/lib/research/workflow/task-history-location";
@@ -26,7 +29,16 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
 import { DiagnoseComparePanel } from "./diagnose-compare-panel";
 import { DiagnoseDetailView, DiagnosePagination } from "./diagnose-detail-view";
-import { boundaryLabels, formatCount } from "./format";
+import {
+  boundaryLabels,
+  equalizeSleeveWeights,
+  formatCount,
+  formatPercent,
+  maxSleeves,
+  minSleeves,
+  validateSleeveDraft,
+  type SleeveDraft,
+} from "./format";
 
 const sourceOptions = [
   { value: "all", label: "全部来源" },
@@ -49,6 +61,7 @@ const runModeOptions = [
   { value: "per-symbol", label: "单策略诊断（逐标的）" },
   { value: "portfolio", label: "单策略组合诊断" },
   { value: "core-4", label: "四策略核心组合 (core-4)" },
+  { value: "custom", label: "自定义组合（2–6 策略）" },
 ] as const;
 type RunMode = (typeof runModeOptions)[number]["value"];
 
@@ -160,9 +173,11 @@ type ArchiveRequest = { id: string };
 function ArchiveBrowser({
   active,
   archiveRequest,
+  onRerun,
 }: {
   active: boolean;
   archiveRequest: ArchiveRequest | null;
+  onRerun: (archive: DiagnoseArchiveSummary) => void;
 }) {
   const visible = usePanelVisible();
   const [draft, setDraft] = useState<ArchiveFilters>(initialFilters);
@@ -181,8 +196,10 @@ function ArchiveBrowser({
   if (archiveRequest !== appliedArchive) {
     setAppliedArchive(archiveRequest);
     if (archiveRequest) {
-      setSelectedId(archiveRequest.id);
-      setPage(1);
+      if (archiveRequest.id !== selectedId) {
+        setSelectedId(archiveRequest.id);
+        setPage(1);
+      }
       setCompareOpen(false);
     }
   }
@@ -475,6 +492,7 @@ function ArchiveBrowser({
             detail={detail.data}
             active={visible && active && !compareOpen}
             onPageChange={setPage}
+            onRerun={onRerun}
           />
         )}
         {selectedId && detail.isSuccess && detail.data === null && (
@@ -515,50 +533,370 @@ function prefillRunMode(prefill: DiagnoseRunPrefill | null): RunMode {
   return prefill?.mode ?? "per-symbol";
 }
 
+type RunFormRequest =
+  { handoff: DiagnoseRunPrefill } | { archive: DiagnoseArchiveSummary };
+
+function toSleeveDrafts(sleeves: readonly DiagnoseBookSleeve[]): SleeveDraft[] {
+  return sleeves.map((row) => ({ ...row, share: String(row.share) }));
+}
+
+function runDraft(request: RunFormRequest | null) {
+  const prefill = request && "handoff" in request ? request.handoff : null;
+  const archive = request && "archive" in request ? request.archive : null;
+  const run = archive?.run;
+  const rawBook = run?.book ?? run?.bookPreset;
+  const book = rawBook && normalizeDiagnoseBookInput(rawBook);
+  const custom = book && "sleeves" in book ? book.sleeves : null;
+  const missingBook =
+    !book &&
+    !!run &&
+    (run.strategyKey === "core-4" ||
+      /^custom-[0-9a-f]{8}$/.test(run.strategyKey ?? "") ||
+      !!archive?.book ||
+      !!archive?.bookPreset);
+  const mode: RunMode | "" = custom
+    ? "custom"
+    : book
+      ? "core-4"
+      : archive
+        ? missingBook
+          ? ""
+          : (run?.mode ?? "")
+        : prefillRunMode(prefill);
+  const missing = !archive
+    ? []
+    : !run
+      ? ["诊断模式、标的、策略、日期、本金、成本情景、执行情景、时间留出设置"]
+      : [
+          missingBook ? "分仓组合" : !mode && "诊断模式",
+          !missingBook && !book && !run.strategyKey && "策略键",
+          run.includeHoldout && !run.holdoutStart && "留出切点",
+        ].filter(Boolean);
+
+  return {
+    archive,
+    missing,
+    symbols: run?.symbols.join(", ") ?? prefillSymbolText(prefill),
+    runMode: mode,
+    strategyKey:
+      book || missingBook
+        ? ""
+        : (run?.strategyKey ?? prefill?.strategyKey ?? ""),
+    archivedStrategies: missingBook ? undefined : run?.strategies,
+    sleeves: custom
+      ? toSleeveDrafts(custom)
+      : equalizeSleeveWeights([
+          { id: "sleeve-1", strategyKey: "", share: "" },
+          { id: "sleeve-2", strategyKey: "", share: "" },
+        ]),
+    autoStart: run?.start === "auto",
+    start: run?.start === "auto" ? "" : (run?.start ?? prefill?.start ?? ""),
+    end: run?.end ?? prefill?.end ?? "",
+    initial: run ? String(run.initial) : archive ? "" : "1000000",
+    costScenario: (run?.costScenario ?? (archive ? "" : "fixed")) as
+      CostScenario | "",
+    includeHoldout: run?.includeHoldout ?? (archive ? null : false),
+    holdoutStart: run?.holdoutStart ?? (archive ? "" : defaultHoldoutStart),
+    chosen:
+      run?.scenarios ??
+      (archive ? [] : scenarioOptions.map((scenario) => scenario.id)),
+    confirmed: false,
+  };
+}
+
+const presetStorageKey = "guanlan.diagnose.custom-book-presets.v1";
+const presetLimit = 5;
+type LocalBookPreset = { name: string; sleeves: DiagnoseBookSleeve[] };
+
+function readLocalBookPresets(): LocalBookPreset[] {
+  try {
+    const stored: unknown = JSON.parse(
+      localStorage.getItem(presetStorageKey) ?? "[]",
+    );
+    if (!Array.isArray(stored)) return [];
+    return stored
+      .flatMap((row) => {
+        if (typeof row?.name !== "string" || !row.name.trim()) return [];
+        const parsed = diagnoseBookInputSchema.safeParse({
+          sleeves: row.sleeves,
+        });
+        if (
+          !parsed.success ||
+          typeof parsed.data === "string" ||
+          !("sleeves" in parsed.data)
+        )
+          return [];
+        return [{ name: row.name, sleeves: parsed.data.sleeves }];
+      })
+      .slice(0, presetLimit);
+  } catch {
+    return [];
+  }
+}
+
+function CustomBookEditor({
+  sleeves,
+  validation,
+  onChange,
+}: {
+  sleeves: SleeveDraft[];
+  validation: ReturnType<typeof validateSleeveDraft>;
+  onChange: (sleeves: SleeveDraft[]) => void;
+}) {
+  const validationId = useId();
+  const [presets, setPresets] = useState(readLocalBookPresets);
+  const [name, setName] = useState("");
+  const [selectedName, setSelectedName] = useState("");
+  const [presetError, setPresetError] = useState("");
+  const selected = presets.find((preset) => preset.name === selectedName);
+  const duplicate = presets.some((preset) => preset.name === name.trim());
+
+  function persist(next: LocalBookPreset[], selection: string) {
+    try {
+      localStorage.setItem(presetStorageKey, JSON.stringify(next));
+      setPresets(next);
+      setSelectedName(selection);
+      setPresetError("");
+    } catch {
+      setPresetError("无法保存浏览器预设，请检查本地存储设置。");
+    }
+  }
+
+  function updateSleeve(id: string, fields: Partial<SleeveDraft>) {
+    onChange(
+      sleeves.map((row) => (row.id === id ? { ...row, ...fields } : row)),
+    );
+  }
+
+  return (
+    <fieldset className="space-y-2 rounded-lg border border-nc-border-soft px-3 py-2">
+      <legend className="px-1 text-sm">自定义分仓</legend>
+      {sleeves.map((row, index) => (
+        <div key={row.id} className="flex flex-wrap items-end gap-2">
+          <label className="min-w-48 flex-1 text-sm">
+            分仓 {index + 1} 策略键
+            <Input
+              className="mt-1"
+              value={row.strategyKey}
+              maxLength={100}
+              placeholder="例如 dual-ma"
+              onChange={(event) =>
+                updateSleeve(row.id, { strategyKey: event.target.value })
+              }
+            />
+          </label>
+          <label className="w-40 text-sm">
+            分仓 {index + 1} 权重
+            <Input
+              type="number"
+              step="any"
+              inputMode="decimal"
+              className="mt-1"
+              aria-describedby={validationId}
+              placeholder="例如 0.5"
+              value={row.share}
+              onChange={(event) =>
+                updateSleeve(row.id, { share: event.target.value })
+              }
+            />
+          </label>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            aria-label={`移除分仓 ${index + 1}`}
+            disabled={sleeves.length <= minSleeves}
+            onClick={() =>
+              onChange(sleeves.filter((sleeve) => sleeve.id !== row.id))
+            }
+          >
+            移除
+          </Button>
+        </div>
+      ))}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={sleeves.length >= maxSleeves}
+          onClick={() => {
+            let index = 1;
+            while (sleeves.some((row) => row.id === `sleeve-${index}`)) index++;
+            onChange([
+              ...sleeves,
+              { id: `sleeve-${index}`, strategyKey: "", share: "" },
+            ]);
+          }}
+        >
+          添加分仓
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => onChange(equalizeSleeveWeights(sleeves))}
+        >
+          均分权重
+        </Button>
+        <p
+          id={validationId}
+          role="status"
+          className={`text-sm ${validation.error ? "text-nc-warn" : "text-nc-text-3"}`}
+        >
+          权重合计 {formatPercent(validation.sum)}（1 = 100%）
+          {validation.error && ` · ${validation.error}`}
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 border-t border-nc-border-soft pt-2">
+        <Input
+          aria-label="本地组合预设名称"
+          className="w-44"
+          placeholder="本地预设名称"
+          value={name}
+          maxLength={40}
+          onChange={(event) => setName(event.target.value)}
+        />
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={
+            !name.trim() ||
+            duplicate ||
+            !validation.book ||
+            presets.length >= presetLimit
+          }
+          onClick={() => {
+            if (
+              !validation.book ||
+              !name.trim() ||
+              duplicate ||
+              presets.length >= presetLimit
+            )
+              return;
+            const next = {
+              name: name.trim(),
+              sleeves: validation.book.sleeves,
+            };
+            persist([...presets, next], next.name);
+          }}
+        >
+          保存本地预设
+        </Button>
+        <Select value={selected?.name ?? ""} onValueChange={setSelectedName}>
+          <SelectTrigger aria-label="本地组合预设" className="max-w-full">
+            <SelectValue
+              placeholder={`本地预设 (${presets.length}/${presetLimit})`}
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {presets.map((preset) => (
+              <SelectItem key={preset.name} value={preset.name}>
+                {preset.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={!selected}
+          onClick={() => selected && onChange(toSleeveDrafts(selected.sleeves))}
+        >
+          加载本地预设
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="plain"
+          disabled={!selected}
+          onClick={() =>
+            persist(
+              presets.filter((preset) => preset.name !== selectedName),
+              "",
+            )
+          }
+        >
+          删除本地预设
+        </Button>
+        {duplicate && (
+          <span className="text-sub text-nc-warn">预设名称已存在</span>
+        )}
+        {presets.length >= presetLimit && (
+          <span className="text-sub text-nc-text-3">
+            已保存 {presetLimit} 套预设
+          </span>
+        )}
+      </div>
+      {presetError && (
+        <p role="alert" className="text-sm text-nc-warn">
+          {presetError}
+        </p>
+      )}
+    </fieldset>
+  );
+}
+
 function RunForm({
-  prefill,
+  request,
   active,
   onViewArchive,
+  onRerun,
 }: {
-  prefill: DiagnoseRunPrefill | null;
+  request: RunFormRequest | null;
   active: boolean;
   onViewArchive: (archiveId: string) => void;
+  onRerun: (archive: DiagnoseArchiveSummary) => void;
 }) {
   const visible = usePanelVisible();
-  const [symbols, setSymbols] = useState(prefillSymbolText(prefill));
-  const [runMode, setRunMode] = useState<RunMode>(prefillRunMode(prefill));
-  const [strategyKey, setStrategyKey] = useState(prefill?.strategyKey ?? "");
-  const [autoStart, setAutoStart] = useState(false);
-  const [start, setStart] = useState(prefill?.start ?? "");
-  const [end, setEnd] = useState(prefill?.end ?? "");
-  const [initial, setInitial] = useState(1_000_000);
-  const [costScenario, setCostScenario] = useState<CostScenario>("fixed");
-  const [includeHoldout, setIncludeHoldout] = useState(false);
-  const [holdoutStart, setHoldoutStart] = useState(defaultHoldoutStart);
-  const [chosen, setChosen] = useState<DiagnoseScenarioId[]>([
-    "strict",
-    "clamp",
-    "cap-0.5-clip",
-  ]);
-  const [confirmed, setConfirmed] = useState(false);
+  const [baseline, setBaseline] = useState(() => runDraft(request));
+  const [draft, setDraft] = useState(baseline);
+  const [seenRequest, setSeenRequest] = useState(request);
+  const [pending, setPending] = useState<RunFormRequest | null>(null);
   const [error, setError] = useState("");
-  const [appliedPrefill, setAppliedPrefill] = useState(prefill);
   const [jobId, setJobId] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState("");
   const submitting = useRef(false);
-  if (prefill !== appliedPrefill) {
-    setAppliedPrefill(prefill);
-    if (prefill) {
-      setSymbols(prefillSymbolText(prefill));
-      setRunMode(prefillRunMode(prefill));
-      setStrategyKey(prefill.strategyKey ?? "");
-      setAutoStart(false);
-      setStart(prefill.start ?? "");
-      setEnd(prefill.end ?? "");
-      setConfirmed(false);
-      setError("");
+  const {
+    symbols,
+    runMode,
+    strategyKey,
+    sleeves,
+    autoStart,
+    start,
+    end,
+    initial,
+    costScenario,
+    includeHoldout,
+    holdoutStart,
+    chosen,
+    confirmed,
+  } = draft;
+  const edit = (fields: Partial<typeof draft>) =>
+    setDraft((current) => ({
+      ...current,
+      ...fields,
+      ...(("runMode" in fields ||
+        "strategyKey" in fields ||
+        "sleeves" in fields) && { archivedStrategies: undefined }),
+    }));
+  const applyRequest = (next: RunFormRequest) => {
+    const nextDraft = runDraft(next);
+    setBaseline(nextDraft);
+    setDraft(nextDraft);
+    setPending(null);
+    setError("");
+  };
+  if (request !== seenRequest) {
+    setSeenRequest(request);
+    if (request) {
+      if (draft !== baseline) setPending(request);
+      else applyRequest(request);
     }
   }
+  const sleeveValidation = validateSleeveDraft(sleeves);
   const utils = api.useUtils();
   const run = api.strategyLabDiagnoseRun.useMutation();
   const result = api.strategyLabDiagnoseResult.useQuery(
@@ -586,29 +924,45 @@ function RunForm({
   }, [completedArchiveId, utils]);
 
   const toggleScenario = (id: DiagnoseScenarioId, next: boolean) =>
-    setChosen((current) =>
-      next
-        ? current.includes(id)
-          ? current
-          : [...current, id]
-        : current.filter((value) => value !== id),
-    );
+    edit({
+      chosen: next ? [...chosen, id] : chosen.filter((value) => value !== id),
+    });
 
   const submit = () => {
     if (submitting.current || awaitingResult) return;
     setError("");
     setCopyStatus("");
+    if (
+      !runMode ||
+      includeHoldout === null ||
+      (includeHoldout && !holdoutStart)
+    ) {
+      setError("请选择诊断模式和时间留出设置，并填写启用时的留出切点。");
+      return;
+    }
+    if (runMode === "custom" && !sleeveValidation.book) return;
+    const archivedRun = draft.archive?.run;
     const parsed = labDiagnoseRunInputSchema.safeParse({
       symbols: splitSymbols(symbols),
-      mode: runMode === "core-4" ? "portfolio" : runMode,
+      mode:
+        runMode === "core-4" || runMode === "custom" ? "portfolio" : runMode,
       ...(runMode === "core-4"
-        ? { bookPreset: "core-4" as const }
-        : { strategyKey }),
+        ? { book: { preset: "core-4" as const } }
+        : runMode === "custom"
+          ? { book: sleeveValidation.book }
+          : { strategyKey }),
+      ...(draft.archivedStrategies
+        ? { strategies: draft.archivedStrategies }
+        : {}),
       includeHoldout,
-      ...(includeHoldout && holdoutStart ? { holdoutStart } : {}),
+      ...(includeHoldout
+        ? { holdoutStart }
+        : archivedRun && !archivedRun.includeHoldout && archivedRun.holdoutStart
+          ? { holdoutStart: archivedRun.holdoutStart }
+          : {}),
       start: autoStart ? "auto" : start,
       end,
-      initial,
+      initial: Number(initial),
       costScenario,
       scenarios: chosen,
       confirmed,
@@ -641,7 +995,10 @@ function RunForm({
     }
     submitting.current = true;
     run.mutate(parsed.data, {
-      onSuccess: (job) => setJobId(job.id),
+      onSuccess: (job) => {
+        setJobId(job.id);
+        setBaseline(draft);
+      },
       onSettled: () => {
         submitting.current = false;
       },
@@ -678,6 +1035,40 @@ function RunForm({
       <p className="text-sm text-nc-text-3">
         所选执行情景共用同一份冻结行情样本。
       </p>
+      {pending && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center gap-2 text-sm text-nc-warn"
+        >
+          <span>当前诊断草稿有未保存修改，确认覆盖？</span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => applyRequest(pending)}
+          >
+            确认覆盖诊断草稿
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="plain"
+            onClick={() => setPending(null)}
+          >
+            保留当前诊断草稿
+          </Button>
+        </div>
+      )}
+      {draft.archive && (
+        <div className="space-y-1 text-sm">
+          <p>复跑参数来自归档 {draft.archive.title}</p>
+          {draft.missing.length > 0 && (
+            <p role="status" className="text-nc-warn">
+              未记录，需重填：{draft.missing.join("、")}
+            </p>
+          )}
+        </div>
+      )}
       <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
         <label className="block text-sm">
           标的（最多 12 个）
@@ -687,7 +1078,7 @@ function RunForm({
             className="mt-1"
             value={symbols}
             placeholder="sz300750, sh600000"
-            onChange={(event) => setSymbols(event.target.value)}
+            onChange={(event) => edit({ symbols: event.target.value })}
           />
         </label>
         <label className="block text-sm">
@@ -695,17 +1086,14 @@ function RunForm({
           <Select
             value={runMode}
             onValueChange={(value) => {
-              if (
-                value === "per-symbol" ||
-                value === "portfolio" ||
-                value === "core-4"
-              ) {
-                setRunMode(value);
-              }
+              const mode = runModeOptions.find(
+                (option) => option.value === value,
+              );
+              if (mode) edit({ runMode: mode.value });
             }}
           >
             <SelectTrigger aria-label="诊断模式" className="mt-1 max-w-full">
-              <SelectValue />
+              <SelectValue placeholder="选择诊断模式" />
             </SelectTrigger>
             <SelectContent>
               {runModeOptions.map((option) => (
@@ -716,18 +1104,20 @@ function RunForm({
             </SelectContent>
           </Select>
         </label>
-        <label className="block text-sm">
-          策略键
-          <Input
-            aria-label="诊断策略键"
-            className="mt-1"
-            value={runMode === "core-4" ? "core-4" : strategyKey}
-            maxLength={100}
-            disabled={runMode === "core-4"}
-            placeholder="例如 research-chan-third"
-            onChange={(event) => setStrategyKey(event.target.value)}
-          />
-        </label>
+        {runMode !== "custom" && (
+          <label className="block text-sm">
+            策略键
+            <Input
+              aria-label="诊断策略键"
+              className="mt-1"
+              value={runMode === "core-4" ? "core-4" : strategyKey}
+              maxLength={100}
+              disabled={runMode === "core-4"}
+              placeholder="例如 research-chan-third"
+              onChange={(event) => edit({ strategyKey: event.target.value })}
+            />
+          </label>
+        )}
         <label className="block text-sm">
           独立本金
           <Input
@@ -738,7 +1128,7 @@ function RunForm({
             step="any"
             className="mt-1"
             value={initial}
-            onChange={(event) => setInitial(Number(event.target.value))}
+            onChange={(event) => edit({ initial: event.target.value })}
           />
         </label>
         <label className="block text-sm">
@@ -749,7 +1139,7 @@ function RunForm({
             className="mt-1"
             value={start}
             disabled={autoStart}
-            onChange={(event) => setStart(event.target.value)}
+            onChange={(event) => edit({ start: event.target.value })}
           />
         </label>
         <label className="block text-sm">
@@ -759,7 +1149,7 @@ function RunForm({
             type="date"
             className="mt-1"
             value={end}
-            onChange={(event) => setEnd(event.target.value)}
+            onChange={(event) => edit({ end: event.target.value })}
           />
         </label>
         <label className="block text-sm">
@@ -772,14 +1162,14 @@ function RunForm({
                 value === "base" ||
                 value === "double-cost"
               )
-                setCostScenario(value);
+                edit({ costScenario: value });
             }}
           >
             <SelectTrigger
               aria-label="诊断成本情景"
               className="mt-1 max-w-full"
             >
-              <SelectValue />
+              <SelectValue placeholder="选择成本情景" />
             </SelectTrigger>
             <SelectContent>
               {costScenarioOptions.map((option) => (
@@ -791,6 +1181,14 @@ function RunForm({
           </Select>
         </label>
       </div>
+
+      {runMode === "custom" && (
+        <CustomBookEditor
+          sleeves={sleeves}
+          validation={sleeveValidation}
+          onChange={(next) => edit({ sleeves: next })}
+        />
+      )}
 
       {runMode === "core-4" && (
         <div className="rounded-lg border border-nc-border-soft bg-nc-inset px-3 py-2 text-sm">
@@ -805,7 +1203,7 @@ function RunForm({
       <label className="flex items-center gap-2 text-sm">
         <Checkbox
           checked={autoStart}
-          onCheckedChange={(value) => setAutoStart(value === true)}
+          onCheckedChange={(value) => edit({ autoStart: value === true })}
         />
         自动起始（auto，使用最早可用数据）
       </label>
@@ -814,8 +1212,10 @@ function RunForm({
         <legend className="px-1 text-sm text-nc-text-3">时间留出验证</legend>
         <label className="flex items-start gap-2 text-sm">
           <Checkbox
-            checked={includeHoldout}
-            onCheckedChange={(value) => setIncludeHoldout(value === true)}
+            checked={includeHoldout ?? "indeterminate"}
+            onCheckedChange={(value) =>
+              edit({ includeHoldout: value === true })
+            }
             className="mt-0.5"
           />
           包含历史留出复核（includeHoldout）
@@ -828,7 +1228,7 @@ function RunForm({
             className="mt-1 max-w-56"
             value={holdoutStart}
             disabled={!includeHoldout}
-            onChange={(event) => setHoldoutStart(event.target.value)}
+            onChange={(event) => edit({ holdoutStart: event.target.value })}
           />
         </label>
         <p className="text-sub text-nc-text-4">
@@ -856,7 +1256,7 @@ function RunForm({
       <label className="flex items-start gap-2 text-sm">
         <Checkbox
           checked={confirmed}
-          onCheckedChange={(value) => setConfirmed(value === true)}
+          onCheckedChange={(value) => edit({ confirmed: value === true })}
           className="mt-0.5"
         />
         确认以诊断专用只读/记录口径运行（不影响常规回测默认）
@@ -865,7 +1265,12 @@ function RunForm({
       <div className="flex flex-wrap items-center gap-2">
         <Button
           type="submit"
-          disabled={run.isPending || awaitingResult || !confirmed}
+          disabled={
+            run.isPending ||
+            awaitingResult ||
+            !confirmed ||
+            (runMode === "custom" && !sleeveValidation.book)
+          }
           aria-busy={run.isPending || (awaitingResult && !result.isError)}
         >
           {run.isPending
@@ -962,6 +1367,7 @@ function RunForm({
           key={`${result.data.detail.summary.id}:${result.data.detail.pagination.page}`}
           detail={result.data.detail}
           active={visible && active}
+          onRerun={onRerun}
         />
       )}
     </form>
@@ -977,27 +1383,39 @@ export function DiagnoseWorkspacePanel({
   archiveId?: string | null;
 }) {
   const visible = usePanelVisible();
-  const linkedArchiveId = visible ? archiveId : null;
   const [tab, setTab] = useState(prefill ? "run" : "archives");
   const [runVisited, setRunVisited] = useState(prefill !== null);
   const [archiveRequest, setArchiveRequest] = useState<ArchiveRequest | null>(
-    linkedArchiveId ? { id: linkedArchiveId } : null,
+    archiveId ? { id: archiveId } : null,
   );
-  const [seenPrefill, setSeenPrefill] = useState(prefill);
-  const [seenArchiveId, setSeenArchiveId] = useState(linkedArchiveId);
-  const prefillChanged = prefill !== seenPrefill;
-  if (prefillChanged) setSeenPrefill(prefill);
-  const archiveChanged = linkedArchiveId !== seenArchiveId;
-  if (archiveChanged) setSeenArchiveId(linkedArchiveId);
-  const openArchive =
-    linkedArchiveId && (archiveChanged || (prefillChanged && !prefill));
-  if (openArchive) setArchiveRequest({ id: linkedArchiveId });
-  if (prefillChanged && prefill) {
+  const [request, setRequest] = useState<RunFormRequest | null>(
+    prefill ? { handoff: prefill } : null,
+  );
+  const prefillKey = prefill ? JSON.stringify(prefill) : null;
+  const [lastHandoffKey, setLastHandoffKey] = useState(prefillKey);
+  const [seenArchiveId, setSeenArchiveId] = useState(archiveId);
+  // Keep-alive can regenerate the same handoff object on return. Only a
+  // different payload is a new request to replace the retained draft.
+  const newHandoff = visible && prefill && prefillKey !== lastHandoffKey;
+  // Returning from a chart keeps the mounted archive page and detail selection.
+  const newArchive = visible && archiveId !== seenArchiveId;
+  if (newArchive) {
+    setSeenArchiveId(archiveId);
+    if (archiveId) setArchiveRequest({ id: archiveId });
+  }
+  if (newHandoff) {
+    setLastHandoffKey(prefillKey);
+    setRequest({ handoff: prefill });
     setTab("run");
     setRunVisited(true);
-  } else if (openArchive) {
+  } else if (newArchive && archiveId) {
     setTab("archives");
   }
+  const openRerun = (archive: DiagnoseArchiveSummary) => {
+    setRequest({ archive });
+    setTab("run");
+    setRunVisited(true);
+  };
   return (
     <section
       aria-label="诊断工作台"
@@ -1028,6 +1446,7 @@ export function DiagnoseWorkspacePanel({
           <ArchiveBrowser
             active={tab === "archives"}
             archiveRequest={archiveRequest}
+            onRerun={openRerun}
           />
         </TabsContent>
         <TabsContent
@@ -1037,8 +1456,9 @@ export function DiagnoseWorkspacePanel({
         >
           {runVisited && (
             <RunForm
-              prefill={prefill}
+              request={request}
               active={tab === "run"}
+              onRerun={openRerun}
               onViewArchive={(id) => {
                 setArchiveRequest({ id });
                 setTab("archives");

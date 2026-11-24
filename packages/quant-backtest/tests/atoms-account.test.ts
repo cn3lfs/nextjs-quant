@@ -177,3 +177,22 @@ it("keeps sub-cent cash exact and accepts quantities below the market tick", () 
     parseDecimal("0.000000011", 18),
   );
 });
+
+it("caps rebalance cash transfers to exact ledger atoms when float64 cash rounds up", () => {
+  const account = new AtomsPortfolioAccount(1_000_000_000);
+  const ledger = account["ledger"];
+  // Subtract 1 atom so float64 `account.cash` rounds back up to 1_000_000_000.
+  ledger.transferCash(-1n);
+  expect(account.cash).toBe(1_000_000_000);
+  expect(() => account.transfer(-account.cash)).toThrow(
+    /Invalid cash transfer/,
+  );
+  const moved = account.transferOutUpToCash(account.cash);
+  expect(moved.atoms).toBe(cashAtoms("999999999.9999"));
+  expect(ledger.cash).toBe(cashAtoms("0.0001") - 1n);
+  // Independent ledger replay using the float64 transfer record must also succeed.
+  const replay = new AtomsPortfolioAccount(1_000_000_000);
+  replay["ledger"].transferCash(-1n);
+  replay.transfer(-moved.amount);
+  expect(replay["ledger"].cash).toBe(ledger.cash);
+});

@@ -181,3 +181,111 @@ export function smokePassed({
     startupState === "ready"
   );
 }
+
+/** @typedef {{ backend: number, worker: number, czscWorker: number, thsdkWorker: number, other: number }} ResidualProcesses */
+/** @typedef {{ code: number | null, signal: string | null, failurePageShown: boolean, restartRecovered: boolean }} LifecycleExit */
+
+/** @param {ResidualProcesses | null | undefined} counts */
+export function noResidualProcesses(counts) {
+  return (
+    counts != null &&
+    counts.backend === 0 &&
+    counts.worker === 0 &&
+    counts.czscWorker === 0 &&
+    counts.thsdkWorker === 0 &&
+    counts.other === 0
+  );
+}
+
+/** @param {{
+ *   exitCode: number | null,
+ *   timedOut: boolean,
+ *   launchFailed: boolean,
+ *   cleaned: boolean,
+ *   windowHidden?: boolean,
+ *   trayAlive?: boolean,
+ *   windowRestored?: boolean,
+ *   unexpectedCleanExit?: LifecycleExit,
+ *   unexpectedSignalExit?: LifecycleExit,
+ *   taskRecovered: boolean,
+ *   gracefulQuit?: boolean,
+ *   residualProcesses: ResidualProcesses | null,
+ * }} result */
+export function lifecycleSmokePassed(result) {
+  const clean = result.unexpectedCleanExit;
+  const killed = result.unexpectedSignalExit;
+  return (
+    result.exitCode === 0 &&
+    result.timedOut === false &&
+    result.launchFailed === false &&
+    result.cleaned === true &&
+    result.windowHidden === true &&
+    result.trayAlive === true &&
+    result.windowRestored === true &&
+    clean?.code === 0 &&
+    clean.signal === null &&
+    clean.failurePageShown === true &&
+    clean.restartRecovered === true &&
+    killed?.code === null &&
+    killed.signal === "SIGTERM" &&
+    killed.failurePageShown === true &&
+    killed.restartRecovered === true &&
+    result.taskRecovered === true &&
+    result.gracefulQuit === true &&
+    noResidualProcesses(result.residualProcesses)
+  );
+}
+
+/** @param {{
+ *   status: number,
+ *   code: string | undefined,
+ *   message: string | undefined,
+ * }} error */
+export function isThsdkDisabledRejection(error) {
+  return (
+    error.status === 500 &&
+    error.code === "INTERNAL_SERVER_ERROR" &&
+    error.message === "同花顺数据源未启用"
+  );
+}
+
+/** @param {{
+ *   failedAt: string | null,
+ *   readOnlyWithoutDatabase: boolean,
+ *   healthReady: boolean,
+ *   archiveRead: boolean,
+ *   jobStatus: string | null,
+ *   boundaryState: string | null,
+ *   schemaVersion: number | null,
+ *   czsc: { apiVersion: number, dllHash: string, bundledHashMatches: boolean, workerObserved: boolean } | null,
+ *   thsdk: { enabled: boolean, state: string, rejected: boolean, workerCount: number, sessionCreated: boolean } | null,
+ *   gracefulShutdown: boolean,
+ *   residualProcesses: ResidualProcesses | null,
+ *   cleaned: boolean,
+ * }} result */
+export function diagnoseSmokePassed(result) {
+  const { czsc, thsdk } = result;
+  return (
+    result.failedAt === null &&
+    result.readOnlyWithoutDatabase === true &&
+    result.healthReady === true &&
+    result.archiveRead === true &&
+    result.jobStatus === "completed" &&
+    result.boundaryState === "zero-signal" &&
+    result.schemaVersion === 23 &&
+    czsc?.apiVersion === 22 &&
+    typeof czsc.dllHash === "string" &&
+    czsc.dllHash.length === 64 &&
+    /^[0-9a-f]{64}$/i.test(czsc.dllHash) &&
+    czsc.bundledHashMatches === true &&
+    czsc.workerObserved === true &&
+    thsdk?.enabled === false &&
+    thsdk.state === "disabled" &&
+    thsdk.rejected === true &&
+    thsdk.workerCount === 0 &&
+    thsdk.sessionCreated === false &&
+    result.gracefulShutdown === true &&
+    result.cleaned === true &&
+    noResidualProcesses(result.residualProcesses)
+  );
+}

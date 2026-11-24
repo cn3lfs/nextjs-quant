@@ -10,7 +10,10 @@ import {
   sep,
 } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import type { UniversePoolDisclosure } from "./lib/backtest-diagnose/types";
+import type {
+  BookControl,
+  UniversePoolDisclosure,
+} from "./lib/backtest-diagnose/types";
 import type { DiagnoseBookKey } from "./lib/backtest-diagnose/strategy-specs";
 import { coreBookCapacity } from "../src/server/research/diagnose/sleeve-attribution";
 import {
@@ -39,6 +42,8 @@ const capacityPolicies = ["clip", "reject"] as const;
 
 type Args = {
   book?: DiagnoseBookKey;
+  bookControl: BookControl;
+  family?: string;
   holdoutStart?: string;
   plan: boolean;
   symbols: string[];
@@ -63,9 +68,12 @@ type Args = {
 function usage() {
   return [
     "用法：pnpm exec tsx scripts/backtest-diagnose.ts --tdx-root <绝对路径> [选项]",
-    "  --pool        core-5 | core-12 | chan-core-7（与 --symbols 互斥）",
+    "  --pool        core-5 | core-12 | chan-core-7 | core-30-v1（与 --symbols 互斥）",
     "  --symbols     逗号分隔标的（默认 sh600519,sz000001,sh601318,sz000333,sz300750）",
     "  --strategies  信号策略（默认 dual-ma,turtle,rsi2,double-breakout,formula）",
+    "  --family      ch14-exits 或逗号分隔的同族策略键；默认 portfolio，联合计算历史留出与 CSCV",
+    "  --book-control none | equal-month-end | risk-parity-60（默认 none，现金划转对照用于 --book core-4）",
+    "  --strategies  新增 research-chan-hold-cash-zd-atr、research-chan-ch04、research-chan-ch07、research-chan-ch12",
     "  --book core-4  四个等权分仓共享同日同票成交额的 0.5%（clip），仅 portfolio 模式，与 --strategies 互斥。组合默认单独运行，可用 --controls 添加对照",
     "  --holdout      启用历史留出复核，默认切点 2023-01-01",
     "  --holdout-start YYYY-MM-DD  启用历史留出复核并指定切点",
@@ -124,6 +132,8 @@ export function parseArgs(argv: readonly string[]): Args {
         "--symbols",
         "--strategies",
         "--book",
+        "--book-control",
+        "--family",
         "--holdout-start",
         "--controls",
         "--start",
@@ -164,15 +174,31 @@ export function parseArgs(argv: readonly string[]): Args {
     throw new Error("--book 须为 core-4");
   if (book && values.has("--strategies"))
     throw new Error("--book 与 --strategies 互斥");
+  const bookControl = values.get("--book-control") ?? "none";
+  if (
+    bookControl !== "none" &&
+    bookControl !== "equal-month-end" &&
+    bookControl !== "risk-parity-60"
+  )
+    throw new Error("--book-control 取值无效");
+  if (!book && bookControl !== "none")
+    throw new Error("--book-control 需要 --book");
+  const family = values.get("--family");
+  if (
+    family !== undefined &&
+    (!family.trim() || book || values.has("--strategies"))
+  )
+    throw new Error("--family 需要同族名称，且与 --book、--strategies 互斥");
   const holdoutStart =
-    values.get("--holdout-start") ?? (holdout ? "2023-01-01" : undefined);
+    values.get("--holdout-start") ??
+    (holdout || family ? "2023-01-01" : undefined);
   if (holdoutStart !== undefined) {
     parseDate(holdoutStart, "--holdout-start");
     if (new Date(holdoutStart).toISOString().slice(0, 10) !== holdoutStart)
       throw new Error("--holdout-start 日期无效");
   }
   const mode = (values.get("--mode") ??
-    (book ? "portfolio" : "both")) as Args["mode"];
+    (book || family ? "portfolio" : "both")) as Args["mode"];
   if (book && mode !== "portfolio")
     throw new Error("--book 仅支持 portfolio 模式");
   if (!["per-symbol", "portfolio", "both"].includes(mode))
@@ -224,6 +250,9 @@ export function parseArgs(argv: readonly string[]): Args {
       label: preset.label,
       symbolCount: preset.symbols.length,
       survivorBiasDisclosure: `${preset.survivorBiasDisclosure} 首次披露财报版本仍有缺口。`,
+      ...(preset.id === "core-30-v1" && {
+        overlapWithCore12: preset.overlapWithCore12,
+      }),
       members: Object.entries(preset.metadata).map(([symbol, metadata]) => ({
         symbol,
         ...metadata,
@@ -238,14 +267,17 @@ export function parseArgs(argv: readonly string[]): Args {
     pool,
     book,
     holdoutStart,
-    strategies: book
-      ? []
-      : parseList(
-          values.get("--strategies") ?? defaultStrategies.join(","),
-          "--strategies",
-        ),
+    bookControl,
+    family,
+    strategies:
+      book || family
+        ? []
+        : parseList(
+            values.get("--strategies") ?? defaultStrategies.join(","),
+            "--strategies",
+          ),
     controls:
-      book && !values.has("--controls")
+      (book || family) && !values.has("--controls")
         ? []
         : parseList(values.get("--controls") ?? "hold", "--controls"),
     start,
@@ -341,12 +373,15 @@ async function main() {
       await import("./lib/backtest-diagnose/strategy-specs");
     const cells = planDiagnoseCells({
       book: args.book,
+      family: args.family,
       symbols: args.symbols,
       strategies: args.strategies,
       controls: args.controls,
       mode: args.mode,
     });
     const perSymbol = cells.filter((cell) => cell.mode === "per-symbol").length;
+    if (args.family) console.log(`联合留出家族：${args.family}`);
+    if (args.book) console.log(`分配政策：${args.bookControl}`);
     if (args.holdoutStart) console.log(`历史留出切点：${args.holdoutStart}`);
     console.log(
       `诊断单元共 ${cells.length} 个（per-symbol ${perSymbol} / portfolio ${cells.length - perSymbol}）`,
@@ -402,6 +437,8 @@ async function main() {
   const { cells, reportPath } = await runDiagnose({
     book: args.book,
     holdoutStart: args.holdoutStart,
+    family: args.family,
+    bookControl: args.bookControl,
     symbols: args.symbols,
     pool: args.pool,
     strategies: args.strategies,
