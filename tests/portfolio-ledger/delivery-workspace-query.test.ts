@@ -91,7 +91,7 @@ it("traverses ten thousand batches without gaps or duplicates", () => {
       (_, i) => `bulk-${String(9999 - i).padStart(5, "0")}`,
     ),
   );
-  expect(db.pragma("user_version", { simple: true })).toBe(23);
+  expect(db.pragma("user_version", { simple: true })).toBe(24);
   for (const sql of warmStatements) {
     const plan = db.prepare("EXPLAIN QUERY PLAN " + sql).all() as {
       detail: string;
@@ -417,7 +417,7 @@ it.each(["DELETE", "WAL"])(
           "concurrent",
         ]);
       }
-      expect(reader.pragma("user_version", { simple: true })).toBe(23);
+      expect(reader.pragma("user_version", { simple: true })).toBe(24);
     } finally {
       writer.close();
       reader.close();

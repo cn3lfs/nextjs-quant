@@ -3,6 +3,11 @@ import {
   type MaBaselineWork,
 } from "../backtest/ma-baseline-work";
 import { recordResearchUsage } from "../research/research-usage";
+import {
+  runAlphaEvaluation,
+  runAlphaTopNBacktest,
+  type AlphaWork,
+} from "../research/alpha";
 import { parentPort } from "node:worker_threads";
 import { executePaperTick, type PaperWork } from "../paper/service";
 import {
@@ -149,6 +154,7 @@ export type Work =
   | MaBaselineWork
   | FormulaWork
   | FormulaShardWork
+  | AlphaWork
   | FactorWork
   | { type: "scan"; root: string }
   | { type: "snapshot"; root: string; symbol: string; period: Period };
@@ -242,6 +248,60 @@ async function main(work: Work & { attemptId?: string; jobId?: string }) {
           shardProgress: { processed, errors, excluded },
         }),
     );
+  if (work.type === "factor-eval" && "mode" in work) {
+    if (work.mode === "alpha-backtest") {
+      const replay = await runAlphaTopNBacktest(work.payload);
+      const { snapshot } = work.payload;
+      const symbols = [
+        ...new Set(
+          snapshot.scheduledTargets.flatMap((r) => Object.keys(r.targets)),
+        ),
+      ];
+      recordResearchUsage(
+        () => ({
+          kind: "backtest",
+          symbols: symbols.length ? symbols : ["*"],
+          universeSize: symbols.length,
+          range: { start: snapshot.start, end: snapshot.end },
+          candidateCount: 1,
+          config: {
+            kind: work.mode,
+            snapshotHash: snapshot.snapshotHash,
+            initial: work.payload.initial,
+            costScenario: work.payload.costScenario,
+            riskPolicy: work.payload.riskPolicy,
+          },
+        }),
+        work.attemptId,
+      );
+      return replay;
+    }
+    const result = await runAlphaEvaluation(work.payload, (progress, phase) =>
+      parentPort?.postMessage({ progress, phase }),
+    );
+    recordResearchUsage(
+      () => ({
+        kind: "factor-eval",
+        symbols: ["*"],
+        universeSize: result.metadata.universe,
+        range: {
+          start: result.targetSnapshot.start,
+          end: result.targetSnapshot.end,
+        },
+        candidateCount: new Set(
+          result.comparisons.map((v) => v.mode + "/" + v.method),
+        ).size,
+        config: {
+          kind: work.mode,
+          panelId: result.metadata.panelId,
+          input: result.input,
+          config: result.config,
+        },
+      }),
+      work.attemptId,
+    );
+    return result;
+  }
   if (work.type === "factor-eval")
     return evaluateFactorWork(work, (progress, phase, workProgress) =>
       parentPort?.postMessage({ progress, phase, workProgress }),

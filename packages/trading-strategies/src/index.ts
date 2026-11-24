@@ -33,6 +33,7 @@ export * from "./classics/index.js";
 export * from "./portfolio-classics/index.js";
 
 export * from "./portfolio-rps/index.js";
+export * from "./etf-rotation/index.js";
 
 export * from "./portfolio-risk-parity.js";
 export * from "./native-study.js";

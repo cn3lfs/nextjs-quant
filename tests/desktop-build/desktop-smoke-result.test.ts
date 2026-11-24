@@ -458,7 +458,7 @@ describe("diagnose smoke pass gate", () => {
     archiveRead: true,
     jobStatus: "completed",
     boundaryState: "zero-signal",
-    schemaVersion: 23,
+    schemaVersion: 24,
     czsc: {
       apiVersion: 22,
       dllHash: "ab".repeat(32),

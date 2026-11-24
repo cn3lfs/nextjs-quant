@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { checkFormula } from "./tdx-formula-check.js";
+import { compileFormula, type CompiledFormula } from "./tdx-formula.js";
 import { FormulaError, parseFormula } from "./tdx-formula-syntax.js";
 export const formulaSchema = z.object({
   id: z.string().uuid().optional(),
@@ -29,4 +30,15 @@ export function validateScreenFormula(input: unknown): ScreeningFormula {
       },
     ]);
   return formula;
+}
+
+export function compileScreenFormula(input: unknown): {
+  formula: ScreeningFormula;
+  compiled: CompiledFormula;
+} {
+  const formula = validateScreenFormula(input);
+  return {
+    formula,
+    compiled: compileFormula(formula.source, formula.parameters),
+  };
 }

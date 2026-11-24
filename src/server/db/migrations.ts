@@ -311,6 +311,38 @@ export const migrations = [
      SELECT id,'cash_flows' FROM delivery_batches b WHERE
        json_extract(payload,'$.statistics.cashFlows') IS NOT (SELECT count(*) FROM cash_flows_claims WHERE batch_id=b.id);`,
   `ALTER TABLE sim_fills ADD COLUMN transfer_atoms INTEGER NOT NULL DEFAULT 0 CHECK(transfer_atoms >= 0);`,
+  `CREATE TABLE factor_composites (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    weighting_method TEXT NOT NULL CHECK(weighting_method IN ('equal','icir','custom')),
+    neutralization_mode TEXT NOT NULL CHECK(neutralization_mode IN ('none','industry','size','industry_size')),
+    winsorize_method TEXT NOT NULL CHECK(winsorize_method IN ('none','mad','quantile')),
+    config_json TEXT NOT NULL CHECK(json_valid(config_json)),
+    latest_eval_summary_json TEXT CHECK(json_valid(latest_eval_summary_json)),
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  ) STRICT;
+  CREATE INDEX factor_composites_updated ON factor_composites(updated_at DESC, id DESC);
+  CREATE TABLE rebalance_plans (
+    id TEXT PRIMARY KEY,
+    account_scope TEXT NOT NULL CHECK(account_scope IN ('real','paper')),
+    account_id TEXT NOT NULL,
+    source_kind TEXT NOT NULL CHECK(source_kind IN ('alpha','etf_rotation','studio','manual')),
+    source_ref_id TEXT NOT NULL,
+    as_of_date TEXT NOT NULL,
+    execute_date TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ('draft','confirmed','rechecked','expired','cancelled')),
+    orders_json TEXT NOT NULL CHECK(json_valid(orders_json)),
+    risk_summary_json TEXT NOT NULL CHECK(json_valid(risk_summary_json)),
+    confirmed_at INTEGER,
+    rechecked_at INTEGER,
+    recheck_result_json TEXT CHECK(json_valid(recheck_result_json)),
+    expires_at INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  ) STRICT;
+  CREATE INDEX rebalance_plans_status_date ON rebalance_plans(account_scope, account_id, execute_date DESC, created_at DESC, id DESC);`,
 ];
 export function migrate(connection: Database.Database) {
   const version = connection.pragma("user_version", { simple: true }) as number;

@@ -9,6 +9,7 @@ import type {
   TdxLocalPeriod as Period,
   TdxLocalSecurity as Security,
   TdxLocalSnapshot as Snapshot,
+  LocalQuoteOptions,
 } from "./types.js";
 import {
   validateLocalDate,
@@ -271,7 +272,10 @@ export function repairNote({ fixed, dropped }: ParseRepairs) {
   return `本地数据自动纠错：${parts.join("，")}；源文件未修改`;
 }
 
-export async function scan(root: string): Promise<Coverage> {
+export async function scan(
+  root: string,
+  options: { includeFunds?: boolean } = {},
+): Promise<Coverage> {
   const counts: Record<string, number> = {},
     securities: Security[] = [];
   for (const market of ["sh", "sz", "bj"])
@@ -299,7 +303,16 @@ export async function scan(root: string): Promise<Coverage> {
           continue;
         counts[`${market}/${period}`]!++;
         const symbol = file.split(".")[0]!.toLowerCase();
-        if (!isAStock(symbol)) continue;
+        if (!isAStock(symbol)) {
+          const extension = period === "day" ? ".day" : ".lc5";
+          if (
+            options.includeFunds !== true ||
+            !isLocalFund(symbol) ||
+            symbol.slice(0, 2) !== market ||
+            file.toLowerCase() !== symbol + extension
+          )
+            continue;
+        }
         const info = await stat(join(dir, file));
         securities.push({
           symbol,
@@ -319,14 +332,19 @@ export function quoteFile(
   directory: string,
   symbol: string,
   period: Period,
-  chartFunds?: boolean,
+  options?: boolean | LocalQuoteOptions,
 ) {
   validateLocalSymbol(symbol);
+  if (period !== "day" && period !== "5m") throw new Error("行情周期非法");
+  const chartFunds =
+    options === true ||
+    (typeof options === "object" &&
+      (options?.allowFunds === true || options?.chartFunds === true));
   const fund = isLocalFund(symbol);
   if (!isAStock(symbol) && !isMarketIndex(symbol) && !(fund && chartFunds))
     throw new Error("仅支持A股与沪深指数行情；场内基金须使用图表读取入口");
   return join(
-    directory,
+    resolveTdxRoot(directory),
     "vipdoc",
     symbol.slice(0, 2),
     period === "day" ? "lday" : "fzline",
@@ -361,10 +379,10 @@ export async function readSnapshot(
   root: string,
   symbol: string,
   period: Period,
-  options: { chartFunds?: boolean } = {},
+  options: LocalQuoteOptions = {},
 ): Promise<Snapshot> {
   const directory = resolveTdxRoot(root);
-  const file = quoteFile(directory, symbol, period, options.chartFunds);
+  const file = quoteFile(directory, symbol, period, options);
   for (let attempt = 0; attempt < 3; attempt++) {
     const handle = await open(file, "r");
     let buffer: Buffer;
@@ -416,18 +434,20 @@ export async function readTailSnapshot(
   symbol: string,
   period: Period,
   count: number,
+  options: LocalQuoteOptions = {},
 ): Promise<Snapshot> {
   validateLocalSymbol(symbol);
-  if (!isAStock(symbol)) throw new Error("仅支持 A 股");
+  if (
+    !isAStock(symbol) &&
+    !(
+      isLocalFund(symbol) &&
+      (options.allowFunds === true || options.chartFunds === true)
+    )
+  )
+    throw new Error("仅支持 A 股");
   if (!Number.isInteger(count) || count < 2 || count > 10000)
     throw new Error("行情窗口长度非法");
-  const file = join(
-    resolveTdxRoot(root),
-    "vipdoc",
-    symbol.slice(0, 2),
-    period === "day" ? "lday" : "fzline",
-    `${symbol}.${period === "day" ? "day" : "lc5"}`,
-  );
+  const file = quoteFile(resolveTdxRoot(root), symbol, period, options);
   const cacheKey = `${file}:${period}:none:tail-v1:${count}:${new Date().getFullYear()}`;
   const cached = tailCache.get(cacheKey);
   if (cached) {
@@ -479,7 +499,13 @@ export async function readTailSnapshot(
       )
         continue;
       const repairs = { fixed: 0, dropped: 0 };
-      const bars = parseBars(buffer, period, undefined, 2, repairs),
+      const bars = parseBars(
+          buffer,
+          period,
+          undefined,
+          isLocalFund(symbol) ? 3 : 2,
+          repairs,
+        ),
         hash = createHash("sha256")
           .update(`tail-v1:${symbol}:${period}:none:${count}:`)
           .update(buffer)

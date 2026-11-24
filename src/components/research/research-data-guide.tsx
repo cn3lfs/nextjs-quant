@@ -28,7 +28,10 @@ export default function ResearchDataGuide() {
             查看报告、订单诊断、历史记录和导出。
           </li>
           <li>
-            <Link className="text-primary underline" href="/lab/analysis">
+            <Link
+              className="text-primary underline"
+              href="/lab/analysis?tab=evidence"
+            >
               证据分析
             </Link>
             ：基于已加载行情提出研究问题，配置相应模型后主动生成通用研究报告。

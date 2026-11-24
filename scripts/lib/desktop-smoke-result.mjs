@@ -272,7 +272,7 @@ export function diagnoseSmokePassed(result) {
     result.archiveRead === true &&
     result.jobStatus === "completed" &&
     result.boundaryState === "zero-signal" &&
-    result.schemaVersion === 23 &&
+    result.schemaVersion === 24 &&
     czsc?.apiVersion === 22 &&
     typeof czsc.dllHash === "string" &&
     czsc.dllHash.length === 64 &&

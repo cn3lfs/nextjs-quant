@@ -1,10 +1,7 @@
 import { z } from "zod";
 import { completedBarFilter } from "~/lib/completed-bars";
-import {
-  evaluateFormula,
-  FormulaError,
-} from "trading-strategies/formula/tdx-formula";
-import { validateScreenFormula } from "trading-strategies/formula/formula-screen";
+import { FormulaError } from "trading-strategies/formula/tdx-formula";
+import { compileScreenFormula } from "trading-strategies/formula/formula-screen";
 import {
   evaluateFactor,
   type FactorSeries,
@@ -20,6 +17,8 @@ import {
   adjustmentFactors,
   applyAdjustmentByDate,
   readGbbq,
+  readLocalTradingDates,
+  readSnapshot,
 } from "tstdx/local";
 
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -58,7 +57,7 @@ export async function evaluateFactorWork(
   progress?: (n: number, phase: string, counts: WorkProgress) => void,
 ) {
   const input = factorEvaluationSchema.parse(work);
-  validateScreenFormula({
+  const { compiled } = compileScreenFormula({
     name: "因子",
     source: input.source,
     parameters: input.parameters,
@@ -82,6 +81,42 @@ export async function evaluateFactorWork(
     days.set(key, key);
     return key;
   };
+  // Union all available market index sessions so one index missing a trading day
+  // cannot collapse t+1 into t+2 when another index recorded that session.
+  const indexSymbols: string[] = [];
+  const indexSessionSet = new Set<string>();
+  const calendarWarnings: string[] = [];
+  for (const symbol of ["sh000001", "sh000300", "sz399001"]) {
+    try {
+      const dates =
+        symbol === "sh000001"
+          ? (await readLocalTradingDates(work.root)).days
+          : (await readSnapshot(work.root, symbol, "day")).bars.map(
+              (b) => b.date,
+            );
+      const sessions = dates.filter(
+        (date) => date >= input.start && completed(date),
+      );
+      if (sessions[0] && sessions[0] <= input.end) {
+        indexSymbols.push(symbol);
+        for (const d of sessions) indexSessionSet.add(d);
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT")
+        calendarWarnings.push(
+          `无法读取 ${symbol} 指数日历：${error instanceof Error ? error.message : String(error)}。`,
+        );
+    }
+  }
+  const indexCalendar =
+    indexSymbols.length > 0
+      ? { symbol: indexSymbols.join("+"), dates: [...indexSessionSet].sort() }
+      : undefined;
+  const calendarSource = indexCalendar ? "index" : "security-union";
+  if (!indexCalendar)
+    calendarWarnings.push(
+      "评估区间内缺少可用指数日历，使用个股日期并集；全市场缺档日可能被跳过，前向收益的交易日间隔可能缩短。",
+    );
   const PREFETCH = 8;
   const pending: Promise<
     | Awaited<
@@ -130,8 +165,7 @@ export async function evaluateFactorWork(
     );
     let factor: (number | null)[];
     try {
-      factor = evaluateFormula(input.source, bars, input.parameters).outputs[0]!
-        .values;
+      factor = compiled.evaluate(bars).outputs[0]!.values;
     } catch (e) {
       if (e instanceof FormulaError)
         throw new Error(`${security.symbol}：${e.message}`);
@@ -142,11 +176,12 @@ export async function evaluateFactorWork(
     if (first < 0) continue;
     let last = bars.findIndex((b) => b.date > input.end);
     last = last < 0 ? bars.length : Math.min(bars.length, last + maxHorizon);
+    const window = bars.slice(first, last);
     series.push({
       symbol: security.symbol,
-      dates: bars.slice(first, last).map((b) => intern(b.date)),
+      dates: window.map((b) => intern(b.date)),
       factor: factor.slice(first, last),
-      close: bars.slice(first, last).map((b) => b.close),
+      close: window.map((b) => (b.volume > 0 ? b.close : null)),
     });
     if ((index + 1) % 50 === 0 || index + 1 === securities.length)
       progress?.(
@@ -174,7 +209,10 @@ export async function evaluateFactorWork(
       0,
     ),
   );
-  const result = evaluateFactor(series, input);
+  const result = evaluateFactor(series, {
+    ...input,
+    calendar: indexCalendar?.dates ?? [...days.keys()].sort(),
+  });
   // Each evaluation is a research trial (multiple-testing ledger).
   recordResearchUsage(
     () => ({
@@ -190,6 +228,9 @@ export async function evaluateFactorWork(
   return {
     ...result,
     input,
+    calendarSource,
+    calendarIndex: indexCalendar?.symbol ?? null,
+    calendarWarnings,
     universe: securities.length,
     evaluated: series.length,
     unadjusted,
@@ -197,7 +238,10 @@ export async function evaluateFactorWork(
     errors: errors.slice(0, 50),
     errorCount: errors.length,
     elapsedMs: Math.round(performance.now() - started),
-    basis:
-      "收盘价后复权；因子取当日收盘后的公式输出，前向收益为 t 日收盘至 t+h 日收盘，未扣成本、未考虑停牌与涨跌停成交限制，非可成交收益。分位收益已减当日横截面均值（alphalens 默认）。证券池为当前本地日线文件，含幸存者偏差。",
+    basis: [
+      "收盘价后复权；因子取当日收盘后的公式输出，前向收益为 t 日收盘至 t+h 日收盘，目标日停牌或缺价记为缺失；未扣成本、未模拟成交限制，非可成交收益。分位收益已减当日横截面均值（alphalens 默认）。证券池为当前本地日线文件，含幸存者偏差。",
+      indexCalendar ? `交易日历采用本地指数 ${indexCalendar.symbol}。` : "",
+      ...calendarWarnings,
+    ].join(""),
   };
 }

@@ -28,7 +28,7 @@ const job = {
 
 it("从任务摘要直接读取诊断证据与归档链接，无需磁盘归档", () => {
   put("job", id, job);
-  expect(sqlite().pragma("user_version", { simple: true })).toBe(23);
+  expect(sqlite().pragma("user_version", { simple: true })).toBe(24);
   expect(taskState(id)).toMatchObject({
     localEvidence: true,
     sourceLink: { href: "/lab/backtest" },

@@ -6,11 +6,13 @@ import {
   type StrategyReentryState,
 } from "trading-strategies";
 import { type PortfolioAction } from "../portfolio-account.js";
+import { wilderAtr14Series } from "quant-execution";
 import { portfolioObservationDay } from "../portfolio-clock.js";
 import { AtomsPortfolioAccount } from "./atoms-account.js";
 import {
   type PortfolioInstrument,
   type PortfolioRequest,
+  type PortfolioRiskAudit,
   type PortfolioOrder,
   type PortfolioFill,
   type PositionControl,
@@ -143,7 +145,13 @@ export function createPortfolioState(
     active?.delete(order);
     if (!active?.size) pendingOrders.delete(key);
   };
-  const rejections: { orderId: number; date: string; reason: string }[] = [];
+  const rejections: {
+    orderId: number;
+    date: string;
+    reason: string;
+    parentOrderId?: number;
+    sliceEnd?: string;
+  }[] = [];
   const transfers: { date: string; sleeve: string; amount: number }[] = [];
   const corporateActions: ({
     date: string;
@@ -195,6 +203,51 @@ export function createPortfolioState(
         : Date.parse(d) <= Date.parse(request.end)),
   );
   if (!calendar.length) throw new Error("Empty event calendar");
+  const flowsAt = new Map<string, Map<string, number>>();
+  for (const { date, sleeve, amount } of request.externalCashFlows ?? []) {
+    if (
+      !accounts.has(sleeve) ||
+      !Number.isFinite(amount) ||
+      !calendar.includes(date)
+    )
+      throw new Error("Invalid external cash flow date, sleeve or amount");
+    const flows = flowsAt.get(date) ?? new Map<string, number>();
+    flows.set(sleeve, (flows.get(sleeve) ?? 0) + amount);
+    flowsAt.set(date, flows);
+  }
+  const riskAudit: PortfolioRiskAudit | undefined = request.riskPolicy
+    ? {
+        daily: [],
+        missingCloses: [],
+        blocked: 0,
+        reduced: 0,
+        entries: [],
+        reductions: [],
+      }
+    : undefined;
+  const atrBySymbol = new Map<string, ReturnType<typeof wilderAtr14Series>>();
+  const previousRiskSession = new Map<string, string>();
+  if (riskAudit) {
+    let lastDay: string | undefined;
+    for (const time of calendar) {
+      const day = observationDay(time);
+      if (day !== lastDay && lastDay) previousRiskSession.set(day, lastDay);
+      lastDay = day;
+    }
+  }
+  const riskAtrAt = (
+    source: PreparedInstrument,
+    signalIndex: number | undefined,
+  ) => {
+    if (signalIndex === undefined) return null;
+    const { symbol, signalBars } = source.instrument;
+    let values = atrBySymbol.get(symbol);
+    if (!values) {
+      values = wilderAtr14Series(signalBars);
+      atrBySymbol.set(symbol, values);
+    }
+    return values[signalIndex] ?? null;
+  };
   const actionsAt = new Map<
     string,
     { instrument: PortfolioInstrument; action: PortfolioAction }[]
@@ -245,7 +298,15 @@ export function createPortfolioState(
   };
   const reject = (order: PortfolioOrder, date: string, reason: string) => {
     order.reason = reason;
-    rejections.push({ orderId: order.id, date, reason });
+    rejections.push({
+      orderId: order.id,
+      date,
+      reason,
+      ...(order.sliceEnd && {
+        sliceEnd: order.sliceEnd,
+        parentOrderId: order.parentOrderId,
+      }),
+    });
     if (order.side === "buy") {
       order.status = "rejected";
       removePending(order);
@@ -298,6 +359,11 @@ export function createPortfolioState(
   };
   return {
     request,
+    riskAudit,
+    previousRiskSession,
+    riskAtrAt,
+    flowsAt,
+    units: initial,
     market,
     initial,
     sleeves,

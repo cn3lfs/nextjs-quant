@@ -190,7 +190,7 @@ function taskSourceLink(
   )
     href = "/intel";
   else if (type === "research" && (method === "general" || method === "sepa"))
-    href = "/lab/analysis";
+    href = "/lab/analysis?tab=evidence";
   return href ? { href, label: "前往来源页重新配置" } : undefined;
 }
 

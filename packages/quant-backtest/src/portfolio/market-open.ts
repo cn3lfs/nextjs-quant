@@ -1,3 +1,4 @@
+import { transferStrategyBook } from "trading-strategies";
 import { actionPrice } from "../portfolio-account.js";
 import { keyFor } from "./preparation.js";
 import { type PortfolioState } from "./state.js";
@@ -68,16 +69,51 @@ export function matchOpeningOrders(
     pendingOrders,
   } = state;
   state.dailyCapacityUsed.clear();
+  const flows = state.flowsAt.get(date);
   for (const account of accounts.values())
     for (const [key, p] of account.positions) {
       const symbol = identities.get(key)!.symbol,
         source = instruments.get(symbol)!;
       const i = source.indices.get(date);
       if (i !== undefined) p.mark = source.instrument.bars[i]!.open;
+      else if (flows)
+        throw new Error("Missing opening valuation for external cash flow");
     }
+  if (flows) {
+    const equity = [...accounts.values()].reduce(
+      (sum, account) => sum + account.equity,
+      0,
+    );
+    const totalFlow = [...flows.values()].reduce(
+      (sum, amount) => sum + amount,
+      0,
+    );
+    const unitsAfter = state.units * ((equity + totalFlow) / equity);
+    if (
+      !(equity > 0 && equity + totalFlow > 0) ||
+      !Number.isFinite(unitsAfter) ||
+      unitsAfter <= 0 ||
+      [...flows].some(
+        ([sleeve, amount]) => accounts.get(sleeve)!.cash + amount < 0,
+      )
+    )
+      throw new Error("External flow exceeds cash or exhausts portfolio units");
+    // Issue and redeem units at the same pre-flow opening NAV across sleeves.
+    state.units = unitsAfter;
+    for (const [sleeve, amount] of flows) {
+      accounts.get(sleeve)!.transfer(amount);
+      for (const strategy of state.strategies) {
+        if (strategy.sleeve !== sleeve) continue;
+        const book = state.bookStates.get(strategy.id);
+        if (book)
+          state.bookStates.set(strategy.id, transferStrategyBook(book, amount));
+      }
+    }
+  }
   for (const [sleeve, account] of accounts)
     openingEquities.set(sleeve, account.equity);
   const accountLimits =
+    request.riskPolicy !== undefined ||
     request.accountMaxUniqueSymbols !== undefined ||
     request.accountMaxSymbolWeight !== undefined;
   const pending = [...pendingOrders.values()]
@@ -113,5 +149,31 @@ export function matchOpeningOrders(
           : 0) ||
         a.id - b.id,
     );
-  pending.forEach((o) => execute(o, date));
+  const reducedSymbols = new Set(
+    pending.filter((o) => o.drawdownReduction).map((o) => o.symbol),
+  );
+  const activePending = pending.filter((order) => {
+    if (
+      !order.drawdownReduction &&
+      order.side === "buy" &&
+      reducedSymbols.has(order.symbol)
+    ) {
+      state.reject(order, date, "回撤减仓同日禁止反手买入");
+      return false;
+    }
+    return true;
+  });
+  if (!request.executionSlices && !request.executionQuote) {
+    activePending.forEach((o) => execute(o, date));
+    return;
+  }
+  // Account reductions are due at the legal open, before delayed strategy windows.
+  const windowOrders: typeof activePending = [];
+  for (const order of activePending) {
+    if (order.drawdownReduction) execute(order, date);
+    else windowOrders.push(order);
+  }
+  if (request.executionSlices)
+    execute.executeSlices(windowOrders, date, request.executionSlices);
+  else windowOrders.forEach((o) => execute(o, date));
 }

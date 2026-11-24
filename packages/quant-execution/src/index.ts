@@ -31,6 +31,8 @@ export type {
   TimeInForce,
 } from "./types.js";
 export { lotAvailable } from "./settlement.js";
+export * from "./instrument-rules.js";
+export * from "./portfolio-risk.js";
 export {
   actionPrice,
   type PortfolioAction,

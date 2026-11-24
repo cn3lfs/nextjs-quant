@@ -27,6 +27,31 @@ export type FormulaRpsPoint = {
 };
 const finite = (n: number): IndicatorValue => (Number.isFinite(n) ? n : null);
 
+export type CompiledFormula = {
+  readonly outputCount: number;
+  evaluate(
+    bars: readonly Bar[],
+    rps?: readonly FormulaRpsPoint[],
+  ): { outputs: { name: string; line: number; values: Series }[] };
+};
+
+/** Parse and statically validate a TDX formula once (preserving future-function
+ * hard rejection and causal checks) for batch execution across thousands of securities. */
+export function compileFormula(
+  source: string,
+  parameters: Readonly<Record<string, number>> = {},
+): CompiledFormula {
+  const program = parseFormula(source);
+  const params = checkFormula(program, parameters);
+  const outputCount = program.filter((s) => s.output).length;
+  return {
+    outputCount,
+    evaluate(bars: readonly Bar[], rps: readonly FormulaRpsPoint[] = []) {
+      return runCompiledFormula(program, params, bars, rps);
+    },
+  };
+}
+
 /** Pure language core. Ascending completed bars on an explicit frozen price basis.
  * No I/O, eval or generated JS. Q2b worker consumes this exact evaluator.
  * Validation always precedes reading bars, even for an empty input.
@@ -37,8 +62,15 @@ export function evaluateFormula(
   parameters: Readonly<Record<string, number>> = {},
   rps: readonly FormulaRpsPoint[] = [],
 ) {
-  const program = parseFormula(source);
-  const params = checkFormula(program, parameters);
+  return compileFormula(source, parameters).evaluate(bars, rps);
+}
+
+function runCompiledFormula(
+  program: ReturnType<typeof parseFormula>,
+  params: ReturnType<typeof checkFormula>,
+  bars: readonly Bar[],
+  rps: readonly FormulaRpsPoint[] = [],
+) {
   const rpsByDate = new Map(rps.map((point) => [point.date, point]));
   const variables = new Map<string, Series>();
   const fields = new Map<string, Series>();

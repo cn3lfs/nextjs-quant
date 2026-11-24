@@ -27,12 +27,159 @@ import {
 import { analyze } from "../../research/research";
 import { gatherEvidence } from "../../research/gather-evidence";
 import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
+import {
+  alphaExperimentSchema,
+  alphaEvaluationInputSchema,
+  type AlphaEvaluationResult,
+} from "~/lib/research/alpha-experiment";
+import {
+  alphaBacktestInputSchema,
+  type AlphaBacktestResult,
+  type AlphaWork,
+} from "../../research/alpha";
+import { compileFactors } from "../../research/alpha/panel";
+import {
+  upsertFactorCompositeInputSchema,
+  upsertFactorComposite,
+  getFactorComposite,
+  listFactorComposites,
+  deleteFactorComposite,
+  updateFactorCompositeSummary,
+  type UpsertFactorCompositeInput,
+} from "../../db/factor-composite-repository";
+import { runIfJobRunning } from "../../db/jobs";
+
+const compositeKey = z.object({ id: z.string().trim().min(1) }).strict();
+function experimentFor(saved: UpsertFactorCompositeInput) {
+  return alphaExperimentSchema.parse({
+    ...saved.config.parameters,
+    factors: saved.config.factors,
+    weightingMethod: saved.weightingMethod,
+    neutralizationMode: saved.neutralizationMode,
+    winsorizeMethod: saved.winsorizeMethod,
+  });
+}
+
 function storedSnapshot(id: string) {
   return (
     readArchiveRecord("snapshot", id) ?? readArchiveRecord("chart-snapshot", id)
   );
 }
 export const researchRouter = createTRPCRouter({
+  alphaComposites: p("research", "read")
+    .input(
+      z
+        .object({
+          limit: z.number().int().min(1).max(1000).default(50),
+          after: z
+            .object({
+              updatedAt: z.number().int().safe().nonnegative(),
+              id: z.string().min(1),
+            })
+            .strict()
+            .optional(),
+        })
+        .strict()
+        .default({}),
+    )
+    .query(({ input }) => listFactorComposites(input.limit, input.after)),
+  alphaCompositeGet: p("research", "read")
+    .input(compositeKey)
+    .query(({ input }) => getFactorComposite(input.id)),
+  alphaCompositeSave: p("research", "configure")
+    .input(upsertFactorCompositeInputSchema)
+    .mutation(({ input }) => {
+      compileFactors(experimentFor(input));
+      return upsertFactorComposite(input);
+    }),
+  alphaCompositeDelete: p("research", "configure")
+    .input(compositeKey)
+    .mutation(({ input }) => deleteFactorComposite(input.id)),
+  alphaEvaluate: p("research", "compute")
+    .input(
+      z.union([
+        z
+          .object({
+            compositeId: z.string().min(1),
+            input: alphaEvaluationInputSchema,
+          })
+          .strict(),
+        z
+          .object({
+            config: alphaExperimentSchema,
+            input: alphaEvaluationInputSchema,
+          })
+          .strict(),
+      ]),
+    )
+    .mutation(({ input }) => {
+      const saved =
+        "compositeId" in input ? getFactorComposite(input.compositeId) : null;
+      const config =
+        "config" in input ? input.config : saved ? experimentFor(saved) : null;
+      if (!config) throw new Error("合成配置不存在");
+      const work: AlphaWork = {
+        type: "factor-eval",
+        mode: "alpha-composite",
+        payload: {
+          config,
+          input: input.input,
+          root: settings().tdxRoot,
+          now: Date.now(),
+        },
+      };
+      const expectedConfigHash = saved?.configHash;
+      return background(
+        "factor-eval",
+        {
+          ...work,
+          start: input.input.start,
+          end: input.input.end,
+          compositeId: saved?.id,
+          expectedConfigHash,
+        },
+        async (job) => {
+          const result = await runWorker<AlphaEvaluationResult>(work, job.id);
+          let summaryUpdated = false;
+          if (saved && expectedConfigHash)
+            runIfJobRunning(job.id, () => {
+              const h =
+                result.decay.find((h) => h.horizon === config.icirHorizon) ??
+                result.decay[0]!;
+              summaryUpdated =
+                updateFactorCompositeSummary(
+                  saved.id,
+                  {
+                    rankIC: h.rankIC,
+                    icir: h.icir,
+                    details: {
+                      horizon: h.horizon,
+                      panelId: result.metadata.panelId,
+                      start: input.input.start,
+                      end: input.input.end,
+                    },
+                  },
+                  expectedConfigHash,
+                ) !== null;
+            });
+          return { ...result, summaryUpdated };
+        },
+      );
+    }),
+  alphaBacktest: p("research", "compute")
+    .input(alphaBacktestInputSchema)
+    .mutation(({ input }) => {
+      const work: AlphaWork = {
+        type: "factor-eval",
+        mode: "alpha-backtest",
+        payload: { ...input, root: settings().tdxRoot },
+      };
+      return background(
+        "backtest",
+        { ...work, start: input.snapshot.start, end: input.snapshot.end },
+        (job) => runWorker<AlphaBacktestResult>(work, job.id),
+      );
+    }),
   savedSnapshot: p("research", "read")
     .input(z.string().min(1))
     .query(({ input }) => {

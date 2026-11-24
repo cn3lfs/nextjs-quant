@@ -1,5 +1,7 @@
 import { statSync, readFileSync } from "node:fs";
-import { join, relative, isAbsolute } from "node:path";
+import { join } from "node:path";
+import { outsideTdx } from "../market-panel/paths";
+import { dataDirectory } from "../../infra/paths";
 import {
   readSnapshot,
   readWindowSnapshot,
@@ -94,17 +96,9 @@ export async function localBars(
     !(chartFunds && isLocalFund(symbol))
   )
     throw new Error("仅支持A股与沪深指数行情；场内基金须使用图表读取入口");
-  if (root.trim()) {
-    const cacheRelative = relative(
-      resolveTdxRoot(root),
-      columnCacheDirectory(),
-    );
-    if (
-      !cacheRelative ||
-      (!cacheRelative.startsWith("..") && !isAbsolute(cacheRelative))
-    )
-      throw new Error("BarStore 缓存目录不能位于通达信只读目录内");
-  }
+  const protectedRoot = root.trim() ? resolveTdxRoot(root) : "E:/new_tdx64";
+  outsideTdx(columnCacheDirectory(), protectedRoot);
+  if (period === "day") outsideTdx(dataDirectory(), protectedRoot);
   let local: { snapshot: Snapshot; lastDate: string } | undefined;
   let failure: unknown;
   try {

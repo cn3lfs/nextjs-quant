@@ -16,7 +16,7 @@ it("v17 migrates empty and populated v16 databases, preserves data and remains i
       }
       const before = populated ? db.prepare("SELECT * FROM records").all() : [];
       migrate(db);
-      expect(db.pragma("user_version", { simple: true })).toBe(23);
+      expect(db.pragma("user_version", { simple: true })).toBe(24);
       expect(db.prepare("SELECT * FROM records").all()).toEqual(before);
       expect(db.pragma("foreign_key_check")).toEqual([]);
       const schema = db

@@ -1,5 +1,6 @@
 /** Local client file contracts. No application, database or UI dependencies. */
 export type TdxLocalPeriod = "day" | "5m";
+export type LocalQuoteOptions = { chartFunds?: boolean; allowFunds?: boolean };
 export type TdxLocalBar = {
   date: string;
   open: number;

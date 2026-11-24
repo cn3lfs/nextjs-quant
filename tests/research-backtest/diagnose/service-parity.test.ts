@@ -1394,7 +1394,7 @@ it("reads completed Worker archives side by side with the historical holdout and
   const id = completed.detail!.summary.id;
   expect(id).toBe(`lab-${job.id}`);
   const { sqlite } = await import("~/server/db");
-  expect(sqlite().pragma("user_version", { simple: true })).toBe(23);
+  expect(sqlite().pragma("user_version", { simple: true })).toBe(24);
   expect(
     completed.detail!.cells[0]!.scenarios[0]!.counts.fills,
   ).toBeGreaterThan(0);

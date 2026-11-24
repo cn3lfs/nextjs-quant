@@ -753,7 +753,7 @@ export function MarketView({
                   <nav aria-label="继续研究" className="flex flex-col gap-2">
                     {(
                       [
-                        ["/lab/analysis", Sparkle, "证据分析"],
+                        ["/lab/analysis?tab=evidence", Sparkle, "证据分析"],
                         ["/lab/backtest", Flask, "策略回测"],
                         ["/system/notifications", Broadcast, "监控配置"],
                       ] as const

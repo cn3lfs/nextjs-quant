@@ -34,6 +34,7 @@ export type PortfolioEntrySizing = {
   existing?: { quantity: number; cost: number; stop: number | null };
   quantityRules: { step: number; minimum: number; maximum: number };
   costs: ExecutionCosts;
+  reserveTransferFee?: boolean;
 };
 
 /** The same conservative fee reserve and risk-at-stop calculation used by the
@@ -83,11 +84,18 @@ export function sizePortfolioEntry(input: PortfolioEntrySizing) {
     toNumber(big(value).div(rules.step).round(0, 0).times(rules.step));
   const weight = Math.min(baseWeight, ceiling);
   const budget = Math.min(cash, (equity * weight) / tranches);
+  const transferRate = input.reserveTransferFee
+    ? (costs.transferBps ?? 0) / 10000
+    : 0;
   let quantity = floorStep(
     bigMin(
-      big(budget).minus(costs.minimumCommission).div(price),
+      big(budget)
+        .minus(costs.minimumCommission)
+        .div(big(price).times(big(1).plus(transferRate))),
       big(budget).div(
-        big(price).times(big(1).plus(big(costs.commissionBps).div(10000))),
+        big(price).times(
+          big(1).plus(big(costs.commissionBps).div(10000)).plus(transferRate),
+        ),
       ),
       rules.maximum,
     ),
@@ -145,7 +153,10 @@ export function sizePortfolioEntry(input: PortfolioEntrySizing) {
 
 /** Rebalance weights are final holdings, not an additional purchase budget. */
 export function sizePortfolioTargetEntry(
-  input: PortfolioEntrySizing & { targetWeight: number },
+  input: PortfolioEntrySizing & {
+    targetWeight: number;
+    frozenTargetQuantity?: number;
+  },
 ) {
   if (
     !Number.isFinite(input.targetWeight) ||
@@ -154,14 +165,22 @@ export function sizePortfolioTargetEntry(
   )
     throw new Error("Invalid portfolio target weight");
   const sized = sizePortfolioEntry(input);
-  const targetQuantity = toNumber(
-    big(input.equity)
-      .times(input.targetWeight)
-      .div(input.price)
-      .div(input.quantityRules.step)
-      .round(0, 0)
-      .times(input.quantityRules.step),
-  );
+  if (
+    input.frozenTargetQuantity !== undefined &&
+    (!Number.isFinite(input.frozenTargetQuantity) ||
+      input.frozenTargetQuantity < 0)
+  )
+    throw new Error("Invalid frozen target quantity");
+  const targetQuantity =
+    input.frozenTargetQuantity ??
+    toNumber(
+      big(input.equity)
+        .times(input.targetWeight)
+        .div(input.price)
+        .div(input.quantityRules.step)
+        .round(0, 0)
+        .times(input.quantityRules.step),
+    );
   const difference = toNumber(
     big(Math.max(0, targetQuantity - (input.existing?.quantity ?? 0)))
       .div(input.quantityRules.step)

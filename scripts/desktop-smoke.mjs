@@ -1105,7 +1105,7 @@ async function runDiagnoseSmoke(signal) {
       const schemaVersion = db.pragma("user_version", { simple: true });
       result.schemaVersion =
         typeof schemaVersion === "number" ? schemaVersion : null;
-      if (result.schemaVersion !== 23)
+      if (result.schemaVersion !== 24)
         throw new Error("Unexpected SQLite schema version");
     } finally {
       db.close();

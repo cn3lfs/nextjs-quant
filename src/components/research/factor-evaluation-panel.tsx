@@ -1,52 +1,20 @@
 "use client";
-import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 
+import Link from "next/link";
 import { useState } from "react";
 import { api } from "~/trpc/react";
 import type { evaluateFactorWork } from "~/server/research/factor-evaluation-job";
+import { Segmented } from "../panels";
 import { GridTable } from "../panels/table-panel";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import { activeJobPoll } from "../workbench/job-poll";
 import { usePanelVisible } from "../workbench/keep-alive";
+import { CumulativeRankIcChart, QuantileBars } from "./alpha/alpha-charts";
+import { integer, isoDay, num, pct } from "./alpha/alpha-format";
 
 type Result = Awaited<ReturnType<typeof evaluateFactorWork>>;
-const pct = (v: number | null | undefined, digits = 2) =>
-  v == null ? "—" : `${displayNumber(v * 100, digits)}%`;
-const num = (v: number | null | undefined, digits = 3) =>
-  v == null ? "—" : displayNumber(v, digits);
-const isoDay = (d: Date) => d.toISOString().slice(0, 10);
-
-/** Cumulative daily IC as a small inline chart (a persistent sign is the signal). */
-function CumulativeIc({ values }: { values: { value: number }[] }) {
-  if (values.length < 2) return null;
-  let sum = 0;
-  const points = values.map((v) => (sum += v.value));
-  const min = Math.min(0, ...points),
-    max = Math.max(0, ...points),
-    span = max - min || 1;
-  const x = (i: number) => (i / (points.length - 1)) * 300,
-    y = (v: number) => 60 - ((v - min) / span) * 60;
-  return (
-    <svg viewBox="0 0 300 60" className="h-16 w-full" aria-label="累计IC">
-      <line
-        x1={0}
-        x2={300}
-        y1={y(0)}
-        y2={y(0)}
-        stroke="currentColor"
-        opacity={0.25}
-      />
-      <polyline
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={1.5}
-        points={points.map((v, i) => `${x(i)},${y(v)}`).join(" ")}
-      />
-    </svg>
-  );
-}
 
 /**
  * Single-factor evaluation (alphalens definitions): a TDX formula output is
@@ -62,7 +30,7 @@ export function FactorEvaluationPanel() {
   const [end, setEnd] = useState(isoDay(today));
   const [quantiles, setQuantiles] = useState(5);
   const [jobId, setJobId] = useState("");
-  const [focus, setFocus] = useState(1);
+  const [focus, setFocus] = useState("5");
   const create = api.factorEvaluate.useMutation({
     onSuccess: (job) => setJobId(job.id),
   });
@@ -79,15 +47,26 @@ export function FactorEvaluationPanel() {
   const running = ["queued", "running"].includes(job.data?.status ?? "");
   const result =
     job.data?.status === "completed" ? (job.data.result as Result) : undefined;
-  const dateError = start > end ? "开始日期不能晚于结束日期" : "";
-  const selected = result?.horizons[focus] ?? result?.horizons[0];
+  const dateError =
+    !start || !end
+      ? "请填写完整的评估日期区间"
+      : start > end
+        ? "开始日期不能晚于结束日期"
+        : "";
+  const selected =
+    result?.horizons.find((horizon) => String(horizon.horizon) === focus) ??
+    result?.horizons[0];
   return (
     <section className="panel space-y-3" aria-label="因子评估">
-      <h3>因子评估</h3>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3>因子评估</h3>
+        <Button asChild size="sm" variant="outline">
+          <Link href="/lab/analysis?tab=alpha">前往多因子 Alpha 实验室</Link>
+        </Button>
+      </div>
       <p className="text-xs text-nc-text-3">
-        公式输出作为因子，逐日在本地 A
-        股横截面上与未来收益比较（RankIC、分位收益、换手），口径同
-        alphalens。研究描述，不是可成交收益或策略业绩。
+        公式输出逐日与本地 A 股的前向收益比较。T+h 按市场交易日历对齐，
+        目标日停牌或缺价时收益留空。截面统计未扣成本，也未模拟成交限制。
       </p>
       <label className="block">
         因子公式（一个输出，数值越大越看好）
@@ -136,7 +115,11 @@ export function FactorEvaluationPanel() {
         </label>
         <Button
           disabled={
-            running || create.isPending || !!dateError || !source.trim()
+            running ||
+            (Boolean(jobId) && job.isPending) ||
+            create.isPending ||
+            !!dateError ||
+            !source.trim()
           }
           onClick={() =>
             create.mutate({
@@ -152,52 +135,67 @@ export function FactorEvaluationPanel() {
           评估因子
         </Button>
         {running && (
-          <Button variant="outline" onClick={() => cancel.mutate(jobId)}>
+          <Button
+            variant="outline"
+            disabled={cancel.isPending}
+            onClick={() => cancel.mutate(jobId)}
+          >
             取消
           </Button>
         )}
       </div>
       {dateError && <p role="alert">{dateError}</p>}
       {create.error && <p role="alert">{create.error.message}</p>}
+      {job.error && <p role="alert">{job.error.message}</p>}
+      {cancel.error && <p role="alert">{cancel.error.message}</p>}
       {running && (
         <p role="status">
-          {job.data?.phase ?? "排队中"} · {job.data?.progress ?? 0}%
+          {job.data?.phase ?? "排队中"} · {integer(job.data?.progress)}%
         </p>
       )}
+      {job.data?.status === "cancelled" && <p role="status">评估已取消。</p>}
       {job.data?.status === "failed" && <p role="alert">{job.data.error}</p>}
       {result && selected && (
         <div className="space-y-3" aria-label="因子评估结果">
           <p className="text-xs text-nc-text-3">
-            证券池 {result.universe} 只（有效 {result.evaluated}
-            ，无除权记录按不复权 {result.unadjusted}）· 横截面 {result.dates}{" "}
-            日（跳过 {result.skippedDates}）· 读取失败 {result.errorCount} ·
-            用时 {displayNumber(result.elapsedMs / 1000, 1)} 秒
+            证券池 {integer(result.universe)} 只（有效{" "}
+            {integer(result.evaluated)}
+            ，无除权记录按不复权 {integer(result.unadjusted)}）· 横截面{" "}
+            {integer(result.dates)} 日（分组跳过 {integer(result.skippedDates)}
+            ）· 读取失败 {integer(result.errorCount)} · 用时{" "}
+            {num(result.elapsedMs / 1000, 1)} 秒
           </p>
           <GridTable
             label="因子IC统计"
+            minWidth={760}
             rows={result.horizons}
             rowKey={(h) => String(h.horizon)}
-            onRowClick={(h) => setFocus(result.horizons.indexOf(h))}
             rowClassName={(h) => (h === selected ? "bg-nc-inset" : undefined)}
             columns={[
               { key: "h", header: "持有期", cell: (h) => `T+${h.horizon}` },
               {
                 key: "mean",
-                header: "IC 均值",
+                header: "Spearman RankIC",
                 align: "right",
-                cell: (h) => num(h.icMean),
+                cell: (h) => num(h.rankIC.mean),
+              },
+              {
+                key: "pearson",
+                header: "Pearson IC",
+                align: "right",
+                cell: (h) => num(h.pearson.mean),
               },
               {
                 key: "std",
-                header: "IC 标准差",
+                header: "RankIC 标准差",
                 align: "right",
-                cell: (h) => num(h.icStd),
+                cell: (h) => num(h.rankIC.std),
               },
               {
                 key: "ir",
-                header: "IR",
+                header: "RankIC ICIR",
                 align: "right",
-                cell: (h) => num(h.icIr, 2),
+                cell: (h) => num(h.rankIC.icir, 2),
               },
               {
                 key: "t",
@@ -207,15 +205,15 @@ export function FactorEvaluationPanel() {
               },
               {
                 key: "pos",
-                header: "IC>0 比例",
+                header: "正 RankIC 占比",
                 align: "right",
-                cell: (h) => pct(h.icPositiveRatio, 1),
+                cell: (h) => pct(h.rankIC.positiveRatio, 1),
               },
               {
                 key: "days",
-                header: "天数",
+                header: "RankIC 天数",
                 align: "right",
-                cell: (h) => h.icDays,
+                cell: (h) => integer(h.rankIC.days),
               },
               {
                 key: "spread",
@@ -225,32 +223,28 @@ export function FactorEvaluationPanel() {
               },
             ]}
           />
+          <Segmented
+            label="因子评估图表持有期"
+            value={String(selected.horizon)}
+            options={result.horizons.map((h) => ({
+              value: String(h.horizon),
+              label: `T+${h.horizon}`,
+            }))}
+            onChange={setFocus}
+          />
           <div className="grid gap-3 lg:grid-cols-2">
             <div>
               <h4 className="text-sm">
                 T+{selected.horizon} 分位平均超额收益（去当日均值）
               </h4>
-              <ul className="space-y-1 text-xs">
-                {selected.quantileMeans.map((v, q) => {
-                  const width = Math.min(100, Math.abs((v ?? 0) * 100) * 20);
-                  return (
-                    <li key={q} className="flex items-center gap-2">
-                      <span className="w-10">Q{q + 1}</span>
-                      <span
-                        className={
-                          v != null && v >= 0 ? "bg-nc-up" : "bg-nc-down"
-                        }
-                        style={{ width: `${width}%`, height: 8 }}
-                      />
-                      <span>{pct(v, 3)}</span>
-                    </li>
-                  );
-                })}
-              </ul>
+              <QuantileBars
+                values={selected.quantileMeans}
+                horizon={selected.horizon}
+              />
             </div>
             <div>
-              <h4 className="text-sm">T+{selected.horizon} 累计 IC</h4>
-              <CumulativeIc values={selected.ic} />
+              <h4 className="text-sm">T+{selected.horizon} 累计 RankIC</h4>
+              <CumulativeRankIcChart points={selected.ic} />
               <p className="text-xs">
                 顶部分位日换手 {pct(result.turnover.top, 1)} · 底部{" "}
                 {pct(result.turnover.bottom, 1)} · 因子秩自相关{" "}

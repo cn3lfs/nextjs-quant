@@ -332,7 +332,7 @@ export function ArchiveList() {
                   <>
                     {" "}
                     <Link
-                      href="/lab/analysis"
+                      href="/lab/analysis?tab=evidence"
                       className="text-primary underline"
                     >
                       前往证据分析

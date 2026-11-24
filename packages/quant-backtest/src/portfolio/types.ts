@@ -6,6 +6,12 @@ import {
 import { type Bar } from "trading-strategy-core/bars";
 import { type ExecutionCosts } from "trading-strategy-core/costs";
 import { type PortfolioAction } from "../portfolio-account.js";
+import type {
+  InstrumentRuleOptions,
+  PortfolioRiskDecision,
+  PortfolioRiskPolicy,
+  PortfolioRiskState,
+} from "quant-execution";
 
 export type Market = "cn-equity" | "crypto";
 export type PortfolioExecution = {
@@ -18,9 +24,13 @@ export type PortfolioExecution = {
   limitDown: number | null;
   tradable: boolean;
 };
-export type PortfolioInstrument = {
+export type PortfolioInstrument = InstrumentRuleOptions & {
   symbol: string;
   market: Market;
+  /** Industry frozen for the replay; point-in-time strategy book facts take precedence. */
+  industry?: string;
+  faceValue?: number;
+  historicalTransfer?: "exchange-2015";
   bars: readonly Bar[];
   /** Already adjusted at a fixed historical denominator; never used for fills. */
   signalBars: readonly Bar[];
@@ -56,7 +66,43 @@ export type PortfolioSleeve = {
   riskPerTrade: number;
   maxPositions: number;
 };
+/** A quote derived from a frozen execution window. Prices include modelled
+ * slippage and must deteriorate monotonically with the executed quantity. */
+export type PortfolioWindowQuote = {
+  referencePrice: number;
+  priceForQuantity: (quantity: number) => number;
+  /** Audited share/unit turnover of this symbol's execution window, shared across sleeves. */
+  availableQuantity?: number;
+  buyPriceCeiling?: {
+    price: number;
+    reason: string;
+    onRejected?: (price: number, quantity: number) => void;
+  };
+  low?: number;
+  high?: number;
+};
+export type PortfolioQuoteProvider = (input: {
+  date: string;
+  order: Readonly<PortfolioOrder>;
+  bar: Readonly<Bar> | undefined;
+  previous: Readonly<Bar> | undefined;
+  phase: "opening" | "protection";
+  sliceEnd?: string;
+  /** Levels fixed before the session, for comparison with the quote provider's causal range. */
+  standingProtection?: { stop: number; target: number | null };
+  reference?: number;
+}) => PortfolioWindowQuote | { reason: string; discard?: boolean } | undefined;
 export type PortfolioRequest = {
+  riskPolicy?: Partial<PortfolioRiskPolicy>;
+  /** Applied at the dated open after marking positions, before matching orders. */
+  externalCashFlows?: readonly {
+    date: string;
+    sleeve: string;
+    amount: number;
+  }[];
+  executionQuote?: PortfolioQuoteProvider;
+  /** Ordered exchange-local end times of preplanned execution windows. */
+  executionSlices?: readonly string[];
   /** Defaults to "counts". Only "full" retains per-bar observations. */
   observationDetail?: "full" | "counts";
   /** Research sensitivity only. Equal-score buys default to ascending symbols. */
@@ -129,8 +175,34 @@ export type PortfolioRequest = {
     scores?: Readonly<Record<string, number>>;
   }[];
 };
+export type PortfolioRiskAudit = {
+  missingCloses: string[];
+  daily: PortfolioRiskState[];
+  blocked: number;
+  reduced: number;
+  reductions: {
+    orderId: number;
+    date: string;
+    symbol: string;
+    quantityBefore: number;
+    retainedScale: number;
+  }[];
+  entries: {
+    orderId: number;
+    symbol: string;
+    date: string;
+    requestedQuantity: number;
+    decision: PortfolioRiskDecision;
+    executedQuantity?: number;
+    executedStopRiskAfter?: number | null;
+  }[];
+};
 export type PortfolioOrder = {
   id: number;
+  parentOrderId?: number;
+  sliceEnd?: string;
+  plannedQuantity?: number;
+  executedQuantity?: number;
   strategyId: string;
   sleeve: string;
   symbol: string;
@@ -142,6 +214,7 @@ export type PortfolioOrder = {
   attempts: number;
   exitFraction?: number;
   targetRemainingQuantity?: number;
+  drawdownReduction?: true;
   capacityClipped?: true;
   trigger: "signal" | "stop" | "target" | "trailing" | "time";
   rankScore?: number;
@@ -153,6 +226,9 @@ export type PortfolioOrder = {
   marketTargetShare?: number;
 };
 export type PortfolioFill = {
+  parentOrderId?: number;
+  sliceEnd?: string;
+  windowPhase?: "opening" | "protection";
   orderId: number;
   strategyId: string;
   sleeve: string;

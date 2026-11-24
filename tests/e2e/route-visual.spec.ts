@@ -142,7 +142,7 @@ for (const width of [1440, 1024]) {
         ).toBeVisible();
         await expect(
           page.getByRole("link", { name: "前往证据分析", exact: true }),
-        ).toHaveAttribute("href", "/lab/analysis");
+        ).toHaveAttribute("href", "/lab/analysis?tab=evidence");
         await expect(page.locator("main")).not.toContainText("四类研究");
         await expect(page.locator("main")).not.toContainText(
           "CAN SLIM、缠论与威科夫",

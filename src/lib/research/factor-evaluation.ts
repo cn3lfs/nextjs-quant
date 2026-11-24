@@ -15,6 +15,7 @@ export type FactorSeries = {
   close: readonly (number | null)[];
 };
 export type FactorOptions = {
+  calendar?: readonly string[];
   horizons: readonly number[];
   quantiles: number;
   start: string;
@@ -28,6 +29,7 @@ function mean(xs: ArrayLike<number>) {
 }
 function std(xs: readonly number[]) {
   if (xs.length < 2) return null;
+  if (xs.every((v) => v === xs[0])) return 0;
   const m = mean(xs);
   return Math.sqrt(xs.reduce((s, x) => s + (x - m) ** 2, 0) / (xs.length - 1));
 }
@@ -47,7 +49,7 @@ export function ranks(xs: ArrayLike<number>): Float64Array {
   }
   return out;
 }
-function pearson(x: ArrayLike<number>, y: ArrayLike<number>) {
+export function pearson(x: ArrayLike<number>, y: ArrayLike<number>) {
   const mx = mean(x),
     my = mean(y);
   let sxy = 0,
@@ -58,7 +60,9 @@ function pearson(x: ArrayLike<number>, y: ArrayLike<number>) {
     sxx += (x[i]! - mx) ** 2;
     syy += (y[i]! - my) ** 2;
   }
-  return sxx && syy ? sxy / Math.sqrt(sxx * syy) : null;
+  return sxx && syy
+    ? Math.min(1, Math.max(-1, sxy / Math.sqrt(sxx * syy)))
+    : null;
 }
 export const spearman = (x: readonly number[], y: readonly number[]) =>
   x.length < 2 ? null : pearson(ranks(x), ranks(y));
@@ -82,141 +86,251 @@ export function qcut(values: readonly number[], q: number): number[] | null {
   });
 }
 
+export function forwardReturn(
+  start: number | null | undefined,
+  end: number | null | undefined,
+) {
+  return start != null &&
+    end != null &&
+    Number.isFinite(start) &&
+    Number.isFinite(end) &&
+    start > 0 &&
+    end > 0
+    ? end / start - 1
+    : NaN;
+}
+export function icStatistics(values: readonly number[]) {
+  const average = values.length ? mean(values) : null,
+    sd = std(values);
+  return {
+    mean: average,
+    std: sd,
+    icir: sd && average !== null ? average / sd : null,
+    positiveRatio: values.length
+      ? values.filter((v) => v > 0).length / values.length
+      : null,
+    days: values.length,
+  };
+}
+type Point = { date: string; value: number };
+/** Stream one frozen cross-section at a time to avoid holding a second market panel. */
+export function factorAccumulator(
+  o: FactorOptions,
+  mode: "alpha" | "single-factor" = "alpha",
+) {
+  const horizons = o.horizons.map((horizon) => ({
+    horizon,
+    ic: [] as Point[],
+    pearsonIC: [] as Point[],
+    groups: [] as {
+      date: string;
+      counts: number[];
+      returns: (number | null)[];
+      excess: (number | null)[];
+      spread: number | null;
+    }[],
+    wealth: Array<number | null>(o.quantiles).fill(null),
+  }));
+  const turnover = { top: [] as number[], bottom: [] as number[] },
+    auto: number[] = [];
+  let dates = 0,
+    skippedDates = 0;
+  let previous:
+    | {
+        index: number;
+        top: Set<number>;
+        bottom: Set<number>;
+        rank: Map<number, number>;
+      }
+    | undefined;
+  function add(
+    date: string,
+    index: number,
+    names: number[],
+    factors: number[],
+    returns: (horizon: number, symbol: number) => number,
+  ) {
+    if (names.length) dates++;
+    const labels =
+      factors.length >= o.quantiles * 2 ? qcut(factors, o.quantiles) : null;
+    if (!labels && names.length) skippedDates++;
+    const rank = ranks(factors);
+    for (const h of horizons) {
+      const xs: number[] = [],
+        ys: number[] = [];
+      const sums = Array<number>(o.quantiles).fill(0),
+        counts = Array<number>(o.quantiles).fill(0);
+      names.forEach((symbol, i) => {
+        const y = returns(h.horizon, symbol);
+        if (!Number.isFinite(y)) return;
+        xs.push(factors[i]!);
+        ys.push(y);
+        if (labels) {
+          const q = labels[i]! - 1;
+          sums[q] = sums[q]! + y;
+          counts[q] = counts[q]! + 1;
+        }
+      });
+      if (xs.length >= 2) {
+        const raw = pearson(xs, ys),
+          ranked =
+            xs.length === names.length
+              ? pearson(rank, ranks(ys))
+              : spearman(xs, ys);
+        if (raw !== null) h.pearsonIC.push({ date, value: raw });
+        if (ranked !== null && (mode === "alpha" || labels))
+          h.ic.push({ date, value: ranked });
+      }
+      const baseline = ys.length ? mean(ys) : null;
+      const group = sums.map((v, i) => (counts[i] ? v / counts[i]! : null));
+      const excess = group.map((v) =>
+        v === null || baseline === null ? null : v - baseline,
+      );
+      const bottom = group[0],
+        top = group.at(-1);
+      h.groups.push({
+        date,
+        counts,
+        returns: group,
+        excess,
+        spread: top != null && bottom != null ? top - bottom : null,
+      });
+      // Disjoint h-session cohorts anchored at the first decision. Missing legs stay unobserved.
+      if (index % h.horizon === 0)
+        group.forEach((v, i) => {
+          if (v !== null) h.wealth[i] = (h.wealth[i] ?? 1) * (1 + v);
+        });
+    }
+    // The original single-factor report compares consecutive bucketed sections.
+    if (mode === "single-factor" && !labels) return;
+    const currentRank = new Map(names.map((s, i) => [s, rank[i]!]));
+    const top = new Set<number>(),
+      bottom = new Set<number>();
+    labels?.forEach((q, i) => {
+      if (q === 1) bottom.add(names[i]!);
+      if (q === o.quantiles) top.add(names[i]!);
+    });
+    if (
+      previous &&
+      (mode === "single-factor" || previous.index === index - 1)
+    ) {
+      const churn = (a: Set<number>, b: Set<number>) =>
+        [...a].filter((s) => !b.has(s)).length / a.size;
+      if (top.size && previous.top.size)
+        turnover.top.push(churn(top, previous.top));
+      if (bottom.size && previous.bottom.size)
+        turnover.bottom.push(churn(bottom, previous.bottom));
+      const prev = previous.rank,
+        common = names.filter((s) => prev.has(s));
+      const corr = pearson(
+        common.map((s) => prev.get(s)!),
+        common.map((s) => currentRank.get(s)!),
+      );
+      if (corr !== null) auto.push(corr);
+    }
+    previous = { index, top, bottom, rank: currentRank };
+  }
+  const nullableMean = (xs: (number | null)[]) => {
+    const valid = xs.filter((n): n is number => n !== null);
+    return valid.length ? mean(valid) : null;
+  };
+  function result() {
+    return {
+      dates,
+      skippedDates,
+      horizons: horizons.map((h) => {
+        const rankIC = icStatistics(h.ic.map((p) => p.value));
+        const groupedMean = (key: "returns" | "excess") =>
+          h.wealth.map((_, i) => nullableMean(h.groups.map((g) => g[key][i]!)));
+        const quantileMeans = groupedMean("excess");
+        const top = quantileMeans.at(-1),
+          bottom = quantileMeans[0];
+        const meanTopBottom = nullableMean(h.groups.map((g) => g.spread));
+        return {
+          horizon: h.horizon,
+          icMean: rankIC.mean,
+          icStd: rankIC.std,
+          icIr: rankIC.icir,
+          icT:
+            rankIC.icir === null ? null : rankIC.icir * Math.sqrt(rankIC.days),
+          icPositiveRatio: rankIC.positiveRatio,
+          icDays: rankIC.days,
+          ic: h.ic,
+          rankIC,
+          pearsonIC: h.pearsonIC,
+          pearson: icStatistics(h.pearsonIC.map((p) => p.value)),
+          quantileMeans,
+          quantileRawMeans: groupedMean("returns"),
+          quantileCumulative: h.wealth.map((w) => (w === null ? null : w - 1)),
+          spread:
+            mode === "alpha"
+              ? meanTopBottom
+              : top != null && bottom != null
+                ? top - bottom
+                : null,
+          groups: h.groups,
+        };
+      }),
+      turnover: {
+        top: nullableMean(turnover.top),
+        bottom: nullableMean(turnover.bottom),
+      },
+      rankAutocorrelation: nullableMean(auto),
+    };
+  }
+  return { add, result };
+}
+
 export function evaluateFactor(
   series: readonly FactorSeries[],
   o: FactorOptions,
 ) {
-  // Columnar per date (security index, factor, forward returns with NaN for
-  // missing): a full-market, multi-year panel stays in packed number arrays.
-  type Day = { sym: number[]; factor: number[]; fwd: number[][] };
-  const byDate = new Map<string, Day>();
-  series.forEach((s, symbol) => {
+  const days = new Set<string>();
+  if (!o.calendar) for (const s of series) for (const d of s.dates) days.add(d);
+  const calendar = o.calendar ?? [...days].sort();
+  if (calendar.some((d, i) => i > 0 && d <= calendar[i - 1]!))
+    throw new Error("市场交易日历必须唯一且升序");
+  const dateIndex = new Map(calendar.map((d, i) => [d, i]));
+  const aligned = series.map((s) => {
+    const positions = new Int32Array(calendar.length).fill(-1);
     for (let i = 0; i < s.dates.length; i++) {
-      const date = s.dates[i]!,
-        f = s.factor[i],
-        p = s.close[i];
-      if (date < o.start || date > o.end || f == null || !Number.isFinite(f))
-        continue;
-      if (p == null || !(p > 0)) continue;
-      let day = byDate.get(date);
-      if (!day)
-        byDate.set(
-          date,
-          (day = { sym: [], factor: [], fwd: o.horizons.map(() => []) }),
-        );
-      day.sym.push(symbol);
-      day.factor.push(f);
-      o.horizons.forEach((h, k) => {
-        const q = s.close[i + h];
-        day!.fwd[k]!.push(q != null && q > 0 ? q / p - 1 : NaN);
-      });
+      const t = dateIndex.get(s.dates[i]!);
+      if (t !== undefined) positions[t] = i;
     }
+    return positions;
   });
-  const dates = [...byDate.keys()].sort();
-  const ic = o.horizons.map(() => [] as { date: string; value: number }[]);
-  const quantileSums = o.horizons.map(() =>
-    Array.from({ length: o.quantiles }, () => [] as number[]),
-  );
-  const turnover = { top: [] as number[], bottom: [] as number[] };
-  const autocorrelation: number[] = [];
-  let skipped = 0,
-    previous: {
-      top: Set<number>;
-      bottom: Set<number>;
-      rank: Map<number, number>;
-    } | null = null;
-  for (const date of dates) {
-    const day = byDate.get(date)!;
-    const n = day.factor.length;
-    // alphalens needs enough names per date for the requested buckets.
-    const labels = n >= o.quantiles * 2 ? qcut(day.factor, o.quantiles) : null;
-    if (!labels) {
-      // Like alphalens, turnover then compares with the last evaluated date.
-      skipped++;
-      continue;
-    }
-    // Factor ranks once per date; a horizon with missing returns (only near
-    // the end of the window) ranks its own subset.
-    const rankValues = ranks(day.factor);
-    o.horizons.forEach((_, h) => {
-      const fwd = day.fwd[h]!;
-      const xs: number[] = [],
-        ys: number[] = [],
-        qs: number[] = [];
-      for (let i = 0; i < n; i++)
-        if (!Number.isNaN(fwd[i]!)) {
-          xs.push(day.factor[i]!);
-          ys.push(fwd[i]!);
-          qs.push(labels[i]!);
-        }
-      if (xs.length >= 2) {
-        const value =
-          xs.length === n ? pearson(rankValues, ranks(ys)) : spearman(xs, ys);
-        if (value !== null) ic[h]!.push({ date, value });
-      }
-      if (!ys.length) return;
-      const m = mean(ys);
-      const buckets = Array.from({ length: o.quantiles }, () => [] as number[]);
-      ys.forEach((ret, i) => buckets[qs[i]! - 1]!.push(ret - m));
-      buckets.forEach((b, q) => b.length && quantileSums[h]![q]!.push(mean(b)));
+  const metrics = factorAccumulator(o, "single-factor");
+  let offset = 0;
+  for (const [t, date] of calendar.entries()) {
+    if (date < o.start || date > o.end) continue;
+    const names: number[] = [],
+      factors: number[] = [];
+    series.forEach((s, k) => {
+      const i = aligned[k]![t]!;
+      if (i < 0) return;
+      const x = s.factor[i],
+        p = s.close[i];
+      if (
+        x == null ||
+        !Number.isFinite(x) ||
+        p == null ||
+        !Number.isFinite(p) ||
+        p <= 0
+      )
+        return;
+      names.push(k);
+      factors.push(x);
     });
-    const top = new Set<number>(),
-      bottom = new Set<number>();
-    labels.forEach((label, i) => {
-      if (label === o.quantiles) top.add(day.sym[i]!);
-      if (label === 1) bottom.add(day.sym[i]!);
+    metrics.add(date, offset++, names, factors, (h, k) => {
+      // Advance by market sessions, including days with no quotes in any series.
+      const idx = aligned[k]![t + h];
+      return idx === undefined || idx < 0
+        ? NaN
+        : forwardReturn(
+            series[k]!.close[aligned[k]![t]!],
+            series[k]!.close[idx],
+          );
     });
-    const rank = new Map(day.sym.map((s, i) => [s, rankValues[i]!]));
-    if (previous) {
-      const churn = (now: Set<number>, before: Set<number>) =>
-        [...now].filter((s) => !before.has(s)).length / now.size;
-      turnover.top.push(churn(top, previous.top));
-      turnover.bottom.push(churn(bottom, previous.bottom));
-      const common = [...rank.keys()].filter((s) => previous!.rank.has(s));
-      const value =
-        common.length >= 2
-          ? pearson(
-              common.map((s) => previous!.rank.get(s)!),
-              common.map((s) => rank.get(s)!),
-            )
-          : null;
-      if (value !== null) autocorrelation.push(value);
-    }
-    previous = { top, bottom, rank };
   }
-  return {
-    dates: dates.length,
-    skippedDates: skipped,
-    horizons: o.horizons.map((horizon, h) => {
-      const values = ic[h]!.map((x) => x.value);
-      const sd = std(values);
-      const quantileMeans = quantileSums[h]!.map((xs) =>
-        xs.length ? mean(xs) : null,
-      );
-      const top = quantileMeans.at(-1),
-        bottom = quantileMeans[0];
-      return {
-        horizon,
-        icMean: values.length ? mean(values) : null,
-        icStd: sd,
-        icIr: sd && values.length ? mean(values) / sd : null,
-        icT:
-          sd && values.length
-            ? (mean(values) / sd) * Math.sqrt(values.length)
-            : null,
-        icPositiveRatio: values.length
-          ? values.filter((v) => v > 0).length / values.length
-          : null,
-        icDays: values.length,
-        quantileMeans,
-        spread: top != null && bottom != null ? top - bottom : null,
-        ic: ic[h]!,
-      };
-    }),
-    turnover: {
-      top: turnover.top.length ? mean(turnover.top) : null,
-      bottom: turnover.bottom.length ? mean(turnover.bottom) : null,
-    },
-    rankAutocorrelation: autocorrelation.length ? mean(autocorrelation) : null,
-  };
+  return metrics.result();
 }

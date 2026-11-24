@@ -31,6 +31,10 @@ export { replayAllocationStudy } from "./allocation-profile.js";
 export type { Csi800Options } from "./allocation-profile.js";
 
 export * from "./portfolio-engine.js";
+export type {
+  PortfolioQuoteProvider,
+  PortfolioWindowQuote,
+} from "./portfolio/types.js";
 export { actionPrice } from "./portfolio-account.js";
 export * from "./validation-suite.js";
 
@@ -41,6 +45,7 @@ export type {
 } from "./five-minute-profile.js";
 
 export * from "./portfolio-sizing.js";
+export type { PortfolioRiskAudit } from "./portfolio/types.js";
 export * from "./portfolio-clock.js";
 
 // Unified execution core facade. The portfolio engine keeps its historical
