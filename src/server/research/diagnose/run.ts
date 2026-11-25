@@ -30,6 +30,7 @@ import {
   type DiagnoseFamilyCandidate,
 } from "./time-holdout";
 import { writeReport } from "./report";
+import { archiveStrategySegment } from "./archive-fs";
 import {
   buildDiagnoseCellStrategies,
   DIAGNOSE_BOOK_PRESETS,
@@ -560,7 +561,10 @@ export async function runDiagnose(
       )
         throw new Error(`非法标的目录名：${leaf}`);
       let runPath = options.outDir;
-      for (const component of [item.mode, item.strategy]) {
+      for (const component of [
+        item.mode,
+        archiveStrategySegment(item.strategy),
+      ]) {
         runPath = join(runPath, component);
         if (!createdDirs.has(runPath)) {
           await mkdir(runPath);

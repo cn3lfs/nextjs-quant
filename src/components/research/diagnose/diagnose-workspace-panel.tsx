@@ -2,12 +2,18 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
+import {
+  listTheoryScreenerSpecs,
+  theoryScreenerFamilyIds,
+  type TheoryScreenerFamilyId,
+} from "trading-strategies";
 import { api } from "~/trpc/react";
 import {
   DIAGNOSE_SCENARIO_PRESETS,
   diagnoseBookInputSchema,
   labDiagnoseRunInputSchema,
   normalizeDiagnoseBookInput,
+  SCREENER_STRATEGY_PREFIX,
   type DiagnoseArchiveSummary,
   type DiagnoseBookSleeve,
   type DiagnoseScenarioId,
@@ -67,6 +73,76 @@ const splitSymbols = (value: string) =>
     .split(/[\s,，、]+/)
     .map((item) => item.trim())
     .filter(Boolean);
+
+const theoryScreenerFamilyLabels: Record<TheoryScreenerFamilyId, string> = {
+  "trend-breakout": "趋势与突破",
+  "growth-oneil": "成长与欧奈尔",
+  "wyckoff-volume": "威科夫与量价",
+  "astock-dragon": "A股龙头与情绪",
+  "wave-harmonic-smc": "波浪谐波与SMC",
+  "momentum-reversion": "动量与反转",
+  "value-multifactor": "价值与多因子",
+};
+
+const theoryScreenerSpecs = listTheoryScreenerSpecs().filter(
+  (spec) => spec.direction !== "short",
+);
+const theoryScreenerGroups = theoryScreenerFamilyIds
+  .map((family) => ({
+    family,
+    label: theoryScreenerFamilyLabels[family],
+    specs: theoryScreenerSpecs.filter((spec) => spec.family === family),
+  }))
+  .filter((group) => group.specs.length > 0);
+
+/**
+ * Quick pick for long-capable `screener:<methodId>` strategies. It writes the same
+ * `strategyKey` the manual input edits, so the free-text key, presets and
+ * archive reruns keep working; the select simply offers the catalog.
+ */
+function TheoryScreenerPicker({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const id = useId();
+  const selected = theoryScreenerSpecs.some(
+    (spec) => `${SCREENER_STRATEGY_PREFIX}${spec.id}` === value,
+  );
+  return (
+    <label htmlFor={id} className="block min-w-48 flex-1 text-sm">
+      {label}
+      <select
+        id={id}
+        className="mt-1 block w-full"
+        value={selected ? value : ""}
+        onChange={(event) => {
+          if (event.target.value) onChange(event.target.value);
+        }}
+      >
+        <option value="">
+          {`选择理论战法（${theoryScreenerSpecs.length} 种，可选）`}
+        </option>
+        {theoryScreenerGroups.map((group) => (
+          <optgroup key={group.family} label={group.label}>
+            {group.specs.map((spec) => (
+              <option
+                key={spec.id}
+                value={`${SCREENER_STRATEGY_PREFIX}${spec.id}`}
+              >
+                {`${spec.theoryId} ${spec.label}`}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 export type DiagnoseRunPrefill = {
   symbol?: string;
@@ -254,6 +330,11 @@ function CustomBookEditor({
               }
             />
           </label>
+          <TheoryScreenerPicker
+            label={`分仓 ${index + 1} 理论战法快选`}
+            value={row.strategyKey}
+            onChange={(strategyKey) => updateSleeve(row.id, { strategyKey })}
+          />
           <label className="w-40 text-sm">
             分仓 {index + 1} 权重
             <Input
@@ -728,6 +809,13 @@ export function DiagnoseWorkspacePanel({
             />
           )}
         </div>
+        {runMode !== "custom" && runMode !== "core-4" && (
+          <TheoryScreenerPicker
+            label="理论战法快选（screener 策略）"
+            value={strategyKey}
+            onChange={(value) => edit({ strategyKey: value })}
+          />
+        )}
       </StudioStep>
       <StudioStep title="3. 证券池与历史区间">
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">

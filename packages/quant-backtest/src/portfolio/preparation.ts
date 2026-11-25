@@ -248,7 +248,13 @@ export function preparePortfolioRequest(
         evaluators: new Map(
           strategies.map((s) => [
             s.id,
-            prepareStrategy(s, instrument.signalBars, instrument.external),
+            prepareStrategy(s, instrument.signalBars, {
+              ...instrument.external,
+              theoryScreener: {
+                ...instrument.external?.theoryScreener,
+                symbol: instrument.symbol,
+              },
+            }),
           ]),
         ),
       };

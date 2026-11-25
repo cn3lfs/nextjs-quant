@@ -2,10 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { listTheoryScreenerSpecs } from "trading-strategies";
 import {
   buildLabDraftFromHandoff,
   isDiagnosticOnlyStrategyKey,
+  isScreenerStrategyKey,
   parseScanToLabHandoff,
+  SCREENER_STRATEGY_PREFIX,
 } from "~/lib/research/diagnose-contract";
 import { Pill } from "../../panels";
 import { Button } from "../../ui/button";
@@ -71,6 +74,16 @@ export function ScanHandoffBanner({
   const { handoff, key } = parsed;
   if (dismissedKeys.has(key)) return null;
   const sourceLabel = handoffSourceLabels[handoff.handoffSource];
+  const hint = handoff.strategyHint;
+  // A theory screener hint is a research-native rule key; show its Chinese
+  // family label instead of the raw `screener:<methodId>` token.
+  const screenerHint = hint && isScreenerStrategyKey(hint) ? hint : null;
+  const screenerLabel = screenerHint
+    ? listTheoryScreenerSpecs().find(
+        (spec) => `${SCREENER_STRATEGY_PREFIX}${spec.id}` === screenerHint,
+      )?.label
+    : undefined;
+  const draft = buildLabDraftFromHandoff(handoff);
   const returnLink = handoff.returnTo && (
     <Link className="text-sm underline" href={handoff.returnTo}>
       {handoff.handoffSource === "account-review"
@@ -127,6 +140,11 @@ export function ScanHandoffBanner({
           {handoff.label && (
             <span className="text-sm text-nc-text-3">{handoff.label}</span>
           )}
+          {screenerHint && (
+            <span className="text-sm text-nc-text-3">
+              {`策略提示 ${screenerLabel ?? screenerHint}`}
+            </span>
+          )}
           <span className="text-sub text-nc-text-3">
             冻结日期 {handoff.frozenDate ?? "未提供"}
           </span>
@@ -138,6 +156,23 @@ export function ScanHandoffBanner({
           已预填诊断运行表单的组合标的，核对策略和日期后可手动运行。
         </p>
         <div className="flex flex-wrap items-center gap-2">
+          {screenerHint && (
+            <Button
+              type="button"
+              size="sm"
+              onClick={() =>
+                onDiagnose({
+                  symbols: handoff.symbols,
+                  mode: "portfolio",
+                  strategyKey: screenerHint,
+                  start: draft.start,
+                  end: draft.end,
+                })
+              }
+            >
+              带入策略诊断表单
+            </Button>
+          )}
           <Button
             type="button"
             size="sm"
@@ -152,9 +187,8 @@ export function ScanHandoffBanner({
     );
   }
 
-  const hint = handoff.strategyHint;
   const diagnosticKey = hint && isDiagnosticOnlyStrategyKey(hint) ? hint : null;
-  const draft = buildLabDraftFromHandoff(handoff);
+  const diagnoseKey = screenerHint ?? diagnosticKey;
   return (
     <section
       aria-label="扫描候选交接预览"
@@ -171,10 +205,17 @@ export function ScanHandoffBanner({
           冻结日期 {handoff.frozenDate ?? "未提供"}
         </span>
         <span className="text-sub text-nc-text-3">
-          策略提示 {handoff.strategyHint ?? draft.strategyKey}
+          {screenerHint
+            ? `策略提示 ${screenerLabel ?? screenerHint}（${screenerHint}）`
+            : `策略提示 ${handoff.strategyHint ?? draft.strategyKey}`}
         </span>
       </div>
-      {diagnosticKey ? (
+      {screenerHint ? (
+        <p className="text-sm text-nc-text-3">
+          {`理论战法「${screenerLabel ?? screenerHint}」按日线结构代理规则运行，将预填诊断运行表单的策略键；请核对标的与日期后手动运行。`}
+          {!draft.end && " 请在表单中选择诊断日期范围。"}
+        </p>
+      ) : diagnosticKey ? (
         <p className="text-sm text-nc-text-3">
           原生缠论与 PIT
           策略需要冻结的诊断证据。此操作仅填入成组情景诊断表单，普通回测草稿可继续编辑。
@@ -191,12 +232,12 @@ export function ScanHandoffBanner({
           type="button"
           size="sm"
           onClick={() => {
-            if (diagnosticKey)
+            if (diagnoseKey)
               onDiagnose({
                 symbol: handoff.symbol,
-                ...(diagnosticKey === "core-4"
+                ...(diagnoseKey === "core-4"
                   ? { bookPreset: "core-4" }
-                  : { strategyKey: diagnosticKey }),
+                  : { strategyKey: diagnoseKey }),
                 start: draft.start,
                 end: draft.end,
               });
@@ -210,7 +251,7 @@ export function ScanHandoffBanner({
             setLastAppliedKey(key);
           }}
         >
-          {diagnosticKey
+          {diagnoseKey
             ? "带入诊断运行表单"
             : confirmKey === key
               ? "确认覆盖草稿"

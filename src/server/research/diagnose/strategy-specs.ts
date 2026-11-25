@@ -1,5 +1,9 @@
 import { isDeepStrictEqual } from "node:util";
-import { scanHandoffStrategyRules } from "~/lib/research/diagnose-contract";
+import {
+  SCREENER_STRATEGY_KEYS,
+  scanHandoffStrategyRules,
+  theoryScreenerSpecForStrategyKey,
+} from "~/lib/research/diagnose-contract";
 import {
   createExtendedStudyRule,
   nativeStudyDefinition,
@@ -134,9 +138,10 @@ export type SignalStrategyKey =
   | StudyStrategyKey
   | NativeStrategyKey
   | WyckoffFunnelKey
-  | PitStrategyKey;
+  | PitStrategyKey
+  | (typeof SCREENER_STRATEGY_KEYS)[number];
 
-/** Adapter keys stay first; ids shared with the study catalog appear once. */
+/** Adapter keys stay first. Screener keys come from the shared long-only diagnose contract. */
 export const SIGNAL_STRATEGY_KEYS: readonly SignalStrategyKey[] = Array.from(
   new Set<SignalStrategyKey>([
     ...ADAPTER_STRATEGY_KEYS,
@@ -144,6 +149,7 @@ export const SIGNAL_STRATEGY_KEYS: readonly SignalStrategyKey[] = Array.from(
     ...(Object.keys(wyckoffFunnelStudies) as WyckoffFunnelKey[]),
     ...NATIVE_STRATEGY_KEYS,
     ...PIT_STRATEGY_KEYS,
+    ...SCREENER_STRATEGY_KEYS,
   ]),
 );
 
@@ -172,6 +178,8 @@ const isStudyStrategyKey = (key: StrategyKey): key is StudyStrategyKey =>
  * the symbol's own daily series.
  */
 export function warmupBarsFor(key: StrategyKey): number {
+  const screener = theoryScreenerSpecForStrategyKey(key);
+  if (screener) return screener.warmupBars;
   if (isWyckoffFunnelKey(key)) key = wyckoffFunnelStudies[key];
   if (isPitStrategyKey(key)) return growthPitWarmupBars(key);
   if (isNativeStrategyKey(key)) return nativeStudyDefinition.warmupBars;

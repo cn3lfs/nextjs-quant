@@ -43,6 +43,7 @@ export * from "./crypto-dual-ma.js";
 export * from "./strategy-object.js";
 export * from "./strategy-book-model.js";
 export * from "./strategy-book.js";
+export * from "./theory-regime-gates.js";
 
 export * from "./method-strategy.js";
 export * from "./historical-low.js";
@@ -62,7 +63,17 @@ export * from "./theory-multiperiod.js";
 export * from "./theory-range.js";
 
 export * from "./theory-orb.js";
+export * from "./theory-macro-timing.js";
+export * from "./theory-pair-switch.js";
 export * from "./theory-input.js";
+export * from "./research/sentiment/sentiment-regime.js";
+export {
+  rankMagicFormulaPit,
+  rankFScoreLocal8Pit,
+  rankDividendLowVolPit,
+  rankGarpPit,
+  type ValuePitCandidate,
+} from "./research/value/value-pit-strategies.js";
 
 export * from "./screener/index.js";
 export * from "./pattern-breakout.js";

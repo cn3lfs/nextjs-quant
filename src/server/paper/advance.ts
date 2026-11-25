@@ -7,6 +7,7 @@ import {
 } from "quant-backtest";
 import {
   strategyBuildHash,
+  studyWarmup,
   usesStrategyBook,
   type StrategyExternalInputs,
 } from "trading-strategies";
@@ -717,19 +718,17 @@ export function advancePaper(
   const context = native
     ? freezeNativePaperContext(q, previous, cutoff, account.lastBar)
     : null;
-  const strategies = native
-    ? q.strategies
-    : account.candidates.map(({ strategy: s }) => ({
-        ...s,
-        entry: { kind: "external" as const, id: s.id, side: "entry" as const },
-        exit: {
-          ...s.exit,
-          rule: { kind: "external" as const, id: s.id, side: "exit" as const },
-          ...(s.exit.stop?.kind === "atr" || s.exit.stop?.kind === "structure"
-            ? { stop: { kind: "structure" as const, field: s.id } }
-            : {}),
-        },
-      }));
+  // These exits need the actual fill's position and signal index. The raw
+  // positionless decision is still recorded for audit, but cannot drive a sale.
+  const positionExits = new Set(
+    q.strategies
+      .filter(
+        ({ exit }) =>
+          exit.rule?.kind === "theory-screener" ||
+          exit.rule?.kind === "study-rule",
+      )
+      .map(({ id }) => id),
+  );
   const instruments = context
     ? context.instruments
     : q.instruments.map((instrument) => {
@@ -738,10 +737,20 @@ export function advancePaper(
         const old = previous?.request.instruments.find(
           (i) => i.symbol === instrument.symbol,
         );
+        const keepSignalHistory = positionExits.size > 0;
+        const acceptBar = (b: Bar) =>
+          dateSet.has(b.date) ||
+          (keepSignalHistory && !previous && b.date < dates[0]!);
         const bars = [
           ...(old?.bars ?? []),
-          ...instrument.bars.filter((b) => dateSet.has(b.date)),
+          ...instrument.bars.filter(acceptBar),
         ];
+        const freshSignalBars = keepSignalHistory
+          ? instrument.signalBars.filter(acceptBar)
+          : [];
+        const signalCloses = new Map(
+          freshSignalBars.map((bar) => [bar.date, bar.close]),
+        );
         const execution = { ...(old?.execution ?? {}) };
         const signals = [...(old?.external?.signals ?? [])];
         const levels = [...(old?.external?.levels ?? [])];
@@ -782,7 +791,10 @@ export function advancePaper(
                 field: strategy.id,
                 date,
                 availableAt: date,
-                value: decision.stop,
+                // Capture stores raw stops. The portfolio expects signal prices.
+                value: keepSignalHistory
+                  ? (decision.stop * signalCloses.get(date)!) / raw.close
+                  : decision.stop,
               });
             decisions.push(decision);
           }
@@ -790,7 +802,9 @@ export function advancePaper(
         return {
           ...instrument,
           bars,
-          signalBars: bars,
+          signalBars: keepSignalHistory
+            ? [...(old?.signalBars ?? []), ...freshSignalBars]
+            : bars,
           external: { signals, levels },
           execution,
           actions: [
@@ -826,6 +840,55 @@ export function advancePaper(
             throw new Error("纸面完成bar缺少唯一首见原始规则决定");
       decisions.push(...captured);
     }
+  if (!native)
+    for (const strategy of q.strategies) {
+      const rule = strategy.exit.rule;
+      if (rule?.kind !== "study-rule") continue;
+      // Preserve legacy checkpoints whose persisted strategy previously used
+      // frozen external exits so prefix verification never fails on next advance.
+      if (
+        previous &&
+        previous.request.strategies.some(
+          (s) => s.id === strategy.id && s.exit.rule?.kind === "external",
+        )
+      ) {
+        positionExits.delete(strategy.id);
+        continue;
+      }
+      // Older inputs can omit pre-start bars. The study evaluator returns
+      // unknown during warmup, which would suppress a frozen entry in replay.
+      const warmup = studyWarmup(rule.strategy);
+      const readyAt = new Map(
+        instruments.map(({ symbol, signalBars }) => [
+          symbol,
+          signalBars[warmup]?.date,
+        ]),
+      );
+      if (
+        decisions.some((decision) => {
+          if (decision.strategyId !== strategy.id || !decision.entry)
+            return false;
+          const ready = readyAt.get(decision.symbol);
+          return ready === undefined || decision.date < ready;
+        })
+      )
+        positionExits.delete(strategy.id);
+    }
+  const strategies = native
+    ? q.strategies
+    : account.candidates.map(({ strategy: s }) => ({
+        ...s,
+        entry: { kind: "external" as const, id: s.id, side: "entry" as const },
+        exit: {
+          ...s.exit,
+          rule: positionExits.has(s.id)
+            ? s.exit.rule
+            : { kind: "external" as const, id: s.id, side: "exit" as const },
+          ...(s.exit.stop?.kind === "atr" || s.exit.stop?.kind === "structure"
+            ? { stop: { kind: "structure" as const, field: s.id } }
+            : {}),
+        },
+      }));
   if (
     previous &&
     previous.request.instruments.some(
@@ -838,7 +901,13 @@ export function advancePaper(
     ...dates,
   ];
   checkBarBudget(
-    calendar.length * instruments.length,
+    Math.max(
+      calendar.length * instruments.length,
+      instruments.reduce(
+        (total, instrument) => total + instrument.bars.length,
+        0,
+      ),
+    ),
     {
       symbol: "纸面冻结证券池",
       period: account.candidates[0]!.strategy.period,

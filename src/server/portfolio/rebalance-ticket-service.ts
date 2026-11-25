@@ -37,6 +37,8 @@ import { storedSecurityTradingStatus } from "../market/security-trading-status";
 import { storedSecurityName } from "../market/securities";
 import { fetchOverviewQuotes } from "../market/overview-quotes";
 import { thsdkCallAuction } from "../data-sources/thsdk/thsdk-adapter";
+import type { StockEvents } from "../research/stock-events";
+import { checkTicketUnlockEvents } from "./ticket-unlock-check";
 import {
   rebalanceSourceSchema,
   resolveRebalanceTargets,
@@ -465,6 +467,8 @@ export type TicketServiceSources = {
   now: () => number;
   loadBook: typeof loadPortfolioRiskBook;
   readQuotes: typeof readTicketQuotes;
+  /** 仅测试注入；缺省按需读取个股事件。 */
+  readEvents?: (symbol: string, signal?: AbortSignal) => Promise<StockEvents>;
 };
 const sources: TicketServiceSources = {
   now: Date.now,
@@ -611,6 +615,20 @@ export async function recheckRebalanceTicket(
     });
   }
   const quotes = await deps.readQuotes(book, ticket, at, instruments);
+  // 限售解禁只覆盖票据内的个别 A 股买入标的，且仅提示、不阻断。
+  const unlockChecks = await checkTicketUnlockEvents({
+    symbols: ticket.orders.flatMap((order) =>
+      order.side === "buy" ? [order.symbol] : [],
+    ),
+    executeDate: ticket.executeDate,
+    readEvents: deps.readEvents,
+  }).catch(() => [
+    {
+      code: "unlock",
+      status: "unknown" as const,
+      detail: "限售解禁事件暂不可查，请人工核对",
+    },
+  ]);
   const savedAt = deps.now();
   const result = recheckTicketEvidence(
     ticket,
@@ -619,6 +637,11 @@ export async function recheckRebalanceTicket(
     quotes,
     executeDateBasis,
   );
+  const advisory = unlockChecks.filter((check) => check.status !== "passed");
+  if (advisory.length) {
+    result.checks.push(...advisory);
+    if (result.outcome !== "blocked") result.outcome = "warning";
+  }
   const repo = new AccountWorkspaceRepository();
   return repo.atomic(() => {
     repo.assertVersion(book.facts.version);

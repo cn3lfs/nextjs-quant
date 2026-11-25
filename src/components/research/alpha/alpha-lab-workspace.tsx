@@ -233,7 +233,9 @@ export function AlphaLabWorkspace() {
           </p>
         )}
       </Panel>
-      {result && <AlphaResults key={jobId} result={result} stale={stale} />}
+      {result && (
+        <AlphaResults key={jobId} result={result} stale={stale} jobId={jobId} />
+      )}
       <AlphaBacktest
         form={form}
         onChange={(patch) => setForm((current) => ({ ...current, ...patch }))}

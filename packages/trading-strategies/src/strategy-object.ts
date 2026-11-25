@@ -22,6 +22,12 @@ import {
   type UtcOrbInput,
 } from "./theory-orb.js";
 import { z } from "zod";
+import {
+  isValidOhlcvBar,
+  listTheoryScreenerSpecs,
+  prepareTheoryScreeners,
+  type TheoryScreenContext,
+} from "./screener/index.js";
 import { strategyBuildHash } from "./build-identity.js";
 import { periods, type Bar } from "trading-strategy-core/bars";
 import { calculateFactor } from "trading-strategy-core/factors";
@@ -76,6 +82,32 @@ function validDate(date: string) {
   return true;
 }
 export const strategyRuleSchema = z.discriminatedUnion("kind", [
+  z
+    .object({
+      kind: z.literal("theory-screener"),
+      methodId: z
+        .string()
+        .min(1)
+        .superRefine((id, ctx) => {
+          const spec = listTheoryScreenerSpecs().find((item) => item.id === id);
+          if (!spec)
+            ctx.addIssue({
+              code: "custom",
+              message: `Unknown theory screener methodId: ${id}`,
+            });
+          else if (spec.direction === "short")
+            ctx.addIssue({
+              code: "custom",
+              message: `Long-only strategy rules cannot run short-only screeners: ${id}`,
+            });
+        }),
+      direction: z.literal("long").default("long"),
+      holdBars: z.number().int().min(1).max(250).default(25),
+      minScore: z.number().int().min(1).max(5).optional(),
+      useScreenerStops: z.boolean().default(true),
+      side: z.enum(["entry", "exit"]),
+    })
+    .strict(),
   z
     .object({
       kind: z.literal("triple-screen"),
@@ -296,6 +328,14 @@ export const strategyObjectSchema = z
   })
   .strict()
   .superRefine((s, ctx) => {
+    if (
+      (s.entry.kind === "theory-screener" && s.entry.side !== "entry") ||
+      (s.exit.rule?.kind === "theory-screener" && s.exit.rule.side !== "exit")
+    )
+      ctx.addIssue({
+        code: "custom",
+        message: "Theory screener side must match its entry or exit slot",
+      });
     if (s.market === "cn-equity" && ["1h", "4h"].includes(s.period))
       ctx.addIssue({ code: "custom", message: "Unsupported equity period" });
     for (const r of [s.entry, s.exit.rule]) {
@@ -423,6 +463,11 @@ export type PreparedStrategyRule = {
   }[];
 };
 export type StrategyExternalInputs = {
+  /** Index callbacks refer to the same signal bars and supply as-of observations. */
+  theoryScreener?: Pick<
+    TheoryScreenContext,
+    "symbol" | "benchmarkBars" | "rpsAt" | "financialsAt"
+  >;
   tripleScreen?: TripleScreenInput;
   orb?: UtcOrbInput;
   preparedRules?: readonly PreparedStrategyRule[];
@@ -594,11 +639,21 @@ export function strategyProtection(
  * Price basis and forward-adjustment denominator are frozen by the caller.
  */
 export function validateStrategyBars(bars: readonly Bar[]) {
+  validateSeries(bars, false);
+}
+
+function validateSeries(
+  bars: readonly Bar[],
+  allowMissingScreenerBar: boolean,
+) {
   let previous = "";
   for (const b of bars) {
+    if (b.date <= previous || !validDate(b.date))
+      throw new Error("Invalid strategy bars / order");
+    previous = b.date;
+    // A dated but unusable screener observation cannot establish a new signal.
+    if (allowMissingScreenerBar && !isValidOhlcvBar(b)) continue;
     if (
-      b.date <= previous ||
-      !validDate(b.date) ||
       !Number.isFinite(b.open) ||
       b.open <= 0 ||
       !Number.isFinite(b.high) ||
@@ -615,7 +670,6 @@ export function validateStrategyBars(bars: readonly Bar[]) {
       b.low > Math.min(b.open, b.close)
     )
       throw new Error("Invalid strategy bars / order");
-    previous = b.date;
   }
 }
 
@@ -625,7 +679,7 @@ export function prepareStrategy(
   external: StrategyExternalInputs = {},
 ) {
   const strategy = strategyObjectSchema.parse(raw);
-  validateStrategyBars(bars);
+  validateSeries(bars, strategy.entry.kind === "theory-screener");
   if (
     new Set(external.rps?.map((x) => x.date)).size !==
     (external.rps?.length ?? 0)
@@ -633,7 +687,8 @@ export function prepareStrategy(
     throw new Error("Duplicate RPS observations");
   if (
     external.preparedRules &&
-    (strategy.entry.kind === "study-rule" ||
+    (strategy.exit.rule?.kind === "theory-screener" ||
+      strategy.entry.kind === "study-rule" ||
       strategy.exit.rule?.kind === "study-rule" ||
       strategy.entry.kind === "triple-screen" ||
       strategy.exit.rule?.kind === "triple-screen" ||
@@ -787,6 +842,14 @@ export function prepareStrategy(
     };
   };
   type PatternRule = Extract<StrategyRule, { kind: "pattern-breakout" }>;
+  type TheoryRule = Extract<StrategyRule, { kind: "theory-screener" }>;
+  const theoryMatches = new Map<
+    TheoryRule,
+    (
+      index: number,
+    ) =>
+      ReturnType<ReturnType<typeof prepareTheoryScreeners>["at"]>[number] | null
+  >();
   const patternCache = new Map<
     PatternRule,
     ReturnType<typeof preparePatternBreakout>
@@ -871,6 +934,85 @@ export function prepareStrategy(
     exitDetails?: Pick<StrategyDecision, "exitFraction">,
   ) => boolean | null) => {
     switch (rule.kind) {
+      case "theory-screener": {
+        const spec = listTheoryScreenerSpecs().find(
+          (item) => item.id === rule.methodId,
+        );
+        if (!spec)
+          throw new Error(`Unknown theory screener methodId: ${rule.methodId}`);
+        const facts = external.theoryScreener;
+        const financialsAt = facts?.financialsAt;
+        const prepared = prepareTheoryScreeners(
+          {
+            symbol:
+              facts?.symbol ??
+              (strategy.universe.kind === "symbols" &&
+              strategy.universe.symbols.length === 1
+                ? strategy.universe.symbols[0]
+                : undefined),
+            benchmarkBars: facts?.benchmarkBars,
+            rpsAt: facts?.rpsAt,
+            financialsAt:
+              financialsAt &&
+              ((index) => {
+                const snapshot = financialsAt(index);
+                const date = snapshot?.availableAt;
+                return date != null &&
+                  (!validDate(date) || date > bars[index]!.date)
+                  ? null
+                  : snapshot;
+              }),
+            bars,
+          },
+          {
+            families: [spec.family],
+            methodIds: [spec.id],
+            direction: rule.direction,
+            minScore: rule.minScore,
+          },
+        );
+        // Keep one observation per rule: repeated entry/evidence reads and a held
+        // position's frozen signal do not need another family scan.
+        let cachedIndex = -1;
+        let cachedMatch: ReturnType<typeof prepared.at>[number] | null = null;
+        const matchAt = (index: number) => {
+          if (index + 1 < spec.warmupBars) return null;
+          if (index !== cachedIndex) {
+            cachedMatch = prepared.at(index)[0] ?? null;
+            cachedIndex = index;
+          }
+          return cachedMatch;
+        };
+        theoryMatches.set(rule, matchAt);
+        if (rule.side === "entry")
+          return (i) =>
+            i + 1 < spec.warmupBars || !isValidOhlcvBar(bars[i])
+              ? null
+              : matchAt(i)?.direction === "long";
+        return (i, position) => {
+          const bar = bars[i];
+          if (
+            !position ||
+            !(position.entry > 0) ||
+            !Number.isInteger(position.entryIndex) ||
+            position.entryIndex < 0 ||
+            i < position.entryIndex ||
+            !isValidOhlcvBar(bar)
+          )
+            return false;
+          if (i - position.entryIndex >= rule.holdBars) return true;
+          const signal = position.signalIndex ?? position.entryIndex - 1;
+          if (!rule.useScreenerStops || signal > position.entryIndex)
+            return false;
+          const match = matchAt(signal);
+          if (!match) return false;
+          const { stopPrice, targetPrice } = match;
+          return (
+            (stopPrice !== null && bar.close <= stopPrice) ||
+            (targetPrice !== null && bar.close >= targetPrice)
+          );
+        };
+      }
       case "triple-screen": {
         const input = external.tripleScreen;
         if (
@@ -1227,6 +1369,13 @@ export function prepareStrategy(
           line: side?.line,
           keyLevel: side?.keyLevel,
         };
+      } else if (rule.kind === "theory-screener") {
+        inputs = {
+          methodId: rule.methodId,
+          direction: rule.direction,
+          minScore: rule.minScore,
+          match: theoryMatches.get(rule)!(index),
+        };
       } else if (rule.kind === "pattern-breakout") {
         inputs = {
           patterns: rule.patterns,
@@ -1354,6 +1503,7 @@ export function prepareStrategyRulePoints(
       "Cannot prepare genuine rules from already projected observations",
     );
   if (
+    strategy.exit.rule?.kind === "theory-screener" ||
     strategy.entry.kind === "study-rule" ||
     strategy.exit.rule?.kind === "study-rule" ||
     strategy.entry.kind === "triple-screen" ||

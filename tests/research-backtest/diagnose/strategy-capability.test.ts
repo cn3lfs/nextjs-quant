@@ -165,7 +165,8 @@ describe.each(["single", "portfolio"] as const)(
 
 it("accepts exactly the executable catalog studies as signal keys", () => {
   expect(probeErrors).toEqual([]);
-  expect(acceptedStudyKeys).toHaveLength(98);
+  expect(acceptedStudyKeys).toHaveLength(99);
+  expect(acceptedStudyKeys).toContain("calendar-turn-of-month");
   expect([...STUDY_STRATEGY_KEYS]).toEqual(acceptedStudyKeys);
   expect(new Set(STUDY_STRATEGY_KEYS).size).toBe(STUDY_STRATEGY_KEYS.length);
   expect([...acceptedStudyKeys]).toEqual(

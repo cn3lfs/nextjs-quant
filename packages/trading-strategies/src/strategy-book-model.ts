@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  dowDualIndexDefaults,
+  oneilMarketDefaults,
+} from "./theory-regime-gates.js";
 
 const fraction = z.number().finite().positive().max(1);
 export const strategyRankSchema = z.discriminatedUnion("kind", [
@@ -16,15 +20,65 @@ export const strategyRankSchema = z.discriminatedUnion("kind", [
     .object({ kind: z.literal("classic"), model: z.literal("classic-five") })
     .strict(),
 ]);
-export const strategyRegimeSchema = z
-  .object({
-    kind: z.literal("trend-breadth"),
-    benchmark: z.string().min(1),
-    period: z.number().int().min(2).max(500).default(20),
-    minimumBreadth: z.number().finite().min(0).max(1).default(0.5),
-    minimumCoverage: fraction.default(0.6),
-  })
-  .strict();
+export const strategyRegimeSchema = z.discriminatedUnion("kind", [
+  z
+    .object({
+      kind: z.literal("trend-breadth"),
+      benchmark: z.string().min(1),
+      period: z.number().int().min(2).max(500).default(20),
+      minimumBreadth: z.number().finite().min(0).max(1).default(0.5),
+      minimumCoverage: fraction.default(0.6),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("oneil-market-direction"),
+      benchmark: z.string().min(1),
+      distributionWindow: z
+        .number()
+        .int()
+        .positive()
+        .default(oneilMarketDefaults.distributionWindow),
+      pressureThreshold: z
+        .number()
+        .int()
+        .positive()
+        .default(oneilMarketDefaults.pressureThreshold),
+      correctionThreshold: z
+        .number()
+        .int()
+        .positive()
+        .default(oneilMarketDefaults.correctionThreshold),
+      followThroughGain: z
+        .number()
+        .finite()
+        .positive()
+        .default(oneilMarketDefaults.followThroughGain),
+      pressureScale: z
+        .number()
+        .min(0)
+        .max(1)
+        .default(oneilMarketDefaults.pressureScale),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("dow-dual-index"),
+      benchmark: z.string().min(1),
+      secondaryBenchmark: z.string().min(1),
+      swingBars: z
+        .number()
+        .int()
+        .positive()
+        .default(dowDualIndexDefaults.swingBars),
+      waitScale: z
+        .number()
+        .min(0)
+        .max(1)
+        .default(dowDualIndexDefaults.waitScale),
+    })
+    .strict(),
+]);
 export const strategyOverlaySchema = z
   .object({
     volatilityTarget: fraction.optional(),

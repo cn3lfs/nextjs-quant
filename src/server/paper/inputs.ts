@@ -31,6 +31,8 @@ import { paperSleevePolicy } from "./policy";
 import { capturePaperDecisions } from "./decisions";
 import { localCalendarReference } from "../market/data-health";
 import { loadCnPaperContext } from "./cn-book-context";
+import { causalResearchPrices } from "../research/causal-price-basis";
+import { PaperRepository } from "../db/paper-repository";
 
 export async function loadPaperInput(
   account: PaperAccount,
@@ -203,12 +205,62 @@ export async function loadPaperInput(
   const instruments: PortfolioInstrument[] = [];
   const decisions: NonNullable<PaperInput["decisions"]> = [];
   const sources = [benchmark.source];
+  const needsFixedPriceBasis = (kind: string | undefined) =>
+    kind === "theory-screener" || kind === "study-rule";
+  const hasPositionExit = account.candidates.some(({ strategy }) =>
+    needsFixedPriceBasis(strategy.exit.rule?.kind),
+  );
+  const hasScreenerOrStudy =
+    hasPositionExit ||
+    account.candidates.some(({ strategy }) =>
+      needsFixedPriceBasis(strategy.entry.kind),
+    );
+  const keepInitialWarmup = account.lastBar === null && hasScreenerOrStudy;
+  const causalSignals = account.market === "cn-equity" && hasScreenerOrStudy;
+  const checkpoint =
+    causalSignals && (native || hasPositionExit) && account.lastBar
+      ? new PaperRepository().state(account.id)
+      : null;
+  const firstReadyDate = readyDates[0]!;
   for (const symbol of symbols) {
-    const data = await read(symbol, true);
-    sources.push(data.source);
+    const data = await read(symbol, !causalSignals);
+    const events = actions?.events.get(symbol) ?? [];
+    // Later ex-rights events must not rescale a frozen signal stop or target.
+    const causal =
+      causalSignals && actions && events.length && data.rawBars.length
+        ? causalResearchPrices(data.rawBars, events, actions.fingerprint, [])
+        : null;
+    let signalBars = causal?.bars ?? data.bars;
+    // Existing legacy checkpoints may carry an earlier forward-adjusted scale.
+    const frozen = checkpoint?.request.instruments
+      .find((instrument) => instrument.symbol === symbol)
+      ?.signalBars.at(-1);
+    const anchor =
+      frozen && frozen.date <= account.lastBar!
+        ? signalBars.find((bar) => bar.date === frozen.date)
+        : undefined;
+    if (frozen && frozen.date <= account.lastBar! && !anchor)
+      throw new Error("纸面检查点锚点行情缺失，无法对齐复权基准");
+    const scale = frozen && anchor ? frozen.close / anchor.close : 1;
+    if (!Number.isFinite(scale) || scale <= 0)
+      throw new Error("纸面选股检查点复权基准无效");
+    if (scale !== 1)
+      signalBars = signalBars.map((bar) => ({
+        ...bar,
+        open: bar.open * scale,
+        high: bar.high * scale,
+        low: bar.low * scale,
+        close: bar.close * scale,
+      }));
+    const signalSource = causal
+      ? `${data.source}/${causal.proof.kind}/${causal.proof.seriesHash}/${scale}`
+      : scale === 1
+        ? data.source
+        : `${data.source}/checkpoint-scale/${scale}`;
+    sources.push(signalSource);
     const entitlements = actions
       ? researchCorporateActions(
-          actions.events.get(symbol) ?? [],
+          events,
           actions.fingerprint,
           calendar[0]!,
           calendar.at(-1)!,
@@ -222,7 +274,7 @@ export async function loadPaperInput(
         await captureLowZoneFinancials(
           config.tdxRoot,
           symbol,
-          data.bars.map((b) => b.date),
+          signalBars.map((b) => b.date),
           financials,
         )
       ).facts;
@@ -230,7 +282,7 @@ export async function loadPaperInput(
       symbol,
       market: account.market,
       bars: data.rawBars,
-      signalBars: data.bars,
+      signalBars,
       external,
       actions: entitlements,
       execution:
@@ -269,14 +321,16 @@ export async function loadPaperInput(
           instrument,
           readyDates,
           now,
-          data.source,
+          signalSource,
         ),
       );
       const accepted = new Set(readyDates);
-      instrument.bars = instrument.bars.filter((b) => accepted.has(b.date));
-      instrument.signalBars = instrument.signalBars.filter((b) =>
-        accepted.has(b.date),
-      );
+      // Replay needs the same signal history used to compute the first frozen stop.
+      const acceptBar = (bar: Bar) =>
+        accepted.has(bar.date) ||
+        (keepInitialWarmup && bar.date < firstReadyDate);
+      instrument.bars = instrument.bars.filter(acceptBar);
+      instrument.signalBars = instrument.signalBars.filter(acceptBar);
       instrument.external = {};
     }
     instruments.push(instrument);

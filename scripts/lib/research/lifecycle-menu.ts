@@ -287,7 +287,7 @@ export function lifecycleNeighborhood(main: readonly LifecycleMain[]) {
             integer(v, factor),
           ),
         });
-      if (s.regime)
+      if (s.regime?.kind === "trend-breadth")
         add("entry-regime", {
           "strategy.regime.period": integer(s.regime.period!, factor),
           "strategy.regime.minimumBreadth": scaled(

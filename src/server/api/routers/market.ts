@@ -84,6 +84,8 @@ import { etfNetSubscriptions } from "../../market/etf-net-subscriptions";
 import { stockEvents } from "../../research/stock-events";
 import { capitalProfile } from "../../market/capital-profile";
 import { macroRates } from "../../data-sources/macro/macro-rates";
+import { syncMacroHistory } from "../../data-sources/macro/macro-history-adapter";
+import { macroStoreSummary } from "../../db/macro-store";
 import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
 import { pinyin } from "pinyin-pro";
 import { futuresContracts } from "~/lib/market/futures";
@@ -478,4 +480,14 @@ export const marketRouter = createTRPCRouter({
     .input(symbolSchema)
     .query(({ input, signal }) => capitalProfile(input, signal)),
   macroRates: p("market", "read").query(({ signal }) => macroRates(signal)),
+  macroPitSummary: p("market", "read").query(() => macroStoreSummary()),
+  macroPitSync: p("market", "compute")
+    .input(
+      z
+        .object({ years: z.number().int().min(1).max(10).default(3) })
+        .optional(),
+    )
+    .mutation(({ input, signal }) =>
+      syncMacroHistory({ years: input?.years ?? 3, signal }),
+    ),
 });

@@ -130,6 +130,7 @@ export const studyStrategies = [
   "cppi",
   "dca",
   "seasonal",
+  "calendar-turn-of-month",
   ...classicIds,
   ...theoryDailyIds,
   ...theoryStructureIds,
@@ -446,12 +447,18 @@ export const studyCatalog: Record<StudyStrategy, StudyDefinition> = {
     family: "日历",
     rule: "11月至次年4月持有，5月至10月现金；当日收盘识别月份后次日开盘调整。",
   },
+  "calendar-turn-of-month": {
+    name: "月末月初日历效应",
+    family: "事件",
+    rule: "每月最后三个自然日若有交易，收盘发出入场信号。跨月后或月初十日内，当月第三根已完成日线起发出退出信号；最迟在距入场满十根日线时退出。",
+  },
 };
 export const studyNames = Object.fromEntries(
   studyStrategies.map((id) => [id, studyCatalog[id].name]),
 ) as Record<StudyStrategy, string>;
-export const studyWarmup = (strategy: StudyStrategy) =>
-  strategy === "theory-stage150"
+export const studyWarmup = (strategy: StudyStrategy) => {
+  if (strategy === "calendar-turn-of-month") return 0;
+  return strategy === "theory-stage150"
     ? 170
     : strategy.startsWith("theory-")
       ? 140
@@ -466,6 +473,7 @@ export const studyWarmup = (strategy: StudyStrategy) =>
               classicDefinitions.find((d) => d.id === strategy)?.warmupBars ??
                 300,
             );
+};
 
 /** Families that require different instruments or evidence are visible gaps. */
 export const studyCoverageGaps = [

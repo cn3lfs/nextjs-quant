@@ -48,6 +48,15 @@ import {
   type UpsertFactorCompositeInput,
 } from "../../db/factor-composite-repository";
 import { runIfJobRunning } from "../../db/jobs";
+import {
+  evaluateValuePitSnapshot,
+  macroClockPreviewInput,
+  pairSwitchPreviewInput,
+  previewMacroClockAllocation,
+  previewPairSwitchAllocation,
+  valuePitPreviewInput,
+} from "../../research/value-pit-service";
+import { sentimentRegimeSnapshot } from "../../market/limit-sentiment-regime";
 
 const compositeKey = z.object({ id: z.string().trim().min(1) }).strict();
 function experimentFor(saved: UpsertFactorCompositeInput) {
@@ -66,6 +75,23 @@ function storedSnapshot(id: string) {
   );
 }
 export const researchRouter = createTRPCRouter({
+  macroClockPreview: p("research", "read")
+    .input(macroClockPreviewInput)
+    .query(({ input }) => previewMacroClockAllocation(input)),
+  pairSwitchPreview: p("research", "read")
+    .input(pairSwitchPreviewInput)
+    .query(({ input }) => previewPairSwitchAllocation(input)),
+  valuePitPreview: p("research", "read")
+    .input(valuePitPreviewInput)
+    .query(({ input }) => evaluateValuePitSnapshot(input)),
+  sentimentRegimeSnapshot: p("research", "read")
+    .input(
+      z
+        .object({ asOfDate: researchDateSchema.optional() })
+        .strict()
+        .default({}),
+    )
+    .query(({ input }) => sentimentRegimeSnapshot(input)),
   alphaComposites: p("research", "read")
     .input(
       z

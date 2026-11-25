@@ -25,6 +25,10 @@ import { loadAccountBook } from "../../portfolio/account-workspace-service";
 import { AccountWorkspaceRepository } from "../../db/account-workspace-repository";
 import { cryptoRiskSummary } from "../../crypto-trading/risk-summary";
 import { planCorrelation } from "../../portfolio/plan-correlation";
+import {
+  watchResearchShadowSchema,
+  watchResearchInShadow,
+} from "../../paper/promote-from-research";
 /** One versioned account read per request, shared by all candidate sources. */
 async function planAccountContext(localOnly: boolean) {
   const config = settings(),
@@ -46,6 +50,9 @@ export const alertsRouter = createTRPCRouter({
   cryptoRiskSummary: p("cryptoSimulation", "read").query(() =>
     cryptoRiskSummary(),
   ),
+  alertWatchResearchShadow: p("alerts", "configure")
+    .input(watchResearchShadowSchema)
+    .mutation(({ input }) => watchResearchInShadow(input)),
   prepareScreenPlan: p("alerts", "configure")
     .input(
       z.object({

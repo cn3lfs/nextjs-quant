@@ -148,6 +148,30 @@ export function createExtendedStudyRule(
   strategy: StudyStrategy,
   bars: readonly Bar[],
 ): Rule | null {
+  if (strategy === "calendar-turn-of-month") {
+    return (index, position) => {
+      const date = bars[index]!.date;
+      const month = date.slice(0, 7);
+      const day = Number(date.slice(8, 10));
+      const daysInMonth = new Date(
+        Date.UTC(Number(date.slice(0, 4)), Number(date.slice(5, 7)), 0),
+      ).getUTCDate();
+      if (position.entry <= 0)
+        return { enter: day >= daysInMonth - 2, exit: false };
+      if (position.entryIndex < 0 || position.entryIndex > index)
+        return { enter: false, exit: false };
+
+      // On ordered daily bars the third most recent bar suffices to count to three.
+      const thirdBarCompleted = bars[index - 2]?.date.slice(0, 7) === month;
+      const entryMonth = bars[position.entryIndex]!.date.slice(0, 7);
+      return {
+        enter: false,
+        exit:
+          ((month !== entryMonth || day <= 10) && thirdBarCompleted) ||
+          index - position.entryIndex >= 10,
+      };
+    };
+  }
   if (isVolumeStudy(strategy))
     return frozenCloseProtection(
       bars,

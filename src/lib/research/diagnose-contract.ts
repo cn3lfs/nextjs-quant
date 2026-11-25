@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { isAShareStockSymbol } from "~/lib/market/security-classification";
 import {
+  listTheoryScreenerSpecs,
   nativeStudyDefinition,
   studyStrategies,
   wyckoffStudyBindings,
@@ -177,8 +178,41 @@ const textList = z.array(z.string());
 const unique = (values: readonly string[]) =>
   new Set(values).size === values.length;
 
+export const SCREENER_STRATEGY_PREFIX = "screener:";
+const theoryScreenerSpecs = new Map(
+  listTheoryScreenerSpecs()
+    .filter((spec) => spec.direction !== "short")
+    .map((spec) => [spec.id, spec]),
+);
+export const SCREENER_STRATEGY_KEYS = Array.from(
+  theoryScreenerSpecs.keys(),
+  (id) => `${SCREENER_STRATEGY_PREFIX}${id}` as const,
+);
+
+export function theoryScreenerSpecForStrategyKey(key: string) {
+  if (key.startsWith(SCREENER_STRATEGY_PREFIX))
+    return theoryScreenerSpecs.get(key.slice(SCREENER_STRATEGY_PREFIX.length));
+}
+
+export function isScreenerStrategyKey(
+  key: string,
+): key is (typeof SCREENER_STRATEGY_KEYS)[number] {
+  return theoryScreenerSpecForStrategyKey(key) !== undefined;
+}
+
+export function parseScreenerStrategyMethodId(key: string): string | null {
+  return theoryScreenerSpecForStrategyKey(key)?.id ?? null;
+}
+
+function hasValidScreenerStrategyKey(key: string) {
+  return (
+    !key.startsWith(SCREENER_STRATEGY_PREFIX) || isScreenerStrategyKey(key)
+  );
+}
+
 export function isDiagnosticOnlyStrategyKey(key: string): boolean {
   return (
+    isScreenerStrategyKey(key) ||
     [
       "core-4",
       "research-wy-sow-lpsy",
@@ -208,6 +242,7 @@ const accountStudies = new Set([
   "dca",
 ]);
 const sleeveStrategyKeys = new Set<string>([
+  ...SCREENER_STRATEGY_KEYS,
   ...studyStrategies.filter((key) => !accountStudies.has(key)),
   "dual-ma",
   "double-breakout",
@@ -321,6 +356,11 @@ export const diagnoseArchiveRunSchema = runFields.extend({
 export type DiagnoseArchiveRun = z.infer<typeof diagnoseArchiveRunSchema>;
 export const labDiagnoseRunInputSchema = runFields
   .extend({ confirmed: z.literal(true), strategies: textList.optional() })
+  .refine(
+    (v) =>
+      v.strategyKey === undefined || hasValidScreenerStrategyKey(v.strategyKey),
+    { path: ["strategyKey"], message: "未知理论筛选策略" },
+  )
   .refine(
     (v) => v.start === "auto" || v.start < v.end,
     "开始日期须早于结束日期",
@@ -1158,7 +1198,13 @@ const handoffFields = z
     symbol: symbolSchema,
     symbols: handoffSymbols.optional(),
     frozenDate: researchDateSchema.optional(),
-    strategyHint: z.string().trim().min(1).max(100).optional(),
+    strategyHint: z
+      .string()
+      .trim()
+      .min(1)
+      .max(100)
+      .refine(hasValidScreenerStrategyKey, "未知理论筛选策略")
+      .optional(),
     label: z.string().trim().min(1).max(100).optional(),
     returnTo: z
       .string()
@@ -1242,6 +1288,20 @@ export function parseScanToLabHandoff(search: {
 export function scanHandoffStrategyRules(
   key: string,
 ): Pick<StrategyObjectInput, "entry" | "exit"> | undefined {
+  const methodId = parseScreenerStrategyMethodId(key);
+  if (methodId !== null) {
+    const rule = {
+      kind: "theory-screener",
+      methodId,
+      direction: "long",
+      holdBars: 25,
+      useScreenerStops: true,
+    } as const;
+    return {
+      entry: { ...rule, side: "entry" },
+      exit: { rule: { ...rule, side: "exit" } },
+    };
+  }
   switch (key) {
     case "dual-ma":
       return {

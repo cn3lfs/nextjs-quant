@@ -1,5 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { theoryScreenerSpecForStrategyKey } from "~/lib/research/diagnose-contract";
+import type { TheoryScreenerFamilyId } from "trading-strategies";
 import type {
   DiagnoseCell,
   DiagnoseComparison,
@@ -54,6 +56,28 @@ function poolSection(pool: UniversePoolDisclosure) {
     );
   }
   return lines.join("\n");
+}
+
+const screenerEvidenceBoundaries: Partial<
+  Record<TheoryScreenerFamilyId, string>
+> = {
+  "astock-dragon":
+    "缺少逐标的板块信息时，涨停信号按 10% 阈值估算。盘中涨停排队顺序及实际可成交性须由逐笔委托与成交数据验证。",
+  "wave-harmonic-smc": "主观浪型计数与人工结构判读须独立复核。",
+  "growth-oneil": "财务披露时点与市场相对强弱须用相应数据独立验证。",
+  "value-multifactor": "基本面与估值条件须用可用时点明确的财务数据独立验证。",
+};
+
+function screenerDisclosures(cells: readonly DiagnoseCell[]) {
+  return [...new Set(cells.map((cell) => cell.strategy))].flatMap((key) => {
+    const spec = theoryScreenerSpecForStrategyKey(key);
+    if (!spec) return [];
+    const { theoryId, family, label } = spec;
+    const boundary =
+      "日线 OHLCV 结构代理，仅回放多头规则。" +
+      (screenerEvidenceBoundaries[family] ?? "");
+    return [{ strategyKey: key, theoryId, family, label, boundary }];
+  });
 }
 
 function table(cells: readonly DiagnoseCell[]) {
@@ -769,6 +793,7 @@ export function renderReport(
   const native = nativeSection(cells);
   const growthPit = growthPitSection(cells);
   const wyckoff = wyckoffSection(cells);
+  const screeners = screenerDisclosures(cells);
   return [
     "# 回测诊断报告",
     "",
@@ -811,6 +836,25 @@ export function renderReport(
     ...(native ? [native, ""] : []),
     ...(growthPit ? [growthPit, ""] : []),
     ...(wyckoff ? [wyckoff, ""] : []),
+    ...(screeners.length
+      ? [
+          "## 理论筛选策略披露",
+          "",
+          markdownTable(
+            ["策略", "理论 ID", "家族", "方法", "验证边界"],
+            screeners.map(
+              ({ strategyKey, theoryId, family, label, boundary }) => [
+                strategyKey,
+                theoryId,
+                family,
+                label,
+                boundary,
+              ],
+            ),
+          ),
+          "",
+        ]
+      : []),
     ...cells.flatMap(suspensionSection),
     ...comparisons.flatMap(comparisonSection),
     ...cells.flatMap(attributionSection),
@@ -829,9 +873,19 @@ export async function writeReport(
   comparisons: readonly DiagnoseComparison[] = [],
 ): Promise<string> {
   const path = join(outDir, "report.md");
+  const screeners = screenerDisclosures(cells);
   await writeFile(
     join(outDir, "report.json"),
-    JSON.stringify({ pool, cells, comparisons }, null, 2) + "\n",
+    JSON.stringify(
+      {
+        pool,
+        cells,
+        comparisons,
+        ...(screeners.length && { screenerDisclosures: screeners }),
+      },
+      null,
+      2,
+    ) + "\n",
     { encoding: "utf8", flag: "wx" },
   );
   await writeFile(path, renderReport(cells, pool, comparisons), {

@@ -22,6 +22,12 @@ export function safeSegment(name: string) {
   );
 }
 
+export function archiveStrategySegment(strategyKey: string) {
+  const segment = strategyKey.replaceAll(":", "__");
+  if (!safeSegment(segment)) throw new UnsafeArchivePath();
+  return segment;
+}
+
 /** Every component must resolve to itself, including the configured root. */
 export async function checked(path: string, kind: "file" | "directory") {
   try {

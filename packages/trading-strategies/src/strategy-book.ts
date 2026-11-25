@@ -16,6 +16,12 @@ import {
 import { csi800Weights } from "./csi800-model.js";
 import { researchCorrelationGroups } from "./research/risk/research-group-risk.js";
 import type { MarketLowZoneObservation } from "./market-low-zone.js";
+import {
+  evaluateOneilMarketDirection,
+  evaluateDowDualIndex,
+  type OneilMarketDirection,
+  type DowDualIndexDirection,
+} from "./theory-regime-gates.js";
 
 export type BookCandidate = {
   symbol: string;
@@ -26,6 +32,9 @@ export type BookCandidate = {
 };
 export type StrategyBookFacts = {
   benchmark?: { symbol: string; bars: readonly Bar[] };
+  /** A bare series belongs to the configured secondaryBenchmark. */
+  secondaryBenchmarkBars?:
+    readonly Bar[] | { symbol: string; bars: readonly Bar[] };
   classicWeeks?: readonly ClassicWeek[];
   classicRiskSeries?: readonly {
     symbol: string;
@@ -88,11 +97,17 @@ export type StrategyBookDecision = {
   targets: Record<string, number> | null;
   exposure: number;
   state: StrategyBookState;
-  regime: {
-    trend: boolean | null;
-    breadth: number | null;
-    coverage: number | null;
-  } | null;
+  regime:
+    | ({
+        trend: boolean | null;
+        breadth: number | null;
+        coverage: number | null;
+      } & (
+        | { kind?: undefined }
+        | ({ kind: "oneil-market-direction" } & OneilMarketDirection)
+        | ({ kind: "dow-dual-index" } & DowDualIndexDirection)
+      ))
+    | null;
   estimatedVolatility: number | null;
   baseTargets?: Record<string, number>;
   excludedBaseTargets?: { symbol: string; weight: number; reason: string }[];
@@ -193,6 +208,36 @@ function regimeAt(
       : date;
   const bars =
     facts.benchmark?.symbol === config.benchmark ? facts.benchmark.bars : [];
+  if (
+    config.kind === "oneil-market-direction" ||
+    config.kind === "dow-dual-index"
+  ) {
+    const basis = { trend: null, breadth: null, coverage: null };
+    if (config.kind === "oneil-market-direction")
+      return {
+        ...basis,
+        kind: config.kind,
+        ...evaluateOneilMarketDirection(bars, {
+          ...config,
+          asOf: benchmarkDate,
+        }),
+      };
+    const secondary = facts.secondaryBenchmarkBars;
+    const secondaryBars =
+      secondary && "bars" in secondary
+        ? secondary.symbol === config.secondaryBenchmark
+          ? secondary.bars
+          : []
+        : (secondary ?? []);
+    return {
+      ...basis,
+      kind: config.kind,
+      ...evaluateDowDualIndex(bars, secondaryBars, {
+        ...config,
+        asOf: benchmarkDate,
+      }),
+    };
+  }
   const i = indexAt(bars, benchmarkDate),
     window = bars.slice(Math.max(0, i - config.period), i + 1);
   const valid =
@@ -430,18 +475,24 @@ export function evaluateStrategyBook(
   }
   if (strategy.regime) {
     regime = regimeAt(strategy, universe, date, facts);
-    if (regime.trend === null || regime.breadth === null) {
-      regimeMissing = "Missing causal benchmark / breadth";
+    const scale = regime.kind
+      ? regime.scale
+      : regime.trend === null || regime.breadth === null
+        ? null
+        : strategy.regime.kind === "trend-breadth" &&
+            regime.trend &&
+            regime.breadth >= strategy.regime.minimumBreadth
+          ? 1
+          : 0;
+    if (scale === null) {
+      regimeMissing = regime.kind
+        ? `Missing causal ${regime.kind} benchmark observations`
+        : "Missing causal benchmark / breadth";
       if (strategy.rebalance) return unavailable(regimeMissing);
       exposure = 0;
-    }
-    if (
-      regime.trend === false ||
-      (regime.breadth !== null &&
-        regime.breadth < strategy.regime.minimumBreadth)
-    ) {
-      exposure = 0;
-      if (strategy.rebalance) existingScale = 0;
+    } else {
+      exposure *= scale;
+      if (strategy.rebalance) existingScale *= scale;
     }
   }
   if (

@@ -1,5 +1,6 @@
 import {
   classifiedMonitorObservations,
+  isNativeChanV3Profile,
   usesStrategyBook,
   type StrategyExternalInputs,
 } from "trading-strategies";
@@ -86,7 +87,9 @@ export async function evaluateStrategyInputs(ctx: AlertInputContext) {
         ? strategy.universe.symbols
         : paperUniverse.length
           ? paperUniverse
-          : [...(get<string[]>("watchlist") ?? []), ...configured];
+          : shadowOnly && configured.length > 0
+            ? configured
+            : [...(get<string[]>("watchlist") ?? []), ...configured];
     const seen = new Set<string>();
     const symbols = selected.filter((symbol) => {
       if (
@@ -139,10 +142,25 @@ export async function evaluateStrategyInputs(ctx: AlertInputContext) {
               ? [{ date: day.date, periods: day.periods, values: row.values }]
               : [];
         }
-        const native = rules.find((r) => r.kind === "chan-third-buy");
-        if (!paper && native?.kind === "chan-third-buy")
+        const native = rules.find((r) => r.kind === "chan-native");
+        const thirdBuy = rules.find((r) => r.kind === "chan-third-buy");
+        if (!paper && (native || thirdBuy))
           external.chan = (
-            await captureNativeChanObservations(data.bars, native.firstIndex)
+            await captureNativeChanObservations(
+              data.bars,
+              native?.firstIndex ?? thirdBuy?.firstIndex,
+              undefined,
+              undefined,
+              undefined,
+              rules.some(
+                (r) =>
+                  r.kind === "chan-native" && isNativeChanV3Profile(r.profile),
+              )
+                ? "v3"
+                : native
+                  ? "full-reference"
+                  : "third-buy",
+            )
           ).observations;
         const monitor = rules.find((r) => r.kind === "czsc-monitor");
         if (!paper && monitor?.kind === "czsc-monitor") {

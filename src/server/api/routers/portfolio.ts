@@ -19,6 +19,7 @@ import {
   tradeWorkspaceComparison,
 } from "../../portfolio/trade-workspace-service";
 import { mockEnabled } from "../../portfolio/mock/mock-trading-service";
+import { listRebalanceTicketSources } from "../../paper/ticket-source-catalog";
 import { chinaClock } from "~/lib/strategy-facts/notification-policy";
 import {
   disciplineRequestSchema,
@@ -44,6 +45,11 @@ import {
 } from "../../portfolio/rebalance-ticket-service";
 
 export const portfolioRouter = createTRPCRouter({
+  rebalanceTicketSources: p("portfolio", "read")
+    .input(z.object({ asOfDate: z.string().date().optional() }).optional())
+    .query(({ input }) =>
+      listRebalanceTicketSources({ asOfDate: input?.asOfDate }),
+    ),
   rebalanceTicketGenerate: p("portfolio", "configure")
     .input(generateTicketSchema)
     .mutation(({ input }) => generateRebalanceTicket(input)),

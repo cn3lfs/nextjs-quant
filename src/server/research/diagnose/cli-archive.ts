@@ -8,12 +8,14 @@ import {
   diagnoseSampleOrderSchema,
   diagnoseSampleRejectionSchema,
   diagnoseScenarioMetricsSchema,
+  isScreenerStrategyKey,
   type DiagnoseArchiveDetail,
   type DiagnoseArchiveSummary,
   type DiagnoseScenarioCellGroup,
   type DiagnoseScenarioMetrics,
 } from "~/lib/research/diagnose-contract";
 import {
+  archiveStrategySegment,
   checked,
   directories,
   readBounded,
@@ -472,10 +474,13 @@ export async function readCliReport(
       ? await metadata(path, "diagnostics.json", missing, label)
       : {};
     const scenario = metricOptions(run, summary, diagnostic);
+    const runStrategyKey = stringValue(run.strategyKey)?.replace(/^diag-/, "");
     const strategyKey =
-      cell.strategy ??
-      stringValue(run.strategyKey)?.replace(/^diag-/, "") ??
-      "unknown";
+      runStrategyKey &&
+      isScreenerStrategyKey(runStrategyKey) &&
+      cell.strategy === archiveStrategySegment(runStrategyKey)
+        ? runStrategyKey
+        : (cell.strategy ?? runStrategyKey ?? "unknown");
     const symbols = strings(run.symbols);
     if (!symbols.length && cell.symbol) symbols.push(cell.symbol);
     const date = stringValue(run.generatedAt);

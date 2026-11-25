@@ -31,7 +31,13 @@ export function evaluateStrategySeries(
       ? series.bars
       : series.bars.filter((b) => b.date <= asOf);
   if (!bars.length) return null;
-  const prepared = prepareStrategy(strategy, bars, series.external);
+  const prepared = prepareStrategy(strategy, bars, {
+    ...series.external,
+    theoryScreener: {
+      ...series.external?.theoryScreener,
+      symbol: series.symbol,
+    },
+  });
   const bar = bars.at(-1)!;
   const raw =
     series.rawBars?.find((b) => b.date === bar.date) ??

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Link from "next/link";
 import {
   GridTable,
   MetricStrip,
@@ -6,6 +7,7 @@ import {
   Pill,
   Segmented,
 } from "~/components/panels";
+import { Button } from "~/components/ui/button";
 import type { AlphaEvaluationResult } from "~/lib/research/alpha-experiment";
 import {
   CumulativeRankIcChart,
@@ -34,10 +36,16 @@ const comparisonLabels = {
 export function AlphaResults({
   result,
   stale,
+  jobId,
 }: {
   result: AlphaEvaluationResult;
   stale: boolean;
+  /** Optional completed job id used to deep-link the rebalance ticket form. */
+  jobId?: string;
 }) {
+  const ticketHref = `/?ticketSource=alpha${
+    jobId ? `&alphaJobId=${encodeURIComponent(jobId)}` : ""
+  }#rebalance-tickets`;
   const [horizon, setHorizon] = useState(String(result.config.icirHorizon));
   const active =
     result.metrics.horizons.find((h) => String(h.horizon) === horizon) ??
@@ -83,15 +91,20 @@ export function AlphaResults({
             <h2 className="text-base font-semibold">全市场截面评估</h2>
             {stale && <Pill tone="warn">上次评估 · 当前配置已变更</Pill>}
           </div>
-          <Segmented
-            label="评估结果持有期"
-            value={String(active.horizon)}
-            options={result.metrics.horizons.map((h) => ({
-              value: String(h.horizon),
-              label: `T+${h.horizon}`,
-            }))}
-            onChange={setHorizon}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Segmented
+              label="评估结果持有期"
+              value={String(active.horizon)}
+              options={result.metrics.horizons.map((h) => ({
+                value: String(h.horizon),
+                label: `T+${h.horizon}`,
+              }))}
+              onChange={setHorizon}
+            />
+            <Button asChild size="sm" variant="outline">
+              <Link href={ticketHref}>去作战室生成次日调仓单</Link>
+            </Button>
+          </div>
         </div>
         <p className="text-xs text-nc-text-3">
           {result.targetSnapshot.start} 至 {result.targetSnapshot.end} ·

@@ -530,10 +530,11 @@ export function createOrderExecutor(state: PortfolioState) {
         const crossedStandingStop =
           !!request.riskPolicy && !!control && stop !== null && stop >= price;
         if (
-          strategy.exit.stop &&
-          (stop === null ||
-            stop <= 0 ||
-            (stop >= price && !crossedStandingStop))
+          (stop === null && strategy.exit.stop) ||
+          (stop !== null &&
+            (!Number.isFinite(stop) ||
+              stop <= 0 ||
+              (stop >= price && !crossedStandingStop)))
         ) {
           return { reason: "缺失或无效初始止损" };
         }

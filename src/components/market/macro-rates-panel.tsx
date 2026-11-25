@@ -2,8 +2,9 @@
 import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 
 import { Bank } from "@phosphor-icons/react/ssr";
+import Link from "next/link";
 import { api } from "~/trpc/react";
-import { Panel, PanelEmpty } from "../panels";
+import { Panel, PanelEmpty, Pill } from "../panels";
 import { Button } from "../ui/button";
 import { usePanelVisible } from "../workbench/keep-alive";
 
@@ -15,6 +16,31 @@ const bp = (value: number | null) =>
     : (value > 0 ? "+" : "") + Math.round(value * 100) + " BP";
 const diff = (a?: number | null, b?: number | null) =>
   a == null || b == null ? null : a - b;
+const regimeLabels = {
+  recovery: "复苏",
+  overheat: "过热",
+  stagflation: "滞胀",
+  recession: "衰退",
+  unknown: "数据不足",
+} as const;
+type Regime = keyof typeof regimeLabels;
+const regimeTones = {
+  recovery: "ok",
+  overheat: "warn",
+  stagflation: "bad",
+  recession: "idle",
+  unknown: "idle",
+} as const satisfies Record<Regime, "ok" | "warn" | "bad" | "idle">;
+const macroSeriesLabels = {
+  "gdp-yoy": "GDP",
+  "cpi-yoy": "CPI",
+  "ppi-yoy": "PPI",
+  "pmi-mfg": "PMI",
+  "bond-1y": "国债1Y",
+  "bond-10y": "国债10Y",
+  fr007: "FR007",
+  "lpr-1y": "LPR",
+} as const;
 
 function Row({
   label,
@@ -49,6 +75,17 @@ export function MacroRatesPanel() {
     refetchOnWindowFocus: false,
     staleTime: 60 * 60000,
   });
+  const utils = api.useUtils();
+  const pit = api.macroPitSummary.useQuery(undefined, {
+    enabled: visible,
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 60 * 60000,
+  });
+  const sync = api.macroPitSync.useMutation({
+    onSuccess: () => utils.macroPitSummary.invalidate(),
+  });
+  const regime = pit.data?.macroClock.regime;
   const data = query.data;
   const treasury = data?.treasury ?? [];
   const latestTreasury = treasury.at(-1);
@@ -160,6 +197,81 @@ export function MacroRatesPanel() {
           )}
         </div>
       )}
+      <section
+        className="mt-4 rounded-lg bg-nc-inset p-3"
+        aria-label="宏观择时 PIT 状态"
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <h4 className="text-[13px] font-semibold text-nc-text">
+            宏观择时 PIT 状态
+          </h4>
+          {regime && (
+            <Pill tone={regimeTones[regime]}>{regimeLabels[regime]}</Pill>
+          )}
+          {pit.data && (
+            <span className="text-[13px] text-nc-text-3">
+              截止 {pit.data.asOf}
+            </span>
+          )}
+        </div>
+        {pit.isPending && !pit.data ? (
+          <p className="mt-1 text-[13px] text-nc-text-3" role="status">
+            正在读取宏观 PIT…
+          </p>
+        ) : pit.isError ? (
+          <p role="alert" className="mt-1 text-[13px] text-nc-bad">
+            宏观 PIT 读取失败：{pit.error.message}
+          </p>
+        ) : pit.data ? (
+          <>
+            <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-nc-text-3">
+              {pit.data.series.map((item) => (
+                <li
+                  key={item.seriesId}
+                  className={item.count === 0 ? "text-nc-warn" : undefined}
+                >
+                  {macroSeriesLabels[item.seriesId]}
+                  <span className="ml-1 tabular-nums text-nc-text-2">
+                    {item.count}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-1 text-[13px] text-nc-text-3">
+              {pit.data.macroClock.reason}
+            </p>
+          </>
+        ) : null}
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={sync.isPending}
+            onClick={() => sync.mutate(undefined)}
+          >
+            {sync.isPending ? "同步中…" : "同步宏观历史"}
+          </Button>
+          <Button asChild size="sm" variant="ghost">
+            <Link href="/?ticketSource=etf_rotation&etfStrategy=macro-clock#rebalance-tickets">
+              去作战室生成宏观时钟调仓单
+            </Link>
+          </Button>
+        </div>
+        {sync.isSuccess && (
+          <p role="status" className="mt-1 text-[13px] text-nc-text-3">
+            已同步 {sync.data.synced.length} 条序列
+            {sync.data.failures.length
+              ? `，${sync.data.failures.length} 条失败`
+              : "，全部成功"}
+            。
+          </p>
+        )}
+        {sync.isError && (
+          <p role="alert" className="mt-1 text-[13px] text-nc-bad">
+            同步失败：{sync.error.message}
+          </p>
+        )}
+      </section>
     </Panel>
   );
 }

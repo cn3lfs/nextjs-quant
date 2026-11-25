@@ -113,6 +113,7 @@ export function requiresCausalPriceBasis(strategy: StrategyObjectInput) {
       (rule) =>
         rule?.kind === "double-breakout" ||
         rule?.kind === "factor" ||
+        rule?.kind === "theory-screener" ||
         (rule?.kind === "formula" && !scaleIndependentFormula(rule)),
     )
   );

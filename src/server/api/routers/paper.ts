@@ -8,6 +8,10 @@ import {
   registerPaperAccount,
   registerPaperAccountSchema,
 } from "../../paper/registration";
+import {
+  promoteResearchStrategySchema,
+  promoteResearchToPaper,
+} from "../../paper/promote-from-research";
 import { configurePaperMirror } from "../../paper/mirror";
 import { runWorker } from "../../jobs/jobs";
 import { beijingClock } from "~/lib/market/market-session";
@@ -118,6 +122,9 @@ export const paperRouter = createTRPCRouter({
   registerPaperAccount: p("portfolio", "configure")
     .input(registerPaperAccountSchema)
     .mutation(({ input }) => registerPaperAccount(input)),
+  paperPromoteFromResearch: p("portfolio", "configure")
+    .input(promoteResearchStrategySchema)
+    .mutation(({ input }) => promoteResearchToPaper(input)),
   advancePaperAccounts: p("portfolio", "compute").mutation(() =>
     runWorker({ type: "paper-tick", now: Date.now() }),
   ),

@@ -25,6 +25,12 @@ import {
 import { useMarketSession } from "~/lib/stores/market-session";
 import { cn } from "~/lib/common/classnames";
 import {
+  buildScanToLabHandoffHref,
+  isScreenerStrategyKey,
+  ScanToLabHandoffSchema,
+  SCREENER_STRATEGY_PREFIX,
+} from "~/lib/research/diagnose-contract";
+import {
   batchCandidatesToLabHref,
   patternCandidateToLabHref,
   portfolioHandoffLimit,
@@ -99,6 +105,57 @@ function ratioText(value: number | null | undefined) {
 
 function rpsText(value: number | null | undefined) {
   return value === null || value === undefined ? "—" : value.toFixed(1);
+}
+
+/** The leading theory match of a row, if it matched a theory method. */
+function rowTheoryMatch(matches: readonly Candidate["matches"][number][]) {
+  return matches.find(
+    (match) => match.family === "theory" && match.methodId !== undefined,
+  );
+}
+
+function screenerStrategyHint(methodId: string | null | undefined) {
+  if (!methodId) return undefined;
+  const key = `${SCREENER_STRATEGY_PREFIX}${methodId}`;
+  return isScreenerStrategyKey(key) ? key : undefined;
+}
+
+/**
+ * A batch hands one strategy hint to the diagnostic sleeve. Only use it when
+ * every selected row matched exactly the same single theory method; otherwise
+ * the hint would misdescribe part of the portfolio.
+ */
+function sharedTheoryMethodId(rows: readonly Candidate[]): string | null {
+  let shared: string | null = null;
+  for (const row of rows) {
+    const ids = new Set(
+      row.matches.flatMap((match) =>
+        match.family === "theory" && match.methodId ? [match.methodId] : [],
+      ),
+    );
+    if (ids.size !== 1) return null;
+    const id = [...ids][0]!;
+    if (shared === null) shared = id;
+    else if (shared !== id) return null;
+  }
+  return shared;
+}
+
+/**
+ * Builds a handoff URL only for a payload the contract accepts; an invalid
+ * return path or field drops the link instead of throwing during render.
+ */
+function safeHandoffHref(
+  payload: Parameters<typeof buildScanToLabHandoffHref>[0],
+): string | null {
+  const { returnTo, ...fields } = payload;
+  const safeReturnTo =
+    ScanToLabHandoffSchema.shape.returnTo.safeParse(returnTo);
+  const parsed = ScanToLabHandoffSchema.safeParse({
+    ...fields,
+    ...(safeReturnTo.success ? { returnTo: safeReturnTo.data } : {}),
+  });
+  return parsed.success ? buildScanToLabHandoffHref(parsed.data) : null;
 }
 
 /** Badge that toggles one member of a multi-select filter. */
@@ -288,18 +345,33 @@ export function PatternScreenPanel() {
   const batchSelection = useCandidateBatchSelection(
     batchReady ? JSON.stringify([run.submittedAt, filtersKey, returnTo]) : null,
   );
-  const selectedDates = new Set(
-    candidates
-      .filter((row) => batchSelection.symbols.includes(row.symbol))
-      .map((row) => row.date),
+  const selectedCandidates = candidates.filter((row) =>
+    batchSelection.symbols.includes(row.symbol),
   );
-  const batchHandoff = batchCandidatesToLabHref({
-    symbols: batchSelection.symbols,
-    handoffSource: "pattern",
-    label: "结构与形态突破",
-    frozenDate: selectedDates.size === 1 ? [...selectedDates][0] : undefined,
-    returnTo,
-  });
+  const selectedDates = new Set(selectedCandidates.map((row) => row.date));
+  const batchStrategyHint = screenerStrategyHint(
+    sharedTheoryMethodId(selectedCandidates),
+  );
+  const batchHref = batchStrategyHint
+    ? safeHandoffHref({
+        scope: "portfolio-diagnose",
+        handoffSource: "pattern",
+        symbol: batchSelection.symbols[0],
+        symbols: batchSelection.symbols,
+        label: "结构与形态突破",
+        frozenDate:
+          selectedDates.size === 1 ? [...selectedDates][0] : undefined,
+        strategyHint: batchStrategyHint,
+        returnTo,
+      })
+    : (batchCandidatesToLabHref({
+        symbols: batchSelection.symbols,
+        handoffSource: "pattern",
+        label: "结构与形态突破",
+        frozenDate:
+          selectedDates.size === 1 ? [...selectedDates][0] : undefined,
+        returnTo,
+      })?.href ?? null);
   const batchFull = batchSelection.symbols.length >= portfolioHandoffLimit;
 
   function submit() {
@@ -806,10 +878,9 @@ export function PatternScreenPanel() {
             <Button
               size="sm"
               variant="outline"
-              disabled={!batchHandoff}
+              disabled={!batchHref}
               onClick={() => {
-                if (batchHandoff)
-                  router.push(batchHandoff.href, { scroll: false });
+                if (batchHref) router.push(batchHref, { scroll: false });
               }}
             >
               {`批量带入组合诊断 (${batchSelection.symbols.length}/${portfolioHandoffLimit})`}
@@ -817,7 +888,7 @@ export function PatternScreenPanel() {
             <Button
               size="sm"
               variant="ghost"
-              disabled={!batchHandoff}
+              disabled={!batchHref}
               onClick={batchSelection.clear}
             >
               清空已选
@@ -878,23 +949,46 @@ export function PatternScreenPanel() {
                       row.matches.find((m) => m.volumeRatio != null)
                         ?.volumeRatio ??
                       null;
+                    const theoryMatch = rowTheoryMatch(row.matches);
+                    const theoryStrategyHint = screenerStrategyHint(
+                      theoryMatch?.methodId,
+                    );
+                    const onlyUnsupportedTheory =
+                      row.matches.length > 0 &&
+                      row.matches.every(
+                        (m) =>
+                          m.family === "theory" &&
+                          !screenerStrategyHint(m.methodId),
+                      );
                     const labHref =
-                      visible && run.isSuccess
-                        ? patternCandidateToLabHref({
-                            symbol: row.symbol,
-                            frozenDate: row.date,
-                            chanCodes: row.matches.flatMap((m) => m.code ?? []),
-                            patternKinds: row.matches.flatMap((m) =>
-                              m.family === "doubleBreakout"
-                                ? "double-breakout"
-                                : (m.kind ?? []),
-                            ),
-                            theoryFamilies: row.matches.flatMap(
-                              (m) => m.theoryFamily ?? [],
-                            ),
-                            label: primary ? matchLabel(primary) : undefined,
-                            returnTo,
-                          })
+                      visible && run.isSuccess && !onlyUnsupportedTheory
+                        ? theoryMatch && theoryStrategyHint
+                          ? safeHandoffHref({
+                              symbol: row.symbol,
+                              frozenDate: row.date,
+                              handoffSource: "pattern",
+                              strategyHint: theoryStrategyHint,
+                              label: matchLabel(theoryMatch),
+                              returnTo,
+                              scope: "single-symbol-diagnose",
+                            })
+                          : patternCandidateToLabHref({
+                              symbol: row.symbol,
+                              frozenDate: row.date,
+                              chanCodes: row.matches.flatMap(
+                                (m) => m.code ?? [],
+                              ),
+                              patternKinds: row.matches.flatMap((m) =>
+                                m.family === "doubleBreakout"
+                                  ? "double-breakout"
+                                  : (m.kind ?? []),
+                              ),
+                              theoryFamilies: row.matches.flatMap(
+                                (m) => m.theoryFamily ?? [],
+                              ),
+                              label: primary ? matchLabel(primary) : undefined,
+                              returnTo,
+                            })
                         : null;
                     return (
                       <tr
