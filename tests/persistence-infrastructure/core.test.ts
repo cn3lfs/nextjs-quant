@@ -55,7 +55,7 @@ it("v20 升级仅新增模拟域，复合外键拒绝跨户成交和结算", () 
     const before = db.prepare("SELECT * FROM records").all();
     migrate(db);
     migrate(db);
-    expect(db.pragma("user_version", { simple: true })).toBe(24);
+    expect(db.pragma("user_version", { simple: true })).toBe(25);
     expect(db.prepare("SELECT * FROM records").all()).toEqual(before);
     expect(
       db

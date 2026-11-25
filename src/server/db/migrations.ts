@@ -343,6 +343,112 @@ export const migrations = [
     updated_at INTEGER NOT NULL
   ) STRICT;
   CREATE INDEX rebalance_plans_status_date ON rebalance_plans(account_scope, account_id, execute_date DESC, created_at DESC, id DESC);`,
+  `CREATE TABLE strategy_deployments (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    market TEXT NOT NULL CHECK(market IN ('cn-equity','crypto')),
+    status TEXT NOT NULL CHECK(status IN ('draft','active','paused','archived')),
+    execution_mode TEXT NOT NULL CHECK(execution_mode IN ('shadow','manual_confirm','auto_sim','auto_live')),
+    strategy_spec_json TEXT NOT NULL CHECK(json_valid(strategy_spec_json)),
+    universe_spec_json TEXT NOT NULL CHECK(json_valid(universe_spec_json)),
+    regime_gate_json TEXT NOT NULL CHECK(json_valid(regime_gate_json)),
+    risk_policy_json TEXT NOT NULL CHECK(json_valid(risk_policy_json)),
+    venue_binding_json TEXT NOT NULL CHECK(json_valid(venue_binding_json)
+      AND json_extract(venue_binding_json, '$.kind') IS NOT NULL
+      AND json_extract(venue_binding_json, '$.kind') IN ('local_sim','ths_mock','crypto_sim','cn_broker_live','crypto_live')),
+    pool_policy_json TEXT NOT NULL CHECK(json_valid(pool_policy_json)),
+    schedule_json TEXT NOT NULL CHECK(json_valid(schedule_json)),
+    provenance_json TEXT NOT NULL CHECK(json_valid(provenance_json)),
+    pause_reason TEXT,
+    consecutive_failures INTEGER NOT NULL DEFAULT 0 CHECK(consecutive_failures >= 0),
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  ) STRICT;
+  CREATE INDEX strategy_deployments_updated ON strategy_deployments(updated_at DESC, id DESC);
+  CREATE TABLE pipeline_runs (
+    id TEXT PRIMARY KEY,
+    deployment_id TEXT NOT NULL REFERENCES strategy_deployments(id),
+    decision_date TEXT NOT NULL,
+    run_slot TEXT NOT NULL DEFAULT 'daily',
+    execute_date TEXT NOT NULL CHECK(execute_date >= decision_date),
+    trigger_kind TEXT NOT NULL CHECK(trigger_kind IN ('scheduled','manual')),
+    stage TEXT NOT NULL CHECK(stage IN ('pending','universe_done','signals_done','risk_checked','executing','completed','partial','blocked','failed')),
+    universe_snapshot_json TEXT CHECK(json_valid(universe_snapshot_json)),
+    signals_json TEXT CHECK(json_valid(signals_json)),
+    risk_verdict_json TEXT CHECK(json_valid(risk_verdict_json)),
+    error_summary TEXT,
+    started_at INTEGER NOT NULL,
+    finished_at INTEGER CHECK(finished_at >= started_at),
+    UNIQUE(deployment_id, decision_date, run_slot),
+    UNIQUE(id, deployment_id)
+  ) STRICT;
+  CREATE INDEX pipeline_runs_deployment_date ON pipeline_runs(deployment_id, decision_date DESC, started_at DESC, id DESC);
+  CREATE INDEX pipeline_runs_started_id ON pipeline_runs(decision_date DESC, started_at DESC, id DESC);
+  CREATE TABLE execution_order_intents (
+    id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL,
+    deployment_id TEXT NOT NULL REFERENCES strategy_deployments(id),
+    decision_date TEXT NOT NULL,
+    execute_date TEXT NOT NULL,
+    idempotency_key TEXT NOT NULL UNIQUE,
+    venue_kind TEXT NOT NULL CHECK(venue_kind IN ('local_sim','ths_mock','crypto_sim','cn_broker_live','crypto_live')),
+    venue_binding_json TEXT NOT NULL CHECK(json_valid(venue_binding_json)
+      AND json_extract(venue_binding_json, '$.kind') IS NOT NULL
+      AND json_extract(venue_binding_json, '$.kind') = venue_kind),
+    symbol TEXT NOT NULL,
+    phase INTEGER NOT NULL CHECK(phase IN (1, 2)),
+    side TEXT NOT NULL CHECK(side IN ('BUY','SELL')),
+    quantity REAL NOT NULL CHECK(quantity > 0),
+    reference_price REAL NOT NULL CHECK(reference_price > 0),
+    status TEXT NOT NULL CHECK(status IN ('planned','queued','submitting','submitted','filled','partial_filled','rejected','cancelled','unknown_reconcile')),
+    venue_order_id TEXT,
+    filled_quantity REAL CHECK(filled_quantity >= 0 AND filled_quantity <= quantity),
+    average_fill_price REAL CHECK(average_fill_price > 0),
+    error_summary TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    CHECK((phase=1 AND side='SELL') OR (phase=2 AND side='BUY')),
+    CHECK(status != 'filled' OR (filled_quantity IS NOT NULL AND filled_quantity > 0 AND abs(filled_quantity - quantity) <= 1e-8)),
+    UNIQUE(id, run_id, deployment_id),
+    FOREIGN KEY(run_id, deployment_id) REFERENCES pipeline_runs(id, deployment_id)
+  ) STRICT;
+  CREATE INDEX execution_order_intents_run_phase ON execution_order_intents(run_id, phase, id);
+  CREATE INDEX execution_order_intents_status_date ON execution_order_intents(execute_date, status, phase, id);
+  CREATE TABLE execution_audit_events (
+    id INTEGER PRIMARY KEY,
+    deployment_id TEXT NOT NULL REFERENCES strategy_deployments(id),
+    run_id TEXT,
+    intent_id TEXT,
+    event_type TEXT NOT NULL,
+    details_json TEXT NOT NULL CHECK(json_valid(details_json)),
+    created_at INTEGER NOT NULL,
+    CHECK(intent_id IS NULL OR run_id IS NOT NULL),
+    FOREIGN KEY(run_id, deployment_id) REFERENCES pipeline_runs(id, deployment_id),
+    FOREIGN KEY(intent_id, run_id, deployment_id) REFERENCES execution_order_intents(id, run_id, deployment_id)
+  ) STRICT;
+  CREATE INDEX execution_audit_events_dep_time ON execution_audit_events(deployment_id, created_at DESC, id DESC);
+  CREATE TABLE deployment_pool_entries (
+    id TEXT PRIMARY KEY,
+    deployment_id TEXT NOT NULL REFERENCES strategy_deployments(id) ON DELETE CASCADE,
+    symbol TEXT NOT NULL COLLATE NOCASE,
+    status TEXT NOT NULL CHECK(status IN ('watching','evicted')),
+    source TEXT NOT NULL CHECK(source IN ('screener','manual')),
+    entered_date TEXT NOT NULL,
+    last_matched_date TEXT NOT NULL,
+    last_checked_date TEXT NOT NULL,
+    consecutive_missed_days INTEGER NOT NULL DEFAULT 0 CHECK(consecutive_missed_days >= 0),
+    entry_price REAL CHECK(entry_price IS NULL OR entry_price > 0),
+    entry_reason TEXT NOT NULL,
+    last_metrics_json TEXT NOT NULL CHECK(json_valid(last_metrics_json)),
+    evicted_date TEXT,
+    evict_reason TEXT,
+    last_signal_date TEXT,
+    last_signal_action TEXT CHECK(last_signal_action IS NULL OR last_signal_action IN ('BUY','SELL','HOLD')),
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    UNIQUE(deployment_id, symbol)
+  ) STRICT;
+  CREATE INDEX deployment_pool_entries_dep_status ON deployment_pool_entries(deployment_id, status, updated_at DESC, id DESC);`,
 ];
 export function migrate(connection: Database.Database) {
   const version = connection.pragma("user_version", { simple: true }) as number;

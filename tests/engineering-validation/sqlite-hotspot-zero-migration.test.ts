@@ -32,9 +32,9 @@ vi.mock("~/server/market/bar-store/read-bars", () => ({
 }));
 afterEach(() => vi.restoreAllMocks());
 
-it("opens the isolated workspace at SQLite user_version 24", () => {
+it("opens the isolated workspace at SQLite user_version 25", () => {
   expect(sqlite().name).toBe(join(process.env.QUANT_DATA_DIR!, "quant.sqlite"));
-  expect(sqlite().pragma("user_version", { simple: true })).toBe(24);
+  expect(sqlite().pragma("user_version", { simple: true })).toBe(25);
 });
 
 it("reads job status from v23's existing covering index without decoding the stored result", () => {

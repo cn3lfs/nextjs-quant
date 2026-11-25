@@ -562,7 +562,7 @@ describe("isolated v24 ticket transitions", () => {
     const deps = fixtureSources(),
       accountId = "paper-rebalance";
     seedPaper(accountId);
-    expect(sqlite().pragma("user_version", { simple: true })).toBe(24);
+    expect(sqlite().pragma("user_version", { simple: true })).toBe(25);
     const account = { accountScope: "paper" as const, accountId };
     const paper = new PaperRepository(),
       checkpoint = paper.state(accountId);

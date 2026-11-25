@@ -11,11 +11,13 @@ import { settings } from "./infra/settings";
 import { put } from "./db";
 import type { Coverage } from "~/lib/domain";
 import { tickAlerts } from "./alerts/service";
+import { tickPipelineScheduler } from "./pipeline/pipeline-scheduler";
 const scope = globalThis as typeof globalThis & {
   quantRuntimeStarted?: boolean;
   quantCryptoTicking?: boolean;
   quantDeliveriesRecovered?: boolean;
   quantPaperTicking?: boolean;
+  quantPipelineTicking?: boolean;
 };
 export function recoverRuntimeJobs() {
   recoverJobs();
@@ -98,6 +100,17 @@ export async function tick() {
       })
       .finally(() => {
         scope.quantPaperTicking = false;
+      });
+  }
+  if (!scope.quantPipelineTicking) {
+    scope.quantPipelineTicking = true;
+    void tickPipelineScheduler()
+      .catch((error) => {
+        // The diagnostics registry currently uses this event for scheduler failures.
+        recordRuntimeError("scheduler-tick", error);
+      })
+      .finally(() => {
+        scope.quantPipelineTicking = false;
       });
   }
 }

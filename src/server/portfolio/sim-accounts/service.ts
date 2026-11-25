@@ -1,7 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
+import Big from "big.js";
 import type Database from "better-sqlite3";
 import { z } from "zod";
 import { chinaDate } from "~/lib/market/security-trading-status";
+import { AccountWorkspaceRepository } from "~/server/db/account-workspace-repository";
+import { settingsSchema } from "~/lib/domain";
 import {
   formatSimAtoms as formatAtoms,
   simAccountCreateSchema,
@@ -236,6 +239,7 @@ function evaluate(
   account: Account,
   terms: OrderTerms,
   now = Date.now(),
+  pipelineDb?: Db,
 ) {
   requireActive(account);
   const today =
@@ -245,14 +249,18 @@ function evaluate(
   if (terms.tradeDate > today) throw new Error("不能在未来日期成交");
   if (settlementDate(account.market, terms.tradeDate) !== terms.tradeDate)
     throw new Error("A股周末休市，不能在该日期成交");
-  const calendar = settings().calendar;
+  const calendar = pipelineDb
+    ? settingsSchema.parse(
+        new AccountWorkspaceRepository(pipelineDb).record("settings") ?? {},
+      ).calendar
+    : settings().calendar;
   if (
     account.market === "cn-equity" &&
     calendar.length &&
     !calendar.includes(terms.tradeDate)
   )
     throw new Error("A股非交易日，不能在该日期成交");
-  if (terms.executionMode !== "manual") {
+  if (!pipelineDb && terms.executionMode !== "manual") {
     if (!terms.planId) throw new Error("计划成交必须指定 planId");
     if (compatiblePlan(repo, terms.planId, account) !== terms.symbol)
       throw new Error("交易计划标的与委托不匹配");
@@ -310,6 +318,47 @@ export function confirmSimOrder(
   now = Date.now(),
 ) {
   const order = simOrderConfirmSchema.parse(input);
+  return settleOrder(order, db, now);
+}
+
+const pipelineOrderSchema = z
+  .object({
+    accountId: z.string().min(1),
+    clientRequestId: z.string().min(1),
+    symbol: z.string().min(1),
+    side: z.enum(["buy", "sell"]),
+    quantity: z.number().positive().finite(),
+    price: z.number().positive().finite(),
+    tradeDate: z.string().date(),
+    note: z.string().optional(),
+  })
+  .strict();
+
+export function executePipelineSimOrder(
+  input: z.input<typeof pipelineOrderSchema>,
+  db: Db,
+  now = Date.now(),
+) {
+  const { quantity, price, note, ...order } = pipelineOrderSchema.parse(input);
+  return settleOrder(
+    {
+      ...order,
+      quantity: new Big(quantity).toFixed(),
+      price: new Big(price).toFixed(),
+      executionMode: "plan-auto",
+    },
+    db,
+    now,
+    note ?? "",
+  );
+}
+
+function settleOrder(
+  order: SimOrderConfirm,
+  db: Db,
+  now: number,
+  pipelineNote?: string,
+) {
   const repo = new SimAccountRepository(db);
   return repo.write(() => {
     const account = repo.account(order.accountId);
@@ -320,6 +369,7 @@ export function confirmSimOrder(
           ...terms,
           quantity: terms.quantity.toString(),
           price: terms.price.toString(),
+          ...(pipelineNote === undefined ? {} : { pipelineNote }),
         }),
       )
       .digest("hex");
@@ -328,14 +378,20 @@ export function confirmSimOrder(
       if (existing.input_hash !== hash) throw new Error("委托幂等键冲突");
       return repo.receipt(account, existing.id);
     }
-    const { result } = evaluate(repo, account, terms, now);
+    const { result } = evaluate(
+      repo,
+      account,
+      terms,
+      now,
+      pipelineNote === undefined ? undefined : db,
+    );
     return repo.settle(
       account,
       order.clientRequestId,
       hash,
       terms,
       result,
-      Date.now(),
+      pipelineNote === undefined ? Date.now() : now,
     );
   });
 }

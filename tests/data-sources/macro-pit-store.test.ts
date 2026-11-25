@@ -120,8 +120,8 @@ it("uses a valid official date and rejects malformed, early, and blank data", ()
   ]);
 });
 
-it("isolates a stored CPI value until the exact publication day on schema v24", () => {
-  expect(sqlite().pragma("user_version", { simple: true })).toBe(24);
+it("isolates a stored CPI value until the exact publication day on schema v25", () => {
+  expect(sqlite().pragma("user_version", { simple: true })).toBe(25);
   upsertMacroSeries("cpi-yoy", [cpi], meta);
   const cpiOnly = { seriesIds: ["cpi-yoy"] as const };
   expect(readMacroObservations({ ...cpiOnly, asOf: "2026-01-31" })).toEqual([]);
@@ -130,7 +130,7 @@ it("isolates a stored CPI value until the exact publication day on schema v24", 
     cpi,
   ]);
   expect(readMacroObservations({ seriesIds: ["pmi-mfg"] })).toEqual([]);
-  expect(sqlite().pragma("user_version", { simple: true })).toBe(24);
+  expect(sqlite().pragma("user_version", { simple: true })).toBe(25);
   expect(
     sqlite()
       .prepare("SELECT kind FROM records WHERE id = ?")
@@ -480,5 +480,5 @@ it("syncs seven series through the three public sources and retains history on f
   expect(
     result.summary.series.find((s) => s.seriesId === "ppi-yoy")?.source,
   ).toBe("fixture");
-  expect(sqlite().pragma("user_version", { simple: true })).toBe(24);
+  expect(sqlite().pragma("user_version", { simple: true })).toBe(25);
 });

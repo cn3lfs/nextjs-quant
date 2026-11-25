@@ -59,6 +59,9 @@ const RebalanceTicketPanel = dynamic(() =>
 const Intraday = dynamic(() =>
   import("../workbench/route-panels").then((m) => m.IntradayPanel),
 );
+const PipelineConsole = dynamic(() =>
+  import("../pipeline/pipeline-console").then((m) => m.PipelineConsole),
+);
 const closeScanLabel: Record<CloseScanPhase, string> = {
   "unknown-date": "基准交易日未知",
   waiting: "等待收盘",
@@ -68,7 +71,7 @@ const closeScanLabel: Record<CloseScanPhase, string> = {
   complete: "流程已结束",
 };
 
-type TodayTab = "today" | "overview" | "intraday";
+type TodayTab = "today" | "overview" | "intraday" | "pipeline";
 
 /** One of the six fixed summary cells; unknown values stay an em dash. */
 function RibbonCell({
@@ -160,9 +163,25 @@ export function TodayWorkspace() {
   const search = useSearchParams();
   const rawTab = search.get("tab");
   const tab: TodayTab =
-    rawTab === "overview" || rawTab === "intraday" ? rawTab : "today";
+    rawTab === "overview" || rawTab === "intraday" || rawTab === "pipeline"
+      ? rawTab
+      : "today";
   return (
     <div className="space-y-4 [&_p]:my-0!">
+      <nav aria-label="今日交易标签页" className="flex justify-end">
+        <Button
+          asChild
+          size="sm"
+          variant={tab === "pipeline" ? "default" : "outline"}
+        >
+          <Link
+            href="/?tab=pipeline"
+            aria-current={tab === "pipeline" ? "page" : undefined}
+          >
+            策略运行台
+          </Link>
+        </Button>
+      </nav>
       {tab === "overview" ? (
         <>
           <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-nc-border-soft pb-2">
@@ -171,6 +190,15 @@ export function TodayWorkspace() {
             </h1>
           </header>
           <Overview />
+        </>
+      ) : tab === "pipeline" ? (
+        <>
+          <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-nc-border-soft pb-2">
+            <h1 className="m-0 text-[length:var(--nc-font-size-page)] leading-[var(--nc-line-height-page)] font-semibold whitespace-nowrap text-nc-text">
+              策略运行台
+            </h1>
+          </header>
+          <PipelineConsole />
         </>
       ) : tab === "intraday" ? (
         <>

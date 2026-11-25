@@ -16,7 +16,7 @@ it("migration through v21 preserves empty and populated v17 facts and the actual
       }
       const before = populated ? db.prepare("SELECT * FROM records").all() : [];
       migrate(db);
-      expect(db.pragma("user_version", { simple: true })).toBe(24);
+      expect(db.pragma("user_version", { simple: true })).toBe(25);
       expect(db.prepare("SELECT * FROM records").all()).toEqual(before);
       expect(db.pragma("foreign_key_check")).toEqual([]);
       const schema = db

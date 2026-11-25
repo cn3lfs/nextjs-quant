@@ -619,7 +619,7 @@ it("v22 历史成交迁入 v23 后过户费默认为零，负过户费被拒绝"
       )
       .run(id);
     migrate(legacy);
-    expect(legacy.pragma("user_version", { simple: true })).toBe(24);
+    expect(legacy.pragma("user_version", { simple: true })).toBe(25);
     expect(
       getSimAccountDetail({ accountId: id, currentTradeDate: nextDay }, legacy),
     ).toMatchObject({

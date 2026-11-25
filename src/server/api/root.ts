@@ -11,6 +11,7 @@ import { portfolioRouter } from "./routers/portfolio";
 import { portfolioLedgerRouter } from "./routers/portfolio-ledger";
 import { portfolioReviewRouter } from "./routers/portfolio-review";
 import { portfolioAdmissionRouter } from "./routers/portfolio-admission";
+import { pipelineRouter } from "./routers/pipeline";
 import { newsRouter } from "./routers/news";
 import { monitoringRouter } from "./routers/monitoring";
 import { jobsRouter } from "./routers/jobs";
@@ -37,6 +38,7 @@ export const appRouter = mergeTRPCRouters(
   portfolioLedgerRouter,
   portfolioReviewRouter,
   portfolioAdmissionRouter,
+  pipelineRouter,
   newsRouter,
   monitoringRouter,
   jobsRouter,

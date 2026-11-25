@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { PageGrid, Panel, PanelEmpty } from "~/components/panels";
+import {
+  DeployStrategyDialog,
+  type DeployStrategyPreset,
+} from "~/components/pipeline/deploy-strategy-dialog";
+import { Button } from "~/components/ui/button";
 import { usePanelVisible } from "~/components/workbench/keep-alive";
 import type {
   AlphaEvaluationResult,
@@ -58,6 +63,7 @@ export function AlphaLabWorkspace() {
   const [cursors, setCursors] = useState<FactorCompositeCursor[]>([]);
   const [jobId, setJobId] = useState("");
   const [notice, setNotice] = useState("");
+  const [deployOpen, setDeployOpen] = useState(false);
   const visible = usePanelVisible();
   const utils = api.useUtils();
   const composites = api.alphaComposites.useQuery(
@@ -135,9 +141,53 @@ export function AlphaLabWorkspace() {
     (!options.success
       ? "请填写有效的 Top-N 持仓数、调仓周期和单票权重上限"
       : undefined);
+  const deployReady = Boolean(
+    draft.id && savedMatch && options.success && !busy,
+  );
+  const deployPreset: DeployStrategyPreset = {
+    name: draft.name.trim()
+      ? `${draft.name.trim()} · 运行台`
+      : "因子复合 · 运行台",
+    strategySpec: {
+      kind: "alpha-composite",
+      compositeId: draft.id,
+      ...(options.success && {
+        topN: options.data.topN,
+        ...(options.data.every === 1 && { rebalanceCadence: "daily" }),
+        ...(options.data.every === 5 && { rebalanceCadence: "weekly" }),
+      }),
+    },
+    maxSymbolWeight: options.success ? options.data.maxWeight : undefined,
+    ...(options.success &&
+      options.data.every !== 1 &&
+      options.data.every !== 5 && {
+        description: "运行台支持每日、每周或月末调仓。请确认部署的调仓节奏。",
+      }),
+    provenance: {
+      sourceKind: "alpha-lab",
+      ...(draft.id ? { sourceRefId: draft.id } : {}),
+      createdFromRoute: "/lab/analysis",
+    },
+  };
 
   return (
     <PageGrid>
+      <div className="nc-span-12 flex flex-wrap items-center justify-end gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={!deployReady}
+          onClick={() => setDeployOpen(true)}
+        >
+          部署到策略运行台
+        </Button>
+        {!deployReady && !busy && (
+          <span className="text-sub text-nc-text-4">
+            请先保存当前因子组合并填写有效的仓位参数。
+          </span>
+        )}
+      </div>
       <AlphaConfig
         draft={draft}
         onChange={(patch) => setDraft((current) => ({ ...current, ...patch }))}
@@ -243,6 +293,11 @@ export function AlphaLabWorkspace() {
         targetStale={stale}
         compositeId={draft.id}
         evaluating={evaluating}
+      />
+      <DeployStrategyDialog
+        open={deployOpen}
+        onOpenChange={setDeployOpen}
+        defaultPreset={deployPreset}
       />
     </PageGrid>
   );

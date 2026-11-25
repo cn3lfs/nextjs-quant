@@ -458,7 +458,7 @@ describe("diagnose smoke pass gate", () => {
     archiveRead: true,
     jobStatus: "completed",
     boundaryState: "zero-signal",
-    schemaVersion: 24,
+    schemaVersion: 25,
     czsc: {
       apiVersion: 22,
       dllHash: "ab".repeat(32),
@@ -476,6 +476,13 @@ describe("diagnose smoke pass gate", () => {
     residualProcesses: noResiduals,
     cleaned: true,
   };
+
+  it("requires SQLite schema v25", () => {
+    expect(diagnoseSmokePassed(clean)).toBe(true);
+    for (const schemaVersion of [null, 24, 26]) {
+      expect(diagnoseSmokePassed({ ...clean, schemaVersion })).toBe(false);
+    }
+  });
 
   it("requires the packaged CZSC version, file hash, observed worker and verified teardown", () => {
     expect(diagnoseSmokePassed(clean)).toBe(true);

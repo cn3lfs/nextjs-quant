@@ -14,6 +14,7 @@ export type {
   StrategyRepresentative,
 } from "./catalog.js";
 export * from "./study-catalog.js";
+export * from "./deployment-contract.js";
 export * from "./study-rules.js";
 export * from "./unified.js";
 

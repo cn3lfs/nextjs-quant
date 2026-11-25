@@ -433,7 +433,7 @@ describe("R3c database backup", () => {
       await backupDatabase();
     }
     const status = await databaseStatus();
-    expect(status.version).toBe(24);
+    expect(status.version).toBe(25);
     expect(status.keep).toBe(2);
     expect(status.backups).toHaveLength(2);
     expect(status.latest).toBeGreaterThan(0);
