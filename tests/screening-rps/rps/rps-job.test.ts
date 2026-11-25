@@ -234,7 +234,6 @@ it("data management visibly discloses thresholds, all period denominators, bias,
     "连续20",
     "平均名次",
     "750",
-    "生存者偏差",
     "回填",
     "当日",
     "RPS1",
@@ -246,6 +245,7 @@ it("data management visibly discloses thresholds, all period denominators, bias,
     "RPS120",
   ])
     expect(markup).toContain(text);
+  expect(markup).not.toContain("生存者偏差");
   expect(
     renderToStaticMarkup(createElement(RpsStatus, { latest: null })),
   ).toContain("尚无已完成的排名");

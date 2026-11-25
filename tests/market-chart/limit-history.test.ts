@@ -176,3 +176,101 @@ describe("通达信本地涨跌停按日复盘", () => {
     expect(early.points).toEqual([]);
   });
 });
+
+describe("通达信本地 SC31 涨跌家数按日复盘", () => {
+  it("按查询日截断 SC31，取最近 60 个记录日并独立于 SC3/SC4 对齐", async () => {
+    const records: Buffer[] = [];
+    for (let index = 69; index >= 0; index--)
+      records.push(record(31, day(index * 2), index, 100 - index));
+    records.push(record(3, day(121), 12), record(4, day(121), 2));
+    const root = await rootWith(records);
+
+    const data = await limitHistory(root, iso(121));
+
+    expect(data.latest).toBe(iso(121));
+    expect(data.points).toEqual([
+      { date: iso(121), limitUp: 12, limitDown: 2 },
+    ]);
+    expect(data.breadth).toMatchObject({
+      state: "ok",
+      sourceFirst: iso(0),
+      sourceLast: iso(138),
+      latest: iso(120),
+      window: { start: iso(2), end: iso(120), count: 60 },
+      duplicates: [],
+    });
+    expect(data.breadth.points).toEqual(
+      Array.from({ length: 60 }, (_, index) => ({
+        date: iso((index + 1) * 2),
+        up: index + 1,
+        down: 99 - index,
+      })),
+    );
+  });
+
+  it("SC31 整行重复时两列均缺失，SC3/SC4 同日数值仍有效", async () => {
+    const root = await rootWith([
+      record(31, 20261112, 0, 2800),
+      record(31, 20261112, 1700, 0),
+      record(31, 20261113, 1800, 2900),
+      record(3, 20261112, 12),
+      record(4, 20261112, 2),
+    ]);
+
+    const data = await limitHistory(root, "2026-11-13");
+
+    expect(data.breadth.latest).toBe("2026-11-13");
+    expect(data.latest).toBe("2026-11-12");
+    expect(data.breadth.points).toEqual([
+      { date: "2026-11-12", up: null, down: null },
+      { date: "2026-11-13", up: 1800, down: 2900 },
+    ]);
+    expect(data.breadth.duplicates).toEqual([{ date: "2026-11-12", count: 2 }]);
+    expect(data.points).toEqual([
+      { date: "2026-11-12", limitUp: 12, limitDown: 2 },
+    ]);
+    expect(data.duplicates).toEqual([]);
+  });
+
+  it("保留 SC31 两列的真实 0，逐列识别负数及非整数", async () => {
+    const root = await rootWith([
+      record(31, 20261110, 0, -1),
+      record(31, 20261111, 3.5, 0),
+      record(31, 20261112, -2, 5.5),
+    ]);
+
+    const data = await limitHistory(root, "2026-11-12");
+
+    expect(data.state).toBe("no-history");
+    expect(data.breadth.state).toBe("ok");
+    expect(data.breadth.points).toEqual([
+      { date: "2026-11-10", up: 0, down: null },
+      { date: "2026-11-11", up: null, down: 0 },
+      { date: "2026-11-12", up: null, down: null },
+    ]);
+    expect(data.breadth.duplicates).toEqual([]);
+  });
+
+  it("缺少 SC31 时仅涨跌家数无历史，SC3/SC4 继续返回", async () => {
+    const root = await rootWith([
+      record(3, 20261112, 12),
+      record(4, 20261112, 2),
+    ]);
+
+    const data = await limitHistory(root, "2026-11-12");
+
+    expect(data.state).toBe("ok");
+    expect(data.points).toEqual([
+      { date: "2026-11-12", limitUp: 12, limitDown: 2 },
+    ]);
+    expect(data.breadth).toMatchObject({
+      state: "no-history",
+      latest: null,
+      sourceFirst: null,
+      sourceLast: null,
+      window: null,
+      points: [],
+      duplicates: [],
+    });
+  });
+});

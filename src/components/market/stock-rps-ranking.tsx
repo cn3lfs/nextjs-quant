@@ -770,7 +770,7 @@ export function StockRpsRanking() {
               {rpsPeriodLabel(confirmed.period)} 排名基数：
               {confirmed.rps?.count ?? "—"} ·{" "}
               {confirmed.rps?.mode === "backfill"
-                ? "回填数据（存在生存者偏差）"
+                ? "回填数据"
                 : confirmed.rps
                   ? "向前数据"
                   : "无RPS数据"}

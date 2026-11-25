@@ -232,25 +232,33 @@ it("renders confirmed breakthrough markers and source-tagged levels without back
   const horizontal = overlay.lines.filter(
     (line) => !line.title.includes("趋势线"),
   );
-  expect(horizontal.length).toBeLessThanOrEqual(2);
-  expect(horizontal.every((line) => /^波段(高|低)点 /.test(line.title))).toBe(
-    true,
-  );
-  expect(horizontal.some((line) => line.title.startsWith("波段低点"))).toBe(
-    true,
-  );
+  const { date, long, short } = result.latest!;
+  expect(short.keyLevel).toMatchObject({
+    source: "volume-bull-close",
+    price: 25.75,
+    confirmedAt: "2025-02-10",
+  });
+  expect(horizontal.map(({ title, data }) => ({ title, data }))).toEqual([
+    {
+      title: "波段高点 27.66",
+      data: [
+        { time: "2025-02-27", value: long.keyLevel!.price },
+        { time: date, value: long.keyLevel!.price },
+      ],
+    },
+    {
+      title: "放量阳线收盘 25.75",
+      data: [
+        { time: short.keyLevel!.confirmedAt, value: short.keyLevel!.price },
+        { time: date, value: short.keyLevel!.price },
+      ],
+    },
+  ]);
   expect(overlay.markers.at(-1)).toMatchObject({
     time: "2025-03-07",
     shape: "arrowUp",
     text: "双突破↑ 4/5",
   });
-  expect(overlay.lines.some((l) => l.title.includes("波段高点 27.66"))).toBe(
-    true,
-  );
-  expect(
-    overlay.lines.find((l) => l.title.includes("波段高点 27.66"))!.data[0]!
-      .time,
-  ).toBe("2025-02-27");
   expect(
     breakoutChartData(result, valid.bars, 315, 373).markers.some(
       (m) => m.time === "2025-03-07",

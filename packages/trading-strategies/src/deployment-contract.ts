@@ -381,34 +381,59 @@ const brokerEndpointUrl = z.string().refine((value) => {
   }
 }, "Broker endpoint must be an HTTP(S) URL without credentials, query or fragment");
 
-export const venueBindingSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("local_sim"), simAccountId: nonempty }).strict(),
-  z
-    .object({ kind: z.literal("ths_mock"), accountTag: z.literal("default") })
-    .strict(),
-  z
-    .object({
-      kind: z.literal("crypto_sim"),
-      venue: cryptoVenue,
-      accountId: nonempty,
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal("cn_broker_live"),
-      broker: z.enum(["qmt", "ptrade", "xtquant", "http_bridge"]),
-      accountId: nonempty,
-      endpointUrl: brokerEndpointUrl.optional(),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal("crypto_live"),
-      venue: cryptoVenue,
-      accountId: nonempty,
-    })
-    .strict(),
-]);
+export const venueBindingSchema = z
+  .discriminatedUnion("kind", [
+    z.object({ kind: z.literal("local_sim"), simAccountId: nonempty }).strict(),
+    z
+      .object({ kind: z.literal("ths_mock"), accountTag: z.literal("default") })
+      .strict(),
+    z
+      .object({
+        kind: z.literal("crypto_sim"),
+        venue: cryptoVenue,
+        accountId: nonempty,
+      })
+      .strict(),
+    z
+      .object({
+        kind: z.literal("cn_broker_live"),
+        broker: z.enum(["qmt", "ptrade", "xtquant", "ths_live", "http_bridge"]),
+        accountId: nonempty,
+        endpointUrl: brokerEndpointUrl.optional(),
+      })
+      .strict(),
+    z
+      .object({
+        kind: z.literal("crypto_live"),
+        venue: cryptoVenue,
+        accountId: nonempty,
+      })
+      .strict(),
+  ])
+  .superRefine((binding, ctx) => {
+    if (
+      binding.kind !== "cn_broker_live" ||
+      binding.broker !== "ths_live" ||
+      !binding.endpointUrl
+    )
+      return;
+    const endpoint = binding.endpointUrl;
+    if (!URL.canParse(endpoint)) return; // brokerEndpointUrl reports malformed URLs.
+    const url = new URL(endpoint);
+    if (
+      !/^https?:\/\//i.test(endpoint) ||
+      /[?#\\\s]/.test(endpoint) ||
+      (url.protocol === "http:" &&
+        !["127.0.0.1", "localhost"].includes(url.hostname))
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["endpointUrl"],
+        message:
+          "同花顺实盘桥接仅支持 HTTPS 或本机 HTTP 地址，且不能含查询参数或片段",
+      });
+    }
+  });
 export type VenueBinding = z.infer<typeof venueBindingSchema>;
 
 export function isLiveVenueKind(

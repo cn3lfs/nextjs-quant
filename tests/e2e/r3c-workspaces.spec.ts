@@ -267,7 +267,7 @@ for (const width of [1440, 1024]) {
     // Manual live is available, but an unqualified strategy cannot execute it
     // without explicit risk acceptance and the final confirmation.
     const live = page.getByRole("button", {
-      name: "开启 live 提醒",
+      name: "开启正式提醒",
       exact: true,
     });
     await expect(live).toBeEnabled();
@@ -288,9 +288,9 @@ for (const width of [1440, 1024]) {
     await page.getByText(/Walk-forward 1/).click();
     await expect(page.getByText(/成本×2：收益 2.0%/).first()).toBeVisible();
     await page
-      .getByRole("button", { name: "开启影子前推", exact: true })
+      .getByRole("button", { name: "开启空跑验证", exact: true })
       .click();
-    await expect(page.getByRole("dialog")).toContainText("确认开启影子前推");
+    await expect(page.getByRole("dialog")).toContainText("确认开启空跑验证");
     await page.keyboard.press("Escape");
     expect(effects).toEqual([]);
     expect(outbound).toEqual([]);

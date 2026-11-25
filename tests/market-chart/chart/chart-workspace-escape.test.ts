@@ -46,9 +46,6 @@ vi.mock("~/components/market/chart", () => ({
 vi.mock("~/components/market/tdx-side-panel", () => ({
   tradableSymbol: () => tdx.tradable,
 }));
-vi.mock("~/components/market/czsc-settings-dialog", () => ({
-  CzscSettingsDialog: () => null,
-}));
 vi.mock("~/components/news/intel-annotations", () => ({
   IntelAnnotations: () => null,
 }));
@@ -63,6 +60,7 @@ vi.mock("~/trpc/react", () => ({
       saveChartView: { useMutation: () => ({ error: null }) },
       chartView: { useQuery: vi.fn() },
       chartBars: { useQuery: vi.fn() },
+      securityNames: { useQuery: () => ({ data: { sh600519: "贵州茅台" } }) },
     },
     {
       get: (target, name) =>
@@ -221,8 +219,6 @@ it("frozen evidence stays on K 线 without forgetting the live 分时 choice", (
 });
 it("drops chart news markers and the 图表新闻事件 box for crypto", () => {
   const ui = mount("cxBTCUSDT");
-  // IntelAnnotations owns the event query, markers and the box below the
-  // chart; crypto must not mount it at all.
   expect(elements(ui).some((node) => node.type === IntelAnnotations)).toBe(
     false,
   );
@@ -231,9 +227,13 @@ it("drops chart news markers and the 图表新闻事件 box for crypto", () => {
   expect(chartNode!.props.newsEvents).toBeUndefined();
   expect(chartNode!.props.onNewsEvent).toBeUndefined();
 });
-it("keeps chart news annotations for A-share symbols", () => {
+it("passes the A-share symbol and resolved security name to chart news", () => {
   const ui = mount("sh600519");
-  expect(elements(ui).some((node) => node.type === IntelAnnotations)).toBe(
-    true,
+  const annotations = elements(ui).find(
+    (node) => node.type === IntelAnnotations,
   );
+  expect(annotations?.props).toMatchObject({
+    symbol: "sh600519",
+    name: "贵州茅台",
+  });
 });

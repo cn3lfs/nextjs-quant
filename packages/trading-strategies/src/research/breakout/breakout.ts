@@ -18,6 +18,14 @@ import { vcpFacts } from "../canslim/vcp.js";
  */
 export type Check = "是" | "否" | "未知";
 export type Direction = "long" | "short";
+export type BreakoutTrendMode = "trendline" | "trendline-or-ma20" | "ma20";
+export type BreakoutLevelMode = "all" | "structural";
+export type BreakoutAnalysisOptions = {
+  trendMode?: BreakoutTrendMode;
+  levelMode?: BreakoutLevelMode;
+  volumeRatioThreshold?: number;
+  minIndicatorVotes?: number;
+};
 export type Swing = {
   index: number;
   date: string;
@@ -61,6 +69,7 @@ export type BreakoutSide = {
   score: number | null;
   quality: string;
   line: TrendLine | null;
+  trendSource?: "trendline" | "ma20";
   keyLevel: Level | null;
   indicatorVotes: Record<"MACD" | "KDJ" | "RSI" | "BOLL", Check>;
   patterns: string[];
@@ -148,6 +157,7 @@ function trend(
   bars: readonly Bar[],
   index: number,
   direction: Direction,
+  searchAfterInvalidPair: boolean,
 ): TrendLine | null {
   const pivots = points.filter(
     (p) => p.kind === (direction === "long" ? "high" : "low"),
@@ -156,11 +166,20 @@ function trend(
     latest = pivots.at(-1);
   if (!previous || !latest) return null;
   const sign = direction === "long" ? 1 : -1;
-  if ((latest.price - previous.price) * sign < 0)
-    return candidateLine(previous, latest, pivots, bars, index, direction);
-  // Only a counter-trend bounce permits a search through older anchor pairs.
+  if ((latest.price - previous.price) * sign < 0) {
+    const line = candidateLine(
+      previous,
+      latest,
+      pivots,
+      bars,
+      index,
+      direction,
+    );
+    if (line || !searchAfterInvalidPair) return line;
+  }
   for (let b = pivots.length - 1; b > 0; b--) {
     for (let a = b - 1; a >= 0; a--) {
+      if (a === pivots.length - 2 && b === pivots.length - 1) continue;
       const first = pivots[a]!,
         last = pivots[b]!;
       if (last.index - first.index < 3) continue;
@@ -197,6 +216,7 @@ function point(
   values: ReturnType<typeof prepare>,
   chartBars = false,
   invalid = false,
+  options: BreakoutAnalysisOptions = {},
 ): BreakoutPoint {
   const current = bars[i]!,
     previous = bars[i - 1];
@@ -299,10 +319,33 @@ function point(
     k = values.k[i]!,
     r = values.r[i]!,
     b = values.b[i]!;
+  const trendMode = options.trendMode ?? "trendline";
+  const searchAfterInvalidPair =
+    options.trendMode !== undefined || options.levelMode !== undefined;
+  const prevMa20 = values.b[i - 1]?.mid;
+  const volumeRatioThreshold = options.volumeRatioThreshold ?? 1.5;
+  const minIndicatorVotes = options.minIndicatorVotes ?? 2;
   const side = (direction: Direction): BreakoutSide => {
     const sign = direction === "long" ? 1 : -1;
-    const line = ready ? trend(swings, bars, i, direction) : null;
+    const line =
+      ready && trendMode !== "ma20"
+        ? trend(swings, bars, i, direction, searchAfterInvalidPair)
+        : null;
+    const useMa20 = !line && trendMode !== "trendline";
+    const previousTrend = line
+      ? priceOn(line, i - 1)
+      : useMa20
+        ? prevMa20
+        : null;
+    const currentTrend = line ? line.value : useMa20 ? b.mid : null;
     const candidates = levels
+      .filter(
+        (l) =>
+          options.levelMode !== "structural" ||
+          (direction === "long"
+            ? l.source === "swing-high" || l.source === "platform-high"
+            : l.source === "swing-low" || l.source === "platform-low"),
+      )
       .filter((l) => (l.price - previous!.close) * sign >= 0)
       .sort((a, b) => (a.price - b.price) * sign || b.index - a.index);
     const keyLevel = candidates[0] ?? null;
@@ -319,23 +362,28 @@ function point(
     const indicators = Object.values(indicatorVotes);
     const patterns = ready ? breakoutPatterns(bars, i, direction) : [];
     const checks: BreakoutSide["checks"] = {
-      trend: line
-        ? check(
-            (current.close - current.open) * sign > 0 &&
-              (current.close - line.value) * sign > 1e-10 &&
-              (previous!.close - priceOn(line, i - 1)) * sign <= 1e-10,
-          )
-        : "未知",
+      trend:
+        ready && currentTrend != null && previousTrend != null
+          ? check(
+              (current.close - current.open) * sign > 0 &&
+                (current.close - currentTrend) * sign > 1e-10 &&
+                (previous!.close - previousTrend) * sign <= 1e-10,
+            )
+          : "未知",
       level:
         ready && keyLevel
           ? check((current.close - keyLevel.price) * sign > 1e-10)
           : "未知",
       volume:
-        ready && volumeRatio !== null ? check(volumeRatio >= 1.5) : "未知",
+        ready && volumeRatio !== null
+          ? check(volumeRatio >= volumeRatioThreshold)
+          : "未知",
       indicators:
         !ready || indicators.includes("未知")
           ? "未知"
-          : check(indicators.filter((v) => v === "是").length >= 2),
+          : check(
+              indicators.filter((v) => v === "是").length >= minIndicatorVotes,
+            ),
       candle: ready ? check(patterns.length > 0) : "未知",
     };
     const items = Object.values(checks);
@@ -349,7 +397,9 @@ function point(
       : check(
           checks.trend === "是" &&
             checks.level === "是" &&
-            checks.volume === "是",
+            checks.volume === "是" &&
+            (options.minIndicatorVotes === undefined ||
+              checks.indicators === "是"),
         );
     const stop =
       levels
@@ -381,6 +431,11 @@ function point(
       score,
       quality: score === null ? "未知" : `${score}/5`,
       line,
+      ...(useMa20
+        ? { trendSource: "ma20" as const }
+        : line && searchAfterInvalidPair
+          ? { trendSource: "trendline" as const }
+          : {}),
       keyLevel,
       indicatorVotes,
       patterns,
@@ -418,8 +473,9 @@ export function analyzeBreakout(
   bars: readonly Bar[],
   from = Math.max(0, bars.length - 1),
   chartBars = false,
+  options: BreakoutAnalysisOptions = {},
 ): BreakoutResult {
-  const prepared = prepareBreakout(bars, chartBars);
+  const prepared = prepareBreakout(bars, chartBars, options);
   const points = bars
     .slice(Math.max(0, from))
     .map((_, n) => prepared.point(Math.max(0, from) + n));
@@ -435,7 +491,11 @@ export function analyzeBreakout(
  * rows never invalidate an earlier point; prefix validity is accumulated once.
  * The caller owns the immutable series for this prepared evaluation's lifetime.
  */
-export function prepareBreakout(bars: readonly Bar[], chartBars = false) {
+export function prepareBreakout(
+  bars: readonly Bar[],
+  chartBars = false,
+  options: BreakoutAnalysisOptions = {},
+) {
   const values = prepare(bars);
   let invalid = false;
   const invalidPrefix = bars.map((b, j) => {
@@ -460,7 +520,14 @@ export function prepareBreakout(bars: readonly Bar[], chartBars = false) {
     point(index: number) {
       if (!Number.isInteger(index) || index < 0 || index >= bars.length)
         throw new Error("Invalid breakout index");
-      return point(bars, index, values, chartBars, invalidPrefix[index]!);
+      return point(
+        bars,
+        index,
+        values,
+        chartBars,
+        invalidPrefix[index]!,
+        options,
+      );
     },
   };
 }
@@ -469,6 +536,7 @@ export const doubleBreakoutFilterSchema = z
   .object({
     direction: z.enum(["long", "short", "both"]).optional(),
     minScore: z.number().int().min(0).max(5).optional(),
+    minIndicatorVotes: z.number().int().min(0).max(4).optional(),
     minTouches: z.number().int().nonnegative().optional(),
     minSpanBars: z.number().int().nonnegative().optional(),
     minVolumeRatio: z.number().finite().nonnegative().optional(),
@@ -498,18 +566,27 @@ export function evaluateBreakoutFilter(
       filter.direction !== side.direction
     )
       continue;
-    if (side.status !== "是" || !side.line) continue;
-    const [first, last] = side.line.anchors;
+    if (side.status !== "是" || (!side.line && side.trendSource !== "ma20"))
+      continue;
+    if (
+      filter.minIndicatorVotes !== undefined &&
+      Object.values(side.indicatorVotes).filter((vote) => vote === "是")
+        .length < filter.minIndicatorVotes
+    )
+      continue;
     if (
       filter.minScore !== undefined &&
       (side.score === null || side.score < filter.minScore)
     )
       continue;
-    if (
-      side.line.touches < (filter.minTouches ?? 0) ||
-      last.index - first.index < (filter.minSpanBars ?? 0)
-    )
-      continue;
+    if (side.line) {
+      const [first, last] = side.line.anchors;
+      if (
+        side.line.touches < (filter.minTouches ?? 0) ||
+        last.index - first.index < (filter.minSpanBars ?? 0)
+      )
+        continue;
+    }
     if (
       filter.minVolumeRatio !== undefined &&
       (point.volumeRatio === null || point.volumeRatio < filter.minVolumeRatio)
@@ -533,7 +610,7 @@ export function evaluateBreakoutFilter(
       stopPrice: stop?.price ?? null,
       targetPrice: target2?.price ?? target1?.price ?? null,
       rewardMultiple,
-      summary: `${side.direction === "long" ? "向上双突破" : "向下双破位"}，评分 ${side.quality}，趋势线 ${side.line.touches} 个触点`,
+      summary: `${side.direction === "long" ? "向上双突破" : "向下双破位"}，评分 ${side.quality}，${side.line ? `趋势线 ${side.line.touches} 个触点` : "MA20 突破"}`,
     };
   }
   return {

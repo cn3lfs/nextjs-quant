@@ -1,5 +1,9 @@
 import { planSizingPolicy } from "./plan-sizing";
 import { candidateScanFreshness } from "./candidate-scan";
+import {
+  enrichCandidatePageWithMetrics,
+  type CandidateTechnicalMetrics,
+} from "./candidate-metrics";
 import { closeScanPhase } from "~/lib/market/close-scan-window";
 import { settings } from "../infra/settings";
 import { AlertRepository } from "../db/alert-repository";
@@ -216,6 +220,7 @@ export function workspaceCandidates(
       const sources = e.sources.map(annotate);
       return {
         ...row,
+        marketMetrics: null as CandidateTechnicalMetrics | null,
         rps20: e.rps20,
         rpsDate: e.rpsDate,
         sources,
@@ -305,7 +310,7 @@ export async function todayWorkspace(
     book,
   );
   const openPlans = todayOpenPlans(repo.plans(true), now);
-  return {
+  const workspace = {
     now,
     mode: config.alerts.mode,
     regimes,
@@ -345,6 +350,14 @@ export async function todayWorkspace(
     stopTasks: protectionTasks,
     triggered: repo.history(
       alertHistorySchema.parse({ from: chinaClock(now).date, size: 10 }),
+    ),
+  };
+  return {
+    ...workspace,
+    candidates: await enrichCandidatePageWithMetrics(
+      workspace.candidates,
+      config,
+      now,
     ),
   };
 }

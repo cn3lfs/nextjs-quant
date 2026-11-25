@@ -16,6 +16,7 @@ import { api } from "~/trpc/react";
 import { symbolSchema } from "trading-strategies/research/contracts/security";
 import { rpsPollInterval } from "./rps-status";
 import { MarketPoolAvailabilityNote } from "./market-pool-availability";
+import type { BrowseList } from "~/lib/market/browse-list";
 import {
   defaultRpsTablePeriods,
   rpsSortColumnId,
@@ -43,7 +44,6 @@ import { DataTable, type DataTableColumn } from "../ui/data-table";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { usePanelVisible } from "../workbench/keep-alive";
 import { IndexBrowser } from "./index-browser";
-import { UniverseAuditContainer } from "../screening/universe-audit-container";
 import {
   Select,
   SelectContent,
@@ -147,7 +147,8 @@ export function MarketPoolBrowser({
 }: {
   location: MarketPoolLocation;
   onLocationChange: (action: SetStateAction<MarketPoolLocation>) => void;
-  onSelect: (symbol: string) => void;
+  /** `browse` carries the current pool so the chart's left rail keeps it. */
+  onSelect: (symbol: string, browse?: BrowseList) => void;
 }) {
   const router = useRouter();
   const visible = usePanelVisible();
@@ -310,14 +311,20 @@ export function MarketPoolBrowser({
       : "股票池 · 全部沪深",
     returnTo: marketPoolLocationHref(location),
   });
-  const navigate = (
-    neighbor: { symbol: string; page: number } | null | undefined,
-  ) => {
-    if (!neighbor) return;
-    // Record a return location only when opening a chart.
-    if (neighbor.page !== query.page)
-      setQuery((q) => ({ ...q, page: neighbor.page }));
-    onSelect(neighbor.symbol);
+  const browseLabel =
+    query.pool && category !== "all"
+      ? `${railLabels[category]} · ${poolLabel(query.pool.name)}`
+      : "股票池";
+  const browseFor = (target: string): BrowseList => {
+    const symbols = metadata?.browseSymbols ?? rows.map((row) => row.symbol);
+    const index = symbols.indexOf(target);
+    return index >= 0
+      ? { label: browseLabel, symbols, index }
+      : {
+          label: browseLabel,
+          symbols: [...symbols, target],
+          index: symbols.length,
+        };
   };
   const columns: DataTableColumn<MarketPoolRow>[] = [
     {
@@ -348,12 +355,14 @@ export function MarketPoolBrowser({
         <Button
           variant={row.original.symbol === symbol ? "default" : "ghost"}
           disabled={page.isFetching}
-          onClick={() =>
-            navigate({
-              symbol: row.original.symbol,
-              page: query.page + Math.floor(row.index / 20),
-            })
-          }
+          onClick={() => {
+            const browse = browseFor(row.original.symbol);
+            // Browser Back and reload restore the page containing this row.
+            const selectedPage = query.page + Math.floor(row.index / 20);
+            if (selectedPage !== query.page)
+              setQuery((q) => ({ ...q, page: selectedPage }));
+            onSelect(row.original.symbol, browse);
+          }}
         >
           {row.original.name} · {row.original.symbol.toUpperCase()}
         </Button>
@@ -709,22 +718,6 @@ export function MarketPoolBrowser({
               }
             />
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              disabled={!ready || page.isFetching || !page.data?.previous}
-              onClick={() => navigate(page.data?.previous)}
-            >
-              上一只
-            </Button>
-            <Button
-              variant="outline"
-              disabled={!ready || page.isFetching || !page.data?.next}
-              onClick={() => navigate(page.data?.next)}
-            >
-              下一只
-            </Button>
-          </div>
           {ready && metadata && (
             <p className="text-sm text-muted-foreground">
               {metadata.rps?.observation && (
@@ -749,15 +742,14 @@ export function MarketPoolBrowser({
               RPS基准日：{metadata.rps?.date ?? "未计算"} · 全沪深排名基数：
               {metadata.rps?.count ?? "—"} ·{" "}
               {metadata.rps?.mode === "backfill"
-                ? "回填数据（存在生存者偏差）"
+                ? "回填数据"
                 : metadata.rps
                   ? "向前数据"
                   : "无RPS数据"}
               。列表过滤不改变RPS；文件已扫描不代表行情是最新的。
               {!metadata.source &&
                 ` 浏览包含全部本地品种；通达信名称表缺项由交易所历史名录补充，退市及代码变更单独标注，原行情保留。`}
-              {metadata.source &&
-                ` 当前成分：${metadata.membershipCount}，非沪深A股排除${metadata.excludedMarket}；名单不是历史成分。`}
+              {metadata.source && ` · 当前成分：${metadata.membershipCount} 只`}
             </p>
           )}
           {ready && metadata && (
@@ -818,12 +810,6 @@ export function MarketPoolBrowser({
                 ；文件时间不是官方名单生效日期。
               </p>
             </details>
-          )}
-          {ready && metadata && (
-            <UniverseAuditContainer
-              key={JSON.stringify(query.pool)}
-              source={{ kind: "market", pool: query.pool }}
-            />
           )}
           {message && <p role="status">{message}</p>}
         </section>

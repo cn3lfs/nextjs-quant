@@ -253,7 +253,7 @@ test("R2a scoreboard keeps bias labels, server pages, keyboard market switch and
     await expect(firstRow).toContainText("夏普差 —");
     await expect(firstRow).toContainText("Calmar 差 —");
     await expect(firstRow).not.toContainText("夏普差 0.000");
-    await expect(firstRow).toContainText("影子前推中");
+    await expect(firstRow).toContainText("空跑验证中");
     await expect(firstRow).toContainText("开始 2026/11/15");
     await expect(firstRow).toContainText("前推 12 个信号 / 3 日");
     await expect(firstRow).toContainText("市场DSR 0.910");
@@ -612,8 +612,8 @@ test("formula save and execution open a clean candidate chart with real breakout
   expect(overlay.points.length).toBeGreaterThan(0);
   expect(overlay.latest).not.toBeNull();
   await expect(
-    page.getByRole("checkbox", { name: "双突破", exact: true }),
-  ).toBeChecked();
+    page.getByRole("button", { name: "双突破", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByText("双突破计算失败", { exact: false })).toHaveCount(
     0,
   );
@@ -1004,7 +1004,7 @@ test("retired research route is absent and unified alerts expose their real shad
       await expect(
         page
           .getByRole("main")
-          .getByText(/提醒引擎：影子/)
+          .getByText(/提醒引擎：空跑/)
           .first(),
       ).toBeVisible();
   }
@@ -1145,7 +1145,7 @@ test("overview uses its framework route and restores the ranking selection from 
   ).toHaveAttribute("aria-checked", "true");
 });
 
-test("R2b shadow history filters, exports and creates then cancels a staged plan", async ({
+test("R2b shadow history groups signals, exports and creates then cancels a staged plan", async ({
   page,
 }, testInfo) => {
   const status = await page.request.get("/api/trpc/status", {
@@ -1193,7 +1193,12 @@ test("R2b shadow history filters, exports and creates then cancels a staged plan
     const insert = database.prepare(
       "INSERT INTO watch_events VALUES(?,?,?,?,?,?,?,?,?,?)",
     );
-    for (let i = 0; i < 25; i++) {
+    const signalTypes = [
+      ...Array.from({ length: 25 }, () => "entry"),
+      "stop",
+      "trailing",
+    ];
+    for (const [i, type] of signalTypes.entries()) {
       const bar = `2026-10-${String(i + 1).padStart(2, "0")}`;
       const key = JSON.stringify([
         "p0-r2b-alert",
@@ -1209,7 +1214,7 @@ test("R2b shadow history filters, exports and creates then cancels a staged plan
         market: "cn-equity",
         symbol: "sh600000",
         bar,
-        type: "entry",
+        type,
         price: 10,
         sleeve: "swing",
         stop: 9,
@@ -1260,11 +1265,33 @@ test("R2b shadow history filters, exports and creates then cancels a staged plan
     await expect(
       page
         .getByRole("main")
-        .getByText(/提醒引擎：影子/)
+        .getByText(/提醒引擎：空跑/)
         .first(),
     ).toBeVisible();
     await page.getByLabel("来源策略", { exact: true }).fill("p0-r2b-alert");
     const history = page.getByRole("region", { name: "提醒历史", exact: true });
+    const categories = page.getByRole("radiogroup", { name: "信号分类" });
+    const sell = categories.getByRole("radio", { name: "卖出·止盈止损" });
+    const kind = page.getByRole("combobox", { name: "提醒类型" });
+    await kind.click();
+    await page.getByRole("option", { name: "移动止损出场", exact: true }).click();
+    await expect(sell).toHaveAttribute("aria-checked", "true");
+    await expect(history.getByText("卖出·移动止损出场")).toBeVisible();
+    await expect(history.getByText("卖出·触发止损")).toHaveCount(0);
+
+    await sell.click();
+    await expect(history.getByText("卖出·触发止损")).toBeVisible();
+    await expect(history.getByText("卖出·移动止损出场")).toBeVisible();
+    await expect(history.getByText("买入·入场候选")).toHaveCount(0);
+    await kind.click();
+    await expect(page.getByRole("option", { name: "入场候选" })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    const sellArchive = await download(page, "导出提醒历史");
+    expect(
+      sellArchive.items.map((event: { type: string }) => event.type),
+    ).toEqual(["trailing", "stop"]);
+
+    await categories.getByRole("radio", { name: "买入·入场" }).click();
     await expect(history).toContainText("25");
     await history
       .getByRole("button", { name: "加载更多", exact: true })

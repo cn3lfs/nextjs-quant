@@ -130,6 +130,7 @@ export const navGroups: readonly NavGroup[] = [
       item("/lab/backtest", "组合回测", PlayCircle, "backtest"),
       item("/lab?tab=catalog", "策略对比", ArrowsLeftRight),
       item("/lab?tab=tasks", "回测记录", ClockCounterClockwise),
+      item("/?tab=pipeline", "策略运行台", ListChecks),
     ],
   },
   {

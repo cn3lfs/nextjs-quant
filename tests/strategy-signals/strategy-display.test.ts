@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { AlertEvent } from "~/lib/strategy-facts/alerts";
+import {
+  alertKindGroups,
+  alertKinds,
+  type AlertEvent,
+} from "~/lib/strategy-facts/alerts";
 import {
   alertChartHref,
   formatAlertReason,
@@ -7,37 +11,49 @@ import {
   strategyDisplayName,
 } from "~/lib/strategy-facts/strategy-display";
 
+it("puts each history kind in one trading category, including trailing stops under sell", () => {
+  expect(alertKindGroups.map(({ kinds }) => kinds)).toEqual([
+    ["entry", "plan-entry"],
+    ["exit", "stop", "target", "trailing"],
+    ["paper-fill", "plan-expired"],
+    ["regime", "allocation", "missed"],
+  ]);
+  expect(alertKindGroups.flatMap(({ kinds }) => [...kinds]).sort()).toEqual(
+    [...alertKinds].sort(),
+  );
+});
+
 describe("strategyDisplayName", () => {
   it.each([
     [
       "r2a-cn-equity-historical-low-trailing-neighbor-entry-90",
-      "历史低位 · 移动止损（入场参数-10%）",
+      "历史低位（移动止损出场）（入场参数-10%）",
     ],
     [
       "r2a-crypto-dual-ma-4h-atr-sizing-volatility-neighbor-entry-110",
-      "双均线 4小时 · ATR止损 · 波动率（入场参数+10%）",
+      "双均线 4小时（ATR止损出场） · 波动率（入场参数+10%）",
     ],
     [
       "r2a-cn-equity-historical-low-trailing-neighbor-110",
-      "历史低位 · 移动止损（参数+10%）",
+      "历史低位（移动止损出场）（参数+10%）",
     ],
     [
       "r2a-crypto-dual-ma-4h-atr-sizing-volatility-neighbor-90",
-      "双均线 4小时 · ATR止损 · 波动率（参数-10%）",
+      "双均线 4小时（ATR止损出场） · 波动率（参数-10%）",
     ],
-    ["r2a-cn-equity-chan-third-buy-atr", "缠论三买 · ATR止损"],
-    ["r2a-cn-equity-double-breakout-time", "双突破 · 定时退出"],
-    ["r2a-cn-equity-double-breakout-atr", "双突破 · ATR止损"],
-    ["r2a-cn-equity-formula-ma-trailing", "均线公式 · 移动止损"],
-    ["r2a-cn-equity-formula-pullback-atr", "回踩公式 · ATR止损"],
-    ["r2a-cn-equity-formula-range-trailing", "区间公式 · 移动止损"],
-    ["r2a-cn-equity-rps-multi-atr", "多周期RPS · ATR止损"],
+    ["r2a-cn-equity-chan-third-buy-atr", "缠论三买（ATR止损出场）"],
+    ["r2a-cn-equity-double-breakout-time", "双突破（定时出场）"],
+    ["r2a-cn-equity-double-breakout-atr", "双突破（ATR止损出场）"],
+    ["r2a-cn-equity-formula-ma-trailing", "均线公式（移动止损出场）"],
+    ["r2a-cn-equity-formula-pullback-atr", "回踩公式（ATR止损出场）"],
+    ["r2a-cn-equity-formula-range-trailing", "区间公式（移动止损出场）"],
+    ["r2a-cn-equity-rps-multi-atr", "多周期RPS（ATR止损出场）"],
     [
       "r2a-crypto-range-15m-time-sizing-equal",
-      "区间突破 15分 · 定时退出 · 等权",
+      "区间突破 15分（定时出场） · 等权",
     ],
-    ["r2-crypto-range-day-time", "区间突破 日线 · 定时退出"],
-    ["r2-crypto-dual-ma-1h-atr", "双均线 1小时 · ATR止损"],
+    ["r2-crypto-range-day-time", "区间突破 日线（定时出场）"],
+    ["r2-crypto-dual-ma-1h-atr", "双均线 1小时（ATR止损出场）"],
     ["historical-low", "历史低位"],
     ["double-breakout", "双突破"],
     ["pattern-breakout", "形态突破"],
@@ -153,7 +169,7 @@ describe("formatAlertReason", () => {
           "收盘扫描：明日计划候选；策略复权条件：入场条件通过；RPS20 85.1 / RPS60 90.0；完成bar 2026-11-19，原价10.00，止损=9.5，目标=12；交易状态未知，请核验；仅影子记录",
       }),
     ).toBe(
-      "收盘候选 · 触发价 10.00 · 止损 9.50 · 目标 12.00 · RPS20 85.1 · RPS60 90.0 · 交易状态未知，请核验 · 仅影子记录",
+      "收盘候选 · 触发价 10.00 · 止损 9.50 · 目标 12.00 · RPS20 85.1 · RPS60 90.0 · 交易状态未知，请核验 · 仅空跑记录",
     );
   });
 

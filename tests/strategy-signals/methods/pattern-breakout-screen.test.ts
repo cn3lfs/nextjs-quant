@@ -1,7 +1,10 @@
+import { chanMovementFixture } from "../../helpers/chan-movements";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { classifyCzscSignals } from "trading-strategies/research/chan/chan-signal-evaluator";
 import { preparePatternBreakout } from "trading-strategies";
 import { analyzeBreakout } from "trading-strategies/research/breakout/breakout";
 import {
+  CZSC_CTX,
   czscSourceCommit,
   type CzscFamily,
   type CzscResult,
@@ -96,7 +99,7 @@ const directionCases = [
 ] as const;
 
 it.each(directionCases)(
-  "renders all nine $direction Chanlun labels from native tables and excludes revoked points",
+  "renders only standard $direction Chanlun points from native tables",
   ({ sign, suffix, shape, position }) => {
     const bars = Array.from({ length: 28 }, (_, i) => candle(i, 100));
     const date = (index: number) => bars[index]!.date;
@@ -108,11 +111,29 @@ it.each(directionCases)(
       confirmedAt: index,
       revokedAt,
     });
+    const native = chanMovementFixture().signal;
+    const structure = (contextFlags: number) => ({
+      ...native.structure!,
+      contextFlags,
+    });
     const result = nativeResult({
       signals: [
         signal(0, 1, 0),
         signal(2, 1),
         signal(4, 2),
+        {
+          ...signal(5, 1),
+          divergence: {
+            areaRatio: 70,
+            priceRatio: 80,
+            speedRatio: 80,
+            flags: 16,
+            semantic: 2,
+          },
+        },
+        { ...signal(6, 2), structure: structure(CZSC_CTX.overlap) },
+        { ...signal(7, 3), structure: structure(CZSC_CTX.overlap) },
+        { ...signal(9, 3), structure: structure(CZSC_CTX.smallTurn) },
         signal(23, 3),
         {
           ...signal(24, 3),
@@ -159,7 +180,7 @@ it.each(directionCases)(
             id: 1,
             config: 0,
             unit: 1,
-            type: -sign,
+            type: sign,
             start: 1,
             end: 21,
             firstCenterId: 1,
@@ -178,7 +199,7 @@ it.each(directionCases)(
           {
             lowConfig: 0,
             sourceConfig: 1100,
-            index: 2,
+            index: 3,
             level: 2,
             sourceCandidateId: 1,
             lowStartPointId: 0,
@@ -207,32 +228,37 @@ it.each(directionCases)(
       },
     });
 
-    const markers = czscChartMarkers(result, "day", 0, bars);
+    // Each diagnostic is present in the native evidence at a distinct bar.
+    const suffixCode = sign === 1 ? "B" : "S";
+    const diagnostics = classifyCzscSignals(result, bars).map(
+      ({ index, code }) => [index, code],
+    );
+    expect(diagnostics).toEqual(
+      expect.arrayContaining([
+        [3, "N" + suffixCode],
+        [5, "P1" + suffixCode],
+        [6, "L2" + suffixCode],
+        [7, "L2" + suffixCode],
+        [9, "ST" + suffixCode],
+        [24, "ST" + suffixCode],
+        [20, sign === 1 ? "ZYS" : "ZYB"],
+        [26, "K" + suffixCode],
+      ]),
+    );
     const labels = [
       [2, "笔1"],
-      [2, "区间套"],
       [4, "笔2"],
-      [8, "笔盘背1"],
-      [16, "笔2+3"],
       [23, "笔3"],
-      [23, "笔中阴"],
-      [24, "笔小转大"],
-      [26, "笔均线吻"],
     ] as const;
-    expect(markers).toHaveLength(labels.length);
-    expect(markers).toEqual(
-      expect.arrayContaining(
-        labels.map(([index, label]) => ({
-          time: date(index),
-          text: label + suffix,
-          shape,
-          position,
-          color: sign === 1 ? "#cf5562" : "#28977f",
-        })),
-      ),
+    expect(czscChartMarkers(result, "day", 0, bars)).toEqual(
+      labels.map(([index, label]) => ({
+        time: date(index),
+        text: label + suffix,
+        shape,
+        position,
+        color: sign === 1 ? "#cf5562" : "#28977f",
+      })),
     );
-    expect(markers.map((marker) => marker.time)).not.toContain(date(0));
-    expect(markers.map((marker) => marker.time)).not.toContain(date(27));
   },
 );
 
@@ -359,7 +385,7 @@ const patternCases = [
       [24, 110],
     ],
     passive: [
-      [4, 100],
+      [8, 100],
       [24, 100],
     ],
   },
@@ -369,11 +395,11 @@ const patternCases = [
     bars: reflectBars(channel([120, -0.5], [80, 0.5]), 200),
     label: "对称三角形↓",
     active: [
-      [0, 80],
+      [4, 82],
       [24, 92],
     ],
     passive: [
-      [0, 120],
+      [8, 116],
       [24, 108],
     ],
   },
@@ -383,11 +409,11 @@ const patternCases = [
     bars: channel([135, -1.25], [90, -0.5]),
     label: "下降楔形↑",
     active: [
-      [0, 135],
+      [4, 130],
       [24, 105],
     ],
     passive: [
-      [0, 90],
+      [8, 86],
       [24, 78],
     ],
   },

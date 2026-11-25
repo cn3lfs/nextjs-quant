@@ -1,6 +1,6 @@
 "use client";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { api } from "~/trpc/react";
@@ -168,20 +168,6 @@ export function TodayWorkspace() {
       : "today";
   return (
     <div className="space-y-4 [&_p]:my-0!">
-      <nav aria-label="今日交易标签页" className="flex justify-end">
-        <Button
-          asChild
-          size="sm"
-          variant={tab === "pipeline" ? "default" : "outline"}
-        >
-          <Link
-            href="/?tab=pipeline"
-            aria-current={tab === "pipeline" ? "page" : undefined}
-          >
-            策略运行台
-          </Link>
-        </Button>
-      </nav>
       {tab === "overview" ? (
         <>
           <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-nc-border-soft pb-2">
@@ -363,6 +349,43 @@ function DailyDecision() {
         current.page === 0 ? current : { ...current, page: 0 },
       ),
   });
+  // Live prices for the visible A-share candidates. A failed quote read is
+  // silently ignored: the table keeps showing the local close.
+  const candidateEquitySymbols = useMemo(
+    () =>
+      [
+        // The quote endpoint accepts at most 500 symbols; deeper pages keep the
+        // local close instead of failing the whole read.
+        ...new Set(
+          batches.rows
+            .filter((row) => row.market === "cn-equity")
+            .map((row) => row.symbol),
+        ),
+      ].slice(0, 500),
+    [batches.rows],
+  );
+  const candidateQuotes = api.overviewQuotes.useQuery(candidateEquitySymbols, {
+    enabled: visible && candidateEquitySymbols.length > 0,
+    retry: false,
+    staleTime: 15_000,
+    refetchInterval:
+      visible && candidateEquitySymbols.length > 0 ? 30_000 : false,
+  });
+  // A failed background refresh leaves the previous payload in the cache.
+  // Treating it as live would label stale prices as 实时价, so an error drops
+  // back to the local close until a read succeeds again.
+  const liveQuotes = useMemo(() => {
+    if (candidateQuotes.isError || !candidateQuotes.data) return undefined;
+    const source = candidateQuotes.data.source;
+    const quotes = candidateQuotes.data.quotes ?? [];
+    if (quotes.length === 0) return undefined;
+    return Object.fromEntries(
+      quotes.map((quote) => [
+        quote.symbol,
+        { price: quote.price, quoteTime: quote.quoteTime, source },
+      ]),
+    );
+  }, [candidateQuotes.data, candidateQuotes.isError]);
   const view = d
     ? candidateView({
         market: filter.market,
@@ -658,196 +681,181 @@ function DailyDecision() {
           </Link>
         </div>
       )}
-      <nav
-        aria-label="作战室面板"
-        className="flex flex-wrap gap-x-4 gap-y-1 text-sub"
+      <Panel
+        id="tomorrow"
+        aria-label="明日计划"
+        title="明日交易候选"
+        actions={
+          <>
+            <Segmented
+              label="候选市场"
+              value={filter.market}
+              onChange={(market) =>
+                setFilter((current) => selectMarket(current, market))
+              }
+              options={todayMarketOptions}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              aria-label="刷新候选"
+              title="刷新候选"
+              disabled={activeQuery.isFetching}
+              onClick={() => {
+                setFilter((current) => ({ ...current, page: 0 }));
+                setRefreshNonce((n) => n + 1);
+                void (filter.market === "all"
+                  ? query.refetch()
+                  : candidates.refetch());
+              }}
+            >
+              刷新
+            </Button>
+            <span
+              className="tabular whitespace-nowrap text-sub text-nc-text-4"
+              title={`当前候选最近成功读取：${readLabel}`}
+            >
+              {activeQuery.isFetching ? "刷新中…" : (readTime ?? "—")}
+            </span>
+          </>
+        }
       >
-        <a href="#market-conditions" className="text-nc-accent hover:underline">
-          市场温度与行业轮动
-        </a>
-        <a href="#workspace-news" className="text-nc-accent hover:underline">
-          精准快讯
-        </a>
-        <a href="#rebalance-tickets" className="text-nc-accent hover:underline">
-          次日调仓计划单
-        </a>
-      </nav>
+        <div className="space-y-2">
+          <PlanSavedNotice confirmation={confirmation} />
+          {view.warning && (
+            <StateBanner
+              state="stale"
+              title="候选刷新失败"
+              asOf={`最近成功读取 ${readLabel}`}
+              action={{
+                label: "重试",
+                onClick: () => void candidates.refetch(),
+              }}
+            >
+              {view.warning}
+              。以下为最近一次成功读取的候选；已暂停从该读数创建计划。
+            </StateBanner>
+          )}
+          {historicalRows > 0 && (
+            <p className="text-sm text-nc-warn" role="status">
+              {close.phase === "complete"
+                ? "含历史来源，不是当次推荐。"
+                : "收盘扫描未完成，以下为历史候选，不是当次推荐。"}
+            </p>
+          )}
+          {batches.rows.length > 0 && (
+            <div
+              aria-label="选股方法筛选"
+              role="group"
+              className="flex flex-wrap items-center gap-1.5 rounded-lg border border-nc-border-soft bg-nc-inset px-2 py-1.5"
+            >
+              <span className="text-xs text-nc-text-3">选股方法</span>
+              {[
+                {
+                  family: "all",
+                  label: "全部方法",
+                  count: batches.rows.length,
+                },
+                ...methodOptions,
+              ].map((option) => {
+                const active = activeMethodFilter === option.family;
+                return (
+                  <button
+                    key={option.family}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setMethodFilter(option.family)}
+                    className={`rounded-full border px-2 py-0.5 text-xs transition-colors ${
+                      active
+                        ? "border-nc-accent bg-nc-card font-medium text-nc-text"
+                        : "border-nc-border-soft text-nc-text-3 hover:bg-nc-card"
+                    }`}
+                  >
+                    {option.label} ({option.count})
+                  </button>
+                );
+              })}
+              <span className="ml-auto text-[11px] text-nc-text-4">
+                点击对应策略列方法标签或上方筛选可按选股方法（双突破 / 缠论三买
+                / 历史低位 / 公式等）查看入选原因
+              </span>
+            </div>
+          )}
+          {batches.rows.length === 0 && view.rows === undefined ? (
+            view.error ? (
+              <StateBanner
+                state="error"
+                title="候选读取失败"
+                action={{
+                  label: "重试",
+                  onClick: () => void candidates.refetch(),
+                }}
+              >
+                {view.error}
+              </StateBanner>
+            ) : (
+              <StateBanner
+                state="info"
+                title={PENDING_CANDIDATE_MESSAGE}
+                hideIcon
+              />
+            )
+          ) : (
+            <CandidateTable
+              data={methodRows}
+              securityNames={names}
+              liveQuotes={liveQuotes}
+              total={
+                activeMethodFilter === "all"
+                  ? batches.rows.length > 0
+                    ? batches.total
+                    : (view.total ?? 0)
+                  : methodRows.length
+              }
+              infiniteScroll={{
+                hasMore: batches.hasMore,
+                loadingMore: filter.page > 0 && candidates.isFetching,
+                onLoadMore: () =>
+                  setFilter((current) => ({
+                    ...current,
+                    page: current.page + 1,
+                  })),
+              }}
+              loading={batches.rows.length === 0 && view.loading}
+              error={
+                batches.rows.length > 0 ? (view.error ?? undefined) : undefined
+              }
+              onRetry={() => void candidates.refetch()}
+              onPlan={
+                planningPaused
+                  ? undefined
+                  : (row) => {
+                      const source =
+                        row.sources.find(
+                          (s) => s.scanFreshness === "current",
+                        ) ?? plannableSources(row)[0];
+                      if (source) {
+                        setConfirmation(null);
+                        setSaving(false);
+                        setPlan({ row, key: source.key });
+                      }
+                    }
+              }
+              canPlan={
+                planningPaused
+                  ? undefined
+                  : (row) => plannableSources(row).length > 0
+              }
+              onMethodSelect={(family) =>
+                setMethodFilter((cur) => (cur === family ? "all" : family))
+              }
+              emptyMessage={view.emptyMessage ?? undefined}
+            />
+          )}
+        </div>
+      </Panel>
       <div className="nc-cockpit-grid">
         <div className="min-w-0 space-y-4">
-          <Panel
-            id="tomorrow"
-            aria-label="明日计划"
-            title="明日交易候选"
-            actions={
-              <>
-                <Segmented
-                  label="候选市场"
-                  value={filter.market}
-                  onChange={(market) =>
-                    setFilter((current) => selectMarket(current, market))
-                  }
-                  options={todayMarketOptions}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  aria-label="刷新候选"
-                  title="刷新候选"
-                  disabled={activeQuery.isFetching}
-                  onClick={() => {
-                    setFilter((current) => ({ ...current, page: 0 }));
-                    setRefreshNonce((n) => n + 1);
-                    void (filter.market === "all"
-                      ? query.refetch()
-                      : candidates.refetch());
-                  }}
-                >
-                  刷新
-                </Button>
-                <span
-                  className="tabular whitespace-nowrap text-sub text-nc-text-4"
-                  title={`当前候选最近成功读取：${readLabel}`}
-                >
-                  {activeQuery.isFetching ? "刷新中…" : (readTime ?? "—")}
-                </span>
-              </>
-            }
-          >
-            <div className="space-y-2">
-              <PlanSavedNotice confirmation={confirmation} />
-              {view.warning && (
-                <StateBanner
-                  state="stale"
-                  title="候选刷新失败"
-                  asOf={`最近成功读取 ${readLabel}`}
-                  action={{
-                    label: "重试",
-                    onClick: () => void candidates.refetch(),
-                  }}
-                >
-                  {view.warning}
-                  。以下为最近一次成功读取的候选；已暂停从该读数创建计划。
-                </StateBanner>
-              )}
-              {historicalRows > 0 && (
-                <p className="text-sm text-nc-warn" role="status">
-                  {close.phase === "complete"
-                    ? "含历史来源，不是当次推荐。"
-                    : "收盘扫描未完成，以下为历史候选，不是当次推荐。"}
-                </p>
-              )}
-              {batches.rows.length > 0 && (
-                <div
-                  aria-label="选股方法筛选"
-                  role="group"
-                  className="flex flex-wrap items-center gap-1.5 rounded-lg border border-nc-border-soft bg-nc-inset px-2 py-1.5"
-                >
-                  <span className="text-xs text-nc-text-3">选股方法</span>
-                  {[
-                    {
-                      family: "all",
-                      label: "全部方法",
-                      count: batches.rows.length,
-                    },
-                    ...methodOptions,
-                  ].map((option) => {
-                    const active = activeMethodFilter === option.family;
-                    return (
-                      <button
-                        key={option.family}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => setMethodFilter(option.family)}
-                        className={`rounded-full border px-2 py-0.5 text-xs transition-colors ${
-                          active
-                            ? "border-nc-accent bg-nc-card font-medium text-nc-text"
-                            : "border-nc-border-soft text-nc-text-3 hover:bg-nc-card"
-                        }`}
-                      >
-                        {option.label} ({option.count})
-                      </button>
-                    );
-                  })}
-                  <span className="ml-auto text-[11px] text-nc-text-4">
-                    点击标的右侧方法标签或下方筛选可按选股方法（双突破 /
-                    缠论三买 / 历史低位 / 公式等）查看入选原因
-                  </span>
-                </div>
-              )}
-              {batches.rows.length === 0 && view.rows === undefined ? (
-                view.error ? (
-                  <StateBanner
-                    state="error"
-                    title="候选读取失败"
-                    action={{
-                      label: "重试",
-                      onClick: () => void candidates.refetch(),
-                    }}
-                  >
-                    {view.error}
-                  </StateBanner>
-                ) : (
-                  <StateBanner
-                    state="info"
-                    title={PENDING_CANDIDATE_MESSAGE}
-                    hideIcon
-                  />
-                )
-              ) : (
-                <CandidateTable
-                  data={methodRows}
-                  securityNames={names}
-                  total={
-                    activeMethodFilter === "all"
-                      ? batches.rows.length > 0
-                        ? batches.total
-                        : (view.total ?? 0)
-                      : methodRows.length
-                  }
-                  infiniteScroll={{
-                    hasMore: batches.hasMore,
-                    loadingMore: filter.page > 0 && candidates.isFetching,
-                    onLoadMore: () =>
-                      setFilter((current) => ({
-                        ...current,
-                        page: current.page + 1,
-                      })),
-                  }}
-                  loading={batches.rows.length === 0 && view.loading}
-                  error={
-                    batches.rows.length > 0
-                      ? (view.error ?? undefined)
-                      : undefined
-                  }
-                  onRetry={() => void candidates.refetch()}
-                  onPlan={
-                    planningPaused
-                      ? undefined
-                      : (row) => {
-                          const source =
-                            row.sources.find(
-                              (s) => s.scanFreshness === "current",
-                            ) ?? plannableSources(row)[0];
-                          if (source) {
-                            setConfirmation(null);
-                            setSaving(false);
-                            setPlan({ row, key: source.key });
-                          }
-                        }
-                  }
-                  canPlan={
-                    planningPaused
-                      ? undefined
-                      : (row) => plannableSources(row).length > 0
-                  }
-                  onMethodSelect={(family) =>
-                    setMethodFilter((cur) => (cur === family ? "all" : family))
-                  }
-                  emptyMessage={view.emptyMessage ?? undefined}
-                />
-              )}
-            </div>
-          </Panel>
           <Panel
             title="进行中交易计划"
             aria-label="未完成交易计划"

@@ -70,8 +70,9 @@ it.each(["sh600000", "emBK0493"])(
       label: "selected-table",
       symbols: ["sh600519", symbol],
       index: 1,
+      activationId: expect.any(Number),
     });
-    // Untyped lists stay byte-for-byte the old object shape.
+    // Untyped lists omit origin while tagging external opens with activationId.
     expect(useMarketSession.getState().browse).not.toHaveProperty("origin");
     expect(useMarketSession.getState().symbol).toBe("sh600519");
   },
@@ -84,6 +85,7 @@ it("passes a typed stock-RPS origin through to the browse list", () => {
     symbols: ["sh600519", "sh600000"],
     index: 1,
     origin: "stock-rps",
+    activationId: expect.any(Number),
   });
 });
 

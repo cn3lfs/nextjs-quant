@@ -30,6 +30,7 @@ function channel(
   upper: readonly [intercept: number, slope: number],
   lower: readonly [intercept: number, slope: number],
   direction: Direction,
+  lowerAnchors = [8, 18],
 ): Bar[] {
   const bars = Array.from({ length: 25 }, (_, i) => {
     const top = upper[0] + upper[1] * i;
@@ -42,7 +43,7 @@ function channel(
       });
     }
     if (i === 4 || i === 14) return candle(i, middle, { high: top });
-    if (i === 8 || i === 18) return candle(i, middle, { low: floor });
+    if (lowerAnchors.includes(i)) return candle(i, middle, { low: floor });
     return candle(i, middle);
   });
   return bars;
@@ -130,7 +131,7 @@ type ChannelCase = {
   subKind: PatternCase["subKind"];
   direction: Direction;
   bars: Bar[];
-  start: number;
+  anchors: [upper: number, lower: number];
   upper: [startPrice: number, endPrice: number];
   lower: [startPrice: number, endPrice: number];
   levels: [pivot: number, stop: number, target: number];
@@ -142,7 +143,7 @@ const channelCases: ChannelCase[] = [
     subKind: "水平箱体",
     direction: "long",
     bars: channel([110, 0], [100, 0], "long"),
-    start: 4,
+    anchors: [4, 8],
     upper: [110, 110],
     lower: [100, 100],
     levels: [110, 100, 120],
@@ -152,7 +153,7 @@ const channelCases: ChannelCase[] = [
     subKind: "水平箱体",
     direction: "short",
     bars: channel([110, 0], [100, 0], "short"),
-    start: 4,
+    anchors: [4, 8],
     upper: [110, 110],
     lower: [100, 100],
     levels: [100, 110, 90],
@@ -162,80 +163,80 @@ const channelCases: ChannelCase[] = [
     subKind: "对称三角形",
     direction: "long",
     bars: channel([120, -0.5], [80, 0.5], "long"),
-    start: 0,
-    upper: [120, 108],
-    lower: [80, 92],
-    levels: [108, 92, 148],
+    anchors: [4, 8],
+    upper: [118, 108],
+    lower: [82, 92],
+    levels: [108, 92, 144],
   },
   {
     kind: "triangle",
     subKind: "对称三角形",
     direction: "short",
     bars: channel([120, -0.5], [80, 0.5], "short"),
-    start: 0,
-    upper: [120, 108],
-    lower: [80, 92],
-    levels: [92, 108, 52],
+    anchors: [4, 8],
+    upper: [118, 108],
+    lower: [82, 92],
+    levels: [92, 108, 56],
   },
   {
     kind: "triangle",
     subKind: "上升三角形",
     direction: "long",
-    bars: channel([120, 0], [80, 1], "long"),
-    start: 0,
+    bars: channel([120, 0], [80, 1], "long", [6, 18]),
+    anchors: [4, 6],
     upper: [120, 120],
-    lower: [80, 104],
-    levels: [120, 104, 160],
+    lower: [84, 104],
+    levels: [120, 104, 156],
   },
   {
     kind: "triangle",
     subKind: "上升三角形",
     direction: "short",
-    bars: channel([120, 0], [80, 1], "short"),
-    start: 0,
+    bars: channel([120, 0], [80, 1], "short", [6, 18]),
+    anchors: [4, 6],
     upper: [120, 120],
-    lower: [80, 104],
-    levels: [104, 120, 64],
+    lower: [84, 104],
+    levels: [104, 120, 68],
   },
   {
     kind: "triangle",
     subKind: "下降三角形",
     direction: "long",
     bars: channel([120, -1], [80, 0], "long"),
-    start: 0,
-    upper: [120, 96],
+    anchors: [4, 8],
+    upper: [116, 96],
     lower: [80, 80],
-    levels: [96, 80, 136],
+    levels: [96, 80, 132],
   },
   {
     kind: "triangle",
     subKind: "下降三角形",
     direction: "short",
     bars: channel([120, -1], [80, 0], "short"),
-    start: 0,
-    upper: [120, 96],
+    anchors: [4, 8],
+    upper: [116, 96],
     lower: [80, 80],
-    levels: [80, 96, 40],
+    levels: [80, 96, 44],
   },
   {
     kind: "wedge",
     subKind: "下降楔形",
     direction: "long",
     bars: fallingWedge,
-    start: 0,
-    upper: [135, 105],
-    lower: [90, 78],
-    levels: [105, 76, 150],
+    anchors: [4, 8],
+    upper: [130, 105],
+    lower: [88, 78],
+    levels: [105, 76, 147],
   },
   {
     kind: "wedge",
     subKind: "上升楔形",
     direction: "short",
     bars: reflectBars(fallingWedge, reflection),
-    start: 0,
-    upper: [130, 142],
-    lower: [85, 115],
-    levels: [115, 144, 70],
+    anchors: [8, 4],
+    upper: [132, 142],
+    lower: [90, 115],
+    levels: [115, 144, 73],
   },
 ];
 
@@ -244,7 +245,7 @@ for (const {
   subKind,
   direction,
   bars,
-  start,
+  anchors: [upperAnchor, lowerAnchor],
   upper,
   lower,
   levels,
@@ -264,14 +265,14 @@ for (const {
       {
         kind: "upper",
         coordinates: [
-          [start, upper[0]],
+          [upperAnchor, bars[upperAnchor]!.high],
           [end, upper[1]],
         ],
       },
       {
         kind: "lower",
         coordinates: [
-          [start, lower[0]],
+          [lowerAnchor, bars[lowerAnchor]!.low],
           [end, lower[1]],
         ],
       },
@@ -321,6 +322,110 @@ it.each(cases)(
     );
   },
 );
+
+it("rejects unsupported fits and draws each accepted rail from its own pivot", () => {
+  const upperAnchor = 4;
+  const lowerAnchor = 12;
+  const start = Math.min(upperAnchor, lowerAnchor);
+  const bars = channel([120, 0], [65, 2], "long", [lowerAnchor, 20]);
+  const index = bars.length - 1;
+  const lowerStartPrice = bars[lowerAnchor]!.low - 2 * (lowerAnchor - start);
+  const options = { kinds: ["triangle"] } as const;
+  expect(lowerStartPrice).toBe(73);
+  expect(lowerStartPrice).toBeLessThan(
+    0.97 * Math.min(...bars.slice(start, index).map((bar) => bar.low)),
+  );
+  expect(preparePatternBreakout(bars, options).at(index)).toEqual([]);
+
+  // Equal wicks bring real prices within 3% of the projection without
+  // creating another strict swing low or changing either rail's anchors.
+  const supported = [...bars];
+  for (const i of [5, 6]) supported[i] = { ...bars[i]!, low: 75 };
+  expect(preparePatternBreakout(supported, options).at(index)).toMatchObject([
+    {
+      durationBars: index - start,
+      geometry: {
+        lines: [
+          {
+            kind: "upper",
+            points: [
+              { index: start, price: 120 },
+              { index, price: 120 },
+            ],
+          },
+          {
+            kind: "lower",
+            points: [
+              { index: lowerAnchor, price: supported[lowerAnchor]!.low },
+              { index, price: 113 },
+            ],
+          },
+        ],
+      },
+    },
+  ]);
+});
+
+it("preserves simultaneous subtypes for screening and deduplicates only on request", () => {
+  const bars = channel([120, -0.5], [95, -0.04], "long");
+  const index = bars.length - 1;
+  const triangle = preparePatternBreakout(bars, { kinds: ["triangle"] }).at(
+    index,
+  );
+  const wedge = preparePatternBreakout(bars, { kinds: ["wedge"] }).at(index);
+  expect(triangle).toMatchObject([{ kind: "triangle", direction: "long" }]);
+  expect(wedge).toMatchObject([{ kind: "wedge", direction: "long" }]);
+  expect(
+    preparePatternBreakout(bars, { kinds: ["triangle", "wedge"] }).at(index),
+  ).toEqual([...triangle, ...wedge]);
+  expect(
+    analyzePatternBreakouts(bars, { kinds: ["triangle", "wedge"] }),
+  ).toEqual([...triangle, ...wedge]);
+  expect(
+    analyzePatternBreakouts(bars, {
+      kinds: ["triangle", "wedge"],
+      dedupPerBar: true,
+      cooldownBars: 10,
+    }),
+  ).toEqual(triangle);
+  expect(
+    analyzePatternBreakouts(bars, {
+      kinds: ["triangle", "wedge"],
+      cooldownBars: 10,
+    }),
+  ).toEqual([...triangle, ...wedge]);
+});
+
+it("retains a low-score box by default for downstream screen filters", () => {
+  const bars = channel([110, 0], [100, 0], "long");
+  bars[24] = candle(24, 116, { open: 105, volume: 100 });
+  expect(analyzePatternBreakouts(bars, { kinds: ["box"] })).toMatchObject([
+    { index: 24, score: 2 },
+  ]);
+  expect(
+    analyzePatternBreakouts(bars, { kinds: ["box"], minScore: 3 }),
+  ).toEqual([]);
+});
+
+it("suppresses a second same-direction match at the inclusive cooldown boundary", () => {
+  const first = channel([110, 0], [100, 0], "long");
+  const second = channel([130, 0], [115, 0], "long").map((bar, i) =>
+    candle(i + first.length, bar.close, bar),
+  );
+  const bars = [...first, ...second];
+  const kinds = ["box"] as const;
+  const matches = (cooldownBars: number) =>
+    analyzePatternBreakouts(bars, { kinds, cooldownBars }).map(
+      ({ index, direction }) => [index, direction],
+    );
+  const both = [
+    [24, "long"],
+    [49, "long"],
+  ];
+  expect(matches(0)).toEqual(both);
+  expect(matches(24)).toEqual(both);
+  expect(matches(25)).toEqual([[24, "long"]]);
+});
 
 it.each(cases)(
   "$subKind $direction preserves all historical matches after future extremes",
@@ -378,10 +483,11 @@ it.each(cases)(
       return first + ((last - first) * (i - start)) / (end - start);
     };
     if (direction === "short" && (kind === "box" || kind === "triangle")) {
-      // Put the pending resistance at 18 and support at 14. The sell candle
+      // Put the pending resistance at 18 and support at 15. The sell candle
       // can be the third right peer of a high without disqualifying the high.
-      changed[14] = candle(14, bars[14]!.close, {
-        low: railPrice(lines[1]!, 14),
+      changed[14] = candle(14, bars[14]!.close);
+      changed[15] = candle(15, bars[15]!.close, {
+        low: railPrice(lines[1]!, 15),
       });
       changed[18] = candle(18, bars[18]!.close, {
         high: railPrice(lines[0]!, 18),

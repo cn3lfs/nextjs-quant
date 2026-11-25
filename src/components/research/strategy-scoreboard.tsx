@@ -3,6 +3,7 @@ import { formatNumber as displayNumber } from "trading-strategy-core/format-numb
 
 import { useState } from "react";
 import { api } from "~/trpc/react";
+import { alertDisplayCopy } from "~/lib/common/ui-glossary";
 import { useAccumulatedPages, useTablePage } from "../ui/use-infinite-table";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
 import { Segmented } from "../panels";
@@ -67,7 +68,7 @@ const columns: DataTableColumn<CurrentScoreboardRow>[] = [
           {row.original.forward?.promoted
             ? "已晋级"
             : row.original.shadow?.active
-              ? "影子前推中"
+              ? "空跑验证中"
               : "研究"}{" "}
           · 闭合交易 {row.original.trades}
         </p>
@@ -77,7 +78,7 @@ const columns: DataTableColumn<CurrentScoreboardRow>[] = [
             {new Date(row.original.shadow.startedAt).toLocaleDateString(
               "zh-CN",
             )}{" "}
-            · 前推 {row.original.shadow.signals} 个信号 /{" "}
+            · 空跑验证 {row.original.shadow.signals} 个信号 /{" "}
             {row.original.shadow.days} 日
             {row.original.shadow.paused ? " · 容量已达上限，已暂停采集" : ""}；
           </p>
@@ -90,9 +91,9 @@ const columns: DataTableColumn<CurrentScoreboardRow>[] = [
               : row.original.forward.verdict === "degraded"
                 ? "衰减"
                 : "证据不足"}
-            ；{row.original.forward.recommendation}
+            ；{alertDisplayCopy(row.original.forward.recommendation)}
             {row.original.forward.reasons.length > 0 &&
-              `；${row.original.forward.reasons.join("、")}`}
+              `；${alertDisplayCopy(row.original.forward.reasons.join("、"))}`}
           </p>
         )}
         {row.original.dsr && (
@@ -120,7 +121,7 @@ const columns: DataTableColumn<CurrentScoreboardRow>[] = [
               "—"}
           </p>
         )}
-        <p>{row.original.reasons.join("；")}</p>
+        <p>{alertDisplayCopy(row.original.reasons.join("；"))}</p>
       </div>
     ),
   },
@@ -165,7 +166,7 @@ export function StrategyScoreboard({ enabled }: { enabled: boolean }) {
         ]}
       />
       <p className="text-sm text-muted-foreground">
-        留出诊断已用于研究迭代，不能再视为新的样本外。影子候选从登记后积累前推观察，保持零投递；信号计数不代表组合盈亏；当前建议使用同版本冻结分布的纸面前推一致性，回测门槛和前推一致性均通过才可晋级。开启live和订阅仍须手动设置。价格、证券池与成交证据缺口继续适用。
+        留出诊断已用于研究迭代，不能再视为新的样本外。候选登记后开始空跑验证，只记录信号，不推送或下单；信号计数不代表组合盈亏；当前建议使用同版本冻结分布的纸面前推一致性，回测门槛和前推一致性均通过才可晋级。正式提醒和订阅仍须手动开启。价格、证券池与成交证据缺口继续适用。
       </p>
       {batches.metadata && (
         <p className="break-all text-xs text-muted-foreground">

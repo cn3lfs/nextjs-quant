@@ -7,6 +7,7 @@ import { CORE_30_V1_PRESET } from "../research/diagnose/universe-presets";
 import {
   isWeekday,
   readIndicatorSource,
+  sanitizeMarketWarning,
   shiftDate,
   withMarketReadContext,
   type MarketIndicatorQuery,
@@ -261,7 +262,9 @@ export async function industryRotationRrg(query: MarketIndicatorQuery = {}) {
     for (const [i, result] of results.entries()) {
       const symbol = symbols[i]!;
       if (result.status === "rejected") {
-        ctx.warnings.push(symbol + " 日线不可用：" + String(result.reason));
+        ctx.warnings.push(
+          sanitizeMarketWarning(symbol + " 日线不可用", result.reason),
+        );
         continue;
       }
       hashes[symbol] = result.value.hash;
@@ -280,7 +283,7 @@ export async function industryRotationRrg(query: MarketIndicatorQuery = {}) {
       closes,
     });
     const membership = await readLeaders(ctx, dates).catch((error: unknown) => {
-      ctx.warnings.push("行业成分不可用：" + String(error));
+      ctx.warnings.push(sanitizeMarketWarning("行业成分不可用", error));
       return {
         leaders: new Map<string, IndustryLeader[]>(),
         membershipHash: null,

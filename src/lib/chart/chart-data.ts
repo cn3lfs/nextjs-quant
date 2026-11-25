@@ -14,14 +14,31 @@ import type { LineData, Time, UTCTimestamp } from "lightweight-charts";
 import type { SeriesMarker } from "lightweight-charts";
 import type { TradeMark } from "./chart-trade-marks";
 import type { PatternBreakoutMatch } from "trading-strategies";
-import { classifyCzscSignals } from "trading-strategies/research/chan/chan-signal-evaluator";
-import type {
-  CzscPoint,
-  CzscResult,
+import {
+  CZSC_CTX,
+  type CzscFamily,
+  type CzscPoint,
+  type CzscResult,
 } from "trading-strategies/research/chan/czsc";
-import type { BreakoutResult } from "trading-strategies/research/breakout/breakout";
+import {
+  evaluateBreakoutFilter,
+  type Level,
+  type BreakoutResult,
+  type DoubleBreakoutFilter,
+} from "trading-strategies/research/breakout/breakout";
 
 const breakoutColors = { long: "#7c3aed", short: "#28977f" };
+const levelLabels: Record<Level["source"], string> = {
+  "swing-high": "波段高点",
+  "swing-low": "波段低点",
+  "platform-high": "平台高点",
+  "platform-low": "平台低点",
+  "volume-bull-close": "放量阳线收盘",
+  "volume-bear-close": "放量阴线收盘",
+  ma20: "MA20",
+  ma60: "MA60",
+  round: "整数关口",
+};
 
 export function tradeChartMarkers(
   marks: readonly TradeMark[],
@@ -48,11 +65,34 @@ export function breakoutChartData(
   start: number,
   asOf = bars.length - 1,
   period: Period = "day",
+  filter?: DoubleBreakoutFilter,
 ) {
+  const direction = filter?.direction ?? "both";
   const point = result.points.find((p) => p.index === asOf);
   const lines: { title: string; color: string; data: LineData<Time>[] }[] = [];
   if (point) {
-    for (const side of [point.long, point.short]) {
+    const sides = [point.long, point.short].filter(
+      (side) => direction === "both" || side.direction === direction,
+    );
+    if (
+      sides.some(
+        (s) => !s.line && s.trendSource === "ma20" && s.checks.trend !== "未知",
+      )
+    ) {
+      const begin = Math.max(start, asOf - 20);
+      const warmup = Math.max(0, begin - 19);
+      const history = bars.slice(warmup, asOf + 1);
+      for (const data of indicatorSegments(
+        history,
+        ma(history, 20),
+        period,
+        begin - warmup,
+      )) {
+        if (data.length >= 2)
+          lines.push({ title: "MA20趋势基准", color: "#64748b", data });
+      }
+    }
+    for (const side of sides) {
       const line = side.line;
       if (!line) continue;
       const begin = Math.max(start, line.anchors[0].index);
@@ -71,25 +111,23 @@ export function breakoutChartData(
         ],
       });
     }
-    // Keep the latest confirmed swing on each side. Round numbers, moving
-    // averages and secondary targets remain in the strategy report, not on K bars.
-    const selected = (["swing-high", "swing-low"] as const).map((source) =>
-      point.levels.filter((level) => level.source === source).at(-1),
-    );
+    const selected = sides
+      .map((side) => side.keyLevel)
+      .filter((level) => level !== null);
     const barIndexByDate = new Map<string, number>();
-    if (selected.some(Boolean)) {
+    if (selected.length) {
       bars.forEach((bar, index) => {
         if (!barIndexByDate.has(bar.date)) barIndexByDate.set(bar.date, index);
       });
     }
     const seen = new Set<number>();
     for (const l of selected) {
-      if (!l || seen.has(l.price)) continue;
+      if (seen.has(l.price)) continue;
       seen.add(l.price);
       const begin = Math.max(start, barIndexByDate.get(l.confirmedAt) ?? -1);
       if (begin >= asOf) continue;
       lines.push({
-        title: `${l.source === "swing-high" ? "波段高点" : "波段低点"} ${displayNumber(l.price, 2)}`,
+        title: `${levelLabels[l.source]} ${displayNumber(l.price, 2)}`,
         color: l.price >= point.close ? "#be5263" : "#218775",
         data: [
           { time: chartTime(bars[begin]!.date, period), value: l.price },
@@ -102,7 +140,18 @@ export function breakoutChartData(
     .filter((p) => p.index >= start && p.index <= asOf)
     .flatMap((p) =>
       [p.long, p.short]
-        .filter((s) => s.status === "是")
+        .filter((s) => {
+          if (!filter) return s.status === "是";
+          if (direction !== "both" && s.direction !== direction) return false;
+          const bar = bars[p.index];
+          return (
+            bar &&
+            evaluateBreakoutFilter(p, bar, {
+              ...filter,
+              direction: s.direction,
+            }).matched
+          );
+        })
         .map((s) => ({
           time: chartTime(p.date, period),
           position:
@@ -126,6 +175,7 @@ export function patternChartData(
   start: number,
   asOf = bars.length - 1,
   period: Period = "day",
+  options?: { showAllGeometry?: boolean },
 ) {
   const lines: {
     title: string;
@@ -134,8 +184,11 @@ export function patternChartData(
     data: LineData<Time>[];
   }[] = [];
   const markers: SeriesMarker<Time>[] = [];
-  for (const match of matches) {
-    if (match.index < start || match.index > asOf) continue;
+  const visibleMatches = matches.filter(
+    (m) => m.index >= start && m.index <= asOf,
+  );
+  const latest = visibleMatches.at(-1);
+  for (const match of visibleMatches) {
     const long = match.direction === "long";
     const color = long ? "#d97706" : "#0891b2";
     const arrow = long ? "↑" : "↓";
@@ -147,14 +200,12 @@ export function patternChartData(
       shape: long ? "arrowUp" : "arrowDown",
       text: `${label}${arrow} ${match.score}/5`,
     });
+    if (!options?.showAllGeometry && match !== latest) continue;
     for (const line of match.geometry.lines) {
-      const data: LineData<Time>[] = [];
-      for (const point of line.points) {
-        if (point.index < start || point.index > asOf) continue;
-        const bar = bars[point.index];
-        if (bar)
-          data.push({ time: chartTime(bar.date, period), value: point.price });
-      }
+      const points = line.points.filter(
+        (p) => p.index <= asOf && bars[p.index],
+      );
+      const data = clipChartLine(bars, points, period, start);
       if (!data.length) continue;
       const isBreakoutLine =
         line.kind === "neckline" || line.kind === (long ? "upper" : "lower");
@@ -175,6 +226,15 @@ export function czscChartLines(
   period: Period,
   start: number,
 ): LineData<Time>[] {
+  return clipChartLine(bars, points, period, start);
+}
+
+function clipChartLine(
+  bars: readonly Bar[],
+  points: readonly Pick<CzscPoint, "index" | "date" | "price">[],
+  period: Period,
+  start: number,
+): LineData<Time>[] {
   const data = points
     .filter((p) => p.index >= start)
     .map((p) => ({ time: chartTime(p.date, period), value: p.price }));
@@ -192,11 +252,28 @@ export function czscChartLines(
     });
   return data;
 }
+
+function isStandardCzscSignal(signal: CzscFamily["signals"][number]) {
+  const flags = signal.structure?.contextFlags ?? 0;
+  switch (Math.abs(signal.kind)) {
+    case 1:
+      return signal.divergence?.semantic !== 2;
+    case 2:
+      return !(flags & CZSC_CTX.overlap);
+    case 3:
+      return (
+        !(flags & (CZSC_CTX.overlap | CZSC_CTX.smallTurn)) &&
+        signal.divergence?.semantic !== 3
+      );
+    default:
+      return false;
+  }
+}
 export function czscChartMarkers(
   result: CzscResult,
   period: Period,
   start: number,
-  bars?: readonly Bar[],
+  _bars?: readonly Bar[],
 ): SeriesMarker<Time>[] {
   const marker = (
     date: string,
@@ -209,37 +286,22 @@ export function czscChartMarkers(
     shape: long ? "arrowUp" : "arrowDown",
     text,
   });
-  const hasStructure = result.families.some(
-    (family) =>
-      family.breakouts !== undefined ||
-      family.diagnostics !== undefined ||
-      family.signals.some((signal) => signal.structure !== undefined),
+  const markers = result.families.flatMap((family) =>
+    family.signals
+      .filter(
+        (signal) =>
+          signal.index >= start &&
+          (signal.revokedAt ?? -1) < 0 &&
+          isStandardCzscSignal(signal),
+      )
+      .map((signal) =>
+        marker(
+          signal.date,
+          signal.kind > 0,
+          `${family.config === 0 ? "笔" : "段"}${Math.abs(signal.kind)}${signal.kind > 0 ? "买" : "卖"}`,
+        ),
+      ),
   );
-  const markers =
-    bars?.length && hasStructure
-      ? classifyCzscSignals(result, bars)
-          .filter((signal) => signal.index >= start)
-          .map((signal) => {
-            let label = signal.shortLabel;
-            if (signal.code !== "NB" && signal.code !== "NS") {
-              const prefix = signal.config === 0 ? "笔" : "段";
-              label = prefix + label.replace(/^[笔段]+/, "");
-            }
-            return marker(signal.date, signal.direction === "long", label);
-          })
-      : result.families.flatMap((family) =>
-          family.signals
-            .filter(
-              (signal) => signal.index >= start && (signal.revokedAt ?? -1) < 0,
-            )
-            .map((signal) =>
-              marker(
-                signal.date,
-                signal.kind > 0,
-                `${family.config === 0 ? "笔" : "段"}${Math.abs(signal.kind)}${signal.kind > 0 ? "买" : "卖"}`,
-              ),
-            ),
-        );
   return markers.sort((a, b) => String(a.time).localeCompare(String(b.time)));
 }
 

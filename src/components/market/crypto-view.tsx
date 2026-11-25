@@ -40,6 +40,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { ChartWorkspace } from "./chart-workspace";
+import { ChartSimOrderDialog } from "./chart-sim-order-dialog";
 import { CryptoBotPanel } from "./crypto-bot-panel";
 import { usePanelVisible } from "../workbench/keep-alive";
 
@@ -68,6 +69,7 @@ export function CryptoQuotes() {
   const [draft, setDraft] = useState("");
   const [source, setSource] = useState<CryptoSource>("auto");
   const [loaded, setLoaded] = useState<Snapshot | null>(null);
+  const [simOrderOpen, setSimOrderOpen] = useState(false);
   const load = useSnapshotLoad({ onSuccess: setLoaded });
   const { symbol, selectSymbol } = useForeignChartSymbol("crypto", (next) =>
     load.mutate({ symbol: next, period: "day", cryptoSource: source }),
@@ -93,7 +95,7 @@ export function CryptoQuotes() {
   return (
     <PageGrid>
       <section className="panel chart-panel nc-span-9 nc-crypto-frame">
-        <div className="panel-toolbar">
+        <div className="panel-toolbar flex-wrap">
           <div className="flex items-center gap-2">
             <CurrencyBtc size={18} className="nc-text-warn" />
             <strong className="text-[15px] font-medium">
@@ -138,6 +140,23 @@ export function CryptoQuotes() {
               </Button>
             ))}
           </div>
+          <ChartSimOrderDialog
+            open={simOrderOpen}
+            onOpenChange={setSimOrderOpen}
+            market="crypto"
+            symbol={symbol}
+            displayName={cryptoDisplayName(symbol)}
+            referencePrice={
+              loaded?.symbol === symbol
+                ? (loaded.bars.at(-1)?.close ?? null)
+                : null
+            }
+            trigger={
+              <Button type="button" size="sm" variant="outline">
+                模拟下单
+              </Button>
+            }
+          />
         </div>
         {load.error && !load.isPending ? (
           <div role="alert" className="p-4 text-[13px] text-nc-bad">

@@ -5,9 +5,12 @@ import Link from "next/link";
 import { useState } from "react";
 import { cn } from "~/lib/common/classnames";
 import { api, type RouterOutputs } from "~/trpc/react";
+import { chartSymbolHref } from "~/lib/chart/chart-symbol";
 import { useScreenVisible } from "../workbench/use-task-visible";
 import { Button } from "../ui/button";
 import { Panel, Pill, StateBanner, signedPercent } from "../panels";
+import { BrowseSource, useOpenChart } from "../market/open-chart";
+import { MarketPanelBuildAction } from "./market-panel-action";
 
 type RotationData = RouterOutputs["industryRotationRrg"];
 type RotationRow = RotationData["rows"][number];
@@ -227,6 +230,29 @@ function QuadrantChart({
   );
 }
 
+function LeaderLink({ symbol, label }: { symbol: string; label: string }) {
+  const openChart = useOpenChart();
+  return (
+    <Link
+      className="underline"
+      href={chartSymbolHref(symbol)}
+      title={`查看 ${label} 的K线`}
+      prefetch={false}
+      scroll={false}
+      onNavigate={
+        openChart
+          ? (event) => {
+              event.preventDefault();
+              openChart(symbol);
+            }
+          : undefined
+      }
+    >
+      {label}
+    </Link>
+  );
+}
+
 function Drilldown({ row }: { row: RotationRow }) {
   const start = row.trail[0]?.relativeClose;
   const end = row.latest?.relativeClose;
@@ -317,15 +343,18 @@ function Drilldown({ row }: { row: RotationRow }) {
       {row.leaders && row.leaders.length > 0 && (
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[12px]">
           <span className="text-nc-text-3">行业成员 20 日 RPS 前 5</span>
-          {row.leaders.map((leader) => (
-            <Link
-              key={leader.symbol}
-              className="underline"
-              href={`/scan?symbol=${encodeURIComponent(leader.symbol)}`}
-            >
-              {leader.symbol}（{formatNumber(leader.rps, 0)}）
-            </Link>
-          ))}
+          <BrowseSource
+            label={`行业 · ${row.name}`}
+            symbols={row.leaders.map((leader) => leader.symbol)}
+          >
+            {row.leaders.map((leader) => (
+              <LeaderLink
+                key={leader.symbol}
+                symbol={leader.symbol}
+                label={`${leader.symbol}（${formatNumber(leader.rps, 0)}）`}
+              />
+            ))}
+          </BrowseSource>
         </div>
       )}
       {!row.leaders && (
@@ -458,15 +487,21 @@ export function IndustryRotation() {
       meta="RRG 四象限 · 周线 · 近 8 周轨迹"
       note="X/Y 以 100 为基准归一化。缺周断线，节点日期以最后有效周为准。"
       actions={
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={!visible || query.isFetching}
-          onClick={() => void query.refetch()}
-        >
-          {query.isFetching ? "读取中…" : "重读"}
-        </Button>
+        <>
+          <MarketPanelBuildAction
+            hasPanel={query.data?.provenance.snapshotId != null}
+            visible={visible && !query.isPending}
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={!visible || query.isFetching}
+            onClick={() => void query.refetch()}
+          >
+            {query.isFetching ? "读取中…" : "重读"}
+          </Button>
+        </>
       }
     >
       {query.isError ? (

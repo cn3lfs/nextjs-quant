@@ -41,6 +41,7 @@ import {
 
 import { desktopPreferences } from "./desktop-prefs";
 import { stopDesktopService } from "./stop-service";
+import { isAllowedClsUrl } from "../src/lib/news/cls-search-url";
 
 let window: BrowserWindow | undefined,
   tray: Tray | undefined,
@@ -318,6 +319,7 @@ async function main() {
       backgroundColor: "#f3f6fa",
       show: false,
       webPreferences: {
+        webviewTag: true,
         nodeIntegration: false,
         contextIsolation: true,
         sandbox: true,
@@ -325,6 +327,18 @@ async function main() {
       },
     });
     window = appWindow;
+    appWindow.webContents.on(
+      "will-attach-webview",
+      (event, webPreferences, params) => {
+        delete webPreferences.preload;
+        webPreferences.nodeIntegration = false;
+        webPreferences.contextIsolation = true;
+        webPreferences.sandbox = true;
+        webPreferences.webviewTag = false;
+        webPreferences.webSecurity = true;
+        if (!params.src || !isAllowedClsUrl(params.src)) event.preventDefault();
+      },
+    );
     function authorize(event: IpcMainInvokeEvent, allowRecovery = false) {
       const frame = event.senderFrame;
       if (
@@ -354,6 +368,16 @@ async function main() {
         return;
       throw new Error("无权操作桌面宿主");
     }
+    ipcMain.handle(
+      "quant:open-external-cls",
+      async (event, rawUrl: unknown) => {
+        authorize(event);
+        if (typeof rawUrl !== "string" || !isAllowedClsUrl(rawUrl))
+          return false;
+        await shell.openExternal(rawUrl);
+        return true;
+      },
+    );
     ipcMain.handle("quant:select-directory", async (event) => {
       authorize(event);
       const result = await dialog.showOpenDialog(appWindow, {
@@ -669,6 +693,20 @@ function prepareLifecycleProfile() {
 if (!prepareLifecycleProfile()) app.exit(1);
 else if (!app.requestSingleInstanceLock()) app.quit();
 else {
+  app.on("web-contents-created", (_event, contents) => {
+    if (contents.getType() !== "webview") return;
+    contents.on("will-navigate", (event) => {
+      if (!isAllowedClsUrl(event.url)) event.preventDefault();
+    });
+    contents.on("will-redirect", (event) => {
+      if (event.isMainFrame && !isAllowedClsUrl(event.url))
+        event.preventDefault();
+    });
+    contents.setWindowOpenHandler(({ url }) => {
+      if (isAllowedClsUrl(url)) void contents.loadURL(url).catch(() => {});
+      return { action: "deny" };
+    });
+  });
   app.on("second-instance", () => {
     window?.show();
     window?.focus();

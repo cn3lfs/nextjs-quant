@@ -33,8 +33,8 @@ import { PaperForwardStatus } from "../portfolio/paper-forward-status";
 import { usePanelVisible } from "../workbench/keep-alive";
 import { PaperShadowPrompt } from "./paper-shadow-prompt";
 import { useScreenVisible } from "../workbench/use-task-visible";
-import { labPauseSuggestion } from "./lab-review";
-import { alertModeLabel } from "~/lib/common/ui-glossary";
+import { labDetailStatus, labPauseSuggestion } from "./lab-review";
+import { alertDisplayCopy, alertModeLabel } from "~/lib/common/ui-glossary";
 import {
   CheckCircle,
   CircleDashed,
@@ -60,7 +60,7 @@ const labMethodology: readonly MethodologyItem[] = [
   {
     label: "生命周期",
     detail:
-      "研究中 → 观察前推 → 模拟前推 → 手动晋级。六个阶段依次进行；测试通过与工程检查不代表策略盈利。",
+      "研究中 → 空跑验证 → 模拟前推 → 手动晋级。六个阶段依次进行；测试通过与工程检查不代表策略盈利。",
   },
   {
     label: "成绩单口径",
@@ -138,7 +138,7 @@ function LabStatusCell({
     : status === "promoted"
       ? "已晋级"
       : status === "shadow"
-        ? "观察前推中"
+        ? "空跑验证中"
         : "研究中";
   const tone = unvalidatedLive
     ? "warn"
@@ -178,6 +178,7 @@ function LabList({
         <div className="ml-auto">
           <MethodologyPopover title="策略实验室口径" items={labMethodology} />
         </div>
+        <StrategyLibraryGuide />
       </header>
       <FilterToolbar label="策略库筛选">
         <FilterGroup label="市场">
@@ -395,14 +396,14 @@ function LabDetail({ id, version }: { id: string; version: number }) {
         <p role="status">正在读取策略详情…</p>
       </>
     );
-  const stateLabel =
-    d.eligible && d.promotion
-      ? "已晋级"
-      : d.shadow?.active
-        ? "观察前推中"
-        : "研究中";
+  const stateLabel = labDetailStatus(
+    d.eligible,
+    !!d.promotion,
+    !!d.shadow?.active,
+  );
   const stateTone =
     d.eligible && d.promotion ? "ok" : d.shadow?.active ? "accent" : "neutral";
+  const backtestHref = `/lab/backtest?strategy=${encodeURIComponent(id)}&version=${version}`;
   return (
     <section aria-label="实验室策略详情" className="space-y-4">
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -420,6 +421,7 @@ function LabDetail({ id, version }: { id: string; version: number }) {
       </header>
       <LifecyclePipeline
         detail={d}
+        backtestHref={backtestHref}
         onLiveAction={() => {
           change.reset();
           setAction("live");
@@ -463,15 +465,17 @@ function LabDetail({ id, version }: { id: string; version: number }) {
             )}
           </section>
           <section
-            aria-label="观察前推与模拟盘前推"
+            aria-label="空跑验证与模拟盘前推"
             className="space-y-2 rounded-lg border border-nc-border-soft bg-nc-card p-3"
           >
-            <h2 className="text-sm font-semibold">观察前推与模拟盘前推</h2>
+            <h2 className="text-sm font-semibold">空跑验证与模拟盘前推</h2>
             <p className="text-sm">
               观察样本 {d.forward?.signals ?? 0} 信号 / {d.forward?.days ?? 0}{" "}
               实际观察市场日；
-              {d.forward?.assessment?.recommendation ??
-                "缺少同版本冻结分布或前推样本；继续观察"}
+              {alertDisplayCopy(
+                d.forward?.assessment?.recommendation ??
+                  "缺少同版本冻结分布或前推样本；继续观察",
+              )}
             </p>
             <p className="text-sub text-nc-text-3">
               模拟盘撮合一致性按模型滑点估算；真实执行尚未验证。
@@ -493,7 +497,9 @@ function LabDetail({ id, version }: { id: string; version: number }) {
                 aria-label="策略暂停建议"
                 className="space-y-2 rounded-lg border border-nc-warn-edge bg-nc-inset p-2.5"
               >
-                <p className="text-sm">{pauseSuggestion.suggestion.reason}</p>
+                <p className="text-sm">
+                  {alertDisplayCopy(pauseSuggestion.suggestion.reason)}
+                </p>
                 <p className="text-sub text-nc-text-3">
                   同策略同版本的账户复盘建议；仅供人工核对，暂停后保留观察时钟与历史证据。
                 </p>
@@ -507,7 +513,7 @@ function LabDetail({ id, version }: { id: string; version: number }) {
                       setRiskAccepted(false);
                     }}
                   >
-                    按复盘建议暂停 live 提醒
+                    按复盘建议暂停正式提醒
                   </Button>
                 ) : (
                   <Button
@@ -566,10 +572,7 @@ function LabDetail({ id, version }: { id: string; version: number }) {
               ))}
             </div>
             <div className="flex flex-wrap gap-x-3 gap-y-1 border-t border-nc-border-soft pt-2 text-sub">
-              <Link
-                href={`/lab/backtest?strategy=${encodeURIComponent(id)}&version=${version}`}
-                className="underline"
-              >
+              <Link href={backtestHref} className="underline">
                 用此策略对象回测
               </Link>
               <Link href="/accounts?tab=paper" className="underline">
@@ -625,7 +628,7 @@ function LabDetail({ id, version }: { id: string; version: number }) {
             </label>
           )}
           <p>
-            观察前推 {d.forward?.signals ?? 0} 信号 / {d.forward?.days ?? 0}{" "}
+            空跑验证 {d.forward?.signals ?? 0} 信号 / {d.forward?.days ?? 0}{" "}
             日。策略的正式提醒仍受全局模式、启用订阅和渠道约束，不产生真实委托。
           </p>
           <Button
@@ -651,7 +654,9 @@ function LabDetail({ id, version }: { id: string; version: number }) {
           >
             确认执行
           </Button>
-          {change.error && <p role="alert">{change.error.message}</p>}
+          {change.error && (
+            <p role="alert">{alertDisplayCopy(change.error.message)}</p>
+          )}
         </DialogContent>
       </Dialog>
     </section>
@@ -663,7 +668,7 @@ const lifecycleStageNames: Record<string, string> = {
   backtest: "回测证据",
   comparison: "同口径对比",
   paper: "模拟前推",
-  shadow: "观察前推",
+  shadow: "空跑验证",
   promotion: "晋级观察",
 };
 const lifecycleStatus = {
@@ -673,16 +678,80 @@ const lifecycleStatus = {
   pending: { label: "未开始", icon: CircleDashed, tone: "text-nc-text-4" },
 } as const;
 
+const lifecycleGuidance: Record<string, string> = {
+  definition:
+    "点「用此策略对象回测」并完成一次组合回测，系统会自动冻结行情输入。",
+  backtest: "用当前版本跑完一次组合回测，系统会保存权益、成交和诊断记录。",
+  comparison:
+    "用另一个策略跑完一次组合回测，保持市场、数据、周期和成交口径一致。",
+  paper:
+    "在「模拟盘对照」登记同版本模拟账户，累计 30 条观察信号或 60 个交易日。",
+  shadow: "点「开启空跑验证」，每天收盘记录信号，不推送或下单。",
+  promotion:
+    "前推一致性达标后点「晋级策略」确认。需要推送时，再手动点「开启正式提醒」。",
+};
+
+function StrategyLibraryGuide() {
+  return (
+    <details className="w-full text-sub text-nc-text-3">
+      <summary className="w-fit cursor-pointer font-medium text-nc-text">
+        策略库使用说明（六阶段怎么推进？）
+      </summary>
+      <ol className="mt-2 list-decimal space-y-1 pl-5">
+        <li>
+          <strong>第 1 阶段 · 定义冻结和第 2 阶段 · 回测证据</strong>
+          <span className="ml-2">
+            新登记的策略要等到首次回测才会生成「冻结输入哈希」。点「用此策略对象回测」跑完一次组合回测，系统会自动冻结行情输入、生成证据，并同时通过这两个阶段。
+          </span>
+        </li>
+        <li>
+          <strong>第 3 阶段 · 同口径对比</strong>
+          <span className="ml-2">
+            用另一个对照策略跑完一次组合回测，保持市场、数据、周期和成交口径一致，再对比表现。
+          </span>
+        </li>
+        <li>
+          <strong>第 4 阶段 · 模拟前推</strong>
+          <span className="ml-2">
+            点「模拟盘对照」登记同版本模拟账户。累计满 30 条观察信号或 60
+            个交易日后通过。
+          </span>
+        </li>
+        <li>
+          <strong>第 5 阶段 · 空跑验证</strong>
+          <span className="ml-2">
+            点「开启空跑验证」，每天收盘记录信号，不推送或下单。
+          </span>
+        </li>
+        <li>
+          <strong>第 6 阶段 · 晋级观察和正式提醒</strong>
+          <span className="ml-2">
+            前推一致性达标后，手动点「晋级策略」确认。需要消息推送时，再手动点「开启正式提醒」。
+          </span>
+        </li>
+      </ol>
+    </details>
+  );
+}
+
 function LifecyclePipeline({
   detail,
+  backtestHref,
   onLiveAction,
 }: {
   detail: RouterOutputs["strategyLabDetail"];
+  backtestHref: string;
   onLiveAction: () => void;
 }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const blocker = detail.primaryBlocker;
   const openGate = detail.lifecycleGates.find((gate) => gate.key === expanded);
+  const gateGuidance = openGate ? lifecycleGuidance[openGate.key] : undefined;
+  const offerBacktest =
+    openGate?.status !== "passed" &&
+    (openGate?.key === "definition" ||
+      openGate?.key === "backtest" ||
+      openGate?.key === "comparison");
   return (
     <section
       aria-label="晋级流水线"
@@ -705,7 +774,9 @@ function LifecyclePipeline({
                 卡在第 {blocker.stage} 阶段 ·{" "}
                 {lifecycleStageNames[blocker.key] ?? blocker.key}
               </span>
-              <span className="text-nc-text-2">{blocker.reason}</span>
+              <span className="text-nc-text-2">
+                {alertDisplayCopy(blocker.reason)}
+              </span>
             </>
           ) : (
             <>
@@ -718,9 +789,11 @@ function LifecyclePipeline({
           )}
         </div>
       </div>
+      <StrategyLibraryGuide />
       <ol className="grid gap-1.5 sm:grid-cols-3 lg:grid-cols-6">
         {detail.lifecycleGates.map((gate, index) => {
           const stageName = lifecycleStageNames[gate.key] ?? gate.label;
+          const summary = alertDisplayCopy(gate.summary);
           const status = lifecycleStatus[gate.status];
           const Icon = status.icon;
           const open = expanded === gate.key;
@@ -759,9 +832,9 @@ function LifecyclePipeline({
                 </strong>
                 <span
                   className="w-full truncate text-[11px] text-nc-text-4"
-                  title={gate.summary}
+                  title={summary}
                 >
-                  {gate.summary}
+                  {summary}
                 </span>
               </Button>
             </li>
@@ -776,7 +849,25 @@ function LifecyclePipeline({
           <p className="text-sub font-medium text-nc-text">
             {lifecycleStageNames[openGate.key] ?? openGate.label} · 证据明细
           </p>
-          <p className="mt-1 text-sub text-nc-text-3">{openGate.summary}</p>
+          <p className="mt-1 text-sub text-nc-text-3">
+            {alertDisplayCopy(openGate.summary)}
+          </p>
+          {gateGuidance && (
+            <p className="mt-1 text-sub text-nc-text-3">
+              <strong className="mr-2 text-nc-text">如何通过本阶段</strong>
+              {gateGuidance}
+              {offerBacktest && (
+                <Link href={backtestHref} className="ml-2 underline">
+                  用此策略对象回测
+                </Link>
+              )}
+              {openGate.status !== "passed" && openGate.key === "paper" && (
+                <Link href="/accounts?tab=paper" className="ml-2 underline">
+                  模拟盘对照
+                </Link>
+              )}
+            </p>
+          )}
           {openGate.evidence.length ? (
             <ul className="mt-1.5 space-y-1">
               {openGate.evidence.map((item) => (
@@ -947,7 +1038,11 @@ function AlertModeControl() {
     <section aria-label="全局提醒模式" className="space-y-2 rounded border p-3">
       <h2>
         全局提醒模式：
-        {status.data ? alertModeLabel(status.data.mode) : "读取中"}
+        {status.data?.mode === "shadow"
+          ? "空跑观察（不推送）"
+          : status.data
+            ? alertModeLabel(status.data.mode)
+            : "读取中"}
       </h2>
       <p className="text-sm">
         开启正式提醒前，须先在策略详情核对门槛与前推样本、手动晋级并开启该策略。订阅与渠道在系统配置。
@@ -966,7 +1061,7 @@ function AlertModeControl() {
             {mode === "live"
               ? "开启全局正式提醒"
               : mode === "shadow"
-                ? "切换全局观察模式"
+                ? "切换全局空跑观察"
                 : "关闭全局提醒"}
           </Button>
         ))}
@@ -980,7 +1075,11 @@ function AlertModeControl() {
         <DialogContent>
           <DialogTitle>确认切换全局提醒模式</DialogTitle>
           <DialogDescription>
-            目标 {confirm}。仅向已启用订阅投递；不会自动订阅或下单。
+            {confirm === "shadow"
+              ? "空跑观察只记录信号，不推送或下单。"
+              : confirm === "live"
+                ? "正式提醒仅向已启用的订阅推送，交易仍须人工执行。"
+                : "关闭全局提醒后停止扫描与推送。"}
           </DialogDescription>
           <Button
             onClick={() => {
@@ -990,7 +1089,9 @@ function AlertModeControl() {
           >
             确认模式
           </Button>
-          {setMode.error && <p role="alert">{setMode.error.message}</p>}
+          {setMode.error && (
+            <p role="alert">{alertDisplayCopy(setMode.error.message)}</p>
+          )}
         </DialogContent>
       </Dialog>
       {status.error && <p role="alert">{status.error.message}</p>}

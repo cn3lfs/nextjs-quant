@@ -1,14 +1,14 @@
-import { type RpsRow, type RpsValue } from "quant-rps";
+import { rpsPeriods, type RpsRow, type RpsValue } from "quant-rps";
 import { sortTableRows } from "~/lib/common/server-sort";
+import { rpsSortColumnId } from "~/lib/market/market-pool";
 import { industryPageSchema } from "~/lib/screening/industry-rps";
 import type { RpsDay } from "~/lib/screening/rps";
 import { RpsStore } from "../db/rps-store";
 import type { RpsObservation } from "./rps-observation";
 
 /**
- * Decode each published vector once, then read the display period and every
- * condition period from that same batch. Periods absent from the batch simply
- * have no map, so a condition can never borrow a value from another day.
+ * Decode published vectors from the selected batch. Requested periods absent
+ * from that batch have empty maps.
  */
 function valueMaps(
   rows: readonly RpsRow[],
@@ -60,10 +60,7 @@ export function industryRpsPage(
       rows: [],
       total: 0,
     };
-  const periods = [
-    query.period,
-    ...query.conditions.map((condition) => condition.period),
-  ];
+  const periods = [...new Set([...rpsPeriods, ...day.periods])];
   const maps = valueMaps(group?.rows ?? store.rows(day.date), day, periods);
   const main = maps.get(query.period)!;
   const index = day.periods.indexOf(query.period);
@@ -81,6 +78,12 @@ export function industryRpsPage(
       return {
         ...m,
         value: main.get(m.name) ?? null,
+        rpsValues: Object.fromEntries(
+          periods.map((period) => [
+            String(period),
+            maps.get(period)!.get(m.name) ?? null,
+          ]),
+        ),
         valid: m.included[index] ?? null,
         endpointMissing: m.missing[index] ?? null,
         reason: index < 0 ? ("period-unavailable" as const) : m.empty[index]!,
@@ -95,8 +98,10 @@ export function industryRpsPage(
     );
   // Missing values never match, even at threshold 0; filtering keeps each
   // value's original rank so the displayed RPS is never recomputed.
-  const filtered = ranked.filter((row) =>
-    query.conditions.every((condition) => {
+  const search = query.search.toLowerCase();
+  const filtered = ranked.filter((row) => {
+    if (search && !row.name.toLowerCase().includes(search)) return false;
+    return query.conditions.every((condition) => {
       const rps = row.conditionValues?.[String(condition.period)]?.rps;
       return (
         rps !== null &&
@@ -105,11 +110,19 @@ export function industryRpsPage(
           ? rps >= condition.value
           : rps <= condition.value)
       );
-    }),
-  );
+    });
+  });
   const all = sortTableRows(filtered, query.order, {
+    ...Object.fromEntries(
+      rpsPeriods.map((period) => [
+        rpsSortColumnId(period),
+        (row: (typeof ranked)[number]) => row.rpsValues[String(period)]?.rps,
+      ]),
+    ),
     name: (row) => row.name,
     rank: (row) => row.value?.rank,
+    rps: (row) => row.value?.rps,
+    return: (row) => row.value?.return,
     members: (row) => row.total,
     coverage: (row) => row.total,
     excluded: (row) =>

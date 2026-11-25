@@ -165,7 +165,10 @@ type MarketSession = MarketSelection & {
   clearTradeContext: () => void;
   setSymbol: (symbol: string) => void;
   setPeriod: (period: Period) => void;
-  setBrowse: (browse: BrowseList | null) => void;
+  setBrowse: (
+    browse: BrowseList | null,
+    options?: { preserveActivation: true },
+  ) => void;
   setChartPeriod: (chartPeriod: ChartPeriod) => void;
   setChartMode: (chartMode: ChartMode) => void;
   setMarketSource: (marketSource: MarketSource) => void;
@@ -181,6 +184,7 @@ type MarketSession = MarketSelection & {
 // owns the cross-page selection and the exact selected candidate, never the shell.
 export const useMarketSession = create<MarketSession>((set) => {
   let focusToken = 0;
+  let browseActivation = 0;
   const accept = (loaded: MarketSnapshot) => {
     // Formula candidates predate requestedSource. Their recorded local origin
     // must own list browsing even before the settings query has completed.
@@ -249,7 +253,13 @@ export const useMarketSession = create<MarketSession>((set) => {
     },
     setSymbol: (symbol) => set({ symbol }),
     setPeriod: (period) => set({ period }),
-    setBrowse: (browse) => set({ browse }),
+    setBrowse: (browse, options) =>
+      set({
+        browse:
+          browse && !options?.preserveActivation
+            ? { ...browse, activationId: ++browseActivation }
+            : browse,
+      }),
     setChartPeriod: (chartPeriod) => {
       set({ chartPeriod });
       rememberMarketUrl();

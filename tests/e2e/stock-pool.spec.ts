@@ -459,8 +459,8 @@ test("non-chart pages do not load a default snapshot; chart navigation owns sele
   }
   await page.goto("/scan?symbol=sh600000");
   await expect(
-    page.getByRole("checkbox", { name: "双突破", exact: true }),
-  ).toBeChecked();
+    page.getByRole("button", { name: "双突破", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   expect(snapshots).toHaveLength(1);
   expect(snapshots[0]).toContain("sh600000");
   await page.evaluate(() =>
@@ -475,8 +475,8 @@ test("non-chart pages do not load a default snapshot; chart navigation owns sele
   await expect(page).toHaveURL(/\/scan\?tab=rps$/);
   await page.getByRole("link", { name: "行情图表", exact: true }).click();
   await expect(
-    page.getByRole("checkbox", { name: "双突破", exact: true }),
-  ).toBeChecked();
+    page.getByRole("button", { name: "双突破", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   expect(snapshots).toHaveLength(3);
   await expect(
     page.getByText("所选数据源读取失败", { exact: false }),
@@ -590,8 +590,8 @@ test("pool route keeps filters and pagination through chart navigation, back and
     .click();
   await expect(page).toHaveURL(/\/scan\?symbol=sh600040(?:&|$)/);
   await expect(
-    page.getByRole("checkbox", { name: "双突破", exact: true }),
-  ).toBeChecked();
+    page.getByRole("button", { name: "双突破", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("region", { name: "股票池浏览" })).toHaveCount(0);
   await expect(
     page.getByText("所选数据源读取失败", { exact: false }),

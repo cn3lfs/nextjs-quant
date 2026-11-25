@@ -1,5 +1,4 @@
 import { MarketSourceSelect } from "../../market/market-source-select";
-import Link from "next/link";
 import { Database, FolderOpen } from "@phosphor-icons/react/ssr";
 import { PageGrid, Panel, Pill, StatsPanel, type Tone } from "../../panels";
 import { Input } from "../../ui/input";
@@ -10,6 +9,13 @@ import { Field, stamp } from "../shared";
 import type { Coverage, FieldError, FieldProps } from "./shared";
 import { useEffect, useState } from "react";
 import { Switch } from "../../ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../ui/select";
 import { api } from "~/trpc/react";
 
 function CloseToTraySetting() {
@@ -94,7 +100,34 @@ export function DataSection({
     retry: false,
     refetchOnWindowFocus: false,
   });
+  const inspectMembership = api.industryRpsInspect.useMutation();
+  const [inspectedSource, setInspectedSource] = useState<string | null>(null);
   const callout = thsdkCallout(thsdk.data);
+  // Inspect reads the saved settings, so unsaved edits must be blocked.
+  const membershipSourceKey = JSON.stringify([
+    value.tdxRoot,
+    value.industryMembershipSource,
+    value.industryBlocksRoot,
+  ]);
+  const showInspection =
+    !dirty && !savePending && inspectedSource === membershipSourceKey;
+  const inspection = showInspection ? inspectMembership.data : undefined;
+  const membershipChanges = inspection?.baseline
+    ? [
+        { label: "新增", files: inspection.added },
+        { label: "变更", files: inspection.changed },
+        { label: "缺失", files: inspection.removed },
+      ].filter(({ files }) => files.length > 0)
+    : [];
+  const membershipMissing =
+    value.industryMembershipSource === "blocks" &&
+    !value.industryBlocksRoot.trim();
+  const inspectDisabled =
+    dirty ||
+    savePending ||
+    inspectMembership.isPending ||
+    !value.tdxRoot.trim() ||
+    membershipMissing;
   return (
     <PageGrid>
       <Panel
@@ -129,14 +162,85 @@ export function DataSection({
           填写通达信安装目录的绝对路径。留空表示尚未配置，读取该目录内的数据前需配置；
           在线行情和已导入日线包可独立使用。
         </p>
+        <Field label="板块成分来源">
+          <Select
+            value={config.industryMembershipSource}
+            onValueChange={(industryMembershipSource) => {
+              if (
+                industryMembershipSource === "blocks" ||
+                industryMembershipSource === "tdx"
+              ) {
+                setConfig({ ...config, industryMembershipSource });
+              }
+            }}
+          >
+            <SelectTrigger
+              {...fieldProps("industryMembershipSource")}
+              aria-label="板块成分来源"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="blocks">
+                外部 Blocks：申万行业 / 概念
+              </SelectItem>
+              <SelectItem value="tdx">通达信：研究一级行业 / 概念</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+        {fieldError("industryMembershipSource")}
+        <Field label="外部 Blocks 根目录">
+          <Input
+            {...fieldProps("industryBlocksRoot")}
+            value={config.industryBlocksRoot}
+            placeholder="外部 Blocks 根目录（绝对路径）"
+            onChange={(e) =>
+              setConfig({ ...config, industryBlocksRoot: e.target.value })
+            }
+          />
+        </Field>
+        {fieldError("industryBlocksRoot")}
         <p className="text-[13px] text-nc-text-3">
-          板块成分来源：
-          {value.industryMembershipSource === "tdx" ? "通达信" : "外部 Blocks"}
-          ； 外部目录：{value.industryBlocksRoot || "尚未配置"}。
-          <Link href="/scan?tab=rps" className="underline">
-            在 RPS → 行业中管理成分来源和目录
-          </Link>
+          选择外部 Blocks 来源时使用；目录只读。保存配置后生效。
         </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={inspectDisabled}
+            onClick={() => {
+              setInspectedSource(membershipSourceKey);
+              inspectMembership.mutate();
+            }}
+          >
+            {inspectMembership.isPending ? "正在核对…" : "核对板块成分变化"}
+          </Button>
+          {showInspection && inspectMembership.isError && (
+            <span role="alert" className="text-[13px] text-nc-bad">
+              核对失败，请检查已保存的通达信目录和板块来源后重试。
+            </span>
+          )}
+          {inspection && (
+            <span role="status" className="text-[13px] text-nc-text-3">
+              当前解析 {inspection.count} 个板块；
+              {inspection.baseline
+                ? `对比最近快照，变更 ${inspection.changed.length}、新增 ${inspection.added.length}、缺失 ${inspection.removed.length}`
+                : "尚无已存快照基线"}
+            </span>
+          )}
+        </div>
+        {membershipChanges.length > 0 && (
+          <details className="mt-1 text-[13px] text-nc-text-3">
+            <summary className="cursor-pointer">查看板块成分变化明细</summary>
+            <ul className="mt-1 space-y-1 pl-4">
+              {membershipChanges.map(({ label, files }) => (
+                <li key={label}>
+                  {label}：{files.join("、")}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
         <Field label="默认行情数据源">
           <MarketSourceSelect
             value={config.marketDataSource}

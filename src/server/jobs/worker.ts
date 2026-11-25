@@ -43,6 +43,7 @@ import {
 } from "./binance-public-data-work";
 
 import { readBars } from "~/server/market/bar-store/read-bars";
+import { MarketPanelStore } from "../market/market-panel";
 import type { FormulaWork } from "../screening/formula-screening";
 import { executeFormulaScreen } from "../screening/formula-screen-work";
 import { scanFormulaRange } from "../screening/formula-range";
@@ -157,6 +158,7 @@ export type Work =
   | AlphaWork
   | FactorWork
   | { type: "scan"; root: string }
+  | { type: "market-panel-build"; root: string }
   | { type: "snapshot"; root: string; symbol: string; period: Period };
 async function main(work: Work & { attemptId?: string; jobId?: string }) {
   if (work.type === "lab-diagnose") {
@@ -307,6 +309,26 @@ async function main(work: Work & { attemptId?: string; jobId?: string }) {
       parentPort?.postMessage({ progress, phase, workProgress }),
     );
   if (work.type === "scan") return scan(work.root);
+  if (work.type === "market-panel-build") {
+    parentPort?.postMessage({
+      progress: 10,
+      phase: "扫描本地通达信日线与公司行动",
+    });
+    const handle = await new MarketPanelStore(work.root).build();
+    let summary;
+    try {
+      summary = {
+        snapshotId: handle.snapshotId,
+        datesCount: handle.manifest.dates.length,
+        symbolsCount: handle.manifest.symbols.length,
+        through: handle.manifest.dates.at(-1) ?? null,
+      };
+    } finally {
+      handle.close();
+    }
+    parentPort?.postMessage({ progress: 95, phase: "校验冻结面板" });
+    return summary;
+  }
   if (work.type === "snapshot")
     return readBars({
       instrument: { market: "cn-equity", symbol: work.symbol },

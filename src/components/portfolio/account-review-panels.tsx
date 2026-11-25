@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { api } from "~/trpc/react";
+import { alertDisplayCopy } from "~/lib/common/ui-glossary";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import {
@@ -272,7 +273,7 @@ export function WeeklyReview() {
       {query.error && <p role="alert">{query.error.message}</p>}
       {query.data?.suggestions.map((s) => (
         <article key={s.id} className="space-y-2 rounded border p-3">
-          <p>{s.reason}</p>
+          <p>{alertDisplayCopy(s.reason)}</p>
           {s.action === "pause-live" &&
           s.strategyId &&
           s.version &&
@@ -282,7 +283,7 @@ export function WeeklyReview() {
               onClick={() => {
                 if (
                   window.confirm(
-                    `确认暂停 ${s.strategyId} 的live提醒？影子观察与历史证据保留。`,
+                    `确认暂停 ${s.strategyId} 的正式提醒？空跑观察与历史证据保留。`,
                   )
                 )
                   pause.mutate({
@@ -294,7 +295,7 @@ export function WeeklyReview() {
                   });
               }}
             >
-              暂停 live 提醒
+              暂停正式提醒
             </Button>
           ) : s.href ? (
             <Link href={s.href} className="underline">
@@ -304,20 +305,20 @@ export function WeeklyReview() {
         </article>
       ))}
       {pause.error && <p role="alert">{pause.error.message}</p>}
-      {pause.isSuccess && <p role="status">已按确认暂停 live 提醒。</p>}
+      {pause.isSuccess && <p role="status">已按确认暂停正式提醒。</p>}
       {query.data?.riskUnknown.map((reason) => (
         <p key={reason}>{reason}</p>
       ))}
       <h3>提醒与未成交窗口</h3>
       {query.data?.execution.alerts.map((r) => (
         <p key={r.alertKey}>
-          {r.symbol} · {r.observationOnly ? "仅影子/研究观察" : "live 提醒"} ·{" "}
+          {r.symbol} · {r.observationOnly ? "仅供空跑或研究观察" : "正式提醒"} ·{" "}
           {r.status === "late"
             ? "迟到观察"
             : r.status === "skipped"
               ? "已取消计划"
               : "窗口结束未见关联成交"}{" "}
-          · {r.reason}
+          · {alertDisplayCopy(r.reason)}
         </p>
       ))}
       <p>{query.data?.execution.notice}</p>

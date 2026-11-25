@@ -638,7 +638,7 @@ function LabEditor({
         </Button>
         {register.data && (
           <p role="status">
-            策略对象已登记，尚未开启影子或提醒。
+            策略对象已登记，尚未开启空跑观察或正式提醒。
             <Link
               className="underline"
               href={`/lab?strategy=${encodeURIComponent(register.data.id)}&version=${register.data.version}`}

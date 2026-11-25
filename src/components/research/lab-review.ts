@@ -6,7 +6,7 @@ export function labDetailStatus(
   return eligible && promoted
     ? "已晋级"
     : shadowActive
-      ? "影子前推中"
+      ? "空跑验证中"
       : "研究中";
 }
 

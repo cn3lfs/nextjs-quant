@@ -224,133 +224,123 @@ try {
   assert.deepEqual(Object.keys(conceptCalls[0]).sort(), ["date", "fetchedAt"]);
   assert.equal(conceptCalls[0].date, today);
   assert.equal(conceptCalls[0].fetchedAt, 1700000000000);
-  // 概念行按家数降序；同数沿用源顺序（乙在丙前）。
+  // 概念行按家数降序，同数沿用源顺序。
+  const conceptPanel = page.getByRole("region", { name: "涨停概念分布" });
+  const conceptList = conceptPanel.getByRole("group", {
+    name: "涨停概念分布列表",
+  });
+  const conceptMembers = conceptPanel.getByRole("group", {
+    name: "概念对应成分股",
+  });
+  const conceptTable = conceptMembers.getByRole("table", {
+    name: "概念成分股",
+  });
+  const conceptButton = (name) =>
+    conceptList.getByRole("button", { name: `查看${name}概念涨停成分股` });
+  const dataRows = (grid) =>
+    grid.getByRole("row").filter({ has: page.getByRole("cell") });
+  const stockNames = (grid) =>
+    dataRows(grid).evaluateAll((rows) =>
+      rows.map((row) => row.innerText.split(" · ")[0]),
+    );
+  async function expectMembers(name, expectedNames) {
+    await conceptMembers
+      .getByText(`${name} · ${expectedNames.length} 只涨停成分股`, {
+        exact: true,
+      })
+      .waitFor();
+    assert.equal(
+      await conceptButton(name).getAttribute("aria-pressed"),
+      "true",
+    );
+    assert.deepEqual(await stockNames(conceptTable), expectedNames);
+  }
+
   assert.deepEqual(
-    await page
-      .getByRole("group", { name: "涨停概念分布列表" })
+    await conceptList
       .getByRole("button")
       .evaluateAll((buttons) =>
         buttons.map((button) => button.getAttribute("aria-label")),
       ),
     [
-      "筛选概念甲概念涨停，按首封时间升序",
-      "筛选概念乙概念涨停，按首封时间升序",
-      "筛选概念丙概念涨停，按首封时间升序",
+      "查看概念甲概念涨停成分股",
+      "查看概念乙概念涨停成分股",
+      "查看概念丙概念涨停成分股",
     ],
   );
-  // 右侧默认预览排行第一的概念：成分股按连板降序、同板数按首封时间升序。
-  assert.equal(
-    await page
-      .getByRole("group", { name: "概念对应成分股" })
-      .getByText("概念甲 · 3 只涨停成分股", { exact: false })
-      .count(),
-    1,
-  );
-  assert.deepEqual(
-    await page
-      .getByRole("table", { name: "概念成分股" })
-      .locator(".nc-table-row")
-      .evaluateAll((rows) => rows.map((r) => r.innerText.split(" · ")[0])),
-    ["乙", "戊", "甲"],
-  );
-  assert.equal(
-    await page.getByRole("button", { name: "仅看该概念涨停池" }).count(),
-    1,
-  );
+  // 右侧默认预览第一名，成分股按连板降序、同板数按首封时间升序。
+  await expectMembers("概念甲", ["乙", "戊", "甲"]);
+  const removedButton = page.getByRole("button", { name: "仅看该概念涨停池" });
+  assert.equal(await removedButton.count(), 0);
 
-  // 先叠加连板高度，再点概念：必须同时清掉行业和高度。
-  await page.getByRole("button", { name: "筛选2连板涨停股" }).click();
-  await page
-    .getByText("筛选后 2 / 7 只 · 半导体 · 2板 · 首封时间升序", {
-      exact: false,
-    })
-    .waitFor();
-  await page
-    .getByRole("button", { name: "筛选概念甲概念涨停，按首封时间升序" })
-    .click();
-  const conceptMeta = page.getByText(
-    "筛选后 3 / 7 只 · 概念 概念甲 · 首封时间升序",
-    { exact: false },
-  );
-  await conceptMeta.waitFor();
-  const conceptMetaText = await conceptMeta.innerText();
-  assert.ok(!conceptMetaText.includes("半导体"));
-  assert.ok(!conceptMetaText.includes("2板"));
-  const conceptNames = await page
-    .getByRole("table", { name: "涨停池" })
-    .locator(".nc-table-row")
-    .evaluateAll((rows) => rows.map((r) => r.innerText.split(" · ")[0]));
-  assert.deepEqual(conceptNames, ["乙", "戊", "甲"]);
-  assert.equal(conceptNames.length, 3, "概念行 3 家应与打开表一致");
-  assert.equal(
-    await page
-      .getByRole("button", { name: "筛选概念甲概念涨停，按首封时间升序" })
-      .getAttribute("aria-pressed"),
-    "true",
-  );
+  // 对同一个池逐行比对所有单元格、元数据、排序和选中的池。
+  const upPool = page.getByRole("region", { name: "涨停池" });
+  const combinedMeta = "筛选后 2 / 7 只 · 半导体 · 2板 · 首封时间升序";
+  async function poolSnapshot(panel, grid) {
+    return {
+      activeTab: await poolGroup
+        .getByRole("radio", { checked: true })
+        .innerText(),
+      meta: await panel.getByText(/^筛选后 /).innerText(),
+      sort: await panel
+        .getByRole("combobox", { name: "当前池排序" })
+        .innerText(),
+      rows: await dataRows(grid).evaluateAll((rows) =>
+        rows.map((row) =>
+          Array.from(
+            row.querySelectorAll('[role="cell"]'),
+            (cell) => cell.innerText,
+          ),
+        ),
+      ),
+    };
+  }
 
-  // 选择行业清概念。
+  await ladder.getByRole("button", { name: "筛选2连板涨停股" }).click();
+  await upPool.getByText(combinedMeta, { exact: true }).waitFor();
+  const filteredPool = await poolSnapshot(upPool, table);
+  assert.equal(filteredPool.activeTab, "涨停 7");
+  assert.equal(filteredPool.meta, combinedMeta);
+  assert.equal(filteredPool.rows.length, 2);
+  assert.deepEqual(await stockNames(table), ["乙", "戊"]);
+
+  for (const [name, members] of [
+    ["概念甲", ["乙", "戊", "甲"]],
+    ["概念乙", ["乙", "己"]],
+    ["概念丙", ["丙", "丁"]],
+  ]) {
+    await conceptButton(name).click();
+    await expectMembers(name, members);
+    assert.deepEqual(await poolSnapshot(upPool, table), filteredPool, name);
+    assert.equal(await removedButton.count(), 0, name);
+  }
+
+  // 在炸板池点击概念也不能切回涨停池，右表继续使用涨停成分。
+  await poolGroup.getByRole("radio", { name: "炸板 2" }).click();
+  const brokenPool = page.getByRole("region", { name: "炸板池" });
+  const brokenTable = brokenPool.getByRole("table", { name: "炸板池" });
+  await brokenPool.getByText("筛选后 2 / 2 只", { exact: true }).waitFor();
+  const brokenSnapshot = await poolSnapshot(brokenPool, brokenTable);
+  assert.equal(brokenSnapshot.activeTab, "炸板 2");
+  await expectMembers("概念丙", ["丙", "丁"]);
+  await conceptButton("概念乙").click();
+  await expectMembers("概念乙", ["乙", "己"]);
+  assert.deepEqual(await poolSnapshot(brokenPool, brokenTable), brokenSnapshot);
+  assert.equal(await removedButton.count(), 0);
+
+  // 梯队能从炸板池切回，并恢复涨停池原来的行业和高度。
+  await ladder.getByRole("button", { name: "筛选2连板涨停股" }).click();
+  await upPool.getByText(combinedMeta, { exact: true }).waitFor();
+  assert.deepEqual(await poolSnapshot(upPool, table), filteredPool);
+
+  // 行业下钻仍可切换行业并清掉高度，右侧概念维持选中。
   await page
     .getByRole("button", { name: "打开电池行业涨停，按首封时间升序" })
     .click();
-  const industryMeta = page.getByText("筛选后 2 / 7 只 · 电池 · 首封时间升序", {
-    exact: false,
-  });
-  await industryMeta.waitFor();
-  assert.ok(!(await industryMeta.innerText()).includes("概念"));
-
-  // 点概念乙：清掉电池行业，表内 2 家与概念行一致。
-  await page
-    .getByRole("button", { name: "筛选概念乙概念涨停，按首封时间升序" })
-    .click();
-  const conceptBMeta = page.getByText(
-    "筛选后 2 / 7 只 · 概念 概念乙 · 首封时间升序",
-    { exact: false },
-  );
-  await conceptBMeta.waitFor();
-  assert.ok(!(await conceptBMeta.innerText()).includes("电池"));
-  assert.deepEqual(
-    await page
-      .getByRole("table", { name: "涨停池" })
-      .locator(".nc-table-row")
-      .evaluateAll((rows) => rows.map((r) => r.innerText.split(" · ")[0])),
-    ["乙", "己"],
-  );
-  // 左列选中概念已同步到右侧成分股，并可一键清除池筛选。
-  assert.equal(
-    await page
-      .getByRole("group", { name: "概念对应成分股" })
-      .getByText("概念乙 · 2 只涨停成分股", { exact: false })
-      .count(),
-    1,
-  );
-  assert.equal(
-    await page.getByRole("button", { name: "清除池筛选" }).count(),
-    1,
-  );
-
-  // 切到炸板池只清离开池的概念，不重置该池自己的分页/筛选记忆。
-  await poolGroup.getByRole("radio", { name: "炸板 2" }).click();
-  await page.getByText("筛选后 2 / 2 只", { exact: false }).waitFor();
-  assert.equal(
-    await page.getByText("概念 概念乙", { exact: false }).count(),
-    0,
-  );
-
-  // 炸板池点连板梯回涨停池，不得带回上个概念。
-  await page.getByRole("button", { name: "筛选2连板涨停股" }).click();
-  const ladderMeta = page.getByText("筛选后 2 / 7 只 · 2板 · 首封时间升序", {
-    exact: false,
-  });
-  await ladderMeta.waitFor();
-  assert.ok(!(await ladderMeta.innerText()).includes("概念"));
-  assert.deepEqual(
-    await page
-      .getByRole("table", { name: "涨停池" })
-      .locator(".nc-table-row")
-      .evaluateAll((rows) => rows.map((r) => r.innerText.split(" · ")[0])),
-    ["乙", "戊"],
-  );
+  await upPool
+    .getByText("筛选后 2 / 7 只 · 电池 · 首封时间升序", { exact: false })
+    .waitFor();
+  await expectMembers("概念乙", ["乙", "己"]);
 
   // 恢复半导体行业，供后面的切池保留断言使用。
   await page
@@ -380,24 +370,21 @@ try {
     .getByText("筛选后 5 / 7 只 · 半导体 · 首封时间升序", { exact: false })
     .waitFor();
 
-  // 选中概念后刷新：新键尚未完成时显示同步状态与刷新入口，不显示筛选后 0。
-  await page
-    .getByRole("button", { name: "筛选概念甲概念涨停，按首封时间升序" })
-    .click();
-  await page
-    .getByText("筛选后 3 / 7 只 · 概念 概念甲 · 首封时间升序", { exact: false })
+  // 四池刷新使概念数据重新同步，现有池筛选与成分保持稳定。
+  await conceptButton("概念甲").click();
+  await expectMembers("概念甲", ["乙", "戊", "甲"]);
+  const beforeRefresh = await poolSnapshot(upPool, table);
+  await page.getByRole("button", { name: "刷新", exact: true }).click();
+  await conceptPanel
+    .getByRole("status")
+    .filter({ hasText: "当前四池确认集已刷新或不在本进程" })
     .waitFor();
-  await page.getByRole("button", { name: "刷新" }).click();
-  await page
-    .getByText("当前四池确认集已刷新或不在本进程", { exact: false })
-    .first()
-    .waitFor();
-  await page
-    .getByText("概念 概念甲 · 概念成员未就绪", { exact: false })
-    .waitFor();
-  assert.equal(await page.getByText("筛选后 0", { exact: false }).count(), 0);
-  assert.equal(await page.getByText("有概念映射", { exact: false }).count(), 0);
-  assert.equal(await page.getByRole("button", { name: "刷新行情" }).count(), 1);
+  assert.equal(await conceptMembers.count(), 0);
+  assert.equal(
+    await conceptPanel.getByText("有概念映射", { exact: false }).count(),
+    0,
+  );
+  assert.deepEqual(await poolSnapshot(upPool, table), beforeRefresh);
   assert.deepEqual(
     await page.evaluate(() =>
       window.limitFixture.conceptRequests.map((r) => r.fetchedAt),
@@ -433,38 +420,34 @@ try {
   );
 
   // 120 只的昨日涨停池：分页按钮换成渐进加载，先 50 只再追加。
-  await poolGroup.getByRole("radio", { name: "昨日涨停 120" }).click();
+  // 把池标签放到窗口底部，切池后触底观察点仍在视口外。
+  const yesterdayTab = poolGroup.getByRole("radio", { name: "昨日涨停 120" });
+  await page.setViewportSize({ width: 1024, height: 600 });
+  await yesterdayTab.evaluate((tab) => tab.scrollIntoView({ block: "end" }));
+  await yesterdayTab.click();
   const yztTable = page.getByRole("table", { name: "昨日涨停池" });
   await yztTable.waitFor();
-  await page.getByText("已显示 50 / 共 120 只", { exact: false }).waitFor();
-  assert.equal(await yztTable.locator(".nc-table-row").count(), 50);
+  await page.getByText("已显示 50 / 共 120 只", { exact: true }).waitFor();
+  assert.equal(await dataRows(yztTable).count(), 50);
   assert.equal(await page.getByRole("button", { name: "上一页" }).count(), 0);
   assert.equal(await page.getByRole("button", { name: "下一页" }).count(), 0);
-  await page.getByRole("button", { name: "加载更多" }).click();
-  await page.waitForFunction(
-    () =>
-      document.querySelectorAll(
-        '[role="table"][aria-label="昨日涨停池"] .nc-table-row',
-      ).length > 50,
+
+  // 键盘手动追加一批，再把观察点滚入视口触发剩余一批。
+  const loadMore = page.getByRole("button", { name: "加载更多" });
+  await loadMore.evaluate((button) => button.focus({ preventScroll: true }));
+  await page.keyboard.press("Enter");
+  await page.getByText("已显示 100 / 共 120 只", { exact: true }).waitFor();
+  assert.equal(await dataRows(yztTable).count(), 100);
+  await loadMore.evaluate((button) =>
+    button.scrollIntoView({ block: "center" }),
   );
-  const appended = await yztTable.locator(".nc-table-row").count();
-  assert.ok(
-    appended === 100 || appended === 120,
-    `加载更多应追加一批，实际 ${appended}`,
-  );
-  // 触底观察器可能顺带补齐；无论分几步，最终都能看到全部 120 只。
-  for (
-    let i = 0;
-    i < 5 && (await page.getByRole("button", { name: "加载更多" }).count()) > 0;
-    i++
-  )
-    await page.getByRole("button", { name: "加载更多" }).click();
-  await page.getByText("已显示 120 / 共 120 只", { exact: false }).waitFor();
-  assert.equal(await page.getByRole("button", { name: "加载更多" }).count(), 0);
+  await page.getByText("已显示 120 / 共 120 只", { exact: true }).waitFor();
+  assert.equal(await dataRows(yztTable).count(), 120);
+  assert.equal(await loadMore.count(), 0);
 
   assert.deepEqual(errors, []);
   console.log(
-    "涨停首封下钻：盘中图移除/梯队可点开K线/概念左右联动/行业与概念按需下钻/概念人数与表一致/清行业高度/切池只清离开概念/刷新同步不冒充空表/改日期清空/渐进加载通过",
+    "涨停首封下钻：盘中图移除/梯队可点开K线/概念只更新右表/行业与高度保持/切池保留筛选/刷新后概念重新同步/改日期清空/渐进加载通过",
   );
 } finally {
   await browser?.close();

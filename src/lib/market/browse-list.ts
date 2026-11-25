@@ -10,6 +10,8 @@ export type BrowseList = {
   symbols: readonly string[];
   index: number;
   origin?: BrowseOrigin;
+  /** Assigned when the chart opens from a list, preserved while stepping it. */
+  activationId?: number;
 };
 
 /** Neighbour in the list; null at either end (no wrap-around). */

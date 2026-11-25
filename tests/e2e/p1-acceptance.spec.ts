@@ -449,7 +449,10 @@ test("C2 chart popovers return focus and Escape closes only the top layer", asyn
     rps,
     page.getByRole("dialog", { name: "RPS 设置", exact: true }),
   );
-  const settings = page.getByRole("button", { name: "缠论设置", exact: true });
+  const settings = page.getByRole("button", {
+    name: "缠论结构 参数",
+    exact: true,
+  });
   await settings.click();
   const dialog = page.getByRole("dialog", { name: "缠论结构 · 输入" });
   const select = dialog.getByRole("combobox").first();
@@ -663,7 +666,10 @@ test("C3 CSS zoom keeps centered settings dialogs inside the viewport", async ({
   for (const width of [1440, 1024]) {
     await page.setViewportSize({ width, height: width === 1440 ? 900 : 768 });
     await ready(page, "/scan");
-    const trigger = page.getByRole("button", { name: "缠论设置", exact: true });
+    const trigger = page.getByRole("button", {
+      name: "缠论结构 参数",
+      exact: true,
+    });
     await trigger.click();
     await dismiss(
       page,

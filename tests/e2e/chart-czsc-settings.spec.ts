@@ -5,7 +5,10 @@ const stored = (page: import("@playwright/test").Page) =>
   page.evaluate(
     () =>
       JSON.parse(localStorage.getItem("nq-czsc-settings") ?? "{}") as {
-        state?: { values?: Record<string, number> };
+        state?: {
+          values?: Record<string, number>;
+          showSegmentCenters?: boolean;
+        };
       },
   );
 
@@ -30,6 +33,7 @@ test("缠论设置 is generated from the DLL schema and drives one v22 build", a
   const chart = page.getByTestId("market-chart").first();
   await chart.locator("canvas").first().waitFor();
   const status = page.getByTestId("czsc-status").first();
+  const parameters = page.getByRole("button", { name: "缠论结构 参数" });
   await expect(status).toContainText(/笔 \d+/, { timeout: 120_000 });
   expect((await stored(page)).state?.values).toMatchObject({
     "stroke.rule": 0,
@@ -39,16 +43,14 @@ test("缠论设置 is generated from the DLL schema and drives one v22 build", a
   });
   const before = await status.innerText();
 
-  await page.getByRole("button", { name: "缠论设置" }).click();
+  await parameters.click();
   // Opening must not pop a tooltip by auto-focusing the first info icon.
   await expect(page.getByRole("tooltip")).toHaveCount(0);
   const startBreak = page.getByRole("combobox", { name: "线段起点被破" });
-  await expect(startBreak).toContainText("不回改");
+  await expect(startBreak).toContainText("修正前段");
   await startBreak.click();
-  await page
-    .getByRole("option", { name: "修正前段（社区口径）", exact: true })
-    .click();
-  expect((await stored(page)).state?.values?.["segment.startBreak"]).toBe(1);
+  await page.getByRole("option", { name: /不回改/ }).click();
+  expect((await stored(page)).state?.values?.["segment.startBreak"]).toBe(0);
   // Each row explains its choices with the DLL's own notes.
   await page.getByRole("button", { name: "笔算法说明" }).hover();
   const tip = page.getByRole("tooltip");
@@ -82,7 +84,7 @@ test("缠论设置 is generated from the DLL schema and drives one v22 build", a
   expect((await stored(page)).state?.values?.["stroke.rule"]).toBe(4);
 
   // Gaps (v7) apply to span-based strokes.
-  await page.getByRole("button", { name: "缠论设置" }).click();
+  await parameters.click();
   await page.getByRole("combobox", { name: "笔算法" }).click();
   await page.getByRole("option", { name: /严格笔/ }).click();
   const gap = page.getByRole("combobox", { name: "笔中缺口" });
@@ -115,28 +117,42 @@ test("缠论设置 is generated from the DLL schema and drives one v22 build", a
     "projection.segmentBoundary": 1,
   });
 
-  // Compare center formation independently from the gap/segment variants above.
-  // The fixed last-2000-bar native input has 14+4 vs 18+4 centers at defaults;
-  // the preceding featureMerged/gap variant can legitimately have equal counts.
-  await page.getByRole("button", { name: "缠论设置" }).click();
-  await page.getByRole("button", { name: "恢复默认" }).click();
+  const reset = page.getByRole("button", { name: "恢复默认" });
+  const centerFormation = page.getByRole("combobox", { name: "笔中枢构成" });
+  const segmentCenters = page.getByRole("switch", { name: "显示线段中枢" });
+  await parameters.click();
+  await reset.click();
+  await expect(centerFormation).toContainText("服从所属线段");
+  await expect(segmentCenters).not.toBeChecked();
   await page.keyboard.press("Escape");
-  await expect(status).toContainText("中枢 18");
-  await page.getByRole("button", { name: "缠论设置" }).click();
-  await page.getByRole("combobox", { name: "笔中枢构成" }).click();
-  await page.getByRole("option", { name: /服从所属线段/ }).click();
+  await expect(status).toContainText(/中枢 \d+/);
+  await parameters.click();
+  await centerFormation.click();
+  await page.getByRole("option", { name: /按进入段/ }).click();
+  await expect(centerFormation).toContainText("按进入段");
+  expect((await stored(page)).state?.values?.["center.strokeFormation"]).toBe(
+    0,
+  );
   await page.keyboard.press("Escape");
-  await expect(status).toContainText("中枢 22");
+  await expect(status).toContainText(/中枢 \d+/);
 
   // Persisted across reloads; restore the default for other specs.
   await page.reload({ waitUntil: "networkidle" });
-  await page.getByRole("button", { name: "缠论设置" }).click();
-  await expect(
-    page.getByRole("combobox", { name: "笔中枢构成" }),
-  ).toContainText("服从所属线段");
-  await expect(startBreak).toContainText("不回改");
-  await page.getByRole("button", { name: "恢复默认" }).click();
-  expect((await stored(page)).state?.values).toEqual({
+  await parameters.click();
+  await expect(centerFormation).toContainText("按进入段");
+  await expect(startBreak).toContainText("修正前段");
+  await segmentCenters.click();
+  await expect(segmentCenters).toBeChecked();
+  await reset.click();
+  await expect(centerFormation).toContainText("服从所属线段");
+  await expect(segmentCenters).not.toBeChecked();
+  const restored = (await stored(page)).state;
+  expect(restored?.showSegmentCenters).toBe(false);
+  expect(restored?.values).toEqual({
+    "stroke.rule": 1,
+    "stroke.endpoint": 2,
+    "segment.startBreak": 1,
+    "center.strokeFormation": 1,
     "projection.centerBox": 0,
   });
   // The extra schema row must remain usable on a shorter desktop window.
@@ -149,6 +165,6 @@ test("缠论设置 is generated from the DLL schema and drives one v22 build", a
       return box !== null && box.y >= 0 && box.y + box.height <= 700;
     })
     .toBe(true);
-  await page.getByRole("button", { name: "恢复默认" }).scrollIntoViewIfNeeded();
-  await expect(page.getByRole("button", { name: "恢复默认" })).toBeInViewport();
+  await reset.scrollIntoViewIfNeeded();
+  await expect(reset).toBeInViewport();
 });

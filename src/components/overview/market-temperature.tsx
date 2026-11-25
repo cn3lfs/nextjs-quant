@@ -5,6 +5,7 @@ import { api, type RouterOutputs } from "~/trpc/react";
 import { useScreenVisible } from "../workbench/use-task-visible";
 import { Button } from "../ui/button";
 import { Panel, Pill, StateBanner } from "../panels";
+import { MarketPanelBuildAction } from "./market-panel-action";
 
 type TemperatureData = RouterOutputs["marketTemperature"];
 type TemperaturePoint = TemperatureData["history"][number];
@@ -222,15 +223,21 @@ export function MarketTemperature() {
       meta="0–100 历史分位 · 252 日窗口"
       note="仅作展示与仓位参考，未接入自动策略门控。"
       actions={
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={!visible || query.isFetching}
-          onClick={() => void query.refetch()}
-        >
-          {query.isFetching ? "读取中…" : "重读"}
-        </Button>
+        <>
+          <MarketPanelBuildAction
+            hasPanel={query.data?.provenance.snapshotId != null}
+            visible={visible && !query.isPending}
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={!visible || query.isFetching}
+            onClick={() => void query.refetch()}
+          >
+            {query.isFetching ? "读取中…" : "重读"}
+          </Button>
+        </>
       }
     >
       {query.isError ? (

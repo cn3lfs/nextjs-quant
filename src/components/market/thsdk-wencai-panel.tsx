@@ -3,12 +3,13 @@ import { formatNumber as displayNumber } from "trading-strategy-core/format-numb
 
 import { useState } from "react";
 import { Fire, Sparkle } from "@phosphor-icons/react/ssr";
-import { api } from "~/trpc/react";
+import { api, type RouterOutputs } from "~/trpc/react";
 import type {
   ThsdkWencaiField,
   ThsdkWencaiRow,
 } from "~/lib/market/thsdk-extensions";
 import { compactNumber } from "~/lib/market/tdx-fundamentals";
+import { securityDisplayName } from "~/lib/market/security-display";
 import {
   MethodologyPopover,
   PageGrid,
@@ -24,6 +25,8 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { useScreenVisible } from "../workbench/use-task-visible";
 import { ChartSymbolLink } from "./chart-symbol-link";
+import { BrowseSource } from "./open-chart";
+import { useSecurityNames } from "./use-security-names";
 
 type MarketChoice = "all" | "USHA" | "USZA" | "USTA";
 type LimitChoice = "20" | "50" | "100";
@@ -57,7 +60,7 @@ const wencaiMethodology = [
   {
     label: "数据口径",
     detail:
-      "问财结果为同花顺自然语言选股的源返回，字段、单位与排序均按源原样展示，不做本地二次计算。",
+      "问财字段、单位与排序按源展示。证券名称、最新价和涨跌幅由本地证券字典与实时报价补齐，缺失项留空。",
   },
   {
     label: "触发时机",
@@ -79,20 +82,78 @@ const cellText = (value: string | number | boolean | null | undefined) => {
   return value;
 };
 
-function wencaiColumns(fields: readonly ThsdkWencaiField[]) {
+type Quote = RouterOutputs["overviewQuotes"]["quotes"][number];
+
+function resultSymbols(rows: readonly { symbol: string | null }[]) {
+  return [...new Set(rows.flatMap(({ symbol }) => (symbol ? [symbol] : [])))];
+}
+
+function wencaiColumns(
+  fields: readonly ThsdkWencaiField[],
+  names: Record<string, string>,
+  quotes: ReadonlyMap<string, Quote>,
+) {
+  const quoteFor = (row: ThsdkWencaiRow) =>
+    row.symbol ? quotes.get(row.symbol) : undefined;
   const columns: Column<ThsdkWencaiRow>[] = [
     {
       key: "security",
       header: "证券",
       width: "1.4fr",
-      cell: (row) =>
-        row.symbol ? (
-          <ChartSymbolLink symbol={row.symbol} name={row.name ?? undefined} />
-        ) : (
-          <span className="truncate">
-            {row.name ?? row.code} · {row.code}
+      cell: (row) => {
+        if (!row.symbol)
+          return (
+            <span className="truncate">
+              {row.name ?? row.code} · {row.code}
+            </span>
+          );
+        const quote = quoteFor(row);
+        const quoteName =
+          quote && "name" in quote && typeof quote.name === "string"
+            ? quote.name
+            : undefined;
+        const name =
+          row.name ||
+          quoteName ||
+          (names[row.symbol]
+            ? securityDisplayName(row.symbol, names)
+            : undefined);
+        return <ChartSymbolLink symbol={row.symbol} name={name} />;
+      },
+    },
+    {
+      key: "latestPrice",
+      header: "最新价",
+      align: "right",
+      width: "92px",
+      cell: (row) => {
+        const price = quoteFor(row)?.price;
+        return price !== undefined && Number.isFinite(price) && price > 0
+          ? displayNumber(price, 2)
+          : "—";
+      },
+    },
+    {
+      key: "dailyChangePct",
+      header: "涨跌幅",
+      align: "right",
+      width: "92px",
+      cell: (row) => {
+        const quote = quoteFor(row);
+        const changePct =
+          quote && "changePct" in quote && typeof quote.changePct === "number"
+            ? quote.changePct
+            : quote && quote.preClose > 0 && quote.price > 0
+              ? (quote.price / quote.preClose - 1) * 100
+              : undefined;
+        return changePct !== undefined && Number.isFinite(changePct) ? (
+          <span className={`tabular-nums ${toneText[changeTone(changePct)]}`}>
+            {signedPercent(changePct)}
           </span>
-        ),
+        ) : (
+          "—"
+        );
+      },
     },
     ...fields.map((field) => ({
       key: field.key,
@@ -165,7 +226,25 @@ export function ThsdkWencaiPanel() {
   }
 
   const rows = result.data?.rows ?? [];
-  const columns = wencaiColumns(result.data?.fields ?? []);
+  const wencaiSymbols = resultSymbols(rows);
+  const constituentSymbols = resultSymbols(constituents.data?.items ?? []);
+  const { data: names = {} } = useSecurityNames();
+  const quotes = api.overviewQuotes.useQuery(wencaiSymbols, {
+    enabled: visible && wencaiSymbols.length > 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const quotesBySymbol = new Map(
+    (quotes.isError ? [] : (quotes.data?.quotes ?? [])).map((quote) => [
+      quote.symbol,
+      quote,
+    ]),
+  );
+  const columns = wencaiColumns(
+    result.data?.fields ?? [],
+    names,
+    quotesBySymbol,
+  );
   const meta =
     submitted === ""
       ? undefined
@@ -251,14 +330,19 @@ export function ThsdkWencaiPanel() {
                   ；下方保留上次读取的结果。
                 </p>
               )}
-              <GridTable
-                columns={columns}
-                rows={rows}
-                rowKey={(row) => `${row.market}:${row.code}`}
-                minWidth={720}
-                label="问财选股结果"
-                empty={emptyText}
-              />
+              <BrowseSource
+                label={submitted ? `问财 · ${submitted}` : "问财选股"}
+                symbols={wencaiSymbols}
+              >
+                <GridTable
+                  columns={columns}
+                  rows={rows}
+                  rowKey={(row) => `${row.market}:${row.code}`}
+                  minWidth={720}
+                  label="问财选股结果"
+                  empty={emptyText}
+                />
+              </BrowseSource>
             </>
           )}
         </div>
@@ -349,30 +433,35 @@ export function ThsdkWencaiPanel() {
                 {constituents.data.blockName ?? selected.name} ·{" "}
                 {constituents.data.items.length} 只
               </p>
-              <div className="max-h-48 space-y-0.5 overflow-auto pr-1">
-                {constituents.data.items.map((item, index) => (
-                  <div
-                    key={`${item.market}:${item.code}:${index}`}
-                    className="flex items-center justify-between gap-2 text-[11.5px]"
-                  >
-                    <span className="min-w-0 truncate">
-                      {item.symbol ? (
-                        <ChartSymbolLink
-                          symbol={item.symbol}
-                          name={item.name ?? undefined}
-                        />
-                      ) : (
-                        `${item.name ?? item.code} · ${item.code}`
-                      )}
-                    </span>
-                    <span
-                      className={`flex-none tabular-nums ${toneText[changeTone(item.changePct)]}`}
+              <BrowseSource
+                label={`${kind === "industry" ? "行业" : "概念"} · ${constituents.data.blockName ?? selected.name}`}
+                symbols={constituentSymbols}
+              >
+                <div className="max-h-48 space-y-0.5 overflow-auto pr-1">
+                  {constituents.data.items.map((item, index) => (
+                    <div
+                      key={`${item.market}:${item.code}:${index}`}
+                      className="flex items-center justify-between gap-2 text-[11.5px]"
                     >
-                      {signedPercent(item.changePct)}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                      <span className="min-w-0 truncate">
+                        {item.symbol ? (
+                          <ChartSymbolLink
+                            symbol={item.symbol}
+                            name={item.name || names[item.symbol]}
+                          />
+                        ) : (
+                          `${item.name ?? item.code} · ${item.code}`
+                        )}
+                      </span>
+                      <span
+                        className={`flex-none tabular-nums ${toneText[changeTone(item.changePct)]}`}
+                      >
+                        {signedPercent(item.changePct)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </BrowseSource>
             </div>
           )}
         </div>

@@ -113,6 +113,7 @@ export function aggregateIndustryRps(
 }
 export const industryPageSchema = z.object({
   date: researchDateSchema.optional(),
+  search: z.string().trim().max(80).default(""),
   period: z
     .number()
     .refine((p) => (rpsPeriods as readonly number[]).includes(p)),

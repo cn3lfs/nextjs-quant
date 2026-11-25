@@ -18,7 +18,10 @@ import {
 } from "~/lib/chart/chart-trade-marks";
 import type { Bar } from "~/lib/domain";
 import type { ChartPeriod } from "~/lib/chart/chart-view";
-import type { BreakoutResult } from "trading-strategies/research/breakout/breakout";
+import type {
+  BreakoutResult,
+  DoubleBreakoutFilter,
+} from "trading-strategies/research/breakout/breakout";
 import type { CzscResult } from "trading-strategies/research/chan/czsc";
 import type { PatternBreakoutResult } from "trading-strategies";
 import type {
@@ -43,8 +46,10 @@ export function updateMarketBase(
     showCzsc,
     breakout,
     showBreakout,
+    breakoutFilter,
     patternBreakout,
     showPatterns,
+    showAllPatternGeometry,
     tradeMarks,
     showTradeMarks,
     review,
@@ -64,8 +69,11 @@ export function updateMarketBase(
     showCzsc: boolean;
     breakout?: BreakoutResult;
     showBreakout: boolean;
+    /** Chart-only filter; the analysis query already used the same options. */
+    breakoutFilter?: DoubleBreakoutFilter;
     patternBreakout?: PatternBreakoutResult;
     showPatterns?: boolean;
+    showAllPatternGeometry?: boolean;
     /** Daily-only fills already projected onto existing bar dates. */
     tradeMarks?: readonly TradeMark[];
     showTradeMarks?: boolean;
@@ -197,6 +205,8 @@ export function updateMarketBase(
     };
     if (czsc && showCzsc) {
       for (const family of czsc.families) {
+        // A level can be shown for centers/signals only: never add an empty line.
+        if (!family.points.length) continue;
         line({
           color: family.config === 0 ? chartColor.series1 : chartColor.accent,
           lineWidth: family.config === 0 ? 1 : 2,
@@ -208,7 +218,14 @@ export function updateMarketBase(
     }
     const overlay =
       breakout && showBreakout
-        ? breakoutChartData(breakout, bars, start, breakoutIndex, period)
+        ? breakoutChartData(
+            breakout,
+            bars,
+            start,
+            breakoutIndex,
+            period,
+            breakoutFilter,
+          )
         : null;
     for (const item of overlay?.lines ?? []) {
       line({
@@ -222,7 +239,16 @@ export function updateMarketBase(
     }
     const patternOverlay =
       patternBreakout && showPatterns
-        ? patternChartData(patternBreakout, bars, start, breakoutIndex, period)
+        ? patternChartData(
+            patternBreakout,
+            bars,
+            start,
+            breakoutIndex,
+            period,
+            {
+              showAllGeometry: showAllPatternGeometry,
+            },
+          )
         : null;
     for (const item of patternOverlay?.lines ?? []) {
       line({

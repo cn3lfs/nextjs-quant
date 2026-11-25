@@ -1,7 +1,12 @@
+import Database from "better-sqlite3";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
+import { pathToFileURL } from "node:url";
 import { z } from "zod";
-import type { Job } from "~/lib/domain";
+import { settingsSchema, type Job } from "~/lib/domain";
 import { newsArchiveIdSchema } from "~/lib/news/news-workspace";
-import { put, sqlite } from "./index";
+import { dataDirectory, put, sqlite } from "./index";
 import { readSnapshot } from "./snapshot";
 
 export const jobIdSchema = z.string().min(1).max(200);
@@ -53,22 +58,93 @@ export function runIfJobRunning(id: string, work: () => void): boolean {
 /** Explicit detail read. Lists/polling must use the metadata repositories. */
 export function readJob(id: string): Job | undefined {
   jobIdSchema.parse(id);
-  return readSnapshot(() => {
-    const statement = sqlite()
-      .prepare(`SELECT substr(CAST(payload AS BLOB),@offset,262144) chunk
-      FROM records WHERE id=@id AND kind='job'`);
-    const parts: string[] = [];
-    const decoder = new TextDecoder("utf-8", { fatal: true });
-    for (let offset = 1; ; offset += 262144) {
-      const row = statement.get({ id, offset }) as
-        { chunk: Buffer } | undefined;
-      if (!row) return undefined;
-      parts.push(decoder.decode(row.chunk, { stream: true }));
-      if (row.chunk.length < 262144) break;
-    }
-    parts.push(decoder.decode());
-    return JSON.parse(parts.join("")) as Job;
+  return readSnapshot(() => readJobPayload(sqlite(), id));
+}
+
+type JobReader = Database.Database | DatabaseSync;
+
+function readJobPayload(db: JobReader, id: string): Job | undefined {
+  const statement =
+    db.prepare(`SELECT substr(CAST(payload AS BLOB),?,262144) chunk
+    FROM records WHERE id=? AND kind='job'`);
+  const parts: string[] = [];
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  for (let offset = 1; ; offset += 262144) {
+    const row = statement.get(offset, id) as { chunk: Uint8Array } | undefined;
+    if (!row) return undefined;
+    parts.push(decoder.decode(row.chunk, { stream: true }));
+    if (row.chunk.length < 262144) break;
+  }
+  parts.push(decoder.decode());
+  return JSON.parse(parts.join("")) as Job;
+}
+
+function readExistingDatabase<T>(
+  directory: string,
+  read: (db: JobReader) => T,
+) {
+  const path = join(/* turbopackIgnore: true */ directory, "quant.sqlite");
+  if (!existsSync(path)) return null;
+  const liveWal = existsSync(path + "-wal");
+  if (liveWal && !existsSync(path + "-shm")) return null;
+  // Ordinary read-only opens can create WAL sidecars on a checkpointed DB.
+  // node:sqlite supports immutable URIs without changing global SQLite options.
+  const db = liveWal
+    ? new Database(path, { readonly: true, fileMustExist: true })
+    : new DatabaseSync(pathToFileURL(path).href + "?immutable=1", {
+        readOnly: true,
+      });
+  try {
+    db.exec("BEGIN");
+    return read(db);
+  } finally {
+    db.close();
+  }
+}
+
+function readValidatedJob(db: JobReader, id: string): Job | null {
+  const job = readJobPayload(db, id);
+  return job?.id === id && jobSchema.safeParse(job).success ? job : null;
+}
+
+export function readJobByIdReadOnly(jobId: string): Job | null {
+  const id = jobIdSchema.safeParse(jobId);
+  if (!id.success) return null;
+  try {
+    return readExistingDatabase(dataDirectory(), (db) =>
+      readValidatedJob(db, id.data),
+    );
+  } catch {
+    return null;
+  }
+}
+
+export function readJobByKeyReadOnly(key: string): Job | null {
+  try {
+    return readExistingDatabase(dataDirectory(), (db) => {
+      const claim = db
+        .prepare(
+          "SELECT json_extract(payload,'$.jobId') AS jobId FROM records WHERE id=? AND kind='job-key'",
+        )
+        .get(key) as { jobId: unknown } | undefined;
+      const id = jobIdSchema.safeParse(claim?.jobId);
+      return id.success ? readValidatedJob(db, id.data) : null;
+    });
+  } catch {
+    return null;
+  }
+}
+
+export function readSettingsTdxRootReadOnly(directory: string) {
+  const stored = readExistingDatabase(directory, (db) => {
+    const row = db
+      .prepare(
+        "SELECT payload FROM records WHERE id='settings' AND kind='settings'",
+      )
+      .get() as { payload: string } | undefined;
+    return row && (JSON.parse(row.payload) as unknown);
   });
+  return settingsSchema.parse(stored ?? {}).tdxRoot;
 }
 
 /** Caller owns lifecycle policy; the repository owns kind safety and persistence. */

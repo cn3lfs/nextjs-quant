@@ -369,10 +369,12 @@ describe("deployment safeguards", () => {
   );
   it("accepts only the configured live providers and binding fields", () => {
     for (const provider of [
-      ...["qmt", "ptrade", "xtquant", "http_bridge"].map((broker) => ({
-        kind: "cn_broker_live",
-        broker,
-      })),
+      ...["qmt", "ptrade", "xtquant", "http_bridge", "ths_live"].map(
+        (broker) => ({
+          kind: "cn_broker_live",
+          broker,
+        }),
+      ),
       ...["binance", "okx", "bybit"].map((venue) => ({
         kind: "crypto_live",
         venue,

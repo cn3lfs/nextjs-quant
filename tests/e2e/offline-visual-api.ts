@@ -161,6 +161,7 @@ const localReads = new Set([
   "cashWorkspaceDiagnostics",
   "localFinancialView",
   "localFinancialSeries",
+  // Legacy local valuation. The Westock-backed swSectorValuation is stubbed below.
   "sectorValuation",
   "localFinancialAudit",
   "localFinancialArchive",
@@ -200,6 +201,7 @@ const localReads = new Set([
   "alertPipelineDiagnostics",
 ]);
 const externalReads = new Set([
+  "swSectorValuation",
   "tdxQuotes",
   "overviewQuotes",
   "liveMarketBreadth",

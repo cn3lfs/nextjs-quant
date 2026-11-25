@@ -1,11 +1,16 @@
+import falseBreakout from "../../fixtures/breakout-false.json";
+import { chanMovementFixture } from "../../helpers/chan-movements";
 import { describe, expect, it } from "vitest";
 import type { PatternBreakoutMatch } from "trading-strategies";
 import {
   analyzeBreakout,
   type BreakoutSide,
+  type DoubleBreakoutFilter,
+  type Level,
   type Swing,
 } from "trading-strategies/research/breakout/breakout";
 import {
+  CZSC_CTX,
   czscSourceCommit,
   type CzscFamily,
   type CzscResult,
@@ -57,11 +62,7 @@ describe("strategy chart overlays", () => {
     movements: [],
     qualities: [],
     divergences: [],
-    signals: [
-      { index: 0, date: bars[0]!.date, kind: 1, quality: 1 },
-      { index: 1, date: bars[1]!.date, kind: 2, quality: 1, revokedAt: 4 },
-      { index: 2, date: bars[2]!.date, kind: 3, quality: 1, revokedAt: -1 },
-    ],
+    signals: [],
   };
   const result = (...families: CzscFamily[]): CzscResult => ({
     status: "structure",
@@ -70,39 +71,92 @@ describe("strategy chart overlays", () => {
     families,
   });
 
-  it("excludes revoked CZSC points and retains legacy labels without structure or bars", () => {
-    const legacy = result(family, {
-      ...family,
-      config: 1100,
-      signals: [{ index: 3, date: bars[3]!.date, kind: -2, quality: 1 }],
-    });
-    for (const input of [undefined, [], bars])
-      expect(
-        czscChartMarkers(legacy, "day", 1, input).map((m) => m.text),
-      ).toEqual(["笔3买", "段2卖"]);
-  });
+  it.each([
+    { config: 0, prefix: "笔" },
+    { config: 1100, prefix: "段" },
+  ] as const)(
+    "renders only visible, unrevoked standard $prefix signals",
+    ({ config, prefix }) => {
+      const signal = (index: number, kind: number, revokedAt?: number) => ({
+        index,
+        date: bars[index]!.date,
+        kind,
+        quality: 1,
+        revokedAt,
+      });
+      const native = chanMovementFixture().signal;
+      const structure = (contextFlags: number) => ({
+        ...native.structure!,
+        contextFlags,
+      });
+      const divergence = (semantic: number) => ({
+        ...native.divergence!,
+        semantic,
+      });
+      const fact = result({
+        ...family,
+        config,
+        signals: [
+          signal(0, 1),
+          signal(1, 1),
+          signal(1, -1),
+          signal(2, 2, -1),
+          signal(2, -2, -1),
+          signal(3, 3, -2),
+          signal(3, -3, -2),
+          signal(4, 1, 0),
+          signal(4, -2, 5),
+          signal(5, 0),
+          signal(5, 4),
+          signal(5, -4),
+          ...[1, -1].flatMap((sign) => [
+            { ...signal(4, sign), divergence: divergence(2) },
+            { ...signal(4, 2 * sign), structure: structure(CZSC_CTX.overlap) },
+            { ...signal(4, 3 * sign), structure: structure(CZSC_CTX.overlap) },
+            {
+              ...signal(5, 3 * sign),
+              structure: structure(CZSC_CTX.smallTurn),
+            },
+            { ...signal(5, 3 * sign), divergence: divergence(3) },
+          ]),
+        ],
+      });
+      for (const input of [undefined, [], bars]) {
+        const markers = czscChartMarkers(fact, "day", 1, input);
+        expect(markers.map(({ time, text }) => [time, text])).toEqual([
+          [bars[1]!.date, `${prefix}1买`],
+          [bars[1]!.date, `${prefix}1卖`],
+          [bars[2]!.date, `${prefix}2买`],
+          [bars[2]!.date, `${prefix}2卖`],
+          [bars[3]!.date, `${prefix}3买`],
+          [bars[3]!.date, `${prefix}3卖`],
+        ]);
+      }
+    },
+  );
 
-  it("uses an empty breakout array as structure evidence only when bars are available", () => {
-    const fact = result({
-      ...family,
-      breakouts: [],
-      signals: [{ ...family.signals[2]!, confirmedAt: -1 }],
-    });
-    expect(czscChartMarkers(fact, "day", 0, [])).toMatchObject([
-      { text: "笔3买" },
-    ]);
-    expect(czscChartMarkers(fact, "day", 0, bars)).toEqual([]);
-  });
-
-  it("renders classified CZSC points at the endpoint with one level prefix except nested signals", () => {
+  it("renders standard CZSC endpoints without diagnostic or breakout markers", () => {
     const fact = result(
       {
         ...family,
-        signals: family.signals.map((signal) => ({
-          ...signal,
-          date: minute[signal.index]!.date,
-          confirmedAt: 5,
-        })),
+        signals: [
+          {
+            index: 2,
+            date: minute[2]!.date,
+            kind: 3,
+            quality: 1,
+            confirmedAt: 5,
+          },
+        ],
+        breakouts: [
+          {
+            centerId: 1,
+            direction: 1,
+            leavePointId: 1,
+            retestPointId: 2,
+            third: true,
+          },
+        ],
         diagnostics: {
           version: czscSourceCommit,
           lifecycle: [],
@@ -163,34 +217,33 @@ describe("strategy chart overlays", () => {
     ).toEqual([
       [t(2), "笔3买", "belowBar", "#cf5562", "arrowUp"],
       [t(3), "段3卖", "aboveBar", "#28977f", "arrowDown"],
-      [t(4), "区间套买", "belowBar", "#cf5562", "arrowUp"],
-      [t(5), "段均线吻卖", "aboveBar", "#28977f", "arrowDown"],
     ]);
   });
 
-  it("gives double-breakout trendlines and quality markers the same directional colors", () => {
-    const analyzed = analyzeBreakout(bars);
+  function doubleBreakout(chartBars = bars) {
+    const analyzed = analyzeBreakout(chartBars);
     const latest = analyzed.latest!;
     const directional = (direction: "long" | "short"): BreakoutSide => {
       const kind = direction === "long" ? "high" : "low";
       const swing = (index: number): Swing => ({
         index,
-        date: bars[index]!.date,
-        confirmedAt: bars[index]!.date,
+        date: chartBars[index]!.date,
+        confirmedAt: chartBars[index]!.date,
         price: 30,
         kind,
       });
       return {
         ...latest[direction],
         status: "是",
-        quality: "高",
+        score: direction === "long" ? 4 : 3,
+        quality: direction === "long" ? "4/5" : "3/5",
         line: {
           direction,
           anchors: [swing(0), swing(2)],
           slope: 0,
           value: 30,
-          touches: 2,
-          confirmedAt: bars[2]!.date,
+          touches: direction === "long" ? 3 : 2,
+          confirmedAt: chartBars[2]!.date,
         },
       };
     };
@@ -200,39 +253,180 @@ describe("strategy chart overlays", () => {
       long: directional("long"),
       short: directional("short"),
     };
-    const overlay = breakoutChartData(
-      { ...analyzed, latest: point, points: [point] },
-      bars,
-      1,
-    );
+    return { ...analyzed, latest: point, points: [point] };
+  }
+
+  it("gives double-breakout trendlines and quality markers the same directional colors", () => {
+    const result = doubleBreakout();
+    const overlay = breakoutChartData(result, bars, 1);
     expect(overlay.lines.map(({ color }) => color)).toEqual([
       "#7c3aed",
       "#28977f",
     ]);
     expect(overlay.markers.map(({ color, text }) => [color, text])).toEqual([
-      ["#7c3aed", "双突破↑ 高"],
-      ["#28977f", "双突破↓ 高"],
+      ["#7c3aed", "双突破↑ 4/5"],
+      ["#28977f", "双突破↓ 3/5"],
     ]);
+  });
+
+  it("hides short trendlines and markers when the overlay direction is long", () => {
+    const overlay = breakoutChartData(doubleBreakout(), bars, 1, 5, "day", {
+      direction: "long",
+    });
+    expect(overlay.lines.map(({ title }) => title)).toEqual([
+      "下降趋势线 · 3触",
+    ]);
+    expect(overlay.markers.map(({ text }) => text)).toEqual(["双突破↑ 4/5"]);
+  });
+
+  it("requires four affirmative votes even when the three core checks pass", () => {
+    const history = [...falseBreakout.bars];
+    const last = history.at(-1)!;
+    history[history.length - 1] = {
+      ...last,
+      close: 1563,
+      volume: last.volume * 2,
+    };
+    const result = analyzeBreakout(history);
+    expect(result.latest?.long).toMatchObject({
+      status: "是",
+      quality: "4/5",
+      indicatorVotes: { MACD: "否", KDJ: "否", RSI: "否", BOLL: "否" },
+    });
+    const index = history.length - 1;
+    const filter = { direction: "long", minScore: 3 } as const;
+    expect(
+      breakoutChartData(result, history, index, index, "day", filter).markers,
+    ).toHaveLength(1);
+    expect(
+      breakoutChartData(result, history, index, index, "day", {
+        ...filter,
+        minIndicatorVotes: 4,
+      }).markers,
+    ).toEqual([]);
+    const strict = analyzeBreakout(history, index, true, {
+      minIndicatorVotes: 4,
+    });
+    expect(strict.latest?.long).toMatchObject({ status: "否", quality: "4/5" });
+    expect(
+      breakoutChartData(strict, history, index, index, "day", filter).markers,
+    ).toEqual([]);
+  });
+
+  it.each(["ma20", "trendline-or-ma20"] as const)(
+    "plots the actual rolling MA20 once for %s through the as-of bar",
+    (trendMode) => {
+      const history = fixture(82).map((bar, i) => ({
+        ...bar,
+        open: 100 + i,
+        close: 100 + i,
+        high: 101 + i,
+        low: 99 + i,
+      }));
+      const result = analyzeBreakout(history, 0, true, { trendMode });
+      const asOf = 78;
+      expect(result.points[asOf]!.long).toMatchObject({
+        line: null,
+        trendSource: "ma20",
+      });
+      for (const start of [0, 75]) {
+        const begin = Math.max(start, asOf - 20);
+        const baselines = breakoutChartData(
+          result,
+          history,
+          start,
+          asOf,
+        ).lines.filter((line) => line.title === "MA20趋势基准");
+        expect(baselines.map((line) => line.data)).toEqual([
+          history.slice(begin, asOf + 1).map((bar, i) => ({
+            time: bar.date,
+            value: 100 + begin + i - 9.5,
+          })),
+        ]);
+      }
+    },
+  );
+
+  it("plots the judged platform level and omits a side with no chosen level", () => {
+    const result = doubleBreakout();
+    const level = (source: Level["source"], index: number, price: number) => ({
+      source,
+      index,
+      confirmedAt: bars[index]!.date,
+      price,
+    });
+    result.latest.long.keyLevel = level("platform-high", 1, 35);
+    result.latest.short.keyLevel = null;
+    const levels = [
+      level("platform-low", 3, 24),
+      level("swing-high", 4, 38),
+      level("swing-low", 2, 25),
+    ];
+    const point = { ...result.latest, levels };
+    const lines = (direction: "long" | "short") =>
+      breakoutChartData({ ...result, points: [point] }, bars, 0, 5, "day", {
+        direction,
+      }).lines.map(({ title, data }) => [title, data[0]]);
+    expect(lines("long")).toEqual([
+      ["下降趋势线 · 3触", { time: bars[0]!.date, value: 30 }],
+      ["平台高点 35.00", { time: bars[1]!.date, value: 35 }],
+    ]);
+    expect(lines("short")).toEqual([
+      ["上升趋势线 · 2触", { time: bars[0]!.date, value: 30 }],
+    ]);
+    point.short.keyLevel = level("volume-bull-close", 2, 26);
+    expect(lines("short")).toEqual([
+      ["上升趋势线 · 2触", { time: bars[0]!.date, value: 30 }],
+      ["放量阳线收盘 26.00", { time: bars[2]!.date, value: 26 }],
+    ]);
+  });
+
+  it("applies score, touch and candle-body filters only when supplied", () => {
+    const last = bars[5]!;
+    const largeBody = { ...last, open: last.close - 2, low: last.close - 2.1 };
+    const chartBars = [...bars.slice(0, 5), largeBody];
+    const result = doubleBreakout(chartBars);
+    result.points.unshift({ ...result.latest, index: 4, date: bars[4]!.date });
+    const markers = (filter?: DoubleBreakoutFilter) =>
+      breakoutChartData(result, chartBars, 1, 5, "day", filter).markers.map(
+        ({ time, text }) => [time, text],
+      );
+    const smallLong = [bars[4]!.date, "双突破↑ 4/5"];
+    const smallShort = [bars[4]!.date, "双突破↓ 3/5"];
+    const largeLong = [last.date, "双突破↑ 4/5"];
+    const largeShort = [last.date, "双突破↓ 3/5"];
+
+    expect(markers()).toEqual([smallLong, smallShort, largeLong, largeShort]);
+    expect(markers({ minScore: 4 })).toEqual([smallLong, largeLong]);
+    expect(markers({ minTouches: 3 })).toEqual([smallLong, largeLong]);
+    expect(markers({ requireLargeBody: true })).toEqual([
+      largeLong,
+      largeShort,
+    ]);
+    expect(
+      markers({ minScore: 4, minTouches: 3, requireLargeBody: true }),
+    ).toEqual([largeLong]);
   });
 
   it("locates both swing levels by their first confirmation date and clips them to the visible range", () => {
     const analyzed = analyzeBreakout(bars);
+    const high: Level = {
+      source: "swing-high",
+      price: 40,
+      index: 0,
+      confirmedAt: bars[2]!.date,
+    };
+    const low: Level = {
+      source: "swing-low",
+      price: 25,
+      index: 0,
+      confirmedAt: bars[0]!.date,
+    };
     const point = {
       ...analyzed.latest!,
-      levels: [
-        {
-          source: "swing-high" as const,
-          price: 40,
-          index: 0,
-          confirmedAt: bars[2]!.date,
-        },
-        {
-          source: "swing-low" as const,
-          price: 25,
-          index: 0,
-          confirmedAt: bars[0]!.date,
-        },
-      ],
+      long: { ...analyzed.latest!.long, keyLevel: high },
+      short: { ...analyzed.latest!.short, keyLevel: low },
+      levels: [high, low],
     };
     const overlay = { ...analyzed, points: [point] };
     const duplicate = [...bars.slice(0, -1), { ...bars[2]! }];
@@ -249,8 +443,8 @@ describe("strategy chart overlays", () => {
       ],
     ]);
 
-    point.levels[0]!.confirmedAt = point.date;
-    point.levels[1]!.confirmedAt = "2020-01-01";
+    high.confirmedAt = point.date;
+    low.confirmedAt = "2020-01-01";
     expect(
       breakoutChartData(overlay, bars, 1).lines.map((line) => line.data),
     ).toEqual([
@@ -261,7 +455,7 @@ describe("strategy chart overlays", () => {
     ]);
   });
 
-  it("clips pattern matches and geometry to the window and appends one direction arrow", () => {
+  it("renders the latest visible pattern geometry by default and all visible geometry on request", () => {
     const point = (index: number, price: number) => ({
       index,
       price,
@@ -323,11 +517,22 @@ describe("strategy chart overlays", () => {
       { time: t4, value: 8 },
     ];
     expect(data.lines).toEqual([
-      { title: "上轨", color: "#d97706", lineStyle: 2, data: upperData },
-      { title: "下轨", color: "#64748b", lineStyle: 0, data: lowerData },
       { title: "上轨", color: "#64748b", lineStyle: 2, data: upperData },
       { title: "下轨", color: "#0891b2", lineStyle: 0, data: lowerData },
     ]);
+    expect(
+      patternChartData(matches, minute, 2, 4, "5m", { showAllGeometry: false }),
+    ).toEqual(data);
+    expect(
+      patternChartData(matches, minute, 2, 4, "5m", { showAllGeometry: true }),
+    ).toEqual({
+      lines: [
+        { title: "上轨", color: "#d97706", lineStyle: 2, data: upperData },
+        { title: "下轨", color: "#64748b", lineStyle: 0, data: lowerData },
+        ...data.lines,
+      ],
+      markers: data.markers,
+    });
     expect(data.markers).toEqual([
       {
         time: t2,
@@ -343,6 +548,17 @@ describe("strategy chart overlays", () => {
         color: "#0891b2",
         shape: "arrowDown",
       },
+    ]);
+    const clipped = patternChartData([bearish], minute, 3, 4, "5m");
+    expect(clipped.lines.map(({ data }) => data)).toEqual([
+      [
+        { time: chartTime(minute[3]!.date, "5m"), value: 10.5 },
+        { time: t4, value: 10 },
+      ],
+      [
+        { time: chartTime(minute[3]!.date, "5m"), value: 8 },
+        { time: t4, value: 8 },
+      ],
     ]);
     const wide = patternChartData([bearish], minute, 2, 6, "5m");
     expect(wide.lines[1]?.data).toEqual(lowerData);

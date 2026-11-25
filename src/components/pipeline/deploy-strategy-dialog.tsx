@@ -1,11 +1,13 @@
 "use client";
 
 import { ArrowRight, Robot } from "@phosphor-icons/react/ssr";
+import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import {
   listTheoryScreenerSpecs,
   studyNames,
   studyStrategies,
+  venueBindingSchema,
 } from "trading-strategies";
 import { validateScreenFormula } from "trading-strategies/formula/formula-screen";
 import { z } from "zod";
@@ -115,7 +117,7 @@ type FormState = {
   simAccountId: string;
   cryptoAccountId: string;
   cryptoVenue: "binance" | "okx" | "bybit";
-  liveBroker: "qmt" | "ptrade" | "xtquant" | "http_bridge";
+  liveBroker: Extract<VenueBindingInput, { kind: "cn_broker_live" }>["broker"];
   liveAccountId: string;
   liveEndpointUrl: string;
   cryptoLiveAccountId: string;
@@ -205,6 +207,7 @@ const brokerOptions = [
   { value: "qmt", label: "QMT" },
   { value: "ptrade", label: "PTrade" },
   { value: "xtquant", label: "XtQuant" },
+  { value: "ths_live", label: "同花顺实盘（桥接）" },
   { value: "http_bridge", label: "HTTP 桥接" },
 ] as const;
 
@@ -662,6 +665,20 @@ function composeVenue(form: FormState): VenueBindingInput {
     const accountId = form.liveAccountId.trim();
     if (!accountId) throw new Error("请填写实盘账户 ID");
     const endpoint = form.liveEndpointUrl.trim();
+    if (form.liveBroker === "ths_live") {
+      if (!endpoint) throw new Error("请填写同花顺实盘桥接 URL");
+      const result = venueBindingSchema.safeParse({
+        kind: "cn_broker_live",
+        broker: form.liveBroker,
+        accountId,
+        endpointUrl: endpoint,
+      });
+      if (!result.success)
+        throw new Error(
+          "同花顺实盘桥接须使用 HTTPS 或本机 HTTP，地址不能含凭据、查询参数或片段",
+        );
+      return result.data;
+    }
     if (endpoint) {
       let parsed: URL;
       try {
@@ -962,6 +979,31 @@ export function DeployStrategyDialog(props: DeployStrategyDialogProps) {
   return props.open ? <DeployStrategyForm {...props} /> : null;
 }
 
+function ThsMockVenueHint() {
+  const meta = api.thsMockMeta.useQuery();
+  const account = meta.data;
+  const status = account?.marketCodes.length
+    ? "已开户"
+    : account?.hasAccount
+      ? "开户待核验"
+      : "未开户";
+  return (
+    <p className="self-end text-sub text-nc-text-3">
+      {account
+        ? `同花顺模拟${account.enabled ? "已开启" : "已关闭"} · ${status}。`
+        : meta.isError
+          ? "账户状态读取失败。"
+          : "正在读取账户状态…"}{" "}
+      <Link
+        href="/accounts?tab=paper&channel=ths-mock"
+        className="text-primary underline underline-offset-2"
+      >
+        前往配置同花顺模拟账户 →
+      </Link>
+    </p>
+  );
+}
+
 function DeployStrategyForm({
   open,
   onOpenChange,
@@ -1045,7 +1087,7 @@ function DeployStrategyForm({
           </DialogTitle>
           <DialogDescription>
             一键把策略、选股来源、监控池规则、风控与执行通道串成每日流水线。
-            新部署默认进入影子观察模式（shadow）：只记录信号与订单意图，不发送委托。
+            新部署默认进入空跑观察（只记录信号与订单意图，不发送委托）。
           </DialogDescription>
           {preset?.description && (
             <p className="text-sub text-nc-text-3">{preset.description}</p>
@@ -1497,7 +1539,7 @@ function DeployStrategyForm({
                   ]}
                   onChange={(cnSimVenue) => patch({ cnSimVenue })}
                 />
-                {form.cnSimVenue === "local_sim" && (
+                {form.cnSimVenue === "local_sim" ? (
                   <ChoiceField
                     label="本地模拟账户"
                     hint={simAccountHint}
@@ -1508,6 +1550,8 @@ function DeployStrategyForm({
                     }))}
                     onChange={(simAccountId) => patch({ simAccountId })}
                   />
+                ) : (
+                  <ThsMockVenueHint />
                 )}
               </>
             )}
@@ -1552,12 +1596,27 @@ function DeployStrategyForm({
                   onChange={(liveAccountId) => patch({ liveAccountId })}
                 />
                 <TextField
-                  label="桥接 URL（可选）"
+                  label={
+                    form.liveBroker === "ths_live"
+                      ? "桥接 URL"
+                      : "桥接 URL（可选）"
+                  }
                   value={form.liveEndpointUrl}
                   onChange={(liveEndpointUrl) => patch({ liveEndpointUrl })}
                   placeholder="https://127.0.0.1:8848"
                   hint="不得包含用户名、密码、查询参数或片段"
                 />
+                {form.liveBroker === "ths_live" && (
+                  <p className="self-end text-sub text-nc-text-3">
+                    请填写已登记的账户 ID 与桥接地址。{" "}
+                    <Link
+                      href="/accounts?tab=paper&channel=ths-live"
+                      className="text-primary underline underline-offset-2"
+                    >
+                      前往管理同花顺实盘账户与 DPAPI 凭证 →
+                    </Link>
+                  </p>
+                )}
               </>
             )}
             {form.channel === "live" && market === "crypto" && (
@@ -1615,8 +1674,8 @@ function DeployStrategyForm({
           </Section>
 
           <StateBanner state="info" title="部署后的默认状态" hideIcon>
-            通道 {channelLabels[venueKind]} · 状态 draft · 执行模式 shadow。
-            在「策略运行台」可切换为 manual_confirm、auto_sim 或 auto_live；
+            通道 {channelLabels[venueKind]} · 状态 草稿 · 执行模式 空跑观察。
+            在「策略运行台」可切换为人工确认、自动模拟或自动实盘；
             实盘自动执行另需在运行台顶部单独开启实盘总开关。
           </StateBanner>
 

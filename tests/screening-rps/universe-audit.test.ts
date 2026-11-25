@@ -306,7 +306,7 @@ it("concept audits stored result membership, deduplicates overlapping constituen
   expect(blocked.verify).not.toHaveBeenCalled();
   expect(blocked.request).not.toHaveBeenCalled();
 });
-it("renders delisting as a lower bound, including zero, and current market and concept pages share the same audit entry", async () => {
+it("renders delisting as a lower bound, including zero, and retains the audit endpoint", async () => {
   const { details, ...summary } = auditUniverse(fixture());
   const html = renderToStaticMarkup(
     createElement(UniverseAuditResults, {
@@ -343,17 +343,27 @@ it("renders delisting as a lower bound, including zero, and current market and c
       }),
     ),
   ).toContain("≥ 0 只");
-  for (const file of [
-    "market/market-pool-browser",
-    "market/concept-rps-controls",
-  ])
-    expect(await readFile(`src/components/${file}.tsx`, "utf8")).toContain(
-      "<UniverseAuditContainer",
-    );
   const router = await readFile("src/server/api/routers/screening.ts", "utf8");
   expect(router).toMatch(
     /universeAuditPage: p[\s\S]*?\.input\(universeAuditQuerySchema\)[\s\S]*?universeAuditPage\(input\)/,
   );
+});
+
+it("omits the point-in-time audit and previous/next security buttons from the market pool", async () => {
+  const source = await readFile(
+    "src/components/market/market-pool-browser.tsx",
+    "utf8",
+  );
+  expect(source).not.toMatch(/<UniverseAuditContainer\b|上一只|下一只/);
+});
+
+it.each([
+  "market-pool-browser.tsx",
+  "industry-rps-status.tsx",
+  "charts/market-chart.tsx",
+])("omits survivorship-bias copy from %s", async (file) => {
+  const source = await readFile(`src/components/market/${file}`, "utf8");
+  expect(source).not.toMatch(/生存者偏差|幸存者偏差/);
 });
 
 it("all-market audit only reads the matching cached directory and deduplicates existing coverage/index members", async () => {

@@ -21,9 +21,9 @@ export const labActionSchema = labIdentitySchema
   })
   .strict();
 export const labActionLabels = {
-  shadow: "开启影子前推",
+  shadow: "开启空跑验证",
   promote: "晋级策略",
-  live: "开启 live 提醒",
+  live: "开启正式提醒",
   pause: "暂停策略观察与提醒",
-  "pause-live": "暂停 live 提醒",
+  "pause-live": "暂停正式提醒",
 };

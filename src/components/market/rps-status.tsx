@@ -25,17 +25,14 @@ export function RpsStatus({ latest }: { latest: RpsDay | null }) {
             {rpsPolicy.retentionDays}
             个结果日；更早数据自动删除。取消保留已完整提交日期，重试跳过已有结果。
           </p>
-          <p>
-            {rpsPolicy.backfillWarning}{" "}
-            当日向前数据单独标记；补做过去日期一律回填，已有日期不覆盖。
-          </p>
+          <p>当日向前数据单独标记；补做过去日期一律回填，已有日期不覆盖。</p>
         </div>
       </details>
       {latest ? (
         <div className="space-y-3 rounded-lg border border-border bg-card p-4">
           <p className="font-medium">
             最近结果：{latest.date} ·{" "}
-            {latest.mode === "backfill" ? "回填（生存者偏差）" : "向前新增"}
+            {latest.mode === "backfill" ? "回填" : "向前新增"}
             ；本地证券 {latest.total}，基础池 {latest.pool}
           </p>
           <div className="grid gap-x-6 gap-y-1 text-sm lg:grid-cols-2 lg:grid-cols-3">

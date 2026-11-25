@@ -1,6 +1,9 @@
 import { contextBridge, ipcRenderer } from "electron";
 
 const desktop = {
+  supportsWebview: true,
+  openExternalClsUrl: (url: string): Promise<boolean> =>
+    ipcRenderer.invoke("quant:open-external-cls", url),
   selectDirectory: (): Promise<string | null> =>
     ipcRenderer.invoke("quant:select-directory"),
   getDesktopPrefs: (): Promise<{ closeToTray: boolean }> =>

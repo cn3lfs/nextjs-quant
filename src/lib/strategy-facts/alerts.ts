@@ -50,7 +50,7 @@ export function universalMarketSleeve(
 }
 
 export const alertModes = ["off", "shadow", "live"] as const;
-export const alertModeLabels = { off: "关闭", shadow: "影子", live: "开启" };
+export const alertModeLabels = { off: "关闭", shadow: "空跑", live: "正式" };
 export const sleeveSchema = z.object({
   id: z.string().min(1).max(80),
   market: z.enum(["cn-equity", "crypto"]),
@@ -110,17 +110,39 @@ export type AlertMode = (typeof alertModes)[number];
 export type AlertKind = (typeof alertKinds)[number];
 export const alertKindLabels: Record<AlertKind, string> = {
   entry: "入场候选",
-  exit: "退出条件",
-  stop: "止损",
-  target: "目标",
-  trailing: "移动止损",
+  exit: "退出信号",
+  stop: "触发止损",
+  target: "触发目标",
+  trailing: "移动止损出场",
   "plan-entry": "计划入场",
   "plan-expired": "计划到期",
   regime: "市场状态",
   allocation: "分仓偏离",
   missed: "错过窗口",
-  "paper-fill": "纸面成交（模拟）",
+  "paper-fill": "模拟成交",
 };
+export const alertKindGroups = [
+  { id: "entry-group", label: "买入 / 入场", kinds: ["entry", "plan-entry"] },
+  {
+    id: "exit-group",
+    label: "卖出 / 止盈止损",
+    kinds: ["exit", "stop", "target", "trailing"],
+  },
+  {
+    id: "execution-group",
+    label: "计划与成交",
+    kinds: ["paper-fill", "plan-expired"],
+  },
+  {
+    id: "risk-group",
+    label: "风控与状态",
+    kinds: ["regime", "allocation", "missed"],
+  },
+] as const satisfies readonly {
+  id: string;
+  label: string;
+  kinds: readonly AlertKind[];
+}[];
 export type AlertEvent = {
   key: string;
   strategyId: string;

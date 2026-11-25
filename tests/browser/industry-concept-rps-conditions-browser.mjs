@@ -5,13 +5,14 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import postcss from "postcss";
 import tailwind from "@tailwindcss/postcss";
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 
 const transport = `
 import {useQuery} from '@tanstack/react-query';
 window.rpsGroupFixture={requests:{industry:[],concept:[]},hold:{industry:false,concept:false},release:{}};
 const labels={industry:['甲行业','乙行业','丙行业'],concept:['A概念','B概念','C概念']};
-const values=[{rank:1,rps:80,return:0.1},{rank:2,rps:60,return:0.05},{rank:3,rps:40,return:0.01}];
+const periods=[1,3,5,10,20,50,120];
+const scores=[98,95,93,92,91,84,78];
 async function page(kind,input){
  window.rpsGroupFixture.requests[kind].push(structuredClone(input));
  if(window.rpsGroupFixture.hold[kind])
@@ -20,14 +21,19 @@ async function page(kind,input){
  const narrow=conditions.some(c=>c.value===70);
  const names=narrow?[kind==='industry'?'新条件行业':'新条件概念']:labels[kind];
  const count=names.length;
- const rows=names.map((name,i)=>({
-  name,total:2,eligible:2,excluded:{unavailable:0},valid:2,endpointMissing:0,reason:null,
-  file:{file:name+'.txt',hash:'a'.repeat(64),mtimeMs:1000},
-  value:narrow?{rank:1,rps:80,return:0.1}:values[i],
-  ...(conditions.length?{conditionValues:Object.fromEntries(conditions.map(c=>[String(c.period),{rank:1,rps:c.period===20?91:84,return:0.1}]))}:{}),
- }));
+ const rows=names.map((name,i)=>{
+  const rpsValues=Object.fromEntries(periods.map((period,p)=>[
+   period,{rank:i+1,rps:scores[p]-i*2,return:[0.1,0.05,0.01][i]},
+  ]));
+  return {
+   name,total:2,eligible:1,excluded:{st:1},valid:1,endpointMissing:0,reason:null,
+   file:{file:name+'.txt',hash:'a'.repeat(64),mtimeMs:1000},
+   value:rpsValues[input.period],rpsValues,
+   ...(conditions.length?{conditionValues:Object.fromEntries(conditions.map(c=>[c.period,rpsValues[c.period]]))}:{}),
+  };
+ });
  return {
-  day:{date:'2026-11-18',mode:'forward',count,hash:'b'.repeat(64),root:'root',
+  day:{date:'2026-11-18',mode:'backfill',count,hash:'b'.repeat(64),root:'root',
    classification:kind==='industry'?'sw-industry':'external-concept',
    source:{root:'src',calendar:'cal',actionsCoverage:'2026-11-18'}},
   ...(conditions.length?{conditions:conditions.map(c=>({...c,count,periodMissing:false}))}:{}),
@@ -115,7 +121,7 @@ try {
   const industry = page.getByRole("region", { name: "行业RPS数据管理" });
   const concept = page.getByRole("region", { name: "概念RPS数据管理" });
   const industryTable = page.getByRole("table", {
-    name: "行业RPS排名与成分审计",
+    name: "行业RPS排名",
     exact: true,
   });
   const conceptTable = page.getByRole("table", {
@@ -130,9 +136,41 @@ try {
   );
   await industryTable.getByText("甲行业", { exact: true }).waitFor();
   await conceptTable.getByText("A概念", { exact: true }).waitFor();
+  for (const [table, firstName] of [
+    [industryTable, "甲行业"],
+    [conceptTable, "A概念"],
+  ]) {
+    await expect(
+      table.getByRole("columnheader", { name: "RPS5", exact: true }),
+    ).toBeVisible();
+    await expect(
+      table.getByRole("row").filter({ hasText: firstName }).getByRole("cell", {
+        name: "93.00",
+        exact: true,
+      }),
+    ).toBeVisible();
+  }
+  for (const view of [industry, concept]) {
+    for (const label of [
+      "剔除原因及数量",
+      "名单文件证据",
+      "外部 Blocks 根目录",
+      "生存者偏差",
+      "时点审计",
+    ]) {
+      await expect(view.getByText(label)).toHaveCount(0);
+    }
+  }
 
   const last = (kind) =>
     page.evaluate((k) => window.rpsGroupFixture.requests[k].at(-1), kind);
+  const conditionEditor = page.getByRole("dialog").filter({
+    hasText: "RPS 条件组合",
+  });
+  const openConditions = async (view) => {
+    await view.getByRole("button", { name: /^RPS 条件(?: · \d+)?$/ }).click();
+    await expect(conditionEditor).toBeVisible();
+  };
   // Defaults stay independent: industry 20, concept 50, no conditions.
   assert.equal((await last("industry")).period, 20);
   assert.equal((await last("concept")).period, 50);
@@ -141,11 +179,17 @@ try {
   assert.match(await industrySummary.textContent(), /无 RPS 条件/);
 
   // Apply an industry condition; the concept query must stay untouched.
-  await industry.getByRole("button", { name: "添加条件", exact: true }).click();
-  await industry.getByRole("combobox", { name: "条件1周期" }).click();
+  await openConditions(industry);
+  await conditionEditor
+    .getByRole("button", { name: "添加条件", exact: true })
+    .click();
+  await conditionEditor.getByRole("combobox", { name: "条件1周期" }).click();
   await page.getByRole("option", { name: "RPS20", exact: true }).click();
-  await industry.getByLabel("条件1阈值").fill("85");
-  await industry.getByRole("button", { name: "应用条件", exact: true }).click();
+  await conditionEditor.getByLabel("条件1阈值").fill("85");
+  await conditionEditor
+    .getByRole("button", { name: "应用条件", exact: true })
+    .click();
+  await expect(conditionEditor).toBeHidden();
   await page.waitForFunction(
     () =>
       window.rpsGroupFixture.requests.industry.at(-1)?.conditions?.length === 1,
@@ -175,11 +219,17 @@ try {
   const industryRequests = await page.evaluate(
     () => window.rpsGroupFixture.requests.industry.length,
   );
-  await concept.getByRole("button", { name: "添加条件", exact: true }).click();
-  await concept.getByRole("combobox", { name: "条件1周期" }).click();
+  await openConditions(concept);
+  await conditionEditor
+    .getByRole("button", { name: "添加条件", exact: true })
+    .click();
+  await conditionEditor.getByRole("combobox", { name: "条件1周期" }).click();
   await page.getByRole("option", { name: "RPS50", exact: true }).click();
-  await concept.getByLabel("条件1阈值").fill("80");
-  await concept.getByRole("button", { name: "应用条件", exact: true }).click();
+  await conditionEditor.getByLabel("条件1阈值").fill("80");
+  await conditionEditor
+    .getByRole("button", { name: "应用条件", exact: true })
+    .click();
+  await expect(conditionEditor).toBeHidden();
   await page.waitForFunction(
     () =>
       window.rpsGroupFixture.requests.concept.at(-1)?.conditions?.length === 1,
@@ -201,7 +251,11 @@ try {
     .waitFor();
 
   // Clearing industry keeps the concept condition and its request in place.
-  await industry.getByRole("button", { name: "清除条件", exact: true }).click();
+  await openConditions(industry);
+  await conditionEditor
+    .getByRole("button", { name: "清除条件", exact: true })
+    .click();
+  await expect(conditionEditor).toBeHidden();
   await page.waitForFunction(
     () =>
       window.rpsGroupFixture.requests.industry.at(-1)?.conditions?.length === 0,
@@ -219,11 +273,16 @@ try {
   await page.evaluate(() => {
     window.rpsGroupFixture.hold.industry = true;
   });
-  await industry.getByRole("button", { name: "添加条件", exact: true }).click();
-  await industry.getByRole("combobox", { name: "条件1周期" }).click();
+  await openConditions(industry);
+  await conditionEditor
+    .getByRole("button", { name: "添加条件", exact: true })
+    .click();
+  await conditionEditor.getByRole("combobox", { name: "条件1周期" }).click();
   await page.getByRole("option", { name: "RPS20", exact: true }).click();
-  await industry.getByLabel("条件1阈值").fill("70");
-  await industry.getByRole("button", { name: "应用条件", exact: true }).click();
+  await conditionEditor.getByLabel("条件1阈值").fill("70");
+  await conditionEditor
+    .getByRole("button", { name: "应用条件", exact: true })
+    .click();
   await page.waitForFunction(() =>
     window.rpsGroupFixture.requests.industry
       .at(-1)
@@ -251,8 +310,11 @@ try {
   await page.evaluate(() => {
     window.rpsGroupFixture.hold.concept = true;
   });
-  await concept.getByLabel("条件1阈值").fill("70");
-  await concept.getByRole("button", { name: "应用条件", exact: true }).click();
+  await openConditions(concept);
+  await conditionEditor.getByLabel("条件1阈值").fill("70");
+  await conditionEditor
+    .getByRole("button", { name: "应用条件", exact: true })
+    .click();
   await page.waitForFunction(() =>
     window.rpsGroupFixture.requests.concept
       .at(-1)

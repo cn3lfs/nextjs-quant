@@ -188,6 +188,7 @@ export async function marketPoolPage(input: unknown) {
     ...metadata,
     period: query.period,
     total: rows.length,
+    browseSymbols: query.pool ? rows.map(({ symbol }) => symbol) : undefined,
     previous: selected > 0 ? neighbor(selected - 1) : null,
     next: selected >= 0 ? neighbor(selected + 1) : null,
     rows: rows.slice(query.page * 20, (query.page + 1) * 20),

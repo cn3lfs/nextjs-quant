@@ -350,8 +350,8 @@ export function PortfolioEvidencePanel() {
       <h2 className="text-lg font-semibold">十持仓研究证据（只读导入）</h2>
       <p className="text-sm">
         显式选择研究 CLI 生成的 registration-*.json 与检查点文件。服务端严格校验
-        身份、键和行后持久保存；本入口只读证据，不登记或晋级策略、不改变影子与
-        live、不产生交易或通知。同键不同证据拒绝覆盖，blocked 行保持 blocked。
+        身份、键和行后持久保存；本入口只读证据，不登记或晋级策略、不改变空跑观察与正式提醒状态、不产生交易或通知。同键不同证据拒绝覆盖，blocked
+        行保持 blocked。
       </p>
       <label className="block text-sm">
         <span className="mb-2 block">选择登记或检查点文件</span>

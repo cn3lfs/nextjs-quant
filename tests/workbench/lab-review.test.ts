@@ -5,9 +5,9 @@ import {
 } from "~/components/research/lab-review";
 
 it("keeps an old promotion record from claiming current qualification", () => {
-  expect(labDetailStatus(false, true, true)).toBe("影子前推中");
+  expect(labDetailStatus(false, true, true)).toBe("空跑验证中");
   expect(labDetailStatus(false, true, false)).toBe("研究中");
-  expect(labDetailStatus(true, false, true)).toBe("影子前推中");
+  expect(labDetailStatus(true, false, true)).toBe("空跑验证中");
   expect(labDetailStatus(true, true, true)).toBe("已晋级");
 });
 

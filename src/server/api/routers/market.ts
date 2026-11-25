@@ -1,4 +1,5 @@
 import { readArchiveRecord } from "../../db/archive-records";
+import { jobIdSchema } from "../../db/jobs";
 import { mxQuerySchema } from "~/lib/market/mx-data";
 import { mxDataStatus, queryMxData } from "../../data-sources/mx/mx-data";
 import {
@@ -75,7 +76,15 @@ import {
 } from "../../market/limit-sentiment";
 import { limitHistory } from "../../market/limit-history";
 import { marketBreadth } from "../../market/market-breadth";
-import { marketIndicatorInput } from "../../market/market-temperature-inputs";
+import {
+  effectiveMarketPanelRoot,
+  marketIndicatorInput,
+} from "../../market/market-temperature-inputs";
+import {
+  getMarketPanelStatus,
+  readMarketPanelRoot,
+  startMarketPanelBuild,
+} from "../../market/market-panel-job";
 import { marketTemperature } from "../../market/market-temperature";
 import { industryRotationRrg } from "../../market/industry-rotation";
 import { fetchLiveMarketBreadth } from "../../market/live-market-breadth";
@@ -162,16 +171,27 @@ const thsdkDatedSymbolSchema = z.object({
   symbol: symbolSchema,
   date: researchDateSchema.optional(),
 });
+const marketPanelRoot = () => effectiveMarketPanelRoot(readMarketPanelRoot());
+
 export const marketRouter = createTRPCRouter({
+  marketPanelStatus: p("market", "read")
+    .input(z.object({ jobId: jobIdSchema.optional() }).optional())
+    .query(({ input }) =>
+      getMarketPanelStatus(marketPanelRoot(), input?.jobId),
+    ),
+  marketPanelBuild: p("market", "compute").mutation(() => {
+    const job = startMarketPanelBuild(marketPanelRoot());
+    return { jobId: job.id, status: job.status };
+  }),
   marketTemperature: p("market", "read")
     .input(marketIndicatorInput)
     .query(({ input }) =>
-      marketTemperature({ ...input, tdxRoot: settings().tdxRoot }),
+      marketTemperature({ ...input, tdxRoot: marketPanelRoot() }),
     ),
   industryRotationRrg: p("market", "read")
     .input(marketIndicatorInput)
     .query(({ input }) =>
-      industryRotationRrg({ ...input, tdxRoot: settings().tdxRoot }),
+      industryRotationRrg({ ...input, tdxRoot: marketPanelRoot() }),
     ),
   thsdkLimitUpAnalysis: p("market", "read")
     .input(

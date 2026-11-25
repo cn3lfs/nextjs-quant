@@ -19,6 +19,11 @@ import {
 } from "../market-chart-state";
 import { tradeMarks } from "~/lib/chart/chart-trade-marks";
 import { attachTradeReviewOverlay } from "./trade-review-overlay";
+import { CzscSettingsDialog } from "../czsc-settings-dialog";
+import {
+  BreakoutParameterPanel,
+  PatternBreakoutParameterPanel,
+} from "../overlay-parameter-panels";
 
 import { chartColor } from "~/lib/chart/chart-theme";
 import { Input } from "~/components/ui/input";
@@ -46,6 +51,7 @@ import {
   type Drawing,
 } from "~/lib/chart/chart-view";
 import {
+  type MouseEventHandler,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -57,7 +63,10 @@ import { ColorType, type LogicalRange } from "lightweight-charts";
 import type { Bar } from "~/lib/domain";
 import type { ChartAdjustment } from "~/lib/chart/chart-adjustment";
 import type { CzscResult } from "trading-strategies/research/chan/czsc";
-import type { BreakoutResult } from "trading-strategies/research/breakout/breakout";
+import type {
+  BreakoutResult,
+  DoubleBreakoutFilter,
+} from "trading-strategies/research/breakout/breakout";
 import type { PatternBreakoutResult } from "trading-strategies";
 import { linkedIndex, type CrosshairLink } from "~/lib/chart/crosshair-link";
 import {
@@ -111,9 +120,11 @@ export function MarketChart({
   czsc,
   czscMessage,
   breakout,
+  breakoutFilter,
   breakoutMessage,
   patternBreakout,
   patternBreakoutMessage,
+  showAllPatternGeometry,
   annotationVisibility,
   onAnnotationVisibilityChange,
   view,
@@ -160,9 +171,11 @@ export function MarketChart({
   czsc?: CzscResult;
   czscMessage?: string;
   breakout?: BreakoutResult;
+  breakoutFilter?: DoubleBreakoutFilter;
   breakoutMessage?: string;
   patternBreakout?: PatternBreakoutResult;
   patternBreakoutMessage?: string;
+  showAllPatternGeometry?: boolean;
   annotationVisibility?: ChartAnnotationVisibility;
   onAnnotationVisibilityChange?: (value: ChartAnnotationVisibility) => void;
   view?: ChartView;
@@ -528,8 +541,10 @@ export function MarketChart({
       showCzsc,
       breakout,
       showBreakout,
+      breakoutFilter,
       patternBreakout,
       showPatterns,
+      showAllPatternGeometry,
       tradeMarks: tradeProjection?.marks,
       showTradeMarks,
       review,
@@ -548,12 +563,14 @@ export function MarketChart({
     showCzsc,
     breakout,
     showBreakout,
+    breakoutFilter,
     breakoutIndex,
     cost,
     compare,
     newsEvents,
     patternBreakout,
     showPatterns,
+    showAllPatternGeometry,
     tradeProjection,
     showTradeMarks,
     review,
@@ -722,6 +739,23 @@ export function MarketChart({
     return () => window.removeEventListener("keydown", onKey);
   }, [hotkeys]);
 
+  const [activeOverlayEditor, setActiveOverlayEditor] = useState<
+    "breakout" | "patterns" | null
+  >(null);
+  const [czscDialogOpen, setCzscDialogOpen] = useState(false);
+  const overlayReturnTarget = useRef<HTMLButtonElement | null>(null);
+  const editOverlay = (
+    overlay: "breakout" | "patterns",
+    trigger: HTMLButtonElement,
+  ) => {
+    overlayReturnTarget.current = trigger;
+    setActiveOverlayEditor((current) => (current === overlay ? null : overlay));
+  };
+  const closeOverlay = () => {
+    setActiveOverlayEditor(null);
+    overlayReturnTarget.current?.focus();
+  };
+
   return (
     <div
       data-testid="market-chart"
@@ -845,33 +879,33 @@ export function MarketChart({
         </Popover>
         {annotations && (
           <>
-            <label>
-              <Checkbox
-                checked={showBreakout}
-                onCheckedChange={(checked) =>
-                  changeAnnotation({ breakout: checked === true })
-                }
-              />{" "}
-              双突破
-            </label>
-            <label>
-              <Checkbox
-                checked={showCzsc}
-                onCheckedChange={(checked) =>
-                  changeAnnotation({ czsc: checked === true })
-                }
-              />{" "}
-              缠论结构
-            </label>
-            <label>
-              <Checkbox
-                checked={showPatterns}
-                onCheckedChange={(checked) =>
-                  changeAnnotation({ patterns: checked === true })
-                }
-              />{" "}
-              形态突破
-            </label>
+            <IndicatorChip
+              label="双突破"
+              title="双突破（趋势线 + 关键位 + 量能）"
+              active={showBreakout}
+              editing={activeOverlayEditor === "breakout"}
+              onToggle={() => changeAnnotation({ breakout: !showBreakout })}
+              onEdit={(event) => editOverlay("breakout", event.currentTarget)}
+            />
+            <IndicatorChip
+              label="缠论结构"
+              title="缠论结构（笔、线段、中枢与标准一二三类买卖点）"
+              active={showCzsc}
+              editing={czscDialogOpen}
+              onToggle={() => changeAnnotation({ czsc: !showCzsc })}
+              onEdit={() => {
+                setActiveOverlayEditor(null);
+                setCzscDialogOpen(true);
+              }}
+            />
+            <IndicatorChip
+              label="形态突破"
+              title="形态突破（头肩/箱体/三角形/楔形）"
+              active={showPatterns}
+              editing={activeOverlayEditor === "patterns"}
+              onToggle={() => changeAnnotation({ patterns: !showPatterns })}
+              onEdit={(event) => editOverlay("patterns", event.currentTarget)}
+            />
             {tradeContext?.sourceLabel && (
               <label>
                 <Checkbox
@@ -938,13 +972,28 @@ export function MarketChart({
                   />
                 </label>
                 <span>
-                  虚线：回填（生存者偏差） · 实线：向前新增 · 后复权日线排名
+                  虚线：回填数据 · 实线：向前新增 · 后复权日线排名
                 </span>
               </div>
             </PopoverContent>
           </Popover>
         )}
       </div>
+      {annotations && (
+        <>
+          <CzscSettingsDialog
+            open={czscDialogOpen}
+            onOpenChange={setCzscDialogOpen}
+            hideTrigger
+          />
+          {activeOverlayEditor === "breakout" && (
+            <BreakoutParameterPanel onClose={closeOverlay} />
+          )}
+          {activeOverlayEditor === "patterns" && (
+            <PatternBreakoutParameterPanel onClose={closeOverlay} />
+          )}
+        </>
+      )}
       {selectedSubcharts.includes("rps") && (
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span role="status">
@@ -1112,7 +1161,7 @@ function IndicatorChip({
   disabled?: boolean;
   editing?: boolean;
   onToggle: () => void;
-  onEdit?: () => void;
+  onEdit?: MouseEventHandler<HTMLButtonElement>;
 }) {
   return (
     <span
@@ -1235,9 +1284,7 @@ function IndicatorParameterPanel({
       <span role="status" className="text-destructive">
         {error}
       </span>
-      <span className="opacity-60">
-        修改即时生效；缠论与双突破标注仍按原策略参数计算
-      </span>
+      <span className="opacity-60">修改即时生效</span>
     </div>
   );
 }

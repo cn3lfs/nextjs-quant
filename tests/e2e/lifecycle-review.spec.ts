@@ -192,10 +192,10 @@ for (const width of [1440, 1024]) {
           pauseRequests.push(request.url());
       });
       await suggestion
-        .getByRole("button", { name: "按复盘建议暂停 live 提醒", exact: true })
+        .getByRole("button", { name: "按复盘建议暂停正式提醒", exact: true })
         .click();
       await expect(page.getByRole("dialog")).toContainText(
-        "确认暂停 live 提醒",
+        "确认暂停正式提醒",
       );
       await page.keyboard.press("Escape");
       expect(pauseRequests).toEqual([]);
@@ -214,10 +214,10 @@ for (const width of [1440, 1024]) {
         await dialog.accept();
       });
       await weekly
-        .getByRole("button", { name: "暂停 live 提醒", exact: true })
+        .getByRole("button", { name: "暂停正式提醒", exact: true })
         .click();
       await expect(weekly.getByRole("status")).toHaveText(
-        "已按确认暂停 live 提醒。",
+        "已按确认暂停正式提醒。",
       );
       const after = await read("strategyLabDetail", {
         id: strategy,

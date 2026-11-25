@@ -7,22 +7,34 @@ import type { CzscSettings } from "~/lib/chart/czsc-settings";
  * `values` 以 DLL 配置字段 key 保存（分析口径与显示投影）；未设置的字段用 DLL 默认值。
  * 笔级/线段级的显示开关只影响绘制，不送 DLL。
  */
-type CzscSettingsState = {
-  values: CzscSettings;
+type CzscVisibility = {
   showStroke: boolean;
   showSegment: boolean;
+  showSegmentCenters: boolean;
+  showSegmentSignals: boolean;
+};
+type CzscSettingsState = CzscVisibility & {
+  values: CzscSettings;
   setValue: (key: string, value: number) => void;
-  set: (patch: { showStroke?: boolean; showSegment?: boolean }) => void;
+  set: (patch: Partial<CzscVisibility>) => void;
   reset: () => void;
 };
 
-/** Chart defaults that differ from the DLL's: the box ends at the first three members. */
-export const chartCzscDefaults: CzscSettings = { "projection.centerBox": 0 };
+/** 通达信 chan-main 使用的预设 2，含本机 czsc-presets.ini 覆盖。 */
+export const chartCzscDefaults: CzscSettings = {
+  "stroke.rule": 1,
+  "stroke.endpoint": 2,
+  "segment.startBreak": 1,
+  "center.strokeFormation": 1,
+  "projection.centerBox": 0,
+};
 
 const initial = {
   values: chartCzscDefaults,
   showStroke: true,
   showSegment: true,
+  showSegmentCenters: false,
+  showSegmentSignals: false,
 };
 
 /** Pre-v20 persisted shape (decimal config digits kept as separate fields). */
@@ -49,22 +61,34 @@ export function migrateLegacy(old: LegacyState) {
   for (const [from, to] of map)
     if (typeof old[from] === "number") values[to] = old[from];
   // API v21 retired first; numeric 1 now means a different community rule.
-  if (values["stroke.endpoint"] === 1) delete values["stroke.endpoint"];
+  if (old.strokeEnd === 1) delete values["stroke.endpoint"];
   if (old.box) values["projection.centerBox"] = old.box === "initial" ? 0 : 1;
   return {
     values,
     showStroke: old.showStroke ?? true,
     showSegment: old.showSegment ?? true,
+    showSegmentCenters: false,
+    showSegmentSignals: false,
   };
 }
 
 export function migrateCzscSettings(persisted: unknown, version: number) {
   if (version < 1) return migrateLegacy(persisted as LegacyState);
-  const old = persisted as typeof initial;
+  const old = persisted as Partial<typeof initial>;
   const values = { ...old.values };
-  if (version < 2 && values["stroke.endpoint"] === 1)
+  if (version < 3)
+    for (const [key, value] of Object.entries(chartCzscDefaults))
+      if (!(key in values)) values[key] = value;
+  // Retired explicit endpoints stay unset, even when migrating directly to v3.
+  if (version < 2 && old.values?.["stroke.endpoint"] === 1)
     delete values["stroke.endpoint"];
-  return { ...old, values };
+  return {
+    values,
+    showStroke: old.showStroke ?? true,
+    showSegment: old.showSegment ?? true,
+    showSegmentCenters: old.showSegmentCenters ?? false,
+    showSegmentSignals: old.showSegmentSignals ?? false,
+  };
 }
 
 export const useCzscSettings = create<CzscSettingsState>()(
@@ -78,13 +102,21 @@ export const useCzscSettings = create<CzscSettingsState>()(
     }),
     {
       name: "nq-czsc-settings",
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => localStorage),
       migrate: migrateCzscSettings,
-      partialize: ({ values, showStroke, showSegment }) => ({
+      partialize: ({
         values,
         showStroke,
         showSegment,
+        showSegmentCenters,
+        showSegmentSignals,
+      }) => ({
+        values,
+        showStroke,
+        showSegment,
+        showSegmentCenters,
+        showSegmentSignals,
       }),
     },
   ),

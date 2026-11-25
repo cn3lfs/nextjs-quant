@@ -5,17 +5,36 @@ import { readLocalFinancialSeries } from "../data-sources/tdx/local-financial-fi
 /**
  * 通达信本地涨跌停按日复盘。
  *
- * 只读取 `vipdoc/cw/gpsh999999.dat` 的 SC3 第一列（涨停家数）与 SC4 第一列
+ * 同一次读取 `vipdoc/cw/gpsh999999.dat`，取 SC3 第一列（涨停家数）与 SC4 第一列
  * （跌停家数）。第二列「曾涨停/曾跌停」定义不足，不参与计算，也不冒充炸板。
  * 两序列按日期并集排列，所选日之后的记录一律不出现；同组同日重复记录不挑选
  * 其中一条，而是把该日期该序列视为缺失并显式报告。首列是股票家数：单条负数
  * 或非整数不是有效家数，同样按缺失处理；真实 0 家仍然有效。
+ * SC31 同一记录的两列分别为上涨、下跌家数，按自身的记录日生成独立窗口。
  */
 export const LIMIT_HISTORY_VERSION = "limit-history-1";
 export const LIMIT_HISTORY_SYMBOL = "sh999999";
 export const LIMIT_HISTORY_MAX_DAYS = 60;
 const LIMIT_UP_GROUP = 3;
 const LIMIT_DOWN_GROUP = 4;
+const BREADTH_GROUP = 31;
+
+export type LimitBreadthPoint = {
+  date: string;
+  up: number | null;
+  down: number | null;
+};
+
+export type LimitBreadthHistory = {
+  state: "ok" | "no-history";
+  latest: string | null;
+  sourceFirst: string | null;
+  sourceLast: string | null;
+  window: { start: string; end: string; count: number } | null;
+  points: LimitBreadthPoint[];
+  duplicates: { date: string; count: number }[];
+  warning: string | null;
+};
 
 export type LimitHistoryPoint = {
   date: string;
@@ -46,6 +65,7 @@ export type LimitHistory = {
   /** 实际绘制的起止日期与记录日数（最多 60）。 */
   window: { start: string; end: string; count: number } | null;
   points: LimitHistoryPoint[];
+  breadth: LimitBreadthHistory;
   duplicates: LimitHistoryDuplicate[];
   warning: string | null;
   loadedAt: number | null;
@@ -55,13 +75,30 @@ export type LimitHistory = {
 const SOURCE_SCOPE =
   "vipdoc/cw/gpsh999999.dat · SC3 第一列涨停家数 / SC4 第一列跌停家数；第二列「曾涨停/曾跌停」不用于炸板";
 
-function base(requestedDate: string): Omit<LimitHistory, "state"> {
+function emptyBreadth(warning: string): LimitBreadthHistory {
+  return {
+    state: "no-history",
+    latest: null,
+    sourceFirst: null,
+    sourceLast: null,
+    window: null,
+    points: [],
+    duplicates: [],
+    warning,
+  };
+}
+
+function base(
+  requestedDate: string,
+  breadth = emptyBreadth("本地 SC31 数据源不可用"),
+): Omit<LimitHistory, "state"> {
   return {
     version: LIMIT_HISTORY_VERSION,
     source: "通达信本地",
     scope: SOURCE_SCOPE,
     filename: `gp${LIMIT_HISTORY_SYMBOL}.dat`,
     requestedDate,
+    breadth,
     latest: null,
     sourceFirst: null,
     sourceLast: null,
@@ -80,6 +117,10 @@ function missingFile(error: unknown) {
   return /ENOENT|no such file|文件不存在/i.test(message);
 }
 
+function validCount(value: number): number | null {
+  return Number.isInteger(value) && value >= 0 ? value : null;
+}
+
 function pick(
   values: number[] | undefined,
   date: string,
@@ -92,9 +133,52 @@ function pick(
     duplicates.push({ group, field, date, count: values.length });
     return null;
   }
-  const value = values[0]!;
-  // 家数只能是 0 或正整数。负数和带小数的源值不四舍五入充数，按缺失处理。
-  return Number.isInteger(value) && value >= 0 ? value : null;
+  return validCount(values[0]!);
+}
+
+function breadthHistory(
+  byDate: Map<string, [number, number][]>,
+  requestedDate: string,
+  warning: string | null,
+): LimitBreadthHistory {
+  const dates = [...byDate.keys()].sort();
+  const sourceFirst = dates[0] ?? null;
+  const sourceLast = dates.at(-1) ?? null;
+  const windowDates = dates
+    .filter((date) => date <= requestedDate)
+    .slice(-LIMIT_HISTORY_MAX_DAYS);
+  const latest = windowDates.at(-1);
+  if (!latest)
+    return {
+      ...emptyBreadth(
+        sourceFirst
+          ? `本地 SC31 覆盖 ${sourceFirst} ~ ${sourceLast}，所选日期及之前没有记录`
+          : "本地源没有 SC31 的有效日期记录",
+      ),
+      sourceFirst,
+      sourceLast,
+    };
+
+  const duplicates: LimitBreadthHistory["duplicates"] = [];
+  const points = windowDates.map((date) => {
+    const records = byDate.get(date)!;
+    if (records.length > 1) {
+      duplicates.push({ date, count: records.length });
+      return { date, up: null, down: null };
+    }
+    const [up, down] = records[0]!;
+    return { date, up: validCount(up), down: validCount(down) };
+  });
+  return {
+    state: "ok",
+    latest,
+    sourceFirst,
+    sourceLast,
+    window: { start: windowDates[0]!, end: latest, count: points.length },
+    points,
+    duplicates,
+    warning,
+  };
 }
 
 export async function limitHistory(
@@ -138,19 +222,30 @@ export async function limitHistory(
   ]);
   let sourceFirst: string | null = null;
   let sourceLast: string | null = null;
+  const breadthByDate = new Map<string, [number, number][]>();
   for (const record of source.records) {
-    if (record.group !== LIMIT_UP_GROUP && record.group !== LIMIT_DOWN_GROUP)
-      continue;
+    const byDate = series.get(record.group);
+    if (!byDate && record.group !== BREADTH_GROUP) continue;
     const date = record.date === null ? null : financialDate(record.date);
     if (!date) continue;
+    if (!byDate) {
+      const rows = breadthByDate.get(date);
+      if (rows) rows.push(record.values);
+      else breadthByDate.set(date, [record.values]);
+      continue;
+    }
     if (!sourceFirst || date < sourceFirst) sourceFirst = date;
     if (!sourceLast || date > sourceLast) sourceLast = date;
-    const byDate = series.get(record.group)!;
     const values = byDate.get(date);
     if (values) values.push(record.values[0]);
     else byDate.set(date, [record.values[0]]);
   }
 
+  const breadth = breadthHistory(
+    breadthByDate,
+    requestedDate,
+    source.classificationWarning,
+  );
   const dates = new Set<string>();
   for (const byDate of series.values())
     for (const date of byDate.keys())
@@ -158,7 +253,7 @@ export async function limitHistory(
   const ordered = [...dates].sort();
   if (!ordered.length)
     return {
-      ...base(requestedDate),
+      ...base(requestedDate, breadth),
       state: "no-history",
       sourceFirst,
       sourceLast,
@@ -189,7 +284,7 @@ export async function limitHistory(
   }));
   const latest = windowDates.at(-1)!;
   return {
-    ...base(requestedDate),
+    ...base(requestedDate, breadth),
     state: "ok",
     latest,
     sourceFirst,

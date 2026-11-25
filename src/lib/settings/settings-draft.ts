@@ -4,6 +4,8 @@ import type { Settings } from "~/lib/domain";
 export const connectionSettingKeys = [
   "alerts",
   "tdxRoot",
+  "industryMembershipSource",
+  "industryBlocksRoot",
   "clsDbPath",
   "clsDbRole",
   "clsComplementDbPath",
@@ -65,10 +67,15 @@ export function settingsToSave(
   state: SettingsDraftState,
   current: Settings,
 ): Settings {
+  // Submit only fields edited in this draft. Untouched fields keep the
+  // server's current value, so a stale form cannot clobber an update made by
+  // another panel while this one was open.
   return {
     ...current,
     ...Object.fromEntries(
-      connectionSettingKeys.map((key) => [key, state.draft[key]]),
+      connectionSettingKeys
+        .filter((key) => !sameSetting(state.draft[key], state.base[key]))
+        .map((key) => [key, state.draft[key]]),
     ),
   };
 }

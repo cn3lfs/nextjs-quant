@@ -46,6 +46,35 @@ export type MarketReadContext = {
   warnings: string[];
 };
 
+export function effectiveMarketPanelRoot(configuredRoot?: string): string {
+  return (
+    configuredRoot?.trim() || process.env.TDX_ROOT?.trim() || "E:/new_tdx64"
+  );
+}
+
+function fileErrorCode(error: unknown) {
+  if (typeof error === "object" && error !== null && "code" in error)
+    return error.code;
+  const message = error instanceof Error ? error.message : error;
+  return typeof message === "string"
+    ? /^(ENOENT|EACCES|EPERM|EISDIR)\b/.exec(message)?.[1]
+    : undefined;
+}
+
+export function sanitizeMarketWarning(prefix: string, error: unknown): string {
+  switch (fileErrorCode(error)) {
+    case "ENOENT":
+      return prefix + "：缺少本地数据文件。";
+    case "EACCES":
+    case "EPERM":
+      return prefix + "：没有读取本地数据的权限。";
+    case "EISDIR":
+      return prefix + "：所选数据文件实际为目录。";
+    default:
+      return prefix + "：本地数据读取失败。";
+  }
+}
+
 // Each request owns and closes one immutable handle. The pointer is read once;
 // an absent panel never triggers discovery, construction or BarStore.
 export async function withMarketReadContext<T>(
@@ -55,25 +84,37 @@ export async function withMarketReadContext<T>(
   const now = Date.now();
   const today = new Date(now + 8 * 3600000).toISOString().slice(0, 10);
   const asOf = query.asOf && query.asOf < today ? query.asOf : today;
-  let root = query.tdxRoot || process.env.TDX_ROOT || "E:/new_tdx64";
+  let root = effectiveMarketPanelRoot(query.tdxRoot);
   const warnings: string[] = [];
+  let handle: MarketPanelHandle | undefined;
   let panel: MarketPanelHandle | null = null;
   try {
     try {
-      panel = openMarketPanel(query.snapshotId, root);
-      if (relative(realpathSync.native(root), panel.manifest.root) !== "")
-        throw new Error("面板来源与所选通达信目录不一致");
-      root = panel.manifest.root;
+      handle = openMarketPanel(query.snapshotId, root);
+      if (relative(realpathSync.native(root), handle.manifest.root) === "") {
+        root = handle.manifest.root;
+        panel = handle;
+      } else {
+        warnings.push("冻结面板不可用：面板来源与所选通达信目录不一致。");
+      }
     } catch (error) {
-      panel?.close();
-      panel = null;
-      warnings.push("冻结面板不可用：" + String(error));
+      if (fileErrorCode(error) === "ENOENT") {
+        if (handle) warnings.push("冻结面板来源的通达信目录不存在。");
+        else if (query.snapshotId !== undefined)
+          warnings.push("指定的冻结行情面板不存在或已被清理。");
+        else
+          warnings.push(
+            "本地冻结行情面板尚未生成，市场宽度/趋势/成交额与行业成员下钻暂缺；点击「生成冻结面板」从本地通达信日线构建。",
+          );
+      } else {
+        warnings.push(sanitizeMarketWarning("冻结面板不可用", error));
+      }
     }
     let reference: string[] = [];
     try {
       reference = (await readLocalTradingDates(root)).days;
     } catch (error) {
-      warnings.push("上证指数交易日参考不可用：" + String(error));
+      warnings.push(sanitizeMarketWarning("上证指数交易日参考不可用", error));
     }
     const dates = [...new Set([...reference, ...(panel?.manifest.dates ?? [])])]
       .filter((d) => d <= asOf && isWeekday(d))
@@ -90,7 +131,7 @@ export async function withMarketReadContext<T>(
       warnings,
     });
   } finally {
-    panel?.close();
+    handle?.close();
   }
 }
 
@@ -110,8 +151,9 @@ export function adjacentSessions(previous: string, date: string) {
 
 /** Read a stable local generation without populating shared TDX caches. */
 export async function readIndicatorSource(path: string) {
-  const handle = await open(path, "r");
+  let handle;
   try {
+    handle = await open(path, "r");
     const before = await handle.stat({ bigint: true });
     if (!before.isFile() || before.size > 64n * 1024n * 1024n)
       throw new Error("本地指标文件类型或大小非法");
@@ -128,7 +170,7 @@ export async function readIndicatorSource(path: string) {
       throw new Error("读取期间本地指标文件已更新");
     return body;
   } finally {
-    await handle.close();
+    await handle?.close();
   }
 }
 
@@ -230,8 +272,12 @@ export async function readTemperatureSessions(ctx: MarketReadContext) {
     readEtfSubscriptionHistory(ctx.asOf),
   ]);
   if (limit.status === "rejected")
-    ctx.warnings.push("SC24/SC30 不可用：" + String(limit.reason));
-  if (etf.status === "rejected" || !etf.value.daily.size)
+    ctx.warnings.push(sanitizeMarketWarning("SC24/SC30 不可用", limit.reason));
+  if (etf.status === "rejected")
+    ctx.warnings.push(
+      sanitizeMarketWarning("本地 ETF 净申赎序列不可用", etf.reason),
+    );
+  else if (!etf.value.daily.size)
     ctx.warnings.push("本地 ETF 净申赎序列不可用");
   const computeStocks = stockInputs(ctx.panel);
   const complete = completedBarFilter("day", ctx.now);

@@ -56,12 +56,19 @@ export type PatternBreakoutOptions = {
   direction?: Direction | "both";
   minVolumeRatio?: number;
   minScore?: number;
+  dedupPerBar?: boolean;
+  cooldownBars?: number;
 };
 
-type Rail = { at: (index: number) => number; slope: number };
+type Rail = {
+  a: ConfirmedExtremum;
+  b: ConfirmedExtremum;
+  at: (index: number) => number;
+  slope: number;
+};
 function through(a: ConfirmedExtremum, b: ConfirmedExtremum): Rail {
   const slope = (b.price - a.price) / (b.index - a.index);
-  return { slope, at: (index) => a.price + (index - a.index) * slope };
+  return { a, b, slope, at: (index) => a.price + (index - a.index) * slope };
 }
 
 type Setup = Pick<
@@ -187,25 +194,25 @@ function channelSetup(
   kind: "box" | "triangle" | "wedge",
   subKind: SubKind,
   start: number,
-  upper: (j: number) => number,
-  lower: (j: number) => number,
+  upper: Pick<Rail, "a" | "at">,
+  lower: Pick<Rail, "a" | "at">,
   stopPrice: number,
 ): Setup {
   const { i, long } = ctx;
-  const width = upper(start) - lower(start);
-  const pivotPrice = long ? upper(i) : lower(i);
+  const width = upper.at(start) - lower.at(start);
+  const pivotPrice = long ? upper.at(i) : lower.at(i);
   return {
     kind,
     subKind,
     durationBars: i - start,
-    depthPercent: (100 * width) / lower(start),
+    depthPercent: (100 * width) / lower.at(start),
     pivotPrice,
     stopPrice,
     targetPrice: pivotPrice + (long ? width : -width),
     geometry: {
       lines: [
-        line(ctx, "上轨", "upper", start, upper),
-        line(ctx, "下轨", "lower", start, lower),
+        line(ctx, "上轨", "upper", upper.a.index, upper.at),
+        line(ctx, "下轨", "lower", lower.a.index, lower.at),
       ],
     },
   };
@@ -216,15 +223,18 @@ function box(ctx: Context): Setup | null {
   let best: Setup | null = null;
   let bestTouches = 0;
   for (const duration of [60, 45, 30, 20, 15]) {
-    const start = i - duration;
-    if (start < 0) continue;
-    const window = bars.slice(start, i);
-    const touches = pivots.filter((p) => p.index >= start && p.index < i);
+    const windowStart = Math.max(0, i - duration);
+    const touches = pivots.filter((p) => p.index >= windowStart && p.index < i);
     const highs = touches.filter((p) => p.kind === "high");
     const lows = touches.filter((p) => p.kind === "low");
     if (highs.length < 2 || lows.length < 2) continue;
-    const top = Math.max(...highs.map((p) => p.price));
-    const bottom = Math.min(...lows.map((p) => p.price));
+    const start = Math.min(...touches.map((p) => p.index));
+    if (i - start < 15) continue;
+    const window = bars.slice(start, i);
+    const topAnchor = highs.reduce((a, b) => (b.price > a.price ? b : a));
+    const bottomAnchor = lows.reduce((a, b) => (b.price < a.price ? b : a));
+    const top = topAnchor.price;
+    const bottom = bottomAnchor.price;
     const tol = 0.005;
     if (
       window.some(
@@ -234,7 +244,7 @@ function box(ctx: Context): Setup | null {
       continue;
     const width = top - bottom;
     if (
-      width / bottom < 0.03 ||
+      width / bottom < 0.04 ||
       width / bottom > 0.18 ||
       (long ? bars[i]!.close <= top : bars[i]!.close >= bottom)
     )
@@ -254,8 +264,8 @@ function box(ctx: Context): Setup | null {
       "box",
       "水平箱体",
       start,
-      () => top,
-      () => bottom,
+      { a: topAnchor, at: () => top },
+      { a: bottomAnchor, at: () => bottom },
       long ? bottom : top,
     );
   }
@@ -278,7 +288,7 @@ function enclosingRails(ctx: Context, start: number, side: "high" | "low") {
       if (breakSide && sign * (ctx.bars[ctx.i]!.close - rail.at(ctx.i)) <= 0)
         continue;
       let inside = true;
-      for (let j = start; j < ctx.i; j++) {
+      for (let j = a.index; j < ctx.i; j++) {
         if (sign * (ctx.bars[j]!.close - rail.at(j)) > 0) {
           inside = false;
           break;
@@ -293,75 +303,98 @@ function enclosingRails(ctx: Context, start: number, side: "high" | "low") {
 function converging(ctx: Context, kinds: Set<PatternBreakoutKind>): Setup[] {
   const { i, bars, long } = ctx;
   const matches = new Map<PatternBreakoutKind, Setup>();
-  for (let duration = Math.min(55, i); duration >= 15; duration--) {
-    const start = i - duration;
-    const highs = enclosingRails(ctx, start, "high");
-    if (!highs.length) continue;
-    const lows = enclosingRails(ctx, start, "low");
-    if (!lows.length) continue;
-    const window = bars.slice(start, i);
-    const avg = window.reduce((sum, b) => sum + b.close, 0) / duration;
-    for (const upper of highs)
-      for (const lower of lows) {
-        const startWidth = upper.at(start) - lower.at(start);
-        const endWidth = upper.at(i) - lower.at(i);
-        if (
-          endWidth <= 0 ||
-          endWidth > 0.78 * startWidth ||
-          lower.at(start) <= 0 ||
-          lower.at(i) <= 0
-        )
-          continue;
-        const u = upper.slope / avg,
-          l = lower.slope / avg;
-        // The near-horizontal triangle bands overlap the shallow-wedge bands.
-        // Each requested family is assessed independently.
-        const triangle =
-          u < -0.0002 && l > 0.0002
-            ? "对称三角形"
-            : Math.abs(u) <= 0.0006 && l > 0.0003
-              ? "上升三角形"
-              : Math.abs(l) <= 0.0006 && u < -0.0003
-                ? "下降三角形"
-                : null;
-        if (triangle && kinds.has("triangle") && !matches.has("triangle"))
-          matches.set(
+  const start = Math.max(0, i - 65);
+  const highs = enclosingRails(ctx, start, "high");
+  if (!highs.length) return [];
+  const lows = enclosingRails(ctx, start, "low");
+  for (const upper of highs)
+    for (const lower of lows) {
+      const anchorStart = Math.min(upper.a.index, lower.a.index);
+      const span = i - anchorStart;
+      const minAnchorGap = Math.max(6, Math.floor(span * 0.35));
+      if (
+        span < 15 ||
+        upper.b.index - upper.a.index < minAnchorGap ||
+        lower.b.index - lower.a.index < minAnchorGap
+      )
+        continue;
+      const upperStart = upper.at(anchorStart),
+        lowerStart = lower.at(anchorStart);
+      const startWidth = upperStart - lowerStart;
+      const endWidth = upper.at(i) - lower.at(i);
+      if (
+        endWidth <= 0 ||
+        endWidth > 0.72 * startWidth ||
+        lowerStart <= 0 ||
+        startWidth / lowerStart < 0.04 ||
+        lower.at(i) <= 0
+      )
+        continue;
+      const window = bars.slice(anchorStart, i);
+      const maxWindowHigh = Math.max(...window.map((bar) => bar.high));
+      const minWindowLow = Math.min(...window.map((bar) => bar.low));
+      if (upperStart > maxWindowHigh * 1.03 || lowerStart < minWindowLow * 0.97)
+        continue;
+      // Each rail already contains closes from its own first anchor through
+      // the prior bar. Check its extension back to the other rail's anchor.
+      const later = upper.a.index > lower.a.index ? upper : lower;
+      const sign = later === upper ? 1 : -1;
+      if (
+        bars
+          .slice(anchorStart, later.a.index)
+          .some((bar, n) => (bar.close - later.at(anchorStart + n)) * sign > 0)
+      )
+        continue;
+      const avg = window.reduce((sum, bar) => sum + bar.close, 0) / span;
+      const u = upper.slope / avg,
+        l = lower.slope / avg;
+      // The near-horizontal triangle bands overlap the shallow-wedge bands.
+      // Each requested family is assessed independently.
+      const triangle =
+        u < -0.0002 && l > 0.0002
+          ? "对称三角形"
+          : Math.abs(u) <= 0.0006 && l > 0.0003
+            ? "上升三角形"
+            : Math.abs(l) <= 0.0006 && u < -0.0003
+              ? "下降三角形"
+              : null;
+      if (triangle && kinds.has("triangle") && !matches.has("triangle"))
+        matches.set(
+          "triangle",
+          channelSetup(
+            ctx,
             "triangle",
-            channelSetup(
-              ctx,
-              "triangle",
-              triangle,
-              start,
-              upper.at,
-              lower.at,
-              long ? lower.at(i) : upper.at(i),
-            ),
-          );
-        const wedge = long ? u < l && l < -0.0002 : l > u && u > 0.0002;
-        if (wedge && kinds.has("wedge") && !matches.has("wedge")) {
-          const stop = long
-            ? Math.min(lower.at(i), ...window.map((b) => b.low))
-            : Math.max(upper.at(i), ...window.map((b) => b.high));
-          matches.set(
+            triangle,
+            anchorStart,
+            upper,
+            lower,
+            long ? lower.at(i) : upper.at(i),
+          ),
+        );
+      const wedge = long ? u < l && l < -0.0002 : l > u && u > 0.0002;
+      if (wedge && kinds.has("wedge") && !matches.has("wedge")) {
+        const stop = long
+          ? Math.min(lower.at(i), minWindowLow)
+          : Math.max(upper.at(i), maxWindowHigh);
+        matches.set(
+          "wedge",
+          channelSetup(
+            ctx,
             "wedge",
-            channelSetup(
-              ctx,
-              "wedge",
-              long ? "下降楔形" : "上升楔形",
-              start,
-              upper.at,
-              lower.at,
-              stop,
-            ),
-          );
-        }
-        if (
-          (!kinds.has("triangle") || matches.has("triangle")) &&
-          (!kinds.has("wedge") || matches.has("wedge"))
-        )
-          return [...matches.values()];
+            long ? "下降楔形" : "上升楔形",
+            anchorStart,
+            upper,
+            lower,
+            stop,
+          ),
+        );
       }
-  }
+      if (
+        (!kinds.has("triangle") || matches.has("triangle")) &&
+        (!kinds.has("wedge") || matches.has("wedge"))
+      )
+        return [...matches.values()];
+    }
   return [...matches.values()];
 }
 
@@ -521,9 +554,10 @@ export function preparePatternBreakout(
           summary: `${label}，收盘 ${bar.close}，突破位 ${setup.pivotPrice.toFixed(2)}，失效位 ${setup.stopPrice.toFixed(2)}，量度目标 ${setup.targetPrice.toFixed(2)}`,
         });
       }
-      return matches.sort(
+      matches.sort(
         (a, b) => b.score - a.score || b.durationBars - a.durationBars,
       );
+      return options.dedupPerBar ? matches.slice(0, 1) : matches;
     },
   };
 }
@@ -534,7 +568,18 @@ export function analyzePatternBreakouts(
 ): PatternBreakoutMatch[] {
   const prepared = preparePatternBreakout(bars, options);
   const matches: PatternBreakoutMatch[] = [];
-  for (let i = Math.max(0, Math.ceil(options.from ?? 0)); i < bars.length; i++)
-    matches.push(...prepared.at(i));
+  const cooldown = options.cooldownBars ?? 0;
+  const lastAccepted = { long: -Infinity, short: -Infinity };
+  for (
+    let i = Math.max(0, Math.ceil(options.from ?? 0));
+    i < bars.length;
+    i++
+  ) {
+    const candidates = prepared.at(i);
+    const match = candidates[0];
+    if (!match || i - lastAccepted[match.direction] <= cooldown) continue;
+    matches.push(...candidates);
+    lastAccepted[match.direction] = i;
+  }
   return matches;
 }

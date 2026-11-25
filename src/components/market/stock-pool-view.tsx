@@ -7,6 +7,7 @@ import {
   marketPoolLocationHref,
   type MarketPoolLocation,
 } from "~/lib/market/market-pool-location";
+import { useMarketSession } from "~/lib/stores/market-session";
 import { useOpenChart } from "./open-chart";
 import { MarketPoolBrowser } from "./market-pool-browser";
 
@@ -26,13 +27,15 @@ export function StockPoolView() {
     <MarketPoolBrowser
       location={location}
       onLocationChange={updateLocation}
-      onSelect={(symbol) => {
+      onSelect={(symbol, browse) => {
         updateLocation((current) => ({
           ...current,
           query: { ...current.query, selected: symbol },
         }));
         if (openChart) openChart(symbol);
         else router.push(chartSymbolHref(symbol));
+        // The chart opener clears browse when called without a BrowseSource.
+        if (browse) useMarketSession.getState().setBrowse(browse);
       }}
     />
   );

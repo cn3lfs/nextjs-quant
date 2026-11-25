@@ -9,6 +9,7 @@ import {
   TooltipTrigger,
 } from "~/components/ui/tooltip";
 import { TaskEvidence } from "~/components/workbench/task-evidence";
+import { alertDisplayCopy } from "~/lib/common/ui-glossary";
 import type { DiagnoseArchiveSummary } from "~/lib/research/diagnose-contract";
 import type { ResearchStudioDraftInput } from "~/lib/research/studio-result";
 import { taskStatusLabels } from "~/lib/research/workflow/task-history";
@@ -89,15 +90,15 @@ function DiagnoseForwardActions({
       setConfirmShadow(false);
       setFeedback({
         state: "info",
-        title: "已加入收盘监控（影子模式）",
-        detail: `${result.strategyId} @ v${result.version} · ${result.symbolCount} 只标的${result.alreadyWatched ? " · 此前已监控" : ""}。仅登记观察与提醒，不会创建委托。`,
+        title: "已加入收盘监控（空跑观察）",
+        detail: `${result.strategyId} @ v${result.version} · ${result.symbolCount} 只标的${result.alreadyWatched ? " · 此前已监控" : ""}。只记录信号，不推送或下单。`,
       });
     },
     onError: (error) =>
       setFeedback({
         state: "error",
-        title: "影子监控登记失败",
-        detail: error.message,
+        title: "空跑观察登记失败",
+        detail: alertDisplayCopy(error.message),
       }),
   });
   const promote = api.paperPromoteFromResearch.useMutation({
@@ -141,7 +142,7 @@ function DiagnoseForwardActions({
   const shadowBlocker =
     baseBlocker ??
     (symbols.some((symbol) => symbol.startsWith("bj"))
-      ? "影子收盘监控目前仅支持沪深证券代码。"
+      ? "收盘空跑观察目前仅支持沪深证券代码。"
       : null);
   const paperBlocker =
     baseBlocker ??
@@ -182,7 +183,7 @@ function DiagnoseForwardActions({
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h3 className="text-sub font-semibold text-nc-text">前向跟踪</h3>
         <span className="text-sub text-nc-text-3">
-          仅登记影子观察或纸面账户，不会下单，也不会切换为实盘。
+          空跑观察只记录信号，不推送或下单。模拟盘登记只用于验证。
         </span>
       </div>
       <TooltipProvider>
@@ -203,7 +204,7 @@ function DiagnoseForwardActions({
                     setConfirmShadow(true);
                   }}
                 >
-                  加入收盘监控（影子模式）
+                  加入收盘监控（空跑观察）
                 </Button>
               </span>
             </TooltipTrigger>
@@ -244,8 +245,8 @@ function DiagnoseForwardActions({
       {confirmShadow && strategyKey && (
         <div className="space-y-2 rounded-lg bg-nc-inset p-3">
           <p className="text-sub text-nc-text-2">
-            将以「{strategyKey}」和 {symbols.length} 只标的登记收盘影子观察。
-            登记后只产生观察与提醒，不会创建委托。
+            将以「{strategyKey}」和 {symbols.length} 只标的登记收盘空跑观察。
+            登记后只记录信号，不推送或下单。
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -254,7 +255,7 @@ function DiagnoseForwardActions({
               disabled={busy}
               onClick={() => shadow.mutate({ strategyKey, symbols })}
             >
-              确认加入影子监控
+              确认开启收盘空跑观察
             </Button>
             <Button
               type="button"

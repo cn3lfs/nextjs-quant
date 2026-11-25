@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { z } from "zod";
 import { get, put, sqlite } from "../../db";
 import { saveSecret, readSecret } from "../../vault";
 import {
@@ -191,4 +192,47 @@ export async function queryMockFunds() {
 }
 export async function queryMockTrades() {
   return adapter().todayTrades();
+}
+
+const mockAccountMetaSource = z.object({
+  state: z.enum(["creating", "ready"]),
+  username: z.string().min(1),
+  shareholders: z.array(z.object({ scdm: z.string() })).optional(),
+});
+
+// Match the order adapter's shareholder codes for Shenzhen and Shanghai.
+const allowedMockMarketCodes = new Set(["1", "2"]);
+
+export async function readMockAccountMeta() {
+  const stored = await readSecret<MockAccount>(credentialId).catch(
+    () => undefined,
+  );
+  const account = mockAccountMetaSource.safeParse(stored);
+  const shareholders = account.success ? (account.data.shareholders ?? []) : [];
+  const marketCodes = shareholders
+    .map(({ scdm }) => scdm)
+    .filter((code) => allowedMockMarketCodes.has(code));
+  return {
+    enabled: mockEnabled(),
+    hasAccount: account.success,
+    // The adapter uses this THS branch for both account creation and recovery.
+    yybid: account.success ? "997376" : null,
+    marketCodes: [...new Set(marketCodes)],
+  };
+}
+
+export async function queryMockOverview() {
+  if (!mockEnabled()) throw new Error("同花顺模拟盘未开启");
+  const [funds, positions, trades] = await Promise.all([
+    queryMockFunds(),
+    adapter().positions(),
+    queryMockTrades().catch(() => null),
+  ]);
+  return {
+    funds,
+    positions,
+    trades: trades ?? [],
+    tradesAvailable: trades !== null,
+    fetchedAt: Date.now(),
+  };
 }

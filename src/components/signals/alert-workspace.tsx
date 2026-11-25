@@ -2,17 +2,22 @@
 import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 
 import { useMemo, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { api } from "~/trpc/react";
 import {
   alertHistorySchema,
+  alertKindGroups,
   alertKinds,
   alertKindLabels,
   alertModes,
   alertModeLabels,
   type AlertEvent,
+  type AlertHistoryInput,
+  type AlertKind,
 } from "~/lib/strategy-facts/alerts";
+import { alertDisplayCopy } from "~/lib/common/ui-glossary";
 import { cryptoDisplayName, cryptoSymbol } from "~/lib/market/crypto";
 import { securityDisplayName } from "~/lib/market/security-display";
 import {
@@ -23,17 +28,39 @@ import {
 } from "~/lib/strategy-facts/strategy-display";
 import { useSecurityNames } from "../market/use-security-names";
 import { useTaskVisible } from "../workbench/use-task-visible";
+import { Pill, Segmented } from "../panels";
+import type { Tone } from "../panels/tone";
 import { Button } from "../ui/button";
 import { useAccumulatedPages, useTablePage } from "../ui/use-infinite-table";
 import { DataTable } from "../ui/data-table";
 import { LedgerInput, LedgerSelect } from "./ledger-fields";
 import { AlertStatus } from "./alert-status";
 
-const alertModeShort: Record<AlertEvent["mode"], string> = {
-  off: "关闭",
-  shadow: "观察",
-  live: "正式",
+type AlertKindGroupId = (typeof alertKindGroups)[number]["id"];
+
+const categoryOptions = [
+  { value: "all" as const, label: "全部" },
+  ...alertKindGroups.map(({ id, label }) => ({
+    value: id,
+    label: label.replace(" / ", "·"),
+  })),
+];
+
+const signalBadges: Record<AlertKindGroupId, { prefix: string; tone: Tone }> = {
+  "entry-group": { prefix: "买入", tone: "bad" },
+  "exit-group": { prefix: "卖出", tone: "ok" },
+  "execution-group": { prefix: "计划", tone: "accent" },
+  "risk-group": { prefix: "风控", tone: "warn" },
 };
+
+function groupForKind(kind: AlertKind) {
+  return alertKindGroups.find((group) => group.kinds.some((k) => k === kind));
+}
+
+function compareHistoryOrder(a: AlertEvent, b: AlertEvent) {
+  const [left, right] = a.bar === b.bar ? [a.key, b.key] : [a.bar, b.bar];
+  return left < right ? 1 : left > right ? -1 : 0;
+}
 
 export function AlertWorkspace() {
   const visible = useTaskVisible();
@@ -48,6 +75,12 @@ export function AlertWorkspace() {
       strategyId,
     }),
   );
+  const [category, setCategory] = useState<AlertKindGroupId | "all">("all");
+  const categoryKinds = alertKindGroups.find(({ id }) => id === category)?.kinds;
+  const groupOnly = !filter.kind && !!categoryKinds;
+  const historyInputs = groupOnly
+    ? categoryKinds.map((kind) => ({ ...filter, kind }))
+    : [filter];
   if (lastLocation !== locationKey) {
     setLastLocation(locationKey);
     setFilter((current) => ({
@@ -66,7 +99,7 @@ export function AlertWorkspace() {
   const [step, setStep] = useState("");
   const [minimum, setMinimum] = useState("");
   const [rulesSource, setRulesSource] = useState("");
-  const historyKey = JSON.stringify(filter);
+  const historyKey = JSON.stringify([filter, category]);
   const historyCursor = useTablePage(historyKey);
   const planId = search.get("plan") ?? undefined;
   const planKey = JSON.stringify(planId ?? null);
@@ -83,31 +116,48 @@ export function AlertWorkspace() {
       ),
     [catalog.data],
   );
-  const history = api.alertHistory.useQuery(
-    { ...filter, page: historyCursor.pageIndex },
-    {
-      enabled: visible,
-      staleTime: 0,
-      refetchInterval: visible && historyCursor.pageIndex === 0 ? 30000 : false,
-    },
+  const historyQueries = api.useQueries((t) =>
+    historyInputs.map((input) =>
+      t.alertHistory(
+        { ...input, page: historyCursor.pageIndex },
+        {
+          enabled: visible,
+          staleTime: 0,
+          refetchInterval:
+            visible && historyCursor.pageIndex === 0 ? 30000 : false,
+        },
+      ),
+    ),
   );
   const plans = api.alertPlans.useQuery(
     { page: planCursor.pageIndex, id: planId },
     { enabled: visible, staleTime: 0 },
   );
-  const historyPage =
-    history.isSuccess && !history.isPlaceholderData ? history.data : undefined;
+  const historyPages = historyQueries.flatMap((query) =>
+    query.isSuccess && !query.isPlaceholderData ? [query.data] : [],
+  );
+  const historyLoading = historyQueries.some((query) => query.isFetching);
+  const historyError = historyQueries.find((query) => query.error)?.error;
+  const allHistoryPagesReady = historyPages.length === historyInputs.length;
   const events = useAccumulatedPages({
     resetKey: historyKey,
     pageIndex: historyCursor.pageIndex,
-    items: historyPage?.items,
-    total: historyPage?.total,
-    isSuccess: !history.isFetching,
-    snapshotKey: historyPage?.total,
+    items: historyPages.flatMap((page) => page.items),
+    total: historyPages.reduce((total, page) => total + page.total, 0),
+    isSuccess: allHistoryPagesReady && !historyLoading,
+    snapshotKey: historyPages.map((page) => page.total).join(","),
     onSnapshotDrift: historyCursor.restart,
     pageSize: filter.size,
+    metadata: historyCursor.pageIndex + 1,
     getKey: (row) => row.key,
   });
+  // Each requested kind contributes enough rows to determine the next page
+  // of the merged history, even when one kind supplies that entire page.
+  const historyRows = groupOnly
+    ? [...events.rows]
+        .sort(compareHistoryOrder)
+        .slice(0, filter.size * (events.metadata ?? 0))
+    : events.rows;
   const planPage =
     plans.isSuccess && !plans.isPlaceholderData ? plans.data : undefined;
   const planRows = useAccumulatedPages({
@@ -138,7 +188,19 @@ export function AlertWorkspace() {
     },
     onError: (e) => setMessage(e.message),
   });
-  const exportHistory = api.exportAlertHistory.useMutation({
+  const exportHistory = useMutation({
+    mutationFn: async (inputs: AlertHistoryInput[]) => {
+      const [first, ...rest] = await Promise.all(
+        inputs.map((input) => utils.client.exportAlertHistory.mutate(input)),
+      );
+      if (!rest.length) return first!;
+      return {
+        ...first!,
+        items: [first!, ...rest]
+          .flatMap((data) => data.items)
+          .sort(compareHistoryOrder),
+      };
+    },
     onSuccess: (data) => {
       const url = URL.createObjectURL(
         new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }),
@@ -171,6 +233,15 @@ export function AlertWorkspace() {
       <p className="text-xs text-nc-text-3">
         T为实际观察日；T+1开盘入场、T+5/10/20收盘，原价无成本滑点；A股按交易日、数字货币按UTC自然日。缺行情和除权证据留空。非策略业绩。
       </p>
+      <Segmented
+        label="信号分类"
+        options={categoryOptions}
+        value={category}
+        onChange={(value) => {
+          setCategory(value);
+          change({ kind: undefined });
+        }}
+      />
       <div className="flex flex-wrap items-end gap-3">
         <LedgerInput
           label="完成行情起始日"
@@ -197,14 +268,14 @@ export function AlertWorkspace() {
         <LedgerSelect
           label="提醒类型"
           value={filter.kind}
-          onChange={(kind) =>
-            change({
-              kind: kind ? (kind as typeof filter.kind) : undefined,
-            })
-          }
+          onChange={(value) => {
+            const kind = value ? (value as AlertKind) : undefined;
+            if (kind) setCategory(groupForKind(kind)?.id ?? "all");
+            change({ kind });
+          }}
           options={[
-            { value: "all", label: "全部" },
-            ...alertKinds.map((value) => ({
+            { value: "all", label: categoryKinds ? "本类全部" : "全部" },
+            ...(categoryKinds ?? alertKinds).map((value) => ({
               value,
               label: alertKindLabels[value],
             })),
@@ -228,23 +299,24 @@ export function AlertWorkspace() {
         />
         <Button
           disabled={exportHistory.isPending}
-          onClick={() => exportHistory.mutate(filter)}
+          onClick={() => exportHistory.mutate(historyInputs)}
         >
           导出提醒历史
         </Button>
       </div>
       <DataTable
         label="提醒历史"
-        data={events.rows}
+        data={historyRows}
         rowCount={events.total}
-        loading={history.isFetching}
-        error={history.error?.message}
+        loading={historyLoading}
+        error={historyError ? alertDisplayCopy(historyError.message) : undefined}
         onRetry={() => {
-          void history.refetch();
+          for (const query of historyQueries) void query.refetch();
         }}
         infiniteScroll={{
-          hasMore: events.hasMore,
-          loadingMore: historyCursor.pageIndex > 0 && history.isFetching,
+          hasMore:
+            events.hasMore || (groupOnly && historyRows.length < events.total),
+          loadingMore: historyCursor.pageIndex > 0 && historyLoading,
           onLoadMore: historyCursor.loadMore,
         }}
         sorting={[]}
@@ -271,26 +343,33 @@ export function AlertWorkspace() {
           {
             id: "symbol",
             header: "标的 / 信号",
-            cell: ({ row }) => (
-              <div className="space-y-1">
-                <Link
-                  href={alertChartHref(row.original)}
-                  className="font-medium text-nc-accent hover:underline"
-                  title="打开行情图表"
-                >
-                  {symbolLabel(row.original.symbol, row.original.market)}
-                </Link>
-                <span className="block text-xs text-nc-text-3">
-                  {alertKindLabels[row.original.type]}
-                </span>
-              </div>
-            ),
+            cell: ({ row }) => {
+              const { type, symbol, market } = row.original;
+              const group = groupForKind(type);
+              const badge = group ? signalBadges[group.id] : undefined;
+              const prefix = type === "paper-fill" ? "成交" : badge?.prefix;
+              return (
+                <div className="flex flex-col items-start gap-1">
+                  <Link
+                    href={alertChartHref(row.original)}
+                    className="font-medium text-nc-accent hover:underline"
+                    title="打开行情图表"
+                  >
+                    {symbolLabel(symbol, market)}
+                  </Link>
+                  <Pill tone={badge?.tone} className="whitespace-nowrap">
+                    {prefix && `${prefix}·`}
+                    {alertKindLabels[type]}
+                  </Pill>
+                </div>
+              );
+            },
           },
           {
             id: "mode",
             header: "状态",
             cell: ({ row }) =>
-              `${alertModeShort[row.original.mode]} · ${
+              `${alertModeLabels[row.original.mode]} · ${
                 row.original.status === "missed" ? "错过窗口" : "已记录"
               }`,
           },
@@ -300,7 +379,7 @@ export function AlertWorkspace() {
             cell: ({ row }) => (
               <p
                 className="m-0 max-w-md whitespace-normal break-words text-xs leading-relaxed text-nc-text-2"
-                title={row.original.reason}
+                title={alertDisplayCopy(row.original.reason)}
               >
                 {formatAlertReason(row.original)}
               </p>

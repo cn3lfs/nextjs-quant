@@ -1,5 +1,6 @@
 import { MarketSourceSelect } from "../market/market-source-select";
 import { ChartAdjustmentSelect } from "../market/chart-adjustment-select";
+import { ChartSimOrderDialog } from "../market/chart-sim-order-dialog";
 import {
   ArrowClockwise,
   ArrowUpRight,
@@ -13,13 +14,14 @@ import {
   Star,
   X,
 } from "@phosphor-icons/react/ssr";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   chartPeriodSchema,
   periodLabels,
   type ChartPeriod,
 } from "~/lib/chart/chart-view";
 import { chartAdjustmentLabels } from "~/lib/chart/chart-adjustment";
+import type { BrowseList } from "~/lib/market/browse-list";
 import { marketSourceLabel } from "~/lib/market/market-source";
 import { securityDisplayName } from "~/lib/market/security-display";
 import { MarketSecurityViews } from "../market/market-security-views";
@@ -163,9 +165,10 @@ function RailTabs<T extends string>({
           role="tab"
           aria-selected={value === option.value}
           className={value === option.value ? "selected" : ""}
+          title={option.label}
           onClick={() => onChange(option.value)}
         >
-          {option.label}
+          <span className="block max-w-[120px] truncate">{option.label}</span>
         </Button>
       ))}
     </span>
@@ -263,6 +266,7 @@ export function MarketView({
   });
   const groups = groupsQuery?.data?.groups ?? [];
   const [activeGroupId, setActiveGroupId] = useState("");
+  const [simOrderOpen, setSimOrderOpen] = useState(false);
   const activeGroup =
     groups.find((g) => g.id === activeGroupId) ??
     groups.find((g) => g.id === groupsQuery?.data?.defaultGroupId) ??
@@ -333,6 +337,34 @@ export function MarketView({
     frozenEvidence && loaded ? loaded.period : displayedPeriod;
   const snapshotAdjustment =
     frozenEvidence && loaded ? loaded.adjustment : effectiveAdjustment;
+  const simOrderDisabled =
+    !loaded ||
+    isMarketIndex(chartSymbol) ||
+    isSectorChartSymbol(chartSymbol) ||
+    !tradableSymbol(chartSymbol);
+  const chartBar = loaded?.bars.at(-1);
+  const rawBar = loaded?.rawBars?.at(-1);
+  const rawClose =
+    loaded?.adjustment === "none"
+      ? chartBar?.close
+      : rawBar?.date === chartBar?.date
+        ? rawBar?.close
+        : undefined;
+  const historicalReference = holdFrozen || !!loaded?.historicalAsOf;
+  const simReferencePrice =
+    !historicalReference &&
+    rawClose &&
+    Number.isFinite(rawClose) &&
+    rawClose > 0
+      ? rawClose
+      : null;
+  const simReferencePriceSource = historicalReference
+    ? "snapshot"
+    : simReferencePrice !== null
+      ? "unadjusted"
+      : chartBar && loaded?.adjustment !== "none"
+        ? "adjusted"
+        : "missing";
   const availableChartPeriods = chartPeriodSchema.options.filter(
     (p) =>
       p !== "4h" &&
@@ -364,38 +396,114 @@ export function MarketView({
     !visible || load.isPending || holdFrozen || marketView === "financial",
     availableChartPeriods,
   );
-  const [browseEdge, setBrowseEdge] = useState("");
-  const hasScanSlot = leftCandidatesSlot !== undefined;
-  const [leftTab, setLeftTab] = useState<"watch" | "scan">(
-    hasScanSlot ? "scan" : "watch",
-  );
-  const [leftCollapsed, setLeftCollapsed] = useState(true);
-  const [rightCollapsed, setRightCollapsed] = useState(false);
-  const [watchQuery, setWatchQuery] = useState("");
-  useEffect(() => {
-    if (hasScanSlot) setLeftTab("scan");
-  }, [hasScanSlot]);
   // A frozen candidate is stepped by the screening result controls. Keeping the
   // stale browse list out of both the UI and the hotkey prevents PageUp/PageDown
   // from replacing the frozen chart with a live load.
   const activeBrowse = holdFrozen ? null : browse;
-  useBrowseHotkey(
-    activeBrowse,
-    (next) => {
-      setBrowseEdge("");
-      setBrowse(next);
-      const target = next.symbols[next.index]!;
-      setSymbol(target);
-      load.mutate({ symbol: target, period, source: marketSource });
-    },
-    // Not blocked while a load is in flight: rapid PageDown is how TDX users
-    // skim a list, and only the last mutate call's callbacks apply.
-    (first) => setBrowseEdge(first ? "已是第一只" : "已是最后一只"),
+  // The identity tracks membership. The activation also changes when the
+  // user opens a chart again from the same list.
+  const browseIdentity = activeBrowse
+    ? `${activeBrowse.label}::${activeBrowse.symbols.join(",")}`
+    : "";
+  const browseActivationId = activeBrowse?.activationId;
+  const browseTab = !!activeBrowse && activeBrowse.symbols.length > 0;
+  const [browseEdge, setBrowseEdge] = useState("");
+  const [browseQuery, setBrowseQuery] = useState("");
+  const browseActiveRef = useRef<HTMLDivElement | null>(null);
+  const previousBrowse = useRef({
+    identity: browseIdentity,
+    activationId: browseActivationId,
+  });
+  const hasScanSlot = leftCandidatesSlot !== undefined;
+  const [leftTab, setLeftTab] = useState<"watch" | "scan" | "browse">(
+    activeBrowse ? "browse" : hasScanSlot ? "scan" : "watch",
   );
+  // When a browse list arrives the rail opens on it; otherwise the rail keeps
+  // its old default (collapsed) so SSR and existing tests are unchanged.
+  const [leftCollapsed, setLeftCollapsed] = useState(!activeBrowse);
+  const [rightCollapsed, setRightCollapsed] = useState(false);
+  const [watchQuery, setWatchQuery] = useState("");
+  useEffect(() => {
+    setLeftTab((current) => {
+      if (current === "browse") return current;
+      return hasScanSlot ? "scan" : "watch";
+    });
+  }, [hasScanSlot]);
+  useEffect(() => {
+    if (
+      previousBrowse.current.identity === browseIdentity &&
+      previousBrowse.current.activationId === browseActivationId
+    ) {
+      return;
+    }
+    previousBrowse.current = {
+      identity: browseIdentity,
+      activationId: browseActivationId,
+    };
+    setBrowseEdge("");
+    if (browseIdentity) {
+      setLeftTab("browse");
+      setLeftCollapsed(false);
+      setBrowseQuery("");
+      return;
+    }
+    // Leaving the temporary list returns to the list the rail otherwise shows.
+    setLeftTab((current) =>
+      current === "browse" ? (hasScanSlot ? "scan" : "watch") : current,
+    );
+  }, [browseIdentity, browseActivationId, hasScanSlot]);
   const showLeftRail = !embedded && !zenMode;
   const showRightRail = !embedded && !zenMode;
   const leftIsCollapsed = !showLeftRail || leftCollapsed;
   const rightIsCollapsed = !showRightRail || rightCollapsed;
+  const showingBrowse = browseTab && leftTab === "browse";
+  // PgUp/PgDn steps the index without changing the identity, so the active row
+  // must be scrolled into view whenever the index moves.
+  useEffect(() => {
+    if (leftIsCollapsed || !showingBrowse) return;
+    const el = browseActiveRef.current;
+    if (el && typeof el.scrollIntoView === "function")
+      el.scrollIntoView({ block: "nearest" });
+  }, [
+    activeBrowse?.index,
+    browseIdentity,
+    browseQuery,
+    leftIsCollapsed,
+    showingBrowse,
+  ]);
+  const selectBrowse = (next: BrowseList) => {
+    const target = next.symbols[next.index];
+    if (!target) return;
+    setBrowseEdge("");
+    setBrowse(next, { preserveActivation: true });
+    setSymbol(target);
+    load.mutate({ symbol: target, period, source: marketSource });
+  };
+  const exitBrowse = () => {
+    setBrowse(null);
+    setBrowseEdge("");
+  };
+  useBrowseHotkey(
+    activeBrowse,
+    selectBrowse,
+    // Not blocked while a load is in flight: rapid PageDown is how TDX users
+    // skim a list, and only the last mutate call's callbacks apply.
+    (first) => setBrowseEdge(first ? "已是第一只" : "已是最后一只"),
+  );
+  const browseFilter = browseQuery.trim().toLowerCase();
+  const browseItems =
+    showingBrowse && activeBrowse
+      ? activeBrowse.symbols
+          .map((sym, idx) => ({ sym, idx }))
+          .filter(
+            ({ sym }) =>
+              !browseFilter ||
+              sym.toLowerCase().includes(browseFilter) ||
+              securityDisplayName(sym, names)
+                .toLowerCase()
+                .includes(browseFilter),
+          )
+      : [];
   const watchFilter = watchQuery.trim().toLowerCase();
   const watchRows = watchFilter
     ? watchlist.filter(
@@ -418,17 +526,27 @@ export function MarketView({
       {showLeftRail && (
         <aside className="nc-market-rail" aria-label="自选与扫描候选">
           <div className="flex items-center gap-1 border-b border-nc-border px-2 py-1.5">
-            {hasScanSlot ? (
+            {hasScanSlot || browseTab ? (
               <RailTabs
                 label="列表来源"
                 value={leftTab}
                 onChange={setLeftTab}
                 options={[
+                  ...(browseTab && activeBrowse
+                    ? [
+                        {
+                          value: "browse" as const,
+                          label: `${activeBrowse.label} (${activeBrowse.symbols.length})`,
+                        },
+                      ]
+                    : []),
                   {
-                    value: "watch",
+                    value: "watch" as const,
                     label: `我的自选 (${watchReady ? watchlist.length : "—"})`,
                   },
-                  { value: "scan", label: "扫描候选" },
+                  ...(hasScanSlot
+                    ? [{ value: "scan" as const, label: "扫描候选" }]
+                    : []),
                 ]}
               />
             ) : (
@@ -449,13 +567,88 @@ export function MarketView({
               <CaretLeft size={13} />
             </Button>
           </div>
-          <div className="min-h-0 flex-1 overflow-auto p-2">
+          <div
+            className={`min-h-0 flex-1 p-2 ${showingBrowse ? "flex" : "overflow-auto"}`}
+          >
+            {showingBrowse && activeBrowse && (
+              <div
+                role="region"
+                aria-label="当前临时列表"
+                className="flex min-h-0 min-w-0 flex-1 flex-col gap-2"
+              >
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <span
+                    className="min-w-0 flex-1 truncate text-xs font-medium text-nc-text-2"
+                    title={activeBrowse.label}
+                  >
+                    {activeBrowse.label}
+                  </span>
+                  <span className="shrink-0 text-[11px] tabular-nums text-nc-text-4">
+                    {activeBrowse.index + 1}/{activeBrowse.symbols.length}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="plain"
+                    type="button"
+                    className="shrink-0 px-1.5 text-xs text-nc-text-3 hover:text-nc-text"
+                    onClick={exitBrowse}
+                  >
+                    退出列表
+                  </Button>
+                </div>
+                <Input
+                  aria-label="搜索临时列表"
+                  placeholder="代码 / 名称"
+                  className="h-8 shrink-0"
+                  value={browseQuery}
+                  onChange={(event) => setBrowseQuery(event.target.value)}
+                />
+                <div className="min-h-0 space-y-0.5 overflow-y-auto max-[1024px]:max-h-[40vh]">
+                  {browseItems.map(({ sym, idx }) => {
+                    const active = idx === activeBrowse.index;
+                    return (
+                      <div
+                        key={`${sym}-${idx}`}
+                        ref={active ? browseActiveRef : null}
+                      >
+                        <Button
+                          type="button"
+                          variant="plain"
+                          aria-current={active || undefined}
+                          className={`flex w-full min-w-0 items-center gap-2 border-l-2 px-1.5 py-1 text-left ${
+                            active
+                              ? "border-nc-accent bg-nc-accent-soft/60"
+                              : "border-transparent hover:bg-nc-card"
+                          }`}
+                          onClick={() =>
+                            selectBrowse({ ...activeBrowse, index: idx })
+                          }
+                        >
+                          <span className="w-7 shrink-0 text-right text-[11px] tabular-nums text-nc-text-4">
+                            {idx + 1}
+                          </span>
+                          <SecurityCell
+                            name={securityDisplayName(sym, names)}
+                            code={sym.toUpperCase()}
+                          />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                  {!browseItems.length && (
+                    <p className="m-0 px-1 text-xs text-nc-text-4">
+                      没有匹配的标的
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
             {hasScanSlot && (
               <div hidden={leftTab !== "scan"}>{leftCandidatesSlot}</div>
             )}
             <div
               className="space-y-2"
-              hidden={hasScanSlot && leftTab === "scan"}
+              hidden={(hasScanSlot && leftTab === "scan") || showingBrowse}
             >
               {watchError && (
                 <p role="alert" className="text-xs text-nc-bad">
@@ -626,10 +819,7 @@ export function MarketView({
                   variant="plain"
                   type="button"
                   aria-label="退出列表翻股"
-                  onClick={() => {
-                    setBrowse(null);
-                    setBrowseEdge("");
-                  }}
+                  onClick={exitBrowse}
                 >
                   ×
                 </Button>
@@ -685,6 +875,35 @@ export function MarketView({
                 />
                 {watchActionLabel}
               </Button>
+              <ChartSimOrderDialog
+                open={simOrderOpen}
+                onOpenChange={setSimOrderOpen}
+                market="cn-equity"
+                symbol={chartSymbol}
+                displayName={securityDisplayName(
+                  chartSymbol,
+                  names,
+                  loaded?.name,
+                )}
+                referencePrice={simReferencePrice}
+                referencePriceSource={simReferencePriceSource}
+                referenceDate={loaded?.historicalAsOf ?? chartBar?.date}
+                trigger={
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={simOrderDisabled}
+                    title={
+                      simOrderDisabled
+                        ? "指数与板块暂不支持模拟下单"
+                        : undefined
+                    }
+                  >
+                    模拟下单
+                  </Button>
+                }
+              />
               {groups.length > 1 &&
                 loaded &&
                 !isSectorChartSymbol(loaded.symbol) &&

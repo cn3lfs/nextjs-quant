@@ -16,6 +16,7 @@ import Database from "better-sqlite3";
 import { marketRouter } from "~/server/api/routers/market";
 import { saveSettings, settings } from "~/server/infra/settings";
 import { MarketPanelStore } from "~/server/market/market-panel";
+import { getMarketPanelStatus } from "~/server/market/market-panel-job";
 import {
   calculateIndustryRotation,
   industryRotationRrg,
@@ -424,6 +425,7 @@ it("serves both queries from pinned read-only files, preserves gaps and never bu
   );
   const handle = await new MarketPanelStore(root).build();
   const id = handle.snapshotId;
+  const symbolsCount = handle.manifest.symbols.length;
   handle.close();
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date(last + "T16:00:00+08:00"));
@@ -440,6 +442,13 @@ it("serves both queries from pinned read-only files, preserves gaps and never bu
   const build = vi
     .spyOn(MarketPanelStore.prototype, "build")
     .mockRejectedValue(new Error("unexpected panel build"));
+  expect(getMarketPanelStatus(root)).toEqual({
+    ready: true,
+    snapshotId: id,
+    lastDate: last,
+    symbolsCount,
+    job: null,
+  });
   const query = { snapshotId: id, asOf: last };
   const t = await marketTemperature(query);
   expect(t.latest).toMatchObject({
@@ -493,9 +502,34 @@ it("serves both queries from pinned read-only files, preserves gaps and never bu
     snapshotId: id,
   });
   expect(snapshot(fixture)).toEqual(before);
-  vi.stubEnv("QUANT_DATA_DIR", join(fixture, "absent-data"));
-  expect((await marketTemperature()).provenance.snapshotId).toBeNull();
-  expect(existsSync(join(fixture, "absent-data"))).toBe(false);
+
+  vi.stubEnv("TDX_ROOT", root);
+  const absentData = join(fixture, "absent-data");
+  const missingPointerData = join(fixture, "missing-pointer-data");
+  mkdirSync(join(missingPointerData, "market-panel"), { recursive: true });
+  const beforeMissing = snapshot(fixture);
+  for (const panelData of [absentData, missingPointerData]) {
+    vi.stubEnv("QUANT_DATA_DIR", panelData);
+    expect(getMarketPanelStatus(root)).toEqual({
+      ready: false,
+      snapshotId: null,
+      lastDate: null,
+      symbolsCount: null,
+      job: null,
+    });
+    for (const read of [marketTemperature, industryRotationRrg]) {
+      const { provenance } = await read();
+      expect(provenance.snapshotId).toBeNull();
+      const warnings = provenance.warnings.join("\n");
+      expect(warnings).toContain("本地冻结行情面板尚未生成");
+      expect(warnings).not.toMatch(/\bENOENT\b|current\.json/i);
+      expect(warnings.replaceAll("\\", "/")).not.toContain(
+        fixture.replaceAll("\\", "/"),
+      );
+    }
+  }
+  expect(existsSync(absentData)).toBe(false);
+  expect(snapshot(fixture)).toEqual(beforeMissing);
   expect(build).not.toHaveBeenCalled();
   expect(network).not.toHaveBeenCalled();
   expect(socket).not.toHaveBeenCalled();

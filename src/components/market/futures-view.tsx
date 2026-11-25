@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { ChartWorkspace } from "./chart-workspace";
+import { ChartSimOrderDialog } from "./chart-sim-order-dialog";
 import { usePanelVisible } from "../workbench/keep-alive";
 import {
   Dialog,
@@ -43,10 +44,11 @@ import {
 
 /**
  * 资源期货: a fixed list of major commodity contracts (Eastmoney continuous /
- * main contracts), browse-only and separate from the A-share view.
+ * main contracts), with a separate local futures simulation ledger.
  */
 export function FuturesView() {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [simOrderOpen, setSimOrderOpen] = useState(false);
   const [sourceNotice, setSourceNotice] = useState("");
   const [period, setPeriod] = useState<ChartPeriod>("day");
   const [source, setSource] = useState<FuturesSource>("auto");
@@ -258,6 +260,26 @@ export function FuturesView() {
                 </Button>
               ))}
           </div>
+          <ChartSimOrderDialog
+            open={simOrderOpen}
+            onOpenChange={setSimOrderOpen}
+            market="futures"
+            symbol={symbol}
+            displayName={contract.name}
+            referencePrice={
+              (loaded?.symbol === symbol
+                ? loaded.bars.at(-1)?.close
+                : undefined) ??
+              quoteOf(symbol)?.close ??
+              null
+            }
+            pricePrecision={contract.precision}
+            trigger={
+              <Button type="button" size="sm" variant="outline">
+                模拟下单
+              </Button>
+            }
+          />
         </div>
         {sourceNotice && (
           <p role="status" className="px-4 py-2 text-[13px] text-nc-warn">
@@ -297,7 +319,8 @@ export function FuturesView() {
         )}
         <div className="source-line">
           价格单位 {chartContract.unit} · 连续/主连未做换月调整 ·
-          自动按适用来源依次读取；手动选源失败不切换。新浪境外日线不提供成交量，国内主连可能滞后一日。本页仅浏览。
+          自动按适用来源依次读取；手动选源失败不切换。新浪境外日线不提供成交量，国内主连可能滞后一日。支持本地期货模拟下单（T+0
+          双向保证金模拟，非实盘委托）。
         </div>
       </section>
       <div className="nc-futures-macro">

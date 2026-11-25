@@ -16,6 +16,8 @@ export type FuturesContract = {
   name: string;
   exchange: string;
   unit: string;
+  /** Quantity in the displayed quote unit for one lot. */
+  contractMultiplier: number;
   group: FuturesGroup;
   precision: number;
   /** Sina daily-kline fallback; `scale` converts Sina's quote unit to ours. */
@@ -25,6 +27,7 @@ export type FuturesContract = {
 export const futuresContracts: readonly FuturesContract[] = [
   {
     symbol: "fuGC00Y",
+    contractMultiplier: 100,
     yahoo: "GC=F",
     secid: "101.GC00Y",
     name: "COMEX 黄金",
@@ -36,6 +39,7 @@ export const futuresContracts: readonly FuturesContract[] = [
   },
   {
     symbol: "fuAUM",
+    contractMultiplier: 1000,
     secid: "113.aum",
     name: "沪金主连",
     exchange: "上期所",
@@ -46,6 +50,7 @@ export const futuresContracts: readonly FuturesContract[] = [
   },
   {
     symbol: "fuSI00Y",
+    contractMultiplier: 5000,
     yahoo: "SI=F",
     secid: "101.SI00Y",
     name: "COMEX 白银",
@@ -57,6 +62,7 @@ export const futuresContracts: readonly FuturesContract[] = [
   },
   {
     symbol: "fuAGM",
+    contractMultiplier: 15,
     secid: "113.agm",
     name: "沪银主连",
     exchange: "上期所",
@@ -67,6 +73,7 @@ export const futuresContracts: readonly FuturesContract[] = [
   },
   {
     symbol: "fuHG00Y",
+    contractMultiplier: 25000,
     yahoo: "HG=F",
     secid: "101.HG00Y",
     name: "COMEX 铜",
@@ -78,6 +85,7 @@ export const futuresContracts: readonly FuturesContract[] = [
   },
   {
     symbol: "fuCUM",
+    contractMultiplier: 5,
     secid: "113.cum",
     name: "沪铜主连",
     exchange: "上期所",
@@ -88,6 +96,7 @@ export const futuresContracts: readonly FuturesContract[] = [
   },
   {
     symbol: "fuALM",
+    contractMultiplier: 5,
     secid: "113.alm",
     name: "沪铝主连",
     exchange: "上期所",
@@ -98,15 +107,17 @@ export const futuresContracts: readonly FuturesContract[] = [
   },
   {
     symbol: "fuALI",
+    contractMultiplier: 25,
     yahoo: "ALI=F",
     name: "COMEX 铝",
     exchange: "COMEX",
     unit: "美元/吨",
     group: "基本金属",
-    precision: 1,
+    precision: 2,
   },
   {
     symbol: "fuRBM",
+    contractMultiplier: 10,
     secid: "113.rbm",
     name: "螺纹钢主连",
     exchange: "上期所",
@@ -117,6 +128,7 @@ export const futuresContracts: readonly FuturesContract[] = [
   },
   {
     symbol: "fuIM",
+    contractMultiplier: 100,
     secid: "114.im",
     name: "铁矿石主连",
     exchange: "大商所",
@@ -129,6 +141,7 @@ export const futuresContracts: readonly FuturesContract[] = [
     // Eastmoney's `jmm` is coking coal and `jm` is coke (the reverse of the
     // exchange product codes JM / J).
     symbol: "fuJMM",
+    contractMultiplier: 60,
     secid: "114.jmm",
     name: "焦煤主连",
     exchange: "大商所",
@@ -139,6 +152,7 @@ export const futuresContracts: readonly FuturesContract[] = [
   },
   {
     symbol: "fuJM",
+    contractMultiplier: 100,
     secid: "114.jm",
     name: "焦炭主连",
     exchange: "大商所",
@@ -149,6 +163,7 @@ export const futuresContracts: readonly FuturesContract[] = [
   },
   {
     symbol: "fuCL00Y",
+    contractMultiplier: 1000,
     yahoo: "CL=F",
     secid: "102.CL00Y",
     name: "WTI 原油",
@@ -160,6 +175,7 @@ export const futuresContracts: readonly FuturesContract[] = [
   },
   {
     symbol: "fuB00Y",
+    contractMultiplier: 1000,
     yahoo: "BZ=F",
     secid: "112.B00Y",
     name: "布伦特原油",
@@ -171,6 +187,7 @@ export const futuresContracts: readonly FuturesContract[] = [
   },
   {
     symbol: "fuSCM",
+    contractMultiplier: 1000,
     secid: "142.scm",
     name: "上海原油主连",
     exchange: "上期能源",

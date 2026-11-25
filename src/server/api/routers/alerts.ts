@@ -18,6 +18,7 @@ import {
   workspaceCandidate,
 } from "../../alerts/workspace";
 import { equityDailyReadiness } from "../../alerts/readiness";
+import { enrichCandidatePageWithMetrics } from "../../alerts/candidate-metrics";
 import { alertKey, type AlertEvent } from "~/lib/strategy-facts/alerts";
 import type { Snapshot } from "~/lib/domain";
 import { createTRPCRouter, capabilityProcedure as p } from "../trpc";
@@ -161,8 +162,9 @@ export const alertsRouter = createTRPCRouter({
         book.positions,
         scan,
       );
+      const page = await enrichCandidatePageWithMetrics(result, config, now);
       assertCurrent();
-      return result;
+      return page;
     }),
   workspaceCandidate: p("alerts", "read")
     .input(z.string().min(1).max(1000))

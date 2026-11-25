@@ -1,5 +1,5 @@
 import Database from "better-sqlite3";
-import { createElement, type ReactNode } from "react";
+import { createElement, type ComponentProps, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { StrategyObjectInput } from "trading-strategies";
@@ -103,6 +103,39 @@ beforeEach(() => {
 });
 
 afterEach(() => db.close());
+
+function candidateRow(reason?: string) {
+  const event = makeEvent(lowZoneStrategy, "sh600000", reason);
+  repo.saveState(
+    `candidate-scan:${event.market}:${event.strategyId}:${event.version}`,
+    {
+      bar: event.bar,
+      period: lowZoneStrategy.period,
+      observedAt: event.observedAt,
+    },
+  );
+  repo.record(lowZoneStrategy, event);
+  const [row] = workspaceCandidates({ page: 0 }, repo, now).items;
+  expect(row?.key).toBe(event.key);
+  return row!;
+}
+
+function cellText(markup = "") {
+  return markup.replace(/<[^>]*>/g, "").trim();
+}
+
+function renderCandidateColumns(props: ComponentProps<typeof CandidateTable>) {
+  const html = renderToStaticMarkup(createElement(CandidateTable, props));
+  const headers = Array.from(
+    html.matchAll(/<th\b[^>]*>.*?<\/th>/gs),
+    ([cell]) => cellText(cell),
+  );
+  const cells = Array.from(
+    html.matchAll(/<td\b[^>]*>.*?<\/td>/gs),
+    ([cell]) => cell,
+  );
+  return new Map(headers.map((header, index) => [header, cells[index]]));
+}
 
 describe("universal risk control", () => {
   it("falls back to default capital and market risk for unallocated sleeves without throwing", () => {
@@ -256,6 +289,127 @@ describe("candidate selection method & trigger summary", () => {
     );
     expect(html).toMatch(
       /<a\s+href="\/scan\?[^"]*symbol=sh600001[^"]*">sh600001 · 打开图表<\/a>/,
+    );
+  });
+});
+
+describe("CandidateTable columns", () => {
+  it("separates the symbol, strategy, and truncated trade reason with the full reason in its hover title", () => {
+    const evidence = "回踩长期支撑后连续三个交易日缩量企稳并重新站上短期均线";
+    const fullReason = `长周期价格处于历史低分位且深度回撤后企稳修复（价格分位 0.08 · 回撤 0.35 · ${evidence}）`;
+    const row = candidateRow(
+      `收盘扫描：明日计划候选；入场条件通过；价格分位 0.08 / 回撤 0.35；${evidence}`,
+    );
+    const columns = renderCandidateColumns({ data: [row], total: 1 });
+
+    expect([...columns.keys()]).toEqual([
+      "标的",
+      "对应策略",
+      "交易理由",
+      "当前价 / EMA5 / EMA20",
+      "入场 / 止损 / 目标",
+      "建议数量",
+      "RPS20",
+      "成绩单状态",
+    ]);
+    expect(columns.has("标的 / 来源策略")).toBe(false);
+    const symbol = cellText(columns.get("标的"));
+    const strategy = cellText(columns.get("对应策略"));
+    const reasonCell = columns.get("交易理由");
+    const reason = cellText(reasonCell);
+    expect(symbol).toContain("sh600000 · 打开图表");
+    expect(symbol).not.toContain("【历史低位】");
+    expect(symbol).not.toContain(evidence);
+    expect(strategy).toContain("【历史低位】");
+    expect(strategy).not.toContain("打开图表");
+    expect(strategy).not.toContain(evidence);
+    expect(reason).toContain(fullReason);
+    expect(reason).not.toContain("sh600000");
+    expect(reason).not.toContain("【历史低位】");
+    const trigger = reasonCell?.match(
+      /<span\b[^>]*\btitle="入选依据：[^"]+"[^>]*>/,
+    )?.[0];
+    expect(trigger).toContain(`title="入选依据：${fullReason}"`);
+    expect(trigger?.match(/\bclass="([^"]*)"/)?.[1]?.split(/\s+/)).toContain(
+      "truncate",
+    );
+  });
+
+  const localMetrics = {
+    currentPrice: 11.236,
+    ema5: 10.987,
+    ema20: 9.432,
+    asOfDate: "2026-11-24",
+    priceBasis: "close",
+    adjustment: "forward",
+    quoteTime: null,
+  } as const;
+
+  it.each([
+    {
+      scenario: "formats the local close and both daily EMAs to two decimals",
+      marketMetrics: localMetrics,
+      liveQuotes: undefined,
+      priceText: "11.24 / 10.99 / 9.43",
+    },
+    {
+      scenario: "keeps the local close when the live quote is from an older day",
+      marketMetrics: localMetrics,
+      liveQuotes: {
+        sh600000: { price: 12.3456, quoteTime: "2026-11-20 15:00:00" },
+      },
+      priceText: "11.24 / 10.99 / 9.43",
+    },
+    {
+      scenario: "keeps the dated local close when the live quote has only a time",
+      marketMetrics: localMetrics,
+      liveQuotes: {
+        sh600000: { price: 12.3456, quoteTime: "14:30:00" },
+      },
+      priceText: "11.24 / 10.99 / 9.43",
+    },
+    {
+      scenario: "uses the time-only live quote when the local close is missing",
+      marketMetrics: { ...localMetrics, currentPrice: null },
+      liveQuotes: {
+        sh600000: { price: 12.3456, quoteTime: "14:30:00" },
+      },
+      priceText: "12.35 / 10.99 / 9.43",
+    },
+    {
+      scenario: "uses the same-day live quote and keeps both daily EMAs",
+      marketMetrics: localMetrics,
+      liveQuotes: {
+        sh600000: { price: 12.3456, quoteTime: "2026-11-24 15:00:00" },
+      },
+      priceText: "12.35 / 10.99 / 9.43",
+    },
+    {
+      scenario: "uses a newer live quote and keeps both daily EMAs",
+      marketMetrics: localMetrics,
+      liveQuotes: {
+        sh600000: { price: 12.3456, quoteTime: "2026-11-25 10:30:00" },
+      },
+      priceText: "12.35 / 10.99 / 9.43",
+    },
+    {
+      scenario:
+        "shows three placeholders when only the historical entry price is available",
+      marketMetrics: null,
+      liveQuotes: undefined,
+      priceText: "— / — / —",
+    },
+  ])("$scenario", ({ marketMetrics, liveQuotes, priceText }) => {
+    const row = { ...candidateRow(), marketMetrics };
+    const columns = renderCandidateColumns({
+      data: [row],
+      total: 1,
+      liveQuotes,
+    });
+
+    expect(cellText(columns.get("当前价 / EMA5 / EMA20"))).toBe(priceText);
+    expect(cellText(columns.get("入场 / 止损 / 目标"))).toBe(
+      "10.00 / 9.00 / 13.00",
     );
   });
 });

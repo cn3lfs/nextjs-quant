@@ -16,6 +16,11 @@ import type { IntelEvent } from "~/lib/news/intel-events";
 import { useScreenVisible } from "../../workbench/use-task-visible";
 import { useCzscSettings } from "~/lib/stores/czsc-settings-store";
 import { czscEffectiveSettings } from "~/lib/chart/czsc-settings";
+import {
+  breakoutAnalysisOptionsFromSettings,
+  breakoutFilterFromSettings,
+} from "~/lib/chart/overlay-settings";
+import { useOverlaySettings } from "~/lib/stores/overlay-settings-store";
 import { MarketChart, type ChartAnnotationVisibility } from "./market-chart";
 
 export function CzscMarketChart({
@@ -106,8 +111,19 @@ export function CzscMarketChart({
   // A hidden kept-alive panel defers the structure analysis until shown.
   const visible = useScreenVisible();
   const annotationsReady = visible && paintedSnapshot === snapshotId;
-  const czscSettings = useCzscSettings();
-  const { values: czscValues, showStroke, showSegment } = czscSettings;
+  const {
+    values: czscValues,
+    showStroke,
+    showSegment,
+    showSegmentCenters,
+    showSegmentSignals,
+  } = useCzscSettings();
+  const breakoutSettings = useOverlaySettings((state) => state.breakout);
+  const patternSettings = useOverlaySettings((state) => state.patternBreakout);
+  const breakoutFilter = useMemo(
+    () => breakoutFilterFromSettings(breakoutSettings),
+    [breakoutSettings],
+  );
   // The schema's dependency rules fix or drop inapplicable fields before the
   // DLL sees them, so a stale combination never fails the whole overlay.
   const czscSchema = api.czscSchema.useQuery(undefined, {
@@ -132,14 +148,34 @@ export function CzscMarketChart({
     () =>
       result.data && {
         ...result.data,
-        families: result.data.families.filter((f) =>
-          f.config === 0 ? showStroke : showSegment,
-        ),
+        families: result.data.families.flatMap((family) => {
+          if (family.config === 0) return showStroke ? [family] : [];
+          if (!showSegment && !showSegmentCenters && !showSegmentSignals)
+            return [];
+          return [
+            {
+              ...family,
+              points: showSegment ? family.points : [],
+              centers: showSegmentCenters ? family.centers : [],
+              signals: showSegmentSignals ? family.signals : [],
+            },
+          ];
+        }),
       },
-    [result.data, showStroke, showSegment],
+    [
+      result.data,
+      showStroke,
+      showSegment,
+      showSegmentCenters,
+      showSegmentSignals,
+    ],
   );
   const breakout = api.breakout.useQuery(
-    { snapshotId, chartSnapshot },
+    {
+      snapshotId,
+      chartSnapshot,
+      options: breakoutAnalysisOptionsFromSettings(breakoutSettings),
+    },
     {
       enabled:
         annotationsReady &&
@@ -151,7 +187,16 @@ export function CzscMarketChart({
     },
   );
   const patternBreakout = api.patternBreakout.useQuery(
-    { snapshotId, chartSnapshot },
+    {
+      snapshotId,
+      chartSnapshot,
+      options: {
+        kinds: patternSettings.kinds,
+        direction: patternSettings.direction,
+        minVolumeRatio: patternSettings.minVolumeRatio,
+        minScore: patternSettings.minScore,
+      },
+    },
     {
       enabled:
         annotationsReady &&
@@ -196,6 +241,7 @@ export function CzscMarketChart({
       breakout={
         annotations && annotationVisibility.breakout ? breakout.data : undefined
       }
+      breakoutFilter={breakoutFilter}
       breakoutMessage={
         !annotationsReady || !annotations || !annotationVisibility.breakout
           ? undefined
@@ -210,6 +256,7 @@ export function CzscMarketChart({
           ? patternBreakout.data
           : undefined
       }
+      showAllPatternGeometry={patternSettings.showAllGeometry}
       patternBreakoutMessage={
         !annotationsReady || !annotations || !annotationVisibility.patterns
           ? undefined

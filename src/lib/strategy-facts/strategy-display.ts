@@ -1,4 +1,5 @@
 import { formatNumber } from "trading-strategy-core/format-number";
+import { alertDisplayCopy } from "~/lib/common/ui-glossary";
 import type { AlertEvent } from "./alerts";
 
 const families = new Map([
@@ -21,9 +22,9 @@ const periods = new Map([
   ["day", "日线"],
 ]);
 const exits = new Map([
-  ["atr", "ATR止损"],
-  ["trailing", "移动止损"],
-  ["time", "定时退出"],
+  ["atr", "ATR止损出场"],
+  ["trailing", "移动止损出场"],
+  ["time", "定时出场"],
 ]);
 const structuredId =
   /^r2a?-(?:cn-equity|crypto)-([a-z-]+?)(?:-(15m|1h|4h|day))?(?:-(atr|trailing|time))?(?:-sizing-(equal|volatility))?(?:-neighbor-(?:(entry)-)?(90|110))?$/;
@@ -39,8 +40,9 @@ export function strategyDisplayName(
   const [, family, period, exit, sizing, entryNeighbor, neighbor] = match;
   const name = families.get(family!);
   if (!name) return strategyId;
-  const parts = [period ? `${name} ${periods.get(period)}` : name];
-  if (exit) parts.push(exits.get(exit)!);
+  const method = period ? `${name} ${periods.get(period)}` : name;
+  const exitRule = exit ? `（${exits.get(exit)!}）` : "";
+  const parts = [method + exitRule];
   if (sizing) parts.push(sizing === "equal" ? "等权" : "波动率");
   const suffix = neighbor
     ? `（${entryNeighbor ? "入场参数" : "参数"}${neighbor === "90" ? "-10%" : "+10%"}）`
@@ -145,7 +147,7 @@ export function formatAlertReason(event: ReasonEvent): string {
       }
     }
   }
-  return parts.join(" · ");
+  return alertDisplayCopy(parts.join(" · "));
 }
 
 export type StrategyMethodInfo = {

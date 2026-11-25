@@ -39,7 +39,7 @@ export function AlertSettings({
     <section aria-label="提醒引擎设置" className="space-y-3 rounded border p-4">
       <h2>统一提醒与通用风控</h2>
       <p className="text-xs text-nc-text-3">
-        默认影子模式：求值并记录本应发送的提醒。开启后仅向已启用订阅投递，始终须人工交易。修改后点击上方保存设置。
+        默认空跑观察（只记录信号，不推送或下单）。开启正式提醒后，仅向已启用的订阅推送，交易仍须人工执行。修改后点击上方保存设置。
       </p>
       <p>
         提醒模式：{alertModeLabels[value.mode]}。

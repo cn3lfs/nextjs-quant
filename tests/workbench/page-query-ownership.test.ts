@@ -22,34 +22,43 @@ vi.mock("~/components/market/use-quote-session", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: new Proxy(
-    {},
     {
-      get: (_, name: string) => ({
-        useQuery: (
-          _input: unknown,
-          options?: { enabled?: boolean; refetchInterval?: unknown },
-        ) => {
-          rpc.queries.push({
-            name,
-            enabled: options?.enabled !== false,
-            interval: options?.refetchInterval,
-          });
-          return {
-            data:
-              name === "reportHistory"
-                ? {
-                    items: [
-                      {
-                        id: "report-fixture",
-                        createdAt: 1,
-                        securityContext: { symbol: "sh600000" },
-                      },
-                    ],
-                  }
-                : undefined,
-          };
-        },
+      useUtils: () => ({
+        marketTemperature: { invalidate: vi.fn() },
+        industryRotationRrg: { invalidate: vi.fn() },
       }),
+    },
+    {
+      get(target, name: string) {
+        if (name === "useUtils") return target.useUtils;
+        return {
+          useMutation: () => ({ isPending: false, mutate: vi.fn() }),
+          useQuery: (
+            _input: unknown,
+            options?: { enabled?: boolean; refetchInterval?: unknown },
+          ) => {
+            rpc.queries.push({
+              name,
+              enabled: options?.enabled !== false,
+              interval: options?.refetchInterval,
+            });
+            return {
+              data:
+                name === "reportHistory"
+                  ? {
+                      items: [
+                        {
+                          id: "report-fixture",
+                          createdAt: 1,
+                          securityContext: { symbol: "sh600000" },
+                        },
+                      ],
+                    }
+                  : undefined,
+            };
+          },
+        };
+      },
     },
   ),
 }));

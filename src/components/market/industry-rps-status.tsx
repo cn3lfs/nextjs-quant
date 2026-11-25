@@ -42,7 +42,7 @@ export function IndustryRpsStatus({
           <p className="font-medium">
             最近行业结果：{latest.date} ·{" "}
             {latest.mode === "backfill"
-              ? "回填（成分漂移 / 生存者偏差）"
+              ? "回填数据"
               : "向前新增（当次成分快照）"}
             ；行业数 {latest.total}
           </p>

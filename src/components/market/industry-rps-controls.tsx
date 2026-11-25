@@ -1,33 +1,41 @@
 "use client";
-import { formatNumber } from "trading-strategy-core/format-number";
-
 import Link from "next/link";
-import { rpsGroupExclusions, rpsPeriods } from "quant-rps";
+import { formatNumber as displayNumber } from "trading-strategy-core/format-number";
 
-import { useEffect, useRef, useState } from "react";
+import { rpsPeriods } from "quant-rps";
+
+import { Popover as PopoverPrimitive } from "radix-ui";
+import { Activity, useEffect, useRef, useState } from "react";
 import {
   nextTableSort,
   sortingState,
   type TableSort,
 } from "~/lib/common/server-sort";
-import { api } from "~/trpc/react";
-import { industryEmptyLabels } from "~/lib/screening/industry-rps";
+import { api, type RouterOutputs } from "~/trpc/react";
 import { rpsPeriodLabel } from "~/lib/screening/rps";
 import {
   rpsConditionsLabel,
   type RpsCondition,
 } from "~/lib/screening/rps-conditions";
 import {
-  IndustryRpsStatus,
-  industryExclusionLabels,
-} from "./industry-rps-status";
+  defaultRpsTablePeriods,
+  rpsSortColumnId,
+} from "~/lib/market/market-pool";
 import { RpsConditionEditor } from "./rps-condition-editor";
 import { Button } from "../ui/button";
+import { Checkbox } from "../ui/checkbox";
 import { Input } from "../ui/input";
 import { useAccumulatedPages, useTablePage } from "../ui/use-infinite-table";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
 import { PoolMembersLink } from "./pool-members-link";
 import { usePanelVisible } from "../workbench/keep-alive";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import {
+  FilterDivider,
+  FilterGroup,
+  FilterToolbar,
+  MethodologyPopover,
+} from "../panels";
 import {
   Select,
   SelectContent,
@@ -35,11 +43,90 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import type { RouterOutputs } from "~/trpc/react";
 
 type Row = RouterOutputs["industryRpsPage"]["rows"][number];
 const rowKey = (row: Row) => row.name;
-function columns(conditions: RpsCondition[]): DataTableColumn<Row>[] {
+
+export function SectorRpsConditionPopover({
+  conditions,
+  onChange,
+}: {
+  conditions: RpsCondition[];
+  onChange: (conditions: RpsCondition[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  function apply(next: RpsCondition[]) {
+    onChange(next);
+    setOpen(false);
+  }
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant={conditions.length ? "default" : "outline"} size="sm">
+          RPS 条件{conditions.length ? ` · ${conditions.length}` : ""}
+        </Button>
+      </PopoverTrigger>
+      <PopoverPrimitive.Portal forceMount>
+        {/* Keep the editor draft when the popover closes, and suspend its focus effects. */}
+        <Activity mode={open ? "visible" : "hidden"}>
+          <PopoverPrimitive.Content
+            align="start"
+            sideOffset={8}
+            collisionPadding={12}
+            className="z-50 max-h-[var(--radix-popover-content-available-height)] w-96 max-w-[calc(100vw-24px)] overflow-auto rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-md outline-none"
+          >
+            <RpsConditionEditor
+              applied={conditions}
+              onApply={apply}
+              onClear={() => apply([])}
+            />
+          </PopoverPrimitive.Content>
+        </Activity>
+      </PopoverPrimitive.Portal>
+    </Popover>
+  );
+}
+
+/** Primary and sorted periods stay visible so a ranking column cannot be hidden. */
+function mergeRpsColumns(
+  columns: readonly number[],
+  period: number,
+  sortedPeriod: number | undefined,
+) {
+  const allowed = new Set<number>(rpsPeriods);
+  const merged = new Set<number>();
+  for (const value of columns) if (allowed.has(value)) merged.add(value);
+  merged.add(period);
+  if (sortedPeriod !== undefined) merged.add(sortedPeriod);
+  return [...merged].sort((a, b) => a - b);
+}
+
+const industryRpsMethodology = [
+  {
+    label: "涨幅口径",
+    detail:
+      "行业涨幅取成分股后复权涨幅的等权平均，数值与通达信行业指数的加权方式不同。",
+  },
+  {
+    label: "排名",
+    detail: "RPS 为行业之间的横截面分位（0–100）；条件过滤不重新排名。",
+  },
+  {
+    label: "证券范围",
+    detail: "按当前板块成分计算，自动剔除 ST 和 *ST。",
+  },
+  {
+    label: "保留",
+    detail: "保留最近 750 个结果日。",
+  },
+];
+
+function columns(
+  period: number,
+  displayedPeriods: readonly number[],
+  sortedPeriod: number | undefined,
+  conditions: RpsCondition[],
+): DataTableColumn<Row>[] {
   return [
     {
       id: "name",
@@ -52,32 +139,34 @@ function columns(conditions: RpsCondition[]): DataTableColumn<Row>[] {
     {
       id: "rank",
       enableSorting: true,
-      header: "排名 / RPS / 等权涨幅",
+      header: `RPS${period} 排名`,
+      cell: ({ row }) => row.original.value?.rank ?? "—",
+    },
+    ...displayedPeriods.map((p): DataTableColumn<Row> => ({
+      // The primary period keeps the plain "rps" id so the server's default
+      // rank sort stays highlighted; other periods sort by their own column.
+      id: p === period && p !== sortedPeriod ? "rps" : rpsSortColumnId(p),
+      enableSorting: true,
+      header: `RPS${p}`,
       cell: ({ row }) => {
-        const v = row.original.value;
-        return v
-          ? `${v.rank} / ${formatNumber(v.rps, 2)} / ${formatNumber(v.return * 100, 2)}%`
-          : industryEmptyLabels[row.original.reason!];
+        const metric =
+          row.original.rpsValues?.[String(p)] ??
+          (p === period ? row.original.value : null);
+        return (
+          <span className="tabular-nums">
+            {displayNumber(metric?.rps, 2) ?? "—"}
+          </span>
+        );
       },
-    },
+    })),
     {
-      id: "members",
+      id: "return",
       enableSorting: true,
-      header: "成分 / 本周期有效 / 端点不足",
+      header: `${period}日等权涨幅`,
       cell: ({ row }) =>
-        `${row.original.total} / ${row.original.valid ?? "—"} / ${row.original.endpointMissing ?? "—"}`,
-    },
-    {
-      id: "excluded",
-      enableSorting: true,
-      header: "剔除原因及数量",
-      cell: ({ row }) =>
-        rpsGroupExclusions
-          .filter((k) => row.original.excluded[k])
-          .map(
-            (k) => `${industryExclusionLabels[k]} ${row.original.excluded[k]}`,
-          )
-          .join("；") || "无",
+        row.original.value
+          ? `${displayNumber(row.original.value.return * 100, 2)}%`
+          : "—",
     },
     ...(conditions.length
       ? [
@@ -90,7 +179,7 @@ function columns(conditions: RpsCondition[]): DataTableColumn<Row>[] {
                 {conditions
                   .map(
                     (condition) =>
-                      `${rpsPeriodLabel(condition.period)} ${formatNumber(
+                      `${rpsPeriodLabel(condition.period)} ${displayNumber(
                         row.original.conditionValues?.[String(condition.period)]
                           ?.rps,
                         2,
@@ -102,30 +191,21 @@ function columns(conditions: RpsCondition[]): DataTableColumn<Row>[] {
           } satisfies DataTableColumn<Row>,
         ]
       : []),
-    {
-      id: "source",
-      enableSorting: true,
-      header: "名单文件证据",
-      cell: ({ row }) => (
-        <details>
-          <summary>{row.original.file.file}</summary>
-          <p className="break-all">SHA256：{row.original.file.hash}</p>
-          <p>mtime：{new Date(row.original.file.mtimeMs).toISOString()}</p>
-        </details>
-      ),
-    },
   ];
 }
 
-/** Container owns requests; status and DataTable consume server-prepared props. */
+/** Container owns requests; the DataTable consumes server-prepared props. */
 export function IndustryRpsControls() {
-  const [root, setRoot] = useState<string>();
   const [message, setMessage] = useState("");
   const [date, setDate] = useState("");
+  const [search, setSearch] = useState("");
   const [period, setPeriod] = useState(20);
+  const [columnChoice, setColumnChoice] = useState<number[]>([
+    ...defaultRpsTablePeriods,
+  ]);
   const [conditions, setConditions] = useState<RpsCondition[]>([]);
   const [order, setOrder] = useState<TableSort>(null);
-  const resetKey = JSON.stringify([date, period, conditions, order]);
+  const resetKey = JSON.stringify([date, search, period, conditions, order]);
   const cursor = useTablePage(resetKey);
   const visible = usePanelVisible();
   const status = api.industryRpsStatus.useQuery(undefined, {
@@ -135,6 +215,7 @@ export function IndustryRpsControls() {
   const page = api.industryRpsPage.useQuery(
     {
       date: date || undefined,
+      search,
       period,
       conditions,
       page: cursor.pageIndex,
@@ -173,15 +254,6 @@ export function IndustryRpsControls() {
     void status.refetch();
     refresh();
   };
-  const configure = api.industryRpsConfigure.useMutation({
-    onSuccess,
-    onError,
-  });
-  const sourceConfigure = api.industryRpsSourceConfigure.useMutation({
-    onSuccess,
-    onError,
-  });
-  const inspect = api.industryRpsInspect.useMutation({ onError });
   const start = api.rpsStart.useMutation({ onSuccess, onError });
   const cancel = api.rpsCancel.useMutation({ onSuccess, onError });
   const running = status.data?.progress?.status === "running";
@@ -190,14 +262,9 @@ export function IndustryRpsControls() {
     if (wasRunning.current && !running) refresh();
     wasRunning.current = running;
   });
-  const directoryDirty = root !== undefined && root !== status.data?.root;
+  const ready = status.data?.ready && status.data.tdxConfigured !== false;
   const busy =
-    running ||
-    start.isPending ||
-    status.isPending ||
-    status.isError ||
-    configure.isPending ||
-    sourceConfigure.isPending;
+    running || start.isPending || status.isPending || status.isError || !ready;
   const conditionUnavailable =
     conditions.length > 0 && confirmed
       ? confirmed.day === null ||
@@ -210,73 +277,28 @@ export function IndustryRpsControls() {
     .filter((condition) => condition.periodMissing)
     .map((condition) => rpsPeriodLabel(condition.period))
     .join("、");
+  const sortedPeriod = rpsPeriods.find((p) => order?.id === rpsSortColumnId(p));
+  const displayedPeriods = mergeRpsColumns(columnChoice, period, sortedPeriod);
+  const toggleRpsPeriod = (target: number) =>
+    setColumnChoice(
+      displayedPeriods.includes(target)
+        ? displayedPeriods.filter((value) => value !== target)
+        : [...displayedPeriods, target],
+    );
   return (
-    <section className="space-y-4" aria-label="行业RPS数据管理">
-      {status.data?.tdxConfigured === false && (
+    <section className="space-y-3" aria-label="行业RPS数据管理">
+      {status.isSuccess && !ready && (
         <p className="text-sm text-muted-foreground">
-          行业和概念 RPS 需要通达信本地行情与证券范围。
+          板块成分来源或通达信目录尚未就绪。{" "}
           <Link href="/system" className="underline">
-            配置通达信目录
+            前往数据源设置配置
           </Link>
         </p>
       )}
-      <div className="grid gap-4 rounded-lg border border-border bg-card p-4 lg:grid-cols-2">
-        <label className="space-y-2 text-sm">
-          <span className="font-medium">板块成分来源</span>
-          <Select
-            value={status.data?.membershipSource ?? "blocks"}
-            disabled={busy}
-            onValueChange={(value) =>
-              sourceConfigure.mutate(value as "blocks" | "tdx")
-            }
-          >
-            <SelectTrigger aria-label="板块RPS成分来源">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="blocks">
-                外部 Blocks：申万行业 / 概念
-              </SelectItem>
-              <SelectItem value="tdx">通达信：研究一级行业 / 概念</SelectItem>
-            </SelectContent>
-          </Select>
-          <span className="block text-xs text-muted-foreground">
-            来源同时用于行业和概念的新批次，已完成的快照保持原来源。
-          </span>
-        </label>
-        <label className="space-y-2 text-sm">
-          <span className="font-medium">外部 Blocks 根目录</span>
-          <Input
-            value={root ?? status.data?.root ?? ""}
-            placeholder="外部 Blocks 根目录（绝对路径）"
-            onChange={(e) => setRoot(e.target.value)}
-          />
-          <span className="block text-xs text-muted-foreground">
-            选择外部来源时使用；目录只读。
-          </span>
-        </label>
-      </div>
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         <Button
+          size="sm"
           disabled={busy}
-          onClick={() => {
-            inspect.reset();
-            configure.mutate(root ?? status.data?.root ?? "");
-          }}
-        >
-          保存目录
-        </Button>
-        <Button
-          variant="outline"
-          disabled={
-            busy || directoryDirty || inspect.isPending || !status.data?.ready
-          }
-          onClick={() => inspect.mutate()}
-        >
-          核对当前文件变化
-        </Button>
-        <Button
-          disabled={busy || directoryDirty || !status.data?.ready}
           onClick={() =>
             start.mutate({ target: "industry", mode: "backfill", days: 250 })
           }
@@ -284,7 +306,8 @@ export function IndustryRpsControls() {
           回填行业最近250日
         </Button>
         <Button
-          disabled={busy || directoryDirty || !status.data?.ready}
+          size="sm"
+          disabled={busy}
           onClick={() =>
             start.mutate({ target: "industry", mode: "forward", days: 1 })
           }
@@ -292,119 +315,189 @@ export function IndustryRpsControls() {
           计算今日行业
         </Button>
         <Button
+          size="sm"
           variant="outline"
           disabled={!running || cancel.isPending}
           onClick={() => cancel.mutate()}
         >
-          取消当前RPS任务
+          取消任务
         </Button>
       </div>
       {message && <p role="status">{message}</p>}
-      {directoryDirty && <p>目录尚未保存，请先保存再核对或计算。</p>}
-      {status.isPending && <p role="status">读取行业状态…</p>}
       {status.isError && (
-        <p role="alert">
-          {status.error.message}
-          <Button onClick={() => void status.refetch()}>重试</Button>
-        </p>
+        <div role="alert" className="flex flex-wrap items-center gap-2">
+          读取失败：{status.error.message}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void status.refetch()}
+          >
+            重试
+          </Button>
+        </div>
       )}
-      {inspect.isPending && <p role="status">读取当前名单…</p>}
-      {inspect.data && (
-        <p className="break-all">
-          当前解析 {inspect.data.count} 个行业；
-          {inspect.data.baseline ? "相对最近已存快照" : "尚无已存快照基线"}
-          ：变更 {inspect.data.changed.join("、") || "无"}；新增{" "}
-          {inspect.data.added.join("、") || "无"}；缺失{" "}
-          {inspect.data.removed.join("、") || "无"}。快照hash：
-          {inspect.data.hash}
-        </p>
-      )}
-      <IndustryRpsStatus latest={status.data?.latest ?? null} />
-      <div className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3">
-        <label className="space-y-1 text-sm">
-          <span className="block">结果日期（留空为最近）</span>
+      <FilterToolbar label="行业 RPS 筛选">
+        <FilterGroup>
+          <Select
+            value={String(period)}
+            onValueChange={(value) => {
+              setPeriod(Number(value));
+            }}
+          >
+            <SelectTrigger
+              size="sm"
+              aria-label="行业RPS周期"
+              className="w-28 shrink-0"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {rpsPeriods.map((p) => (
+                <SelectItem key={p} value={String(p)}>
+                  {rpsPeriodLabel(p)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </FilterGroup>
+        <FilterGroup>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm">
+                RPS列 · {displayedPeriods.length}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              aria-label="选择显示的RPS列"
+              className="w-60 space-y-2"
+            >
+              <p className="text-sm font-medium">显示 RPS 列</p>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                {rpsPeriods.map((p) => (
+                  <label key={p} className="flex items-center gap-1.5 text-sm">
+                    <Checkbox
+                      checked={displayedPeriods.includes(p)}
+                      disabled={p === period || p === sortedPeriod}
+                      onCheckedChange={() => toggleRpsPeriod(p)}
+                    />
+                    RPS{p}
+                    {p === period ? " (主)" : ""}
+                  </label>
+                ))}
+              </div>
+              <div className="flex items-center gap-1 border-t border-border pt-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex-1"
+                  title="恢复默认列 RPS3/5/10/20/50"
+                  onClick={() => setColumnChoice([...defaultRpsTablePeriods])}
+                >
+                  默认
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex-1"
+                  title="显示全部 RPS 周期"
+                  onClick={() => setColumnChoice([...rpsPeriods])}
+                >
+                  全选
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </FilterGroup>
+        <FilterGroup>
+          <Input
+            className="h-8 w-40"
+            aria-label="搜索行业名称"
+            placeholder="搜行业名称"
+            maxLength={80}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </FilterGroup>
+        <FilterGroup>
           <Input
             type="date"
+            className="h-8 w-36"
+            aria-label="结果日期"
             value={date}
-            onChange={(e) => {
-              setDate(e.target.value);
-            }}
+            onChange={(e) => setDate(e.target.value)}
           />
-        </label>
-        <Select
-          value={String(period)}
-          onValueChange={(v) => {
-            setPeriod(Number(v));
-          }}
-        >
-          <SelectTrigger aria-label="行业RPS周期">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {rpsPeriods.map((p) => (
-              <SelectItem key={p} value={String(p)}>
-                {rpsPeriodLabel(p)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <RpsConditionEditor
-          applied={conditions}
-          onApply={(next) => {
-            setConditions(next);
-          }}
-          onClear={() => {
-            setConditions([]);
-          }}
+        </FilterGroup>
+        <SectorRpsConditionPopover
+          conditions={conditions}
+          onChange={setConditions}
         />
-      </div>
+        <FilterDivider />
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={page.isFetching}
+          onClick={refresh}
+        >
+          刷新
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={order === null}
+          onClick={() => setOrder(null)}
+        >
+          重置排序
+        </Button>
+        <div className="ml-auto shrink-0">
+          <MethodologyPopover
+            title="行业 RPS 口径"
+            items={industryRpsMethodology}
+          />
+        </div>
+      </FilterToolbar>
       <div
-        className="space-y-1 text-sm text-muted-foreground"
+        className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"
         role="status"
         aria-live="polite"
       >
-        <p>
+        <span>
           已生效条件：
           <span className="text-foreground">{appliedText}</span>
+        </span>
+        <span aria-hidden="true">·</span>
+        <span>
           {conditionUnavailable
-            ? null
+            ? "条件不可用"
             : confirmed
-              ? ` · 命中 ${confirmed.total} 个行业`
-              : " · 等待当前条件的成功查询结果"}
-        </p>
+              ? `命中 ${confirmed.total} 个行业`
+              : "等待当前条件的成功查询结果"}
+        </span>
+        {confirmed?.day && (
+          <>
+            <span aria-hidden="true">·</span>
+            <span>
+              RPS基准日：{confirmed.day.date} · 展示周期{" "}
+              {rpsPeriodLabel(period)} 排名基数：
+              {confirmed.day.count ?? "—"} ·{" "}
+              {confirmed.day.mode === "backfill" ? "回填数据" : "向前数据"}
+            </span>
+          </>
+        )}
         {confirmed?.conditions?.length ? (
-          <p>
+          <span>
             条件周期有效排名基数：
             {confirmed.conditions
               .map(
                 (condition) =>
-                  `${rpsPeriodLabel(condition.period)} ${
-                    condition.count === null ? "未计算" : condition.count
-                  }`,
+                  `${rpsPeriodLabel(condition.period)} ${condition.count ?? "未计算"}`,
               )
               .join(" / ")}
-            。各条件来自同一批次，过滤不重新排名。
-          </p>
+          </span>
         ) : null}
+        {page.isFetching && <span>正在刷新…</span>}
       </div>
-      {confirmed?.day && (
-        <p>
-          {confirmed.day.date} ·{" "}
-          {confirmed.day.mode === "backfill"
-            ? "回填（成分漂移 / 生存者偏差）"
-            : "向前新增（当次成分快照）"}{" "}
-          · 本周期排名基数 {confirmed.day.count}；按RPS降序，未排名行业置后。
-          分类：
-          {confirmed.day.classification === "tdx-research-level1"
-            ? "通达信研究一级行业"
-            : "申万行业"}
-          ；成分快照来源：{confirmed.day.root}；行情来源：
-          {confirmed.day.source.root}；{confirmed.day.source.calendar}
-          ；GBBQ覆盖至 {confirmed.day.source.actionsCoverage}。
-        </p>
-      )}
       <DataTable
-        columns={columns(conditions)}
+        columns={columns(period, displayedPeriods, sortedPeriod, conditions)}
         data={
           conditionUnavailable || (page.isError && cursor.pageIndex === 0)
             ? []
@@ -416,7 +509,7 @@ export function IndustryRpsControls() {
           setOrder(nextTableSort(updater, order));
         }}
         getRowId={rowKey}
-        label="行业RPS排名与成分审计"
+        label="行业RPS排名"
         loading={page.isFetching || page.isPending}
         error={page.error?.message}
         onRetry={() => void page.refetch()}

@@ -35,6 +35,7 @@ import {
 } from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
 import { cn } from "~/lib/common/classnames";
+import { alertDisplayCopy } from "~/lib/common/ui-glossary";
 import { chinaDate } from "~/lib/market/security-trading-status";
 import { api, type RouterInputs, type RouterOutputs } from "~/trpc/react";
 import { DeployStrategyDialog } from "./deploy-strategy-dialog";
@@ -59,8 +60,8 @@ const statusLabels: Record<DeploymentStatus, string> = {
 };
 
 const modeLabels: Record<ExecutionMode, string> = {
-  shadow: "影子观察",
-  manual_confirm: "手动确认",
+  shadow: "空跑观察",
+  manual_confirm: "人工确认",
   auto_sim: "自动模拟",
   auto_live: "自动实盘",
 };
@@ -115,16 +116,16 @@ const intentStatusLabels: Record<string, string> = {
 const signalActionLabels = { BUY: "买入", SELL: "卖出", HOLD: "持有" };
 
 const skipReasonLabels: Record<string, string> = {
-  "execution-mode-blocked": "影子观察模式不发送委托",
-  "shadow-mode": "影子观察模式不发送委托",
-  "manual-approval-required": "手动确认模式需要逐单审批",
+  "execution-mode-blocked": "空跑观察期间不发送委托",
+  "shadow-mode": "空跑观察期间不发送委托",
+  "manual-approval-required": "人工确认模式需要逐单审批",
   "kill-switch-off": "模拟盘自动下单总开关未开启",
   "live-kill-switch-off": "实盘自动下单总开关未开启",
   "deployment-inactive": "策略部署未启用",
   "execute-date-expired": "执行日期已过期",
   "pending-sell-phase": "卖单尚未全部进入终态",
   "execute-date-mismatch": "执行日期与运行不一致",
-  "manual-confirm-mode-required": "逐单执行仅用于手动确认模式",
+  "manual-confirm-mode-required": "逐单执行仅用于人工确认模式",
 };
 
 const stageSteps = [
@@ -484,7 +485,12 @@ function DeploymentCard({
                 : "text-nc-text-3",
             )}
           >
-            {updateMode.error?.message ?? runStep.error?.message ?? stepNotice}
+            {alertDisplayCopy(
+              updateMode.error?.message ??
+                runStep.error?.message ??
+                stepNotice ??
+                "",
+            )}
           </p>
         )}
         {deployment.pauseReason && deployment.status === "paused" && (
@@ -951,7 +957,9 @@ function RunView({
             approve.error || cancel.error ? "text-nc-bad" : "text-nc-text-3",
           )}
         >
-          {approve.error?.message ?? cancel.error?.message ?? notice}
+          {alertDisplayCopy(
+            approve.error?.message ?? cancel.error?.message ?? notice ?? "",
+          )}
         </p>
       )}
       {data.auditEvents.length > 0 && (
@@ -1113,7 +1121,7 @@ export function PipelineConsole() {
           </div>
         </div>
         <p className="m-0 text-[11px] text-nc-text-4">
-          模拟盘开关控制自动模拟。实盘开关开启时，点击「一键急停实盘」可阻止新的实盘委托，包括手动确认的实盘单。
+          模拟盘开关控制自动模拟。实盘开关开启时，点击「一键急停实盘」可阻止新的实盘委托，包括人工确认的实盘单。
         </p>
         {notice && (
           <p role="status" className="m-0 text-[11px] text-nc-text-3">
@@ -1224,7 +1232,7 @@ export function PipelineConsole() {
           <DialogHeader>
             <DialogTitle>开启实盘自动下单</DialogTitle>
             <DialogDescription>
-              开启后，自动实盘部署可在满足执行条件时发送真实委托，手动确认模式也可提交经审批的实盘单。请输入确认短语以继续。
+              开启后，自动实盘部署可在满足执行条件时发送真实委托，人工确认模式也可提交经审批的实盘单。请输入确认短语以继续。
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">

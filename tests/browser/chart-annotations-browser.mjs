@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { build } from "esbuild";
 import { createServer } from "node:http";
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 
 const stub = `import {useState,useEffect} from 'react';
 import fixture from './tests/fixtures/breakout-valid.json';
@@ -94,10 +94,24 @@ try {
     ),
     true,
   );
-  const breakout = page.getByRole("checkbox", { name: "双突破", exact: true });
-  const czsc = page.getByRole("checkbox", { name: "缠论结构", exact: true });
-  await breakout.uncheck();
-  await czsc.uncheck();
+  const breakout = page.getByRole("button", { name: "双突破", exact: true });
+  const czsc = page.getByRole("button", { name: "缠论结构", exact: true });
+  const gear = page.getByRole("button", { name: "缠论结构 参数", exact: true });
+  const dialog = page.getByRole("dialog", {
+    name: "缠论结构 · 输入",
+    exact: true,
+  });
+  await gear.click();
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(gear).toBeFocused();
+  assert.equal(await breakout.getAttribute("aria-pressed"), "true");
+  assert.equal(await czsc.getAttribute("aria-pressed"), "true");
+  await breakout.click();
+  await czsc.click();
+  assert.equal(await breakout.getAttribute("aria-pressed"), "false");
+  assert.equal(await czsc.getAttribute("aria-pressed"), "false");
   // Waiting for paints avoids mistaking a deferred request for a suppressed one.
   const settle = () =>
     page.evaluate(
@@ -112,12 +126,12 @@ try {
   assert.equal(
     await page.evaluate(() => window.queryOptions.breakout.enabled),
     false,
-    "unchecked breakout must disable its query",
+    "inactive breakout must disable its query",
   );
   assert.equal(
     await page.evaluate(() => window.queryOptions.czsc.enabled),
     false,
-    "unchecked Chan overlay must disable its query",
+    "inactive Chan overlay must disable its query",
   );
   await page.evaluate(() => window.chartFixture.setId("b"));
   await settle();
@@ -127,7 +141,7 @@ try {
     ),
     0,
   );
-  await breakout.check();
+  await breakout.click();
   await page.waitForFunction(() =>
     window.requests.some((r) => r.name === "breakout" && r.id === "b"),
   );
@@ -137,7 +151,7 @@ try {
     ),
     false,
   );
-  await czsc.check();
+  await czsc.click();
   await page.waitForFunction(() =>
     window.requests.some((r) => r.name === "czsc" && r.id === "b"),
   );
@@ -174,7 +188,7 @@ try {
   await page
     .getByText("双突破计算失败：fixture failure", { exact: true })
     .waitFor();
-  await breakout.uncheck();
+  await breakout.click();
   assert.equal(
     await page
       .getByText("双突破计算失败：fixture failure", { exact: true })

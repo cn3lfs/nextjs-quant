@@ -22,9 +22,9 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { skipToken } from "@tanstack/react-query";
 import { Rewind } from "@phosphor-icons/react/ssr";
-import { CzscSettingsDialog } from "./czsc-settings-dialog";
 import type { Snapshot } from "~/lib/domain";
 import { isMarketIndex } from "~/lib/market/market-indices";
+import { securityDisplayName } from "~/lib/market/security-display";
 import { isCryptoSymbol } from "~/lib/market/crypto";
 import type { IntelEvent } from "~/lib/news/intel-events";
 import {
@@ -263,7 +263,7 @@ function EditableChart({
   frozenEvidence?: boolean;
   /** The loaded snapshot is a saved formula candidate (选股当时快照). */
   frozenCandidate?: boolean;
-  /** Mount IntelAnnotations (chart markers + 图表新闻事件 box); crypto is off. */
+  /** Show the CLS news panel below the chart; crypto is off. */
   showIntelAnnotations?: boolean;
   chartMode?: ChartMode;
   onChartModeChange?: (mode: ChartMode) => void;
@@ -531,10 +531,15 @@ function EditableChart({
     });
   }, []);
   const names = api.securityNames.useQuery(undefined, {
-    enabled: visible && compareSymbols.length > 0,
+    enabled: visible && (showIntelAnnotations || compareSymbols.length > 0),
     staleTime: Infinity,
     retry: false,
   });
+  const newsName = securityDisplayName(
+    snapshot.symbol,
+    names.data ?? {},
+    snapshot.name,
+  );
   const compareQueries = api.useQueries((t) =>
     compareSymbols.map((symbol) =>
       t.compareBars(
@@ -1093,6 +1098,7 @@ function EditableChart({
       {showIntelAnnotations ? (
         <IntelAnnotations
           symbol={snapshot.symbol}
+          name={newsName === "名称待补全" ? undefined : newsName}
           bars={bars}
           render={renderPane}
         />
@@ -1132,7 +1138,6 @@ function EditableChart({
               </SelectContent>
             </Select>
             <span className="text-nc-text-3">十字光标在两图之间按时间对齐</span>
-            <CzscSettingsDialog />
           </div>
           {second && (
             <LinkedPeriodChart

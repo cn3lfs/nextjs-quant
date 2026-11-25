@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { Button } from "~/components/ui/button";
 import {
   Dialog,
@@ -100,9 +101,20 @@ function Row({
 }
 
 /** TradingView-style "输入" page, generated from the DLL configuration schema (api v22). */
-export function CzscSettingsDialog() {
+export function CzscSettingsDialog({
+  open,
+  onOpenChange,
+  hideTrigger = false,
+}: {
+  /** Controlled mode: the chart toolbar opens it from the indicator chip. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
+}) {
+  const returnFocus = useRef<HTMLElement | null>(null);
   const settings = useCzscSettings();
   const schema = api.czscSchema.useQuery(undefined, {
+    enabled: open !== false,
     staleTime: Infinity,
     retry: false,
   });
@@ -170,23 +182,33 @@ export function CzscSettingsDialog() {
       (f) => f.layer === layer && !hiddenFields.has(f.key),
     );
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" aria-label="缠论设置">
-          缠论设置
-        </Button>
-      </DialogTrigger>
+    <Dialog {...(open === undefined ? {} : { open, onOpenChange })}>
+      {!hideTrigger && (
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm" aria-label="缠论设置">
+            缠论设置
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent
         // Focus the dialog itself; auto-focusing the first info icon would pop its tooltip on open.
         onOpenAutoFocus={(event) => {
+          if (hideTrigger && document.activeElement instanceof HTMLElement)
+            returnFocus.current = document.activeElement;
           event.preventDefault();
           (event.currentTarget as HTMLElement).focus();
+        }}
+        onCloseAutoFocus={(event) => {
+          if (!hideTrigger || !returnFocus.current) return;
+          event.preventDefault();
+          returnFocus.current.focus();
+          returnFocus.current = null;
         }}
       >
         <DialogTitle>缠论结构 · 输入</DialogTitle>
         <DialogDescription>
           只作用于 K
-          线图，跨品种、跨周期共享；研究、监控与信号台账固定使用默认口径。
+          线图，跨品种、跨周期共享；默认对齐通达信实机口径（新笔、区间包络、修正前段、笔中枢服从所属线段、前三构件、仅显示标准一/二/三类买卖点）；研究、监控与信号台账固定使用默认口径。
         </DialogDescription>
         <TooltipProvider>
           <div className="space-y-3">
@@ -205,11 +227,25 @@ export function CzscSettingsDialog() {
                 onCheckedChange={(v) => settings.set({ showStroke: v })}
               />
             </Row>
-            <Row title="线段及线段中枢" notes={[]}>
+            <Row title="线段连线" notes={[]}>
               <Switch
-                aria-label="显示线段及线段中枢"
+                aria-label="显示线段连线"
                 checked={settings.showSegment}
                 onCheckedChange={(v) => settings.set({ showSegment: v })}
+              />
+            </Row>
+            <Row title="线段中枢" notes={[]}>
+              <Switch
+                aria-label="显示线段中枢"
+                checked={settings.showSegmentCenters}
+                onCheckedChange={(v) => settings.set({ showSegmentCenters: v })}
+              />
+            </Row>
+            <Row title="线段买卖点" notes={[]}>
+              <Switch
+                aria-label="显示线段买卖点"
+                checked={settings.showSegmentSignals}
+                onCheckedChange={(v) => settings.set({ showSegmentSignals: v })}
               />
             </Row>
             {visible(2).map(field)}

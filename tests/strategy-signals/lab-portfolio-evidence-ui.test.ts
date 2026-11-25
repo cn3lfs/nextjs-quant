@@ -72,7 +72,7 @@ it("offers explicit multi-file import and read-only evidence copy", () => {
   expect(html).toContain('aria-label="十持仓研究证据"');
   expect(html).toContain('aria-label="选择十持仓登记或检查点文件"');
   expect(html).toMatch(/type="file"[^>]*multiple=""/);
-  expect(html).toContain("不登记或晋级策略、不改变影子与 live");
+  expect(html).toContain("不登记或晋级策略、不改变空跑观察与正式提醒状态");
   expect(html).toContain("按哈希查看");
   expect(html).toContain("v3（完整执行依赖）");
   expect(html).not.toContain("theory-study-ten-3");

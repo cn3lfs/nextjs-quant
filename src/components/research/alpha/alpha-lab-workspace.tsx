@@ -172,22 +172,6 @@ export function AlphaLabWorkspace() {
 
   return (
     <PageGrid>
-      <div className="nc-span-12 flex flex-wrap items-center justify-end gap-2">
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={!deployReady}
-          onClick={() => setDeployOpen(true)}
-        >
-          部署到策略运行台
-        </Button>
-        {!deployReady && !busy && (
-          <span className="text-sub text-nc-text-4">
-            请先保存当前因子组合并填写有效的仓位参数。
-          </span>
-        )}
-      </div>
       <AlphaConfig
         draft={draft}
         onChange={(patch) => setDraft((current) => ({ ...current, ...patch }))}
@@ -252,8 +236,25 @@ export function AlphaLabWorkspace() {
       />
       <Panel
         title={result ? "评估任务" : "全市场截面评估"}
+        actions={
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7 min-h-0 px-2.5 py-0 text-xs!"
+            disabled={!deployReady}
+            onClick={() => setDeployOpen(true)}
+          >
+            部署到策略运行台
+          </Button>
+        }
         bodyClassName="space-y-2"
       >
+        {!deployReady && !busy && (
+          <p className="text-sub text-nc-text-4">
+            请先保存当前因子组合并填写有效的仓位参数。
+          </p>
+        )}
         {notice && (
           <p role="status" className="text-sm text-nc-text-2">
             {notice}

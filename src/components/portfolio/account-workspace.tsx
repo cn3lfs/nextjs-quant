@@ -6,7 +6,7 @@ import {
 } from "~/lib/portfolio/account-workspace";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { AccountRiskPanel } from "./account-risk-panel";
-import { SimAccountsPanel } from "./sim-accounts-panel";
+import { ParallelAccountsHub } from "./parallel-accounts-hub";
 import { TradeLedgerPanel } from "./trade-ledger-panel";
 import { WeeklyReview } from "./account-review-panels";
 import { AccountTrades } from "./account-workspace/account-trades";
@@ -65,7 +65,7 @@ function AccountWorkspaceContent({
 }) {
   if (tab === "ledger") return <TradeLedgerPanel />;
   if (tab === "trades") return <AccountTrades />;
-  if (tab === "paper") return <SimAccountsPanel />;
+  if (tab === "paper") return <ParallelAccountsHub />;
   if (tab === "attribution") return <AccountAttribution />;
   if (tab === "monthly") return <MonthlyReview />;
   if (tab === "weekly") return <WeeklyReview />;

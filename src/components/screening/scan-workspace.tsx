@@ -10,8 +10,6 @@ import {
   useIntersectionLoadMore,
 } from "../ui/use-infinite-table";
 import { chartAdjustmentLabels } from "~/lib/chart/chart-adjustment";
-import { readMarketPoolLocation } from "~/lib/market/market-pool-location";
-import { rpsConditionsSchema } from "~/lib/screening/rps-conditions";
 import {
   Select,
   SelectContent,
@@ -95,7 +93,7 @@ export function ScanWorkspace() {
     </Suspense>
   );
 }
-function ScanDeployEntry({ tab }: { tab: string }) {
+function ScanDeployEntry({ tab }: { tab: "formula" | "pattern" }) {
   const search = useSearchParams();
   const [open, setOpen] = useState(false);
   const selectedJob = useScreenSession((state) => state.screenId);
@@ -131,19 +129,7 @@ function ScanDeployEntry({ tab }: { tab: string }) {
       createdFromRoute: "/scan",
     },
   };
-  if (tab === "crypto") {
-    preset.name = "数字货币 · 双均线";
-    preset.strategySpec = {
-      kind: "crypto-dual-ma",
-      fast: 20,
-      slow: 60,
-      period: "1h",
-    };
-    preset.universeSpec = {
-      kind: "fixed-symbols",
-      symbols: isCryptoSymbol(symbol) ? [symbol] : [],
-    };
-  } else if (tab === "formula") {
+  if (tab === "formula") {
     const result = formulaJob.data?.screenFirstPage;
     const formula = result?.formula;
     preset.name = formula ? `${formula.name} · 双突破` : "公式选股 · 双突破";
@@ -156,59 +142,25 @@ function ScanDeployEntry({ tab }: { tab: string }) {
     preset.description = formula
       ? "已带入所选任务的公式和参数。运行台使用本地日线重新选股。"
       : "可填写当前编辑器中的公式和参数，或先完成一次公式选股以带入已运行的配置。";
-  } else if (tab === "pattern") {
+  } else {
     preset.name = "结构与形态突破 · 双突破";
     preset.universeSpec = {
       kind: "theory-screener-scan",
       methodId: "f02-dow-swing-break",
     };
-  } else if (tab === "rps" || tab === "pool") {
-    const { query } = readMarketPoolLocation(search.toString());
-    const filters =
-      rpsConditionsSchema.safeParse(
-        search.getAll("rpsCondition").map((value) => {
-          const [period, side, threshold] = value.split(",");
-          return { period: Number(period), side, value: Number(threshold) };
-        }),
-      ).data ?? [];
-    const supportedFilter = filters.find(
-      ({ period, side }) =>
-        side === "gte" &&
-        (period === 10 || period === 20 || period === 50 || period === 120),
-    );
-    const period = supportedFilter?.period ?? query.period;
-    const supportedPeriod =
-      period === 10 || period === 20 || period === 50 || period === 120;
-    preset.name = "RPS 选股 · 双突破";
-    preset.universeSpec = {
-      kind: "rps-filter",
-      period: supportedPeriod ? period : 50,
-      minRps: supportedFilter?.value ?? query.minimumRps ?? 0,
-    };
-    if (
-      !supportedPeriod ||
-      filters.some((filter) => filter !== supportedFilter) ||
-      query.pool ||
-      query.search.trim()
-    )
-      preset.description =
-        "运行台的 RPS 筛选按全市场、单一周期和最低分运行，请确认部署口径。";
-  } else if (tab === "chart" && /^(sh|sz|bj)\d{6}$/i.test(symbol)) {
-    preset.universeSpec = { kind: "fixed-symbols", symbols: [symbol] };
   }
   return (
     <>
-      <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={loadingFormula}
-          onClick={() => setOpen(true)}
-        >
-          {loadingFormula ? "正在读取选股预置…" : "部署到策略运行台"}
-        </Button>
-      </div>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="ml-auto h-7 min-h-0 px-2 py-0 text-xs!"
+        disabled={loadingFormula}
+        onClick={() => setOpen(true)}
+      >
+        {loadingFormula ? "正在读取选股预置…" : "部署到策略运行台"}
+      </Button>
       <DeployStrategyDialog
         open={open && !loadingFormula}
         onOpenChange={setOpen}
@@ -222,10 +174,7 @@ function ScanWorkspaceBody() {
   const search = useSearchParams();
   const tab = search.get("tab") ?? "chart";
   return (
-    <div className="min-w-0 space-y-3">
-      {tab !== "formula" && tab !== "futures" && (
-        <ScanDeployEntry key={tab} tab={tab} />
-      )}
+    <div className="min-w-0">
       <PanelCache
         pinned={["chart", "formula"]}
         active={tab}

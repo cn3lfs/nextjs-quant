@@ -128,18 +128,17 @@ function BacktestDeployEntry() {
   const [preset, setPreset] = useState<DeployStrategyPreset>();
   return (
     <>
-      <div className="flex justify-end">
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={() =>
-            setPreset(backtestPreset(parseStudioEntry(search.toString())))
-          }
-        >
-          部署到策略运行台
-        </Button>
-      </div>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="absolute top-0 right-0 h-7 min-h-0 px-2.5 py-0 text-xs!"
+        onClick={() =>
+          setPreset(backtestPreset(parseStudioEntry(search.toString())))
+        }
+      >
+        部署到策略运行台
+      </Button>
       <DeployStrategyDialog
         open={Boolean(preset)}
         onOpenChange={(open) => {
@@ -154,9 +153,9 @@ function BacktestDeployEntry() {
 export function BacktestPage() {
   return (
     <Suspense fallback={<p role="status">正在读取研究工作室…</p>}>
-      <div className="space-y-3">
-        <BacktestDeployEntry />
+      <div className="relative [&>section>h2:first-child]:min-h-7 [&>section>h2:first-child]:pr-36">
         <StudioWorkspace />
+        <BacktestDeployEntry />
       </div>
     </Suspense>
   );
