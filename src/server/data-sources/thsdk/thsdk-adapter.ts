@@ -11,7 +11,12 @@ import {
   toThsdkSecurity,
   type ThsdkErrorCode,
 } from "./thsdk-contract";
-import { inspectThsdkDllFile, ThsdkPathError } from "./thsdk-path";
+import { BUNDLED_THSDK_DLL } from "./thsdk-known-hashes";
+import {
+  inspectThsdkDllFile,
+  resolveBundledThsdkDllPath,
+  ThsdkPathError,
+} from "./thsdk-path";
 import {
   THSDK_ADAPTER_VERSION,
   mapThsdkKlines,
@@ -122,8 +127,8 @@ const authenticatedRead: ThsdkInvoker = async <T>(
     loadedDll?.generation !== session.authGeneration ||
     loadedDll.revision !== status.configRevision
   ) {
-    const inspected = inspectThsdkDllFile(status.dllPath);
-    if (!inspected.knownVersion && !status.allowUnlistedHash)
+    const inspected = inspectThsdkDllFile(resolveBundledThsdkDllPath());
+    if (inspected.sha256 !== BUNDLED_THSDK_DLL.sha256)
       throw failure("dll_invalid");
     loadedDll = {
       generation: session.authGeneration,

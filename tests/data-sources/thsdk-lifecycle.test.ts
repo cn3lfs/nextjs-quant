@@ -465,22 +465,17 @@ it("persists THSDK settings without migrating the existing database or launching
     expect(readThsdkConfig()).toMatchObject({
       version: 1,
       enabled: false,
-      dllPath: "",
       guestModeEnabled: false,
     });
     appConnection = sqlite();
     const config = saveThsdkConfig({
       enabled: true,
-      dllPath: dllPath(),
       authMode: "guest",
-      allowUnlistedHash: true,
     });
     expect(config).toEqual({
       version: 1,
       enabled: true,
-      dllPath: dllPath(),
       authMode: "guest",
-      allowUnlistedHash: true,
       allowAutoFallback: false,
       guestModeEnabled: false,
       updatedAt: expect.any(Number),

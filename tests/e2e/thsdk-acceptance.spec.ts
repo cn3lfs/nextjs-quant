@@ -4,7 +4,6 @@ import { installOfflineVisualApi } from "./offline-visual-api";
 
 const defaultConfig = {
   enabled: false,
-  dllPath: "",
   guestModeEnabled: false,
   allowAutoFallback: false,
 };
@@ -171,9 +170,9 @@ test("THSDK settings save locally, disclose guest-mode limits and keep credentia
         await page.unroute("**/api/trpc/thsdkSaveConfig*", captureSave);
       }
       await expect(enabled).toBeChecked();
-      await expect(panel.getByText("未配置", { exact: true })).toBeVisible();
+      await expect(panel.getByText("未登录", { exact: true })).toBeVisible();
       await expect(
-        panel.getByText("未配置 hq.dll", { exact: true }),
+        panel.getByText("内置版本 2.0.2", { exact: true }),
       ).toBeVisible();
       await expect(panel.getByText("尚未认证", { exact: true })).toBeVisible();
       await expect(panel.getByRole("alert")).toHaveCount(0);
@@ -185,7 +184,9 @@ test("THSDK settings save locally, disclose guest-mode limits and keep credentia
     expect(status).toMatchObject({
       ...defaultConfig,
       enabled: true,
-      state: "unconfigured",
+      configured: true,
+      dllKnownVersion: "2.0.2",
+      state: "logged_out",
       hasSavedCredentials: false,
     });
     expect(

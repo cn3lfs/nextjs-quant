@@ -6,8 +6,6 @@ export type ThsdkAuthMode = (typeof thsdkAuthModes)[number];
 export const thsdkConfigPatchSchema = z
   .object({
     enabled: z.boolean().optional(),
-    dllPath: z.string().trim().max(260).optional(),
-    allowUnlistedHash: z.boolean().optional(),
     allowAutoFallback: z.boolean().optional(),
     authMode: z.enum(thsdkAuthModes).optional(),
     guestModeEnabled: z.boolean().optional(),
@@ -26,9 +24,7 @@ export type ThsdkCredentialsInput = z.infer<typeof thsdkCredentialsInputSchema>;
 export type ThsdkStatusView = {
   enabled: boolean;
   configured: boolean;
-  dllPath: string;
   dllKnownVersion: string | null;
-  allowUnlistedHash: boolean;
   allowAutoFallback: boolean;
   authMode: ThsdkAuthMode;
   guestModeEnabled: boolean;

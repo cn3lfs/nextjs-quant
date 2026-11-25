@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   existsSync,
   mkdtempSync,
@@ -10,6 +11,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { BUNDLED_THSDK_DLL } from "~/server/data-sources/thsdk/thsdk-known-hashes";
 
 const runtimeDirectory = fileURLToPath(
   new URL("../../runtime", import.meta.url),
@@ -55,22 +57,37 @@ it("packages a THSDK worker without credential literals, tokens, or native unloa
   expect(unloadCall.test(worker), "native library unload call").toBe(false);
 });
 
-it("excludes external THSDK DLL, session, and vault artifacts from runtime", () => {
+it("ships the pinned hq.dll in vendor/runtime while excluding session and vault artifacts from runtime", () => {
+  const vendorDll = fileURLToPath(
+    new URL("../../vendor/thsdk/hq.dll", import.meta.url),
+  );
+  const vendorBytes = readFileSync(vendorDll);
+  expect(vendorBytes.length).toBe(BUNDLED_THSDK_DLL.bytes);
+  expect(createHash("sha256").update(vendorBytes).digest("hex")).toBe(
+    BUNDLED_THSDK_DLL.sha256,
+  );
+
+  const runtimeDll = join(runtimeDirectory, "thsdk", "hq.dll");
+  if (existsSync(runtimeDll)) {
+    const runtimeBytes = readFileSync(runtimeDll);
+    expect(runtimeBytes.length).toBe(BUNDLED_THSDK_DLL.bytes);
+    expect(createHash("sha256").update(runtimeBytes).digest("hex")).toBe(
+      BUNDLED_THSDK_DLL.sha256,
+    );
+  }
+
   const entries = existsSync(runtimeDirectory)
     ? readdirSync(runtimeDirectory, { recursive: true, withFileTypes: true })
     : [];
   const forbidden = entries
     .map(({ name }) => name)
     .filter((name) =>
-      /^(?:hq\.dll|thsdk-sessions|account\.session|thsdk-credentials\.bin|credentials)$|\.vault$/i.test(
+      /^(?:thsdk-sessions|account\.session|thsdk-credentials\.bin|credentials)$|\.vault$/i.test(
         name,
       ),
     );
 
-  expect(
-    forbidden.length,
-    "THSDK DLL, sessions, or vault found in runtime",
-  ).toBe(0);
+  expect(forbidden.length, "THSDK sessions or vault found in runtime").toBe(0);
 });
 
 it("resolves the koffi dependency used by the external worker import", () => {
@@ -120,7 +137,7 @@ describe("THSDK config in an isolated data directory", () => {
     expect(db.pragma("user_version", { simple: true })).toBe(25);
 
     const patch = {
-      dllPath: join(dataDirectory, "hq.dll"),
+      enabled: true,
       guestModeEnabled: true,
     };
     const saved = auth.saveThsdkConfig(patch);

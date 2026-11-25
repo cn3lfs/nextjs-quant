@@ -35,7 +35,7 @@ UI（/system、/scan、/intel、公式与回测）
 - **方法白名单**：原生清单 80 个方法 = 70 个只读 + 10 个自选股写方法；只读方法按用途放行，10 个写方法在进入 FFI 之前直接拒绝，不依赖 DLL 侧校验。控制面另有 6 个方法（`version`/`methods`/`auth`/`auth_qrcode`/`logout`/`_close`），只由认证与生命周期代码调用。
 - **串行与限频**：单进程单队列，最小间隔 65ms（底层约 50ms 限频窗口）；限流按 `retry_after_ms` 退避，连续 3 次崩溃进入 30s 熔断。
 - **会话独占**：会话目录固定为 `QUANT_DATA_DIR/runtime-sessions/thsdk/`；同目录被其他进程占用时返回 `session_locked`，不做并发复用。
-- **二进制来源**：仓库与 `release/win-unpacked` 不分发闭源 DLL；用户在 `/system` 指定外部路径，加载前校验存在性、PE 头、体积、SHA-256 与已知清单（当前仅登记 2.0.2），并暂存到会话目录后使用。
+- **二进制来源**：按 `vendor/czsc/CZSC64.dll` 模式将固定版本 `2.0.2` 的 `hq.dll` 保存在 `vendor/thsdk/hq.dll`，`pnpm runtime:build` 复制到 `runtime/thsdk/hq.dll`，加载前强制校验 PE 头与固定 SHA-256 并按内容哈希暂存到会话目录后使用；省去用户在 `/system` 配置 DLL 路径与未列名哈希开关。会话与凭据文件仍严格排除在 `runtime/` 与安装包之外。
 - **凭据**：Windows DPAPI 存于 `credentials/thsdk-credentials.bin`（标识 `thsdk-credentials`），提供指纹比较与删除入口；错误、日志不输出账号、密码、MAC、会话内容或内部路径。
 - **认证策略**：默认个人账号（扫码或账密）；游客模式是显式开关（`guestModeEnabled`，默认 `false`），失败如实返回，不静默切换账号或降级到共享游客凭据。
 
@@ -91,12 +91,12 @@ UI（/system、/scan、/intel、公式与回测）
 
 ## 6. 运行边界与用户设置
 
-1. 自行取得 `hq.dll`（当前只承认 2.0.2 的 SHA-256），在 `/system` → 「同花顺行情（THSDK）」选择路径；路径只接受盘符绝对路径，拒绝网络共享、符号链接/目录联接、备用数据流与尾随点/空格。未登记哈希需显式打开「允许未登记哈希」开关才会暂存。
+1. 项目已内置固定版本 `2.0.2` 的 `hq.dll`（`vendor/thsdk/hq.dll` → `runtime/thsdk/hq.dll`），并在加载前强制校验 PE 头与固定 SHA-256，在 `/system` → 「同花顺行情（THSDK）」直接打开启用开关即可，无需手动填写 DLL 路径。
 2. 选择认证方式：扫码登录或保存账密（DPAPI）；游客快速体验默认关闭，开启后使用上游随包的短生命周期账号，受上游限频与风控约束。
 3. 使用前先做连接检查；检查回执绑定配置修订与认证世代，改配置或登出后旧回执自动失效。
 4. 失败语义：`rate_limited`、`auth_required`、`session_expired`、`timeout`、`invalid`、`empty`、`unavailable` 等结构化错误直接呈现，不静默切回东财或本地源。
 5. 研究口径：THS 来源标记为「同花顺延迟行情」，信号价为原生前复权、成交价为同源未复权原价，未计入公司行动分红送转，历史 ST/IPO/排队未认证；结果只作规则自检，不是可信策略业绩。
-6. 分发：仓库与 `release/win-unpacked` 不含闭源 DLL、会话或凭据文件；随包分发需单独决策。
+6. 分发：固定版本 `hq.dll` 随 `runtime/thsdk/hq.dll` 准备，来源与许可说明见 [vendor/thsdk/README.md](../../vendor/thsdk/README.md) 与 [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md)；会话与凭据文件仍不包含在 `runtime/` 或安装包中。
 
 ## 7. 后续可选动作
 

@@ -56,10 +56,8 @@ const row = {
 };
 const defaultThsdkStatus: ThsdkStatusView = {
   enabled: false,
-  configured: false,
-  dllPath: "",
-  dllKnownVersion: null,
-  allowUnlistedHash: false,
+  configured: true,
+  dllKnownVersion: "2.0.2",
   allowAutoFallback: false,
   authMode: "account",
   guestModeEnabled: false,
@@ -77,7 +75,6 @@ const authenticatedThsdkStatus: ThsdkStatusView = {
   ...defaultThsdkStatus,
   enabled: true,
   configured: true,
-  dllPath: "C:/fixture/hq.dll",
   state: "authenticated",
   activeMode: "account",
 };

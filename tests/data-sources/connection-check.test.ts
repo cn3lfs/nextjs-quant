@@ -48,9 +48,7 @@ vi.mock("../../src/server/data-sources/thsdk/thsdk-adapter", () => ({
 const authenticatedThsdk = {
   enabled: true,
   configured: true,
-  dllPath: "C:/fixture/hq.dll",
   dllKnownVersion: "2.0.2",
-  allowUnlistedHash: false,
   allowAutoFallback: false,
   authMode: "account",
   guestModeEnabled: false,

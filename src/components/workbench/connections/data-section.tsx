@@ -61,7 +61,7 @@ function thsdkCallout(
     return { label: "已认证可用", tone: "ok" };
   if (status.state === "error") return { label: "异常", tone: "bad" };
   if (!status.enabled) return { label: "当前未启用", tone: "idle" };
-  if (!status.configured) return { label: "未配置 hq.dll", tone: "idle" };
+  if (!status.configured) return { label: "内置组件缺失", tone: "bad" };
   return { label: "未登录", tone: "warn" };
 }
 
@@ -153,7 +153,7 @@ export function DataSection({
             <Pill tone={callout.tone}>{callout.label}</Pill>
           </div>
           <p className="mt-1 text-[13px] leading-[1.6] text-nc-text-3">
-            需先配置本机 hq.dll 路径、打开启用开关并登录（支持账号密码或扫码）。
+            已内置固定版本同花顺行情组件，打开启用开关并登录（支持账号密码或扫码）即可使用。
           </p>
           <div className="mt-2">
             <Button

@@ -314,6 +314,7 @@ async function buildRuntime() {
     true,
   );
   await copyArtifact("vendor/czsc/CZSC64.dll", "runtime/czsc/CZSC64.dll");
+  await copyArtifact("vendor/thsdk/hq.dll", "runtime/thsdk/hq.dll");
   await bundle({
     entryPoints: ["src/server/strategies/chan/czsc-worker.ts"],
     outfile: "runtime/czsc-worker.cjs",

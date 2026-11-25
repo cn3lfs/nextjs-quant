@@ -19,7 +19,7 @@ const logDir =
 mkdirSync(logDir, { recursive: true });
 const stub = `
 import {useQuery, useMutation, useQueryClient} from '@tanstack/react-query';
-const fixtures = {newsBudget: {used: 0, limit: 8, day: '2026-09-28', exhausted: false}, researchSkills: [], securityNames: {}, alertStatus: {subscriptions: [], strategies: []}, workspacePreferences: {closeToTray: false}, thsdkStatus: {enabled: false, configured: false, dllPath: '', dllKnownVersion: null, allowUnlistedHash: false, allowAutoFallback: false, authMode: 'account', guestModeEnabled: false, hasSavedCredentials: false, state: 'disabled', activeMode: null, authGeneration: 0, configRevision: 'rev-0', lastErrorCode: null, lastErrorMessage: null, circuitOpenUntil: null, updatedAt: 0}};
+const fixtures = {newsBudget: {used: 0, limit: 8, day: '2026-09-28', exhausted: false}, researchSkills: [], securityNames: {}, alertStatus: {subscriptions: [], strategies: []}, workspacePreferences: {closeToTray: false}, thsdkStatus: {enabled: false, configured: true, dllKnownVersion: '2.0.2', allowAutoFallback: false, authMode: 'account', guestModeEnabled: false, hasSavedCredentials: false, state: 'disabled', activeMode: null, authGeneration: 0, configRevision: 'rev-0', lastErrorCode: null, lastErrorMessage: null, circuitOpenUntil: null, updatedAt: 0}};
 function query(name) {return {useQuery(input, options) {return useQuery({queryKey:[name], queryFn:async()=>{window.requests.push(name); return fixtures[name]}, retry:false, ...options})}}}
 function mutation(name) {return {useMutation(options) {return useMutation({...options, mutationFn:async(input)=>{
  window.mutations.push({name,input});

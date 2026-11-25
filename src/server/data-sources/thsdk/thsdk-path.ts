@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
   closeSync,
+  existsSync,
   lstatSync,
   openSync,
   readFileSync,
@@ -12,7 +13,7 @@ import {
 import { copyFile, mkdir, readdir, rename, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { thsdkSessionRoot } from "../../infra/paths";
-import { findKnownThsdkDll } from "./thsdk-known-hashes";
+import { BUNDLED_THSDK_DLL, findKnownThsdkDll } from "./thsdk-known-hashes";
 
 export type StagedThsdkDll = {
   sourcePath: string;
@@ -43,6 +44,50 @@ export class ThsdkPathError extends Error {
 const MAX_DLL_BYTES = 32 * 1024 * 1024;
 const driveAbsolutePattern = /^[A-Za-z]:\\/;
 const controlCharacterPattern = /[\u0000-\u001f\u007f]/;
+
+export const BUNDLED_THSDK_RUNTIME_RELATIVE = "runtime/thsdk/hq.dll";
+export const BUNDLED_THSDK_VENDOR_RELATIVE = "vendor/thsdk/hq.dll";
+
+/**
+ * Resolve the pinned THSDK DLL bundled with the workspace or packaged server.
+ * Prefers `runtime/thsdk/hq.dll` (shipped in standalone/desktop builds and
+ * produced by `pnpm runtime:build`), falling back to `vendor/thsdk/hq.dll`.
+ */
+export function resolveBundledThsdkDllPath(root = process.cwd()): string {
+  const runtimePath = resolve(root, BUNDLED_THSDK_RUNTIME_RELATIVE);
+  if (existsSync(/* turbopackIgnore: true */ runtimePath)) return runtimePath;
+  const vendorPath = resolve(root, BUNDLED_THSDK_VENDOR_RELATIVE);
+  if (existsSync(/* turbopackIgnore: true */ vendorPath)) return vendorPath;
+  return runtimePath;
+}
+
+export function hasBundledThsdkDll(root = process.cwd()): boolean {
+  return (
+    existsSync(
+      /* turbopackIgnore: true */ resolve(root, BUNDLED_THSDK_RUNTIME_RELATIVE),
+    ) ||
+    existsSync(
+      /* turbopackIgnore: true */ resolve(root, BUNDLED_THSDK_VENDOR_RELATIVE),
+    )
+  );
+}
+
+export async function stageBundledThsdkDll(options?: {
+  sessionRoot?: string;
+  root?: string;
+}): Promise<StagedThsdkDll> {
+  const bundledPath = resolveBundledThsdkDllPath(options?.root);
+  const staged = await stageThsdkDll(bundledPath, {
+    allowUnlistedHash: false,
+    sessionRoot: options?.sessionRoot,
+  });
+  if (staged.sha256 !== BUNDLED_THSDK_DLL.sha256)
+    throw new ThsdkPathError(
+      "hash_mismatch",
+      "内置 THSDK DLL 哈希与固定版本不匹配",
+    );
+  return staged;
+}
 
 function invalidPath(message: string): ThsdkPathError {
   return new ThsdkPathError("invalid_path", message);

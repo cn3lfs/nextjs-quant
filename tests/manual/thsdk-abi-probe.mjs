@@ -9,11 +9,7 @@ import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const dllPath = process.env.THSDK_DLL_PATH;
-if (!dllPath) {
-  console.error("Set THSDK_DLL_PATH to an absolute path to hq.dll");
-  process.exit(1);
-}
+const dllPath = process.env.THSDK_DLL_PATH || "vendor/thsdk/hq.dll";
 const resolvedDll = resolve(dllPath);
 const rawDll = readFileSync(resolvedDll);
 const sha256 = createHash("sha256").update(rawDll).digest("hex");

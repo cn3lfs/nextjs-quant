@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   ArrowClockwise as RefreshCw,
-  FloppyDisk,
   Key,
   PlugsConnected,
   QrCode,
@@ -105,17 +104,12 @@ export function ThsdkSection() {
     refetchOnWindowFocus: false,
   });
   const status = statusQuery.data;
-  const [dllPath, setDllPath] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [qr, setQr] = useState<QrState | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const polling = useRef(false);
-
-  useEffect(() => {
-    setDllPath(status?.dllPath ?? "");
-  }, [status?.dllPath]);
 
   const applyStatus = (next: ThsdkStatusView) => {
     utils.thsdkStatus.setData(undefined, next);
@@ -254,9 +248,6 @@ export function ThsdkSection() {
     return () => window.clearInterval(timer);
   }, [visible, qrWaiting, enabled]);
   const pill = statusText(status);
-  const pathDirty = Boolean(
-    status && dllPath.trim() !== status.dllPath && dllPath.trim().length <= 260,
-  );
   const authMode = status?.authMode ?? "account";
   const accountLabel =
     status?.activeMode && status.state === "authenticated"
@@ -283,7 +274,7 @@ export function ThsdkSection() {
         icon={PlugsConnected}
         title="同花顺行情（THSDK）"
         actions={<Pill tone={pill.tone}>{pill.label}</Pill>}
-        note="同花顺行情经本机 hq.dll 读取，独立于本地通达信与在线来源；启用并认证后才会参与行情路由。凭据只保存在本机 Windows DPAPI。所有操作以服务端返回状态为准，待完成操作期间按钮禁用。"
+        note="同花顺行情经项目内置的固定版本 hq.dll 读取，无需手动配置路径，独立于本地通达信与在线来源；启用并认证后才会参与行情路由。凭据只保存在本机 Windows DPAPI。所有操作以服务端返回状态为准，待完成操作期间按钮禁用。"
       >
         {statusQuery.error ? (
           <p role="alert" className="text-nc-bad">
@@ -326,24 +317,18 @@ export function ThsdkSection() {
             )}
 
             <ol
-              aria-label="启用同花顺行情三步"
-              className="grid gap-2 rounded-lg border border-nc-border-soft bg-nc-inset p-3 sm:grid-cols-3"
+              aria-label="启用同花顺行情两步"
+              className="grid gap-2 rounded-lg border border-nc-border-soft bg-nc-inset p-3 sm:grid-cols-2"
             >
               {[
                 {
                   step: "①",
-                  title: "配置 hq.dll",
-                  detail: status.configured ? "已完成" : "待填写路径并保存",
-                  done: status.configured,
-                },
-                {
-                  step: "②",
                   title: "开启启用开关",
                   detail: status.enabled ? "已完成" : "待开启",
                   done: status.enabled,
                 },
                 {
-                  step: "③",
+                  step: "②",
                   title: "登录认证",
                   detail:
                     status.state === "authenticated"
@@ -382,10 +367,10 @@ export function ThsdkSection() {
               ))}
             </ol>
 
-            <section className="space-y-2" aria-label="启用与 DLL 配置">
+            <section className="space-y-2" aria-label="启用与路由配置">
               <h4 className="flex items-center gap-1.5 text-[13px] font-medium">
                 <PlugsConnected size={15} aria-hidden />
-                基础配置 · 启用与 DLL
+                基础配置 · 启用与路由
               </h4>
               <label className="flex items-center gap-2 text-[13px]">
                 <Switch
@@ -396,14 +381,6 @@ export function ThsdkSection() {
                 启用同花顺行情
               </label>
               <div className="form-grid">
-                <Field label="hq.dll 本地路径">
-                  <Input
-                    value={dllPath}
-                    disabled={pending}
-                    placeholder="例如 C:\\ths\\hq.dll"
-                    onChange={(event) => setDllPath(event.target.value)}
-                  />
-                </Field>
                 <Field label="认证方式">
                   <Select
                     value={authMode}
@@ -428,48 +405,22 @@ export function ThsdkSection() {
                 </Field>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={pending || !pathDirty}
-                  onClick={() => saveConfig.mutate({ dllPath: dllPath.trim() })}
-                >
-                  <FloppyDisk size={14} />
-                  保存 DLL 路径
-                </Button>
-                {!status.configured ? (
-                  <Pill tone="idle">未配置 hq.dll</Pill>
-                ) : status.dllKnownVersion ? (
+                {status.configured && status.dllKnownVersion ? (
                   <Pill tone="ok">
                     <ShieldCheck size={12} aria-hidden />
-                    已知版本 {status.dllKnownVersion}
+                    内置版本 {status.dllKnownVersion}
                   </Pill>
                 ) : (
-                  <Pill tone="warn">
+                  <Pill tone="bad">
                     <WarningCircle size={12} aria-hidden />
-                    未识别的版本哈希
+                    内置组件缺失
                   </Pill>
                 )}
                 <span className="text-[11px] text-nc-text-4">
-                  库版本 {status.dllKnownVersion ?? "未知"} · 配置修订{" "}
+                  内置组件 {status.dllKnownVersion ?? "缺失"} · 配置修订{" "}
                   {status.configRevision}
                 </span>
               </div>
-              <label className="flex items-start gap-2 text-[13px]">
-                <Switch
-                  checked={status.allowUnlistedHash}
-                  disabled={pending}
-                  onCheckedChange={(allowUnlistedHash) =>
-                    saveConfig.mutate({ allowUnlistedHash })
-                  }
-                />
-                <span>
-                  允许未列名的 DLL 哈希
-                  <span className="block text-[11px] text-nc-text-4">
-                    仅在你确认文件来源时开启；未识别版本可能改变字段语义。
-                  </span>
-                </span>
-              </label>
               <label className="flex items-start gap-2 text-[13px]">
                 <Switch
                   checked={status.allowAutoFallback}

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import {
   existsSync,
   lstatSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
@@ -13,8 +14,12 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { BUNDLED_THSDK_DLL } from "~/server/data-sources/thsdk/thsdk-known-hashes";
 import {
+  hasBundledThsdkDll,
   inspectThsdkDllFile,
+  resolveBundledThsdkDllPath,
+  stageBundledThsdkDll,
   stageThsdkDll,
   validateThsdkDllPath,
   type ThsdkPathErrorCode,
@@ -165,5 +170,29 @@ describe.skipIf(process.platform !== "win32")("Windows DLL filesystem", () => {
     expect(readdirSync(join(dllRoot, sha256))).toEqual(["hq.dll"]);
     expect(readFileSync(stagedPath)).toEqual(updated);
     expect(readFileSync(sourcePath)).toEqual(updated);
+  });
+
+  it("stages the pinned bundled hq.dll and rejects a tampered workspace copy", async () => {
+    expect(hasBundledThsdkDll()).toBe(true);
+    const staged = await stageBundledThsdkDll({ sessionRoot });
+    expect(staged).toMatchObject({
+      sha256: BUNDLED_THSDK_DLL.sha256,
+      bytes: BUNDLED_THSDK_DLL.bytes,
+      knownVersion: BUNDLED_THSDK_DLL.version,
+    });
+    expect(existsSync(staged.stagedPath)).toBe(true);
+
+    const fakeWorkspace = join(root, "fake-workspace");
+    mkdirSync(join(fakeWorkspace, "runtime", "thsdk"), { recursive: true });
+    const fakeDll = join(fakeWorkspace, "runtime", "thsdk", "hq.dll");
+    writeFileSync(fakeDll, peFixture());
+    expect(hasBundledThsdkDll(fakeWorkspace)).toBe(true);
+    expect(resolveBundledThsdkDllPath(fakeWorkspace)).toBe(fakeDll);
+    await expect(
+      stageBundledThsdkDll({
+        root: fakeWorkspace,
+        sessionRoot: join(root, "tampered-session"),
+      }),
+    ).rejects.toMatchObject(safePathError("unlisted_hash", fakeDll));
   });
 });

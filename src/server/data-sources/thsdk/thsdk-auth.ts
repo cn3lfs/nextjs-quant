@@ -13,8 +13,10 @@ import {
 } from "./thsdk-contract";
 import { getThsdkClient } from "./thsdk-client";
 import { pickThsdkGuestAccount } from "./thsdk-guest-accounts";
+import { BUNDLED_THSDK_DLL } from "./thsdk-known-hashes";
 import {
-  stageThsdkDll,
+  hasBundledThsdkDll,
+  stageBundledThsdkDll,
   ThsdkPathError,
   type StagedThsdkDll,
 } from "./thsdk-path";
@@ -22,8 +24,6 @@ import {
 export type ThsdkConfig = {
   version: 1;
   enabled: boolean;
-  dllPath: string;
-  allowUnlistedHash: boolean;
   allowAutoFallback: boolean;
   authMode: "account" | "qrcode" | "guest";
   guestModeEnabled: boolean;
@@ -41,9 +41,7 @@ export type ThsdkAuthState =
 export type ThsdkStatusSnapshot = {
   enabled: boolean;
   configured: boolean;
-  dllPath: string;
   dllKnownVersion: string | null;
-  allowUnlistedHash: boolean;
   allowAutoFallback: boolean;
   authMode: ThsdkConfig["authMode"];
   guestModeEnabled: boolean;
@@ -61,8 +59,6 @@ export type ThsdkStatusSnapshot = {
 export const thsdkConfigSchema: z.ZodType<ThsdkConfig> = z.object({
   version: z.literal(1),
   enabled: z.boolean(),
-  dllPath: z.string(),
-  allowUnlistedHash: z.boolean(),
   allowAutoFallback: z.boolean(),
   authMode: z.enum(["account", "qrcode", "guest"]),
   guestModeEnabled: z.boolean(),
@@ -125,8 +121,6 @@ function defaultConfig(): ThsdkConfig {
   return {
     version: 1,
     enabled: false,
-    dllPath: "",
-    allowUnlistedHash: false,
     allowAutoFallback: false,
     authMode: "account",
     guestModeEnabled: false,
@@ -165,7 +159,6 @@ export function saveThsdkConfig(
   if (
     patch.enabled === false ||
     (patch.guestModeEnabled === false && runtime.activeMode === "guest") ||
-    (patch.dllPath !== undefined && patch.dllPath !== current.dllPath) ||
     (patch.authMode !== undefined && patch.authMode !== current.authMode)
   )
     invalidateAuthentication();
@@ -175,7 +168,7 @@ export function saveThsdkConfig(
 /** Pure read: never spawns the worker and never decrypts credentials. */
 export function getThsdkStatus(): ThsdkStatusSnapshot {
   const config = readThsdkConfig();
-  const configured = config.dllPath.trim().length > 0;
+  const configured = hasBundledThsdkDll();
   const state: ThsdkAuthState = !config.enabled
     ? "disabled"
     : !configured
@@ -184,9 +177,9 @@ export function getThsdkStatus(): ThsdkStatusSnapshot {
   return {
     enabled: config.enabled,
     configured,
-    dllPath: config.dllPath,
-    dllKnownVersion: runtime.dllKnownVersion,
-    allowUnlistedHash: config.allowUnlistedHash,
+    dllKnownVersion:
+      runtime.dllKnownVersion ??
+      (configured ? BUNDLED_THSDK_DLL.version : null),
     allowAutoFallback: config.allowAutoFallback,
     authMode: config.authMode,
     guestModeEnabled: config.guestModeEnabled,
@@ -232,12 +225,11 @@ export async function forgetThsdkCredentials(): Promise<{ deleted: boolean }> {
 export async function thsdkLoginAccount(
   signal?: AbortSignal,
 ): Promise<ThsdkStatusSnapshot> {
-  const config = requireEnabledConfig();
+  requireEnabledConfig();
   const credentials = await readStoredCredentials();
   if (!credentials) throw new ThsdkError("not_configured", "尚未保存账号凭据");
   // A failed personal login is surfaced as-is; guest mode is never implicit.
   return loginWithCredentials(
-    config,
     "account",
     credentials.username,
     credentials.password,
@@ -254,7 +246,6 @@ export async function thsdkLoginGuest(
     throw new ThsdkError("disabled", "游客模式未启用");
   const account = pickThsdkGuestAccount();
   return loginWithCredentials(
-    config,
     "guest",
     account.username,
     account.password,
@@ -266,8 +257,8 @@ export async function thsdkLoginGuest(
 export async function thsdkStartQrcode(
   signal?: AbortSignal,
 ): Promise<QrSnapshot> {
-  const config = requireEnabledConfig();
-  const staged = await stageConfiguredDll(config);
+  requireEnabledConfig();
+  const staged = await stageConfiguredDll();
   const sessionDir = sessionDirectory("qrcode", "local");
   await ensureSessionDirectory(sessionDir);
   const generation = runtime.authGeneration + 1;
@@ -303,11 +294,11 @@ export async function thsdkStartQrcode(
 export async function thsdkPollQrcode(
   signal?: AbortSignal,
 ): Promise<QrSnapshot> {
-  const config = requireEnabledConfig();
+  requireEnabledConfig();
   const sessionDir = runtime.activeSessionDir;
   if (!sessionDir || runtime.activeMode !== "qrcode")
     throw new ThsdkError("auth_required", "没有进行中的二维码登录");
-  const staged = await stageConfiguredDll(config);
+  const staged = await stageConfiguredDll();
   const generation = runtime.authGeneration;
   try {
     const data = await invokeControl<unknown>(
@@ -337,7 +328,7 @@ export async function thsdkCancelQrcode(): Promise<{ cancelled: true }> {
   runtime.activeSessionDir = null;
   if (sessionDir) {
     try {
-      const staged = await stageConfiguredDll(readThsdkConfig());
+      const staged = await stageConfiguredDll();
       await invokeControl(
         "auth_qrcode",
         { cancel: true },
@@ -361,7 +352,7 @@ export async function thsdkLogout(): Promise<ThsdkStatusSnapshot> {
   runtime.activeSessionDir = null;
   if (sessionDir) {
     try {
-      const staged = await stageConfiguredDll(readThsdkConfig());
+      const staged = await stageConfiguredDll();
       await invokeControl(
         "logout",
         { session_dir: sessionDir },
@@ -418,8 +409,8 @@ export async function ensureThsdkAuthenticated(
 function requireEnabledConfig(): ThsdkConfig {
   const config = readThsdkConfig();
   if (!config.enabled) throw new ThsdkError("disabled", "THSDK 数据源未启用");
-  if (!config.dllPath.trim())
-    throw new ThsdkError("not_configured", "尚未配置 THSDK DLL 路径");
+  if (!hasBundledThsdkDll())
+    throw new ThsdkError("not_configured", "内置 THSDK 行情组件缺失");
   return config;
 }
 
@@ -446,14 +437,13 @@ async function readStoredCredentials(): Promise<StoredCredentials | undefined> {
 }
 
 async function loginWithCredentials(
-  config: ThsdkConfig,
   mode: "account" | "guest",
   username: string,
   password: string,
   mac: string,
   signal?: AbortSignal,
 ): Promise<ThsdkStatusSnapshot> {
-  const staged = await stageConfiguredDll(config);
+  const staged = await stageConfiguredDll();
   const sessionDir = sessionDirectory(mode, username);
   await ensureSessionDirectory(sessionDir);
   const generation = runtime.authGeneration + 1;
@@ -492,14 +482,9 @@ async function loginWithCredentials(
   return getThsdkStatus();
 }
 
-async function stageConfiguredDll(
-  config: ThsdkConfig,
-): Promise<StagedThsdkDll> {
-  if (!config.dllPath.trim())
-    throw new ThsdkError("not_configured", "尚未配置 THSDK DLL 路径");
+async function stageConfiguredDll(): Promise<StagedThsdkDll> {
   try {
-    const staged = await stageThsdkDll(config.dllPath, {
-      allowUnlistedHash: config.allowUnlistedHash,
+    const staged = await stageBundledThsdkDll({
       sessionRoot: thsdkSessionRoot(),
     });
     runtime.dllKnownVersion = staged.knownVersion;

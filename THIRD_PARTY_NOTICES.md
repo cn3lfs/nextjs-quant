@@ -39,6 +39,12 @@ See `vendor/czsc/README.md` for binary provenance. The DLL is copied to
 `runtime/czsc/` during runtime preparation. External distribution and the
 associated GPL obligations remain a user decision; this work does not authorize distribution.
 
+## thsdk
+
+Source: PyPI `thsdk` v2.0.2 (`thsdk-2.0.2.tar.gz`, SHA-256: `12b950a81df0ddc80f577dca3aed11660e8f0c5ef59b5ef4a21846ae3915f40a`).
+Licensed under the MIT License (see `vendor/thsdk/LICENSE`; upstream ships prebuilt native libraries without Go source).
+The vendored Windows x64 binary (`hq.dll`, 11,536,896 bytes, SHA-256: `d396628429f0c08809b069a20a8dd38bd4718d0361f48f41a061f688aa8323f0`) is pinned in `vendor/thsdk/` and copied to `runtime/thsdk/hq.dll` during runtime preparation. See `vendor/thsdk/README.md` for provenance. External distribution remains a user decision.
+
 ## Node.js runtime
 
 The desktop application ships the same Node executable used to build its backend, preserving native module ABI compatibility. Node.js license text is copied from the build environment when available. Node.js distribution: https://nodejs.org/

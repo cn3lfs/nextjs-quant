@@ -506,6 +506,14 @@ test("a current instrumentation trace excludes old desktop release files", async
         path !== "vendor/czsc/czsc64.dll",
     ),
   ).toEqual([]);
+  expect(
+    paths.filter(
+      (path) =>
+        basename(path) === "hq.dll" &&
+        path !== "runtime/thsdk/hq.dll" &&
+        path !== "vendor/thsdk/hq.dll",
+    ),
+  ).toEqual([]);
 });
 
 test.each(Object.entries(archiveSources))(
