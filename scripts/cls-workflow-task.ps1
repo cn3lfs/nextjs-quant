@@ -13,8 +13,22 @@ $date = $beijingNow.ToString('yyyy-MM-dd')
 $hour = $beijingNow.Hour
 $phase = if ($AnalyzeMorning -or $hour -lt 12) { 'morning' } elseif ($hour -lt 20) { 'noon' } else { 'evening' }
 if (!$AnalyzeMorning) {
-    & 'C:\Python312\python.exe' 'E:\pythonPrj\cls_news_collector\collector.py'
-    if ($LASTEXITCODE -ne 0) { throw '财联社采集失败，不发布完成回执' }
+    $py = 'C:\Python312\python.exe'
+    $collector = 'E:\pythonPrj\cls_news_collector\collector.py'
+    $logDir = Join-Path $data 'logs'
+    New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+    $collectLog = Join-Path $logDir "cls-collector-$date.log"
+    $env:PYTHONIOENCODING = 'utf-8'
+    $collectExit = 1
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        Add-Content -LiteralPath $collectLog -Encoding utf8 -Value "===== $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') 第 $attempt 次采集 ====="
+        & cmd /c "`"$py`" `"$collector`" >> `"$collectLog`" 2>&1"
+        $collectExit = $LASTEXITCODE
+        if ($collectExit -eq 0) { break }
+        Add-Content -LiteralPath $collectLog -Encoding utf8 -Value "采集失败 exit=$collectExit"
+        if ($attempt -lt 3) { Start-Sleep -Seconds 60 }
+    }
+    if ($collectExit -ne 0) { throw "财联社采集失败(exit=$collectExit，已重试3次)，不发布完成回执" }
     New-Item -ItemType Directory -Path $data -Force | Out-Null
     $receipt = Join-Path $data "cls-collected-$date-$phase.json"
     @{ date = $date; phase = $phase; completedAt = [DateTimeOffset]::Now.ToUnixTimeMilliseconds(); exitCode = 0 } | ConvertTo-Json | Set-Content -LiteralPath "$receipt.tmp" -Encoding UTF8
