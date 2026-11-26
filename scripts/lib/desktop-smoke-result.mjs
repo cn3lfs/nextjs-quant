@@ -272,7 +272,7 @@ export function diagnoseSmokePassed(result) {
     result.archiveRead === true &&
     result.jobStatus === "completed" &&
     result.boundaryState === "zero-signal" &&
-    result.schemaVersion === 25 &&
+    result.schemaVersion === 26 &&
     czsc?.apiVersion === 22 &&
     typeof czsc.dllHash === "string" &&
     czsc.dllHash.length === 64 &&
@@ -287,5 +287,52 @@ export function diagnoseSmokePassed(result) {
     result.gracefulShutdown === true &&
     result.cleaned === true &&
     noResidualProcesses(result.residualProcesses)
+  );
+}
+
+/** @typedef {{
+ *   gitCommit: string | null,
+ *   appVersion: string | null,
+ *   schemaVersion: number | null,
+ *   czscSha256: string | null,
+ *   thsdkSha256: string | null,
+ *   envFileCount: number | null,
+ *   residualProcesses: number | null,
+ *   failedAt: string | null,
+ *   checks: {
+ *     upgradeV24: boolean,
+ *     upgradeV25: boolean,
+ *     rejectV27: boolean,
+ *     clsWebView: boolean,
+ *     thsdkLoad: boolean,
+ *     thsdkRejectBadHash: boolean,
+ *     diagnose: boolean,
+ *     cleaned: boolean,
+ *   },
+ * }} CandidateSmokeResult */
+
+/** @param {CandidateSmokeResult} result */
+export function candidateSmokePassed(result) {
+  const sha256 = /^[0-9a-f]{64}$/;
+  return (
+    result.failedAt === null &&
+    typeof result.gitCommit === "string" &&
+    /^[0-9a-f]{40}$/.test(result.gitCommit) &&
+    result.appVersion === "0.4.0" &&
+    result.schemaVersion === 26 &&
+    typeof result.czscSha256 === "string" &&
+    sha256.test(result.czscSha256) &&
+    typeof result.thsdkSha256 === "string" &&
+    sha256.test(result.thsdkSha256) &&
+    result.envFileCount === 0 &&
+    result.residualProcesses === 0 &&
+    result.checks?.upgradeV24 === true &&
+    result.checks.upgradeV25 === true &&
+    result.checks.rejectV27 === true &&
+    result.checks.clsWebView === true &&
+    result.checks.thsdkLoad === true &&
+    result.checks.thsdkRejectBadHash === true &&
+    result.checks.diagnose === true &&
+    result.checks.cleaned === true
   );
 }

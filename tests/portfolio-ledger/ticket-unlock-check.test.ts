@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { sqlite } from "~/server/db";
+import { AccountWorkspaceRepository } from "~/server/db/account-workspace-repository";
 import {
   confirmRebalancePlan,
   createRebalancePlan,
@@ -72,7 +73,7 @@ it("records an opening-window block if the unlock read finishes at 09:30", async
       {
         now: () => clock,
         loadBook: (_, at) =>
-          loadAccountBook(undefined, settings(), at, {
+          loadAccountBook(new AccountWorkspaceRepository(), settings(), at, {
             localOnly: true,
             bars: {},
             context: {

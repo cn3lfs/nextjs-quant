@@ -1,6 +1,7 @@
 "use client";
 import { formatNumber } from "trading-strategy-core/format-number";
-import { Mountains } from "@phosphor-icons/react/ssr";
+import { Mountains, Wallet } from "@phosphor-icons/react/ssr";
+import Link from "next/link";
 import { usePeriodHotkey } from "./chart-hotkeys";
 import { useState } from "react";
 import { useForeignChartSymbol } from "./use-foreign-chart-symbol";
@@ -19,7 +20,7 @@ import {
   futuresSourceSupports,
   type FuturesSource,
 } from "~/lib/market/futures";
-import { api } from "~/trpc/react";
+import { api, type RouterInputs } from "~/trpc/react";
 import { useSnapshotLoad } from "./use-snapshot-load";
 import { ListPanel, PageGrid, PanelEmpty, Pill } from "../panels";
 import { MacroRatesPanel } from "./macro-rates-panel";
@@ -281,6 +282,7 @@ export function FuturesView() {
             }
           />
         </div>
+        <FuturesSimPositionStrip visible={visible} onSelect={open} />
         {sourceNotice && (
           <p role="status" className="px-4 py-2 text-[13px] text-nc-warn">
             {sourceNotice}
@@ -327,5 +329,111 @@ export function FuturesView() {
         <MacroRatesPanel />
       </div>
     </PageGrid>
+  );
+}
+
+const futuresPositionScope = {
+  kind: "futures-sim",
+  market: "futures",
+  page: 0,
+} satisfies RouterInputs["accountPositions"];
+
+function FuturesSimPositionStrip({
+  visible,
+  onSelect,
+}: {
+  visible: boolean;
+  onSelect: (symbol: string) => void;
+}) {
+  const options = { enabled: visible, retry: false };
+  const first = api.accountPositions.useQuery(futuresPositionScope, options);
+  const remaining = api.useQueries((query) =>
+    Array.from(
+      { length: Math.max(0, Math.ceil((first.data?.total ?? 0) / 20) - 1) },
+      (_, index) =>
+        query.accountPositions(
+          { ...futuresPositionScope, page: index + 1 },
+          options,
+        ),
+    ),
+  );
+  const positions = [
+    ...(first.data?.items ?? []),
+    ...remaining.flatMap((page) => page.data?.items ?? []),
+  ];
+  const fetching = first.isPending || remaining.some((page) => page.isPending);
+  const error = first.error ?? remaining.find((page) => page.error)?.error;
+  const totals = (["CNY", "USD"] as const).flatMap((currency) => {
+    const rows = positions.filter((row) => row.currency === currency);
+    if (!rows.length) return [];
+    return [
+      {
+        currency,
+        margin: rows.reduce((sum, row) => sum + (row.marginUsed ?? 0), 0),
+        pnl: rows.every((row) => row.unrealizedPnl != null)
+          ? rows.reduce((sum, row) => sum + (row.unrealizedPnl ?? 0), 0)
+          : null,
+      },
+    ];
+  });
+
+  return (
+    <section
+      aria-label="期货模拟持仓"
+      className="space-y-1 border-b border-nc-border-soft px-4 py-2"
+    >
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sub">
+        <Wallet size={15} className="text-nc-accent" aria-hidden="true" />
+        <strong>期货模拟持仓</strong>
+        {error ? (
+          <span role="alert" className="text-nc-bad">
+            {error.message}
+          </span>
+        ) : fetching ? (
+          <span role="status">正在读取持仓…</span>
+        ) : positions.length === 0 ? (
+          <span className="text-nc-text-3">暂无持仓</span>
+        ) : (
+          totals.map(({ currency, margin, pnl }) => (
+            <span key={currency} className="tabular-nums text-nc-text-3">
+              {currency} 保证金 {formatNumber(margin)} · 浮动盈亏{" "}
+              {formatNumber(pnl)}
+            </span>
+          ))
+        )}
+        <Link
+          href="/accounts?tab=paper&channel=futures-sim"
+          className="ml-auto text-nc-accent underline underline-offset-2"
+        >
+          管理模拟账户 →
+        </Link>
+      </div>
+      {positions.length > 0 && (
+        <ul className="m-0 flex list-none flex-wrap gap-1 p-0">
+          {positions.map((position) => {
+            const contract = futuresContract(position.symbol);
+            const caption = `${contract?.name ?? position.symbol} · ${position.direction === "short" ? "空" : "多"} ${position.quantity} 手`;
+            return (
+              <li key={position.id}>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={!contract}
+                  onClick={() => onSelect(position.symbol)}
+                  title={`${position.accountName ?? position.account} · ${position.at ? `估值日 ${position.at}` : "暂无估值行情"}`}
+                >
+                  {caption}
+                  <span className="tabular-nums text-nc-text-3">
+                    浮动盈亏 {formatNumber(position.unrealizedPnl)}{" "}
+                    {position.currency}
+                  </span>
+                </Button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }

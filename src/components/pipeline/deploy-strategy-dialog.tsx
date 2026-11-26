@@ -57,6 +57,7 @@ export type DeployStrategyPreset = {
   strategySpec?: StrategySpecInput;
   universeSpec?: UniverseSpecInput;
   maxSymbolWeight?: number;
+  riskPolicy?: DeploymentCreateInput["riskPolicy"];
   provenance?: Partial<DeployProvenanceInput>;
 };
 
@@ -394,6 +395,12 @@ function formFromUniverseSpec(
   }
 }
 
+function presetPercent(fraction: number | undefined, fallback: string) {
+  return fraction === undefined
+    ? fallback
+    : String(Number((fraction * 100).toFixed(8)));
+}
+
 function formFromPreset(preset: DeployStrategyPreset | undefined): FormState {
   const base = defaultForm();
   if (!preset) return base;
@@ -403,19 +410,23 @@ function formFromPreset(preset: DeployStrategyPreset | undefined): FormState {
   const fromUniverse: Partial<FormState> = preset.universeSpec
     ? formFromUniverseSpec(preset.universeSpec)
     : {};
+  const risk = preset.riskPolicy;
   const next: FormState = {
     ...base,
     ...fromStrategy,
     ...fromUniverse,
     ...(preset.name ? { name: preset.name } : {}),
     ...(preset.market ? { market: preset.market } : {}),
-    ...(preset.maxSymbolWeight === undefined
-      ? {}
-      : {
-          maxSymbolWeight: String(
-            Number((preset.maxSymbolWeight * 100).toFixed(8)),
-          ),
-        }),
+    maxSymbolWeight: presetPercent(
+      risk?.maxSymbolWeight ?? preset.maxSymbolWeight,
+      base.maxSymbolWeight,
+    ),
+    maxTotalExposure: presetPercent(
+      risk?.maxTotalExposure,
+      base.maxTotalExposure,
+    ),
+    maxGap: presetPercent(risk?.maxGapPct, base.maxGap),
+    drawdownPause: presetPercent(risk?.drawdownPausePct, base.drawdownPause),
   };
   const market = preset.market ?? fromStrategy.market ?? next.market;
   next.market = market;
@@ -497,12 +508,20 @@ function composeStrategy(
             ? preset.parameters
             : undefined,
       };
-    case "theory-screener":
+    case "theory-screener": {
+      const sameMethod =
+        preset?.kind === "theory-screener" &&
+        preset.methodId === form.screenerMethodId;
       return {
         kind: "theory-screener",
         methodId: form.screenerMethodId,
         holdBars: requireInteger(form.screenerHoldBars, "持有周期", 1, 250),
+        ...(sameMethod && {
+          minScore: preset.minScore,
+          useScreenerStops: preset.useScreenerStops,
+        }),
       };
+    }
     case "etf-rotation":
       return {
         kind: "etf-rotation",
@@ -551,7 +570,14 @@ function composeStrategy(
       const name = form.formulaName.trim();
       const source = form.formulaSource.trim();
       if (!name || !source) throw new Error("请填写公式名称与公式源码");
-      return { kind: "formula", name, source };
+      const sameFormula =
+        preset?.kind === "formula" && preset.source.trim() === source;
+      return {
+        kind: "formula",
+        name,
+        source,
+        ...(sameFormula && { parameters: preset.parameters }),
+      };
     }
   }
 }
@@ -721,11 +747,99 @@ function composeSchedule(form: FormState): DeploymentCreateInput["schedule"] {
   return { kind: "post_close_auto" };
 }
 
+function composePoolPolicy(form: FormState) {
+  const missedDays = requireInteger(
+    form.missedDays,
+    "连续未命中宽限天数",
+    0,
+    60,
+  );
+  const hardEvictMa = form.hardEvictMa.trim()
+    ? requireInteger(form.hardEvictMa, "跌破均线硬淘汰天数", 5, 250)
+    : null;
+  const hardEvictDrawdown = form.hardEvictDrawdown.trim()
+    ? requireFraction(form.hardEvictDrawdown, "入池回撤硬淘汰", 0, 0.95)
+    : null;
+  if (hardEvictDrawdown !== null && hardEvictDrawdown >= 0.95)
+    throw new Error("入池回撤硬淘汰须小于 95%");
+  const maxPoolSize = requireInteger(
+    form.maxPoolSize,
+    "监控池容量上限",
+    1,
+    500,
+  );
+  return {
+    missedDays,
+    hardEvictMa,
+    hardEvictDrawdown,
+    maxPoolSize,
+  };
+}
+
+function composeResearchConfig(form: FormState, preset?: DeployStrategyPreset) {
+  return {
+    market: form.market,
+    strategySpec: composeStrategy(form, preset?.strategySpec),
+    universeSpec: composeUniverse(form),
+    poolPolicy: composePoolPolicy(form),
+    regimeGate: {
+      kind: form.gateKind,
+      benchmark: form.gateBenchmark.trim() || "sh000300",
+      unlockAvoidanceDays: requireInteger(
+        form.gateUnlockDays,
+        "解禁回避天数",
+        0,
+        30,
+      ),
+    },
+    riskPolicy: {
+      ...preset?.riskPolicy,
+      maxSymbolWeight: requireFraction(form.maxSymbolWeight, "单票上限", 0, 1),
+      maxTotalExposure: requireFraction(
+        form.maxTotalExposure,
+        "最大总仓位",
+        0,
+        1,
+      ),
+      maxGapPct: requireFraction(form.maxGap, "开盘跳空上限", 0.005, 0.2),
+      drawdownPausePct: requireFraction(
+        form.drawdownPause,
+        "回撤暂停阈值",
+        0,
+        0.5,
+      ),
+    },
+  };
+}
+
+function researchFingerprint(form: FormState, preset?: DeployStrategyPreset) {
+  try {
+    return JSON.stringify(composeResearchConfig(form, preset));
+  } catch {
+    return null;
+  }
+}
+
+function frozenArchiveId(provenance: DeployStrategyPreset["provenance"]) {
+  if (provenance?.sourceKind !== "lab-backtest" || !provenance.sourceRefId)
+    return null;
+  // A strategy-library entry without a backtest uses its version as the source.
+  try {
+    const note = z
+      .object({ strategy: z.string() })
+      .safeParse(JSON.parse(provenance.note ?? "{}"));
+    if (note.data?.strategy === provenance.sourceRefId) return null;
+  } catch {
+    // Older handoffs may carry a plain-text note.
+  }
+  return provenance.sourceRefId;
+}
+
 function composeInput(
   form: FormState,
   preset: DeployStrategyPreset | undefined,
+  derivedFromArchiveId: string | null,
 ): DeploymentCreateInput {
-  const provenance = preset?.provenance;
   const name = form.name.trim();
   if (!name) throw new Error("请填写策略名称");
   const missedDays = requireInteger(
@@ -750,39 +864,29 @@ function composeInput(
   );
   const createdFromRoute =
     typeof window === "undefined" ? "/" : window.location.pathname;
+  const provenance: DeployProvenanceInput = {
+    sourceKind: "manual",
+    createdFromRoute,
+    ...preset?.provenance,
+  };
+  if (derivedFromArchiveId) {
+    // The provenance contract stores annotations in note. It uses sourceKind
+    // and sourceRefId to resolve executable frozen research.
+    const note = JSON.stringify({
+      modifiedFromFrozen: true,
+      derivedFromArchiveId,
+    });
+    provenance.sourceKind = "manual";
+    provenance.sourceRefId = null;
+    provenance.buildHash = null;
+    provenance.note =
+      note.length <= 500 ? note : JSON.stringify({ modifiedFromFrozen: true });
+  }
   return {
     name,
-    market: form.market,
     status: "draft",
     executionMode: "shadow",
-    strategySpec: composeStrategy(form, preset?.strategySpec),
-    universeSpec: composeUniverse(form),
-    regimeGate: {
-      kind: form.gateKind,
-      benchmark: form.gateBenchmark.trim() || "sh000300",
-      unlockAvoidanceDays: requireInteger(
-        form.gateUnlockDays,
-        "解禁回避天数",
-        0,
-        30,
-      ),
-    },
-    riskPolicy: {
-      maxSymbolWeight: requireFraction(form.maxSymbolWeight, "单票上限", 0, 1),
-      maxTotalExposure: requireFraction(
-        form.maxTotalExposure,
-        "最大总仓位",
-        0,
-        1,
-      ),
-      maxGapPct: requireFraction(form.maxGap, "开盘跳空上限", 0.005, 0.2),
-      drawdownPausePct: requireFraction(
-        form.drawdownPause,
-        "回撤暂停阈值",
-        0,
-        0.5,
-      ),
-    },
+    ...composeResearchConfig(form, preset),
     venueBinding: composeVenue(form),
     poolPolicy: {
       mode: form.poolMode,
@@ -795,11 +899,7 @@ function composeInput(
       },
     },
     schedule: composeSchedule(form),
-    provenance: {
-      sourceKind: "manual",
-      createdFromRoute,
-      ...provenance,
-    },
+    provenance,
   };
 }
 
@@ -1012,8 +1112,17 @@ function DeployStrategyForm({
 }: DeployStrategyDialogProps) {
   const utils = api.useUtils();
   const notify = useWorkbenchNotify();
-  const [form, setForm] = useState(() => formFromPreset(defaultPreset));
   const [preset] = useState(defaultPreset);
+  const [initialForm] = useState(() => formFromPreset(preset));
+  const [form, setForm] = useState(initialForm);
+  const [archiveId] = useState(() => frozenArchiveId(preset?.provenance));
+  const [initialFingerprint] = useState(() =>
+    archiveId ? researchFingerprint(initialForm, preset) : null,
+  );
+  const modifiedFromFrozen =
+    archiveId !== null &&
+    form !== initialForm &&
+    researchFingerprint(form, preset) !== initialFingerprint;
   const [error, setError] = useState("");
   const usesLocalAccount =
     form.market === "cn-equity" &&
@@ -1063,7 +1172,13 @@ function DeployStrategyForm({
     setError("");
     create.reset();
     try {
-      create.mutate(composeInput({ ...form, simAccountId }, preset));
+      create.mutate(
+        composeInput(
+          { ...form, simAccountId },
+          preset,
+          modifiedFromFrozen ? archiveId : null,
+        ),
+      );
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     }
@@ -1089,8 +1204,14 @@ function DeployStrategyForm({
             一键把策略、选股来源、监控池规则、风控与执行通道串成每日流水线。
             新部署默认进入空跑观察（只记录信号与订单意图，不发送委托）。
           </DialogDescription>
-          {preset?.description && (
-            <p className="text-sub text-nc-text-3">{preset.description}</p>
+          {modifiedFromFrozen ? (
+            <p role="status" className="text-sub text-nc-warn">
+              已修改预设参数，本次部署不再绑定原冻结回测
+            </p>
+          ) : (
+            preset?.description && (
+              <p className="text-sub text-nc-text-3">{preset.description}</p>
+            )
           )}
         </DialogHeader>
 

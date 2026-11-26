@@ -4,6 +4,7 @@ import { ClipboardText } from "@phosphor-icons/react/ssr";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useId, useState, type FormEvent } from "react";
 import { formatNumber } from "trading-strategy-core/format-number";
+import { z } from "zod";
 import { targetSnapshotSchema } from "~/lib/research/alpha-experiment";
 import { api, type RouterInputs, type RouterOutputs } from "~/trpc/react";
 import {
@@ -28,6 +29,7 @@ import {
 import { Textarea } from "../ui/textarea";
 import { useNow } from "../workbench/use-now";
 import { useScreenVisible } from "../workbench/use-task-visible";
+import { ChartSimOrderDialog } from "../market/chart-sim-order-dialog";
 
 type ListInput = RouterInputs["rebalanceTicketList"];
 type AccountScope = ListInput["accountScope"];
@@ -104,11 +106,16 @@ function readEtfPresetSource(
   const preset = etfPresets.find((item) => item.id === selection);
   return preset ? { kind: "etf_rotation_preset", strategyId: preset.id } : null;
 }
-type ResearchDeepLink = {
+type TicketDeepLink = {
   sourceKind: UiSourceKind | null;
   etfStrategy: string | null;
   alphaJobId: string | null;
+  scope: AccountScope | null;
+  accountId: string | null;
+  runId: string | null;
+  date: string | null;
 };
+const ticketDateSchema = z.string().date();
 
 const beijingDateTime = new Intl.DateTimeFormat("zh-CN", {
   timeZone: "Asia/Shanghai",
@@ -123,7 +130,7 @@ export function RebalanceTicketPanel({
 }) {
   const search = useSearchParams();
   const [opened, setOpened] = useState(false);
-  const [deepLink, setDeepLink] = useState<ResearchDeepLink | null>(null);
+  const [deepLink, setDeepLink] = useState<TicketDeepLink | null>(null);
   useEffect(() => {
     const raw = search.get("ticketSource");
     const sourceKind =
@@ -131,15 +138,26 @@ export function RebalanceTicketPanel({
         ? raw
         : null;
     const linkedToPanel = window.location.hash === `#${ticketPanelId}`;
-    if (!sourceKind && !linkedToPanel) return;
+    const rawScope = search.get("ticketScope");
+    const scope = rawScope === "real" || rawScope === "paper" ? rawScope : null;
+    const runId = search.get("ticketRunId")?.trim() || null;
+    const date =
+      ticketDateSchema.safeParse(search.get("ticketDate")).data ?? null;
+    if (!sourceKind && !linkedToPanel && !scope && !runId && !date) {
+      setDeepLink(null);
+      return;
+    }
     setOpened(true);
     setDeepLink({
       sourceKind,
       etfStrategy: search.get("etfStrategy"),
       alphaJobId: search.get("alphaJobId"),
+      scope,
+      accountId: search.get("ticketAccountId"),
+      runId,
+      date,
     });
-    if (sourceKind && linkedToPanel)
-      document.getElementById(ticketPanelId)?.scrollIntoView();
+    if (linkedToPanel) document.getElementById(ticketPanelId)?.scrollIntoView();
   }, [search]);
   return (
     <Panel
@@ -158,7 +176,11 @@ export function RebalanceTicketPanel({
       bodyClassName={opened ? "space-y-4" : undefined}
     >
       {opened && (
-        <TicketAccounts decisionDate={decisionDate} deepLink={deepLink} />
+        <TicketAccounts
+          key={JSON.stringify(deepLink)}
+          decisionDate={decisionDate}
+          deepLink={deepLink}
+        />
       )}
     </Panel>
   );
@@ -169,16 +191,16 @@ function TicketAccounts({
   deepLink,
 }: {
   decisionDate: string | null;
-  deepLink: ResearchDeepLink | null;
+  deepLink: TicketDeepLink | null;
 }) {
   const visible = useScreenVisible();
-  const [scope, setScope] = useState<AccountScope>("real");
+  const [scope, setScope] = useState<AccountScope>(deepLink?.scope ?? "real");
   const [selection, setSelection] = useState<
     Partial<Record<AccountScope, string>>
   >({});
   // Kept above AccountTickets so switching scope or account (which remounts
   // the ticket list) does not discard the user's chosen decision date.
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState(deepLink?.date ?? null);
   const accounts = api.accountPortfolioRisk.useQuery(
     { scope },
     {
@@ -188,17 +210,18 @@ function TicketAccounts({
       select: (result) => result.accounts,
     },
   );
-  const accountId = accounts.data?.find((id) => id === selection[scope]);
-  // A one-click handoff should land on the ticket form; selecting the first
-  // available account only changes the view context and generates nothing.
-  useEffect(() => {
-    if (!deepLink || selection[scope] || !accounts.data?.length) return;
-    const first = accounts.data[0];
-    if (first)
-      setSelection((current) =>
-        current[scope] ? current : { ...current, [scope]: first },
-      );
-  }, [accounts.data, deepLink, scope, selection]);
+  const linkedRun =
+    deepLink?.runId && (!deepLink.scope || deepLink.scope === scope)
+      ? deepLink
+      : null;
+  const suggestedAccount = deepLink?.runId
+    ? linkedRun?.accountId && accounts.data?.includes(linkedRun.accountId)
+      ? linkedRun.accountId
+      : accounts.data?.[0]
+    : deepLink && accounts.data?.[0];
+  const accountId = accounts.data?.find(
+    (id) => id === (selection[scope] ?? suggestedAccount),
+  );
   return (
     <>
       <div className="flex flex-wrap items-center gap-3">
@@ -230,6 +253,12 @@ function TicketAccounts({
           </SelectContent>
         </Select>
       </div>
+      {linkedRun && (
+        <p role="status" className="text-sub text-nc-text-2">
+          关联运行 {linkedRun.runId}
+          {linkedRun.date && ` · 决策日 ${linkedRun.date}`}
+        </p>
+      )}
       {accounts.isError ? (
         <StateBanner
           state="error"
@@ -252,6 +281,7 @@ function TicketAccounts({
           asOfDate={selectedDate ?? decisionDate ?? ""}
           onAsOfDateChange={setSelectedDate}
           deepLink={deepLink}
+          linkedRun={linkedRun}
         />
       ) : (
         <p className="text-sub text-nc-text-3">
@@ -421,14 +451,18 @@ function AccountTickets({
   asOfDate,
   onAsOfDateChange,
   deepLink,
+  linkedRun,
 }: ListInput & {
   asOfDate: string;
   onAsOfDateChange: (value: string) => void;
-  deepLink: ResearchDeepLink | null;
+  deepLink: TicketDeepLink | null;
+  linkedRun: TicketDeepLink | null;
 }) {
   const [cursors, setCursors] = useState<Cursor[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(deepLink !== null);
+  const [showForm, setShowForm] = useState(
+    deepLink !== null && !deepLink.runId,
+  );
   const [sourceKind, setSourceKind] = useState<UiSourceKind>(
     deepLink?.sourceKind ?? "manual",
   );
@@ -469,9 +503,15 @@ function AccountTickets({
   const confirm = api.rebalanceTicketConfirm.useMutation();
   const recheck = api.rebalanceTicketRecheck.useMutation();
   const cancel = api.rebalanceTicketCancel.useMutation();
-  const items = list.data?.items ?? [];
+  const items = (list.data?.items ?? []).filter(
+    (item) => !linkedRun?.date || item.asOfDate === linkedRun.date,
+  );
   const next = list.data?.nextCursor;
-  const ticket = items.find((item) => item.id === selected) ?? items[0];
+  const isLinkedTicket = (item: Ticket) =>
+    linkedRun?.runId === item.sourceRefId.replace(/#[a-f0-9]{64}$/, "");
+  const ticket =
+    items.find((item) => item.id === selected) ??
+    (linkedRun ? items.find(isLinkedTicket) : items[0]);
 
   async function save(operation: () => Promise<Ticket>, generating = false) {
     setBusy(true);
@@ -540,6 +580,7 @@ function AccountTickets({
                   {beijingDateTime.format(item.createdAt)} ·{" "}
                   {sourceLabel[item.sourceKind]} ·{" "}
                   {ticketStatus[item.status][0]}
+                  {isLinkedTicket(item) && " · 关联运行"}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -608,7 +649,12 @@ function AccountTickets({
             {sourceKind === "manual" && (
               <label className="grid gap-1 text-sub text-nc-text-2">
                 计划备注（选填）
-                <Input name="reference" maxLength={200} disabled={busy} />
+                <Input
+                  name="reference"
+                  defaultValue={linkedRun?.runId ?? ""}
+                  maxLength={200}
+                  disabled={busy}
+                />
               </label>
             )}
           </div>
@@ -703,7 +749,12 @@ function AccountTickets({
                     <SelectContent>
                       {alphaJobs.map((job) => (
                         <SelectItem key={job.id} value={job.id}>
-                          {job.id} · {job.end} · {job.snapshotHash.slice(0, 8)}
+                          Alpha 目标权重研究 · {job.start} 至 {job.end} ·
+                          因子研究归档（
+                          {new Date(job.updatedAt).toLocaleString("zh-CN", {
+                            timeZone: "Asia/Shanghai",
+                          })}
+                          ）
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -805,7 +856,7 @@ function AccountTickets({
         </StateBanner>
       )}
       {ticket ? (
-        <TicketDetails
+        <RebalanceTicketDetails
           key={ticket.id}
           ticket={ticket}
           busy={busy}
@@ -821,7 +872,14 @@ function AccountTickets({
           }
         />
       ) : list.data ? (
-        <StateBanner state="empty" title="当前页暂无调仓计划单" />
+        <StateBanner
+          state="empty"
+          title={
+            linkedRun
+              ? "当前页暂无与该运行关联的调仓计划单"
+              : "当前页暂无调仓计划单"
+          }
+        />
       ) : (
         !list.isError && (
           <p className="text-sub text-nc-text-3" role="status">
@@ -833,7 +891,7 @@ function AccountTickets({
   );
 }
 
-function TicketDetails({
+export function RebalanceTicketDetails({
   ticket,
   busy,
   disabled,
@@ -968,6 +1026,45 @@ function TicketDetails({
   );
 }
 
+function TicketSimOrderAction({
+  order,
+  decisionDate,
+}: {
+  order: Order;
+  decisionDate: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <ChartSimOrderDialog
+      open={open}
+      onOpenChange={setOpen}
+      market="cn-equity"
+      symbol={order.symbol}
+      displayName={order.symbol.toUpperCase()}
+      referencePrice={
+        order.estimate?.estimatePrice ?? order.estimate?.close ?? null
+      }
+      referencePriceSource="unadjusted"
+      referenceLabel="调仓参考价"
+      referenceDate={decisionDate}
+      initialSide={order.side}
+      initialQuantity={String(order.quantity)}
+      syncChartReview={false}
+      trigger={
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="h-7 min-h-0 px-2 py-0 text-xs!"
+          title="带入调仓单数量和参考价，确认模拟成交前可修改"
+        >
+          模拟下单
+        </Button>
+      }
+    />
+  );
+}
+
 function OrderGroup({ side, ticket }: { side: Order["side"]; ticket: Ticket }) {
   const sell = side === "sell";
   const title = sell ? "先卖出" : "后买入";
@@ -1044,6 +1141,17 @@ function OrderGroup({ side, ticket }: { side: Order["side"]; ticket: Ticket }) {
               ),
           },
           ...(sell ? [] : buyColumns),
+          {
+            key: "sim",
+            header: "模拟下单",
+            align: "right",
+            cell: (order) => (
+              <TicketSimOrderAction
+                order={order}
+                decisionDate={ticket.asOfDate}
+              />
+            ),
+          },
           {
             key: "market",
             header: "停牌 / 涨跌停",

@@ -36,7 +36,7 @@ describe("R2 unified-holdings URL contract", () => {
         new URLSearchParams({
           [holdingsFilterKeys.kind]: "broker",
           [holdingsFilterKeys.source]: "broker",
-          [holdingsFilterKeys.market]: "futures",
+          [holdingsFilterKeys.market]: "options",
           [holdingsFilterKeys.stopStatus]: "above",
           [holdingsFilterKeys.group]: "symbol",
           [holdingsFilterKeys.sleeve]: "s".repeat(101),
@@ -44,6 +44,11 @@ describe("R2 unified-holdings URL contract", () => {
         }),
       ),
     ).toEqual(defaultHoldingsFilters);
+    expect(
+      readHoldingsFilters(
+        new URLSearchParams({ [holdingsFilterKeys.market]: "futures" }),
+      ).market,
+    ).toBe("futures");
     expect(
       readHoldingsFilters(
         new URLSearchParams({ [holdingsFilterKeys.page]: "1.5" }),

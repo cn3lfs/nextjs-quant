@@ -194,9 +194,7 @@ for (const width of [1440, 1024]) {
       await suggestion
         .getByRole("button", { name: "按复盘建议暂停正式提醒", exact: true })
         .click();
-      await expect(page.getByRole("dialog")).toContainText(
-        "确认暂停正式提醒",
-      );
+      await expect(page.getByRole("dialog")).toContainText("确认暂停正式提醒");
       await page.keyboard.press("Escape");
       expect(pauseRequests).toEqual([]);
       expect(

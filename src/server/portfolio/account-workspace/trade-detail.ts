@@ -1,5 +1,7 @@
 import {
+  matchesAccountKind,
   positionMetrics,
+  type AccountKind,
   type AccountTrade,
 } from "~/lib/portfolio/account-workspace";
 import { pageHoldingsCorrelation } from "../holdings-correlation-service";
@@ -9,10 +11,32 @@ import { alertReference } from "~/lib/strategy-facts/alert-reference";
 import { type AccountBook } from "./load-book";
 import { calendarDays, paperDailyBars } from "./daily-bars";
 import { accountAttribution } from "./attribution";
+import { tradeChartHref } from "~/lib/chart/chart-trade-marks";
 
 function tradeSource(trade: AccountTrade, book: AccountBook) {
   const event = book.facts.events.find((e) => e.key === trade.alertKey);
-  return { ...trade, alert: event ? alertReference(event) : null };
+  const chartHref =
+    trade.kind === "local-sim" && trade.market === "cn-equity"
+      ? tradeChartHref({
+          symbol: trade.symbol,
+          at: trade.date,
+          review: {
+            source: "paper-account",
+            refId: "local-sim:" + trade.account,
+            accountId: trade.account,
+            symbol: trade.symbol,
+            label: trade.accountName ?? "本地模拟",
+            backHref:
+              "/accounts?" +
+              new URLSearchParams({
+                tab: "trades",
+                trade: trade.id,
+                symbol: trade.symbol,
+              }),
+          },
+        })
+      : undefined;
+  return { ...trade, chartHref, alert: event ? alertReference(event) : null };
 }
 export function accountPositionDetail(
   book: AccountBook,
@@ -23,7 +47,11 @@ export function accountPositionDetail(
   if (!position) throw new Error("持仓不存在，请刷新账户");
   const trades = book.trades
     .filter(
-      (t) => t.account === position.account && t.symbol === position.symbol,
+      (t) =>
+        t.kind === position.kind &&
+        t.account === position.account &&
+        t.symbol === position.symbol &&
+        (position.kind !== "futures-sim" || t.direction === position.direction),
     )
     .filter((t) => t.id.split(":", 1)[0] === position.id.split(":", 1)[0])
     .sort((a, b) => b.time - a.time || a.id.localeCompare(b.id));
@@ -46,7 +74,12 @@ export function accountPositionDetail(
       : book.calendar;
   const quantities = Object.fromEntries(
     book.positions
-      .filter((p) => symbols.includes(p.symbol))
+      .filter(
+        (p) =>
+          p.kind === position.kind &&
+          p.market === position.market &&
+          symbols.includes(p.symbol),
+      )
       .map((p) => [p.symbol, p.quantity]),
   );
   const days = calendar
@@ -63,7 +96,8 @@ export function accountPositionDetail(
     },
   );
   const imported = book.facts.fills.filter(
-    (f) => f.account === position.account,
+    (f) =>
+      position.id.startsWith("delivery:") && f.account === position.account,
   );
   const nav =
     imported.length && imported.every((f) => f.instrument !== "convertible")
@@ -110,7 +144,7 @@ export function accountTradePage(
   book: AccountBook,
   input: {
     page: number;
-    kind: "real" | "paper" | "exchange-simulation" | "all";
+    kind: AccountKind | "all";
     symbol: string;
     tradeId?: string;
   },
@@ -118,7 +152,7 @@ export function accountTradePage(
   const trades = book.trades
     .filter(
       (t) =>
-        (input.kind === "all" || t.kind === input.kind) &&
+        matchesAccountKind(t.kind, input.kind) &&
         (!input.symbol || t.symbol.includes(input.symbol)) &&
         (!input.tradeId || t.id === input.tradeId),
     )

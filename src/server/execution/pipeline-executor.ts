@@ -1,17 +1,38 @@
+import { observeFillDates } from "../pipeline/observed-fill-dates";
 import type Database from "better-sqlite3";
 import Big from "big.js";
 import { z } from "zod";
 import {
   canTransitionIntentStatus,
+  extractVenueAccountKey,
   isLiveVenueKind,
   isTerminalIntentStatus,
+  type VenueBinding,
   type PipelineStage,
 } from "trading-strategies";
 import { sqlite } from "../db";
+import { chinaDate } from "~/lib/market/security-trading-status";
 import { AccountWorkspaceRepository } from "../db/account-workspace-repository";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { sqliteTable, integer, real, text } from "drizzle-orm/sqlite-core";
-import { and, eq, inArray } from "drizzle-orm";
+import {
+  and,
+  eq,
+  gt,
+  lte,
+  inArray,
+  ne,
+  notInArray,
+  or,
+  sql,
+} from "drizzle-orm";
+import { settlePendingRunDate } from "../pipeline/provisional-run";
+import type { ExecutionCalendar } from "../pipeline/provisional-run";
+import {
+  executionRiskFactsChanged,
+  limitExecutionBuy,
+  readExecutionRiskSnapshot,
+} from "../pipeline/execution-risk-limits";
 import {
   getDeployment,
   getPipelineGlobalConfig,
@@ -19,7 +40,6 @@ import {
 } from "../db/deployment-repository";
 import {
   appendExecutionAuditEvent,
-  claimIntentForSubmission,
   getIntent,
   getPipelineRun,
   listIntentsByRun,
@@ -34,15 +54,53 @@ import {
   type VenueRouterDeps,
 } from "./venue-router";
 
+import {
+  createPipelineQuoteReader,
+  ExecutionQuoteError,
+  quoteTimeError,
+  type PipelineQuoteSnapshot,
+  type PipelineQuoteReader,
+} from "./pipeline-quote-provider";
+import {
+  affordableBuy,
+  arrivalEvidence,
+  buyBalanceCoverage,
+  sleeveFillCheckpoint,
+  recordSellSettlement,
+  type BuyCashSnapshot,
+  sellProceeds,
+} from "./pipeline-proceeds";
+import {
+  applySleeveFill,
+  ownedHolding,
+  fillAccount,
+  preserveHistoricPartial,
+} from "../pipeline/sleeve-fills";
+import { recordExecutionFillLink } from "../db/execution-fill-link-repository";
+import { normalizePoolSymbol } from "../db/pool-repository";
+import { SimAccountRepository } from "../db/sim-account-repository";
+import { listAccountSleeveHoldings } from "../db/sleeve-holding-repository";
+import {
+  normalizeSimSymbol,
+  quantityDigits,
+  replayPositions,
+} from "../portfolio/sim-accounts/engine";
+
 type Db = Database.Database;
 type Intent = OrderIntentRecord;
 // Narrow projection for indexed lookup and same-status fill evidence. The repository
-// owns intent creation, status transitions, decoding and the submission fence.
+// owns intent creation, decoding and general-purpose status transitions.
 const orderEvidence = sqliteTable("execution_order_intents", {
   id: text("id").primaryKey(),
   runId: text("run_id").notNull(),
   deploymentId: text("deployment_id").notNull(),
+  binding: text("venue_binding_json", { mode: "json" })
+    .$type<VenueBinding>()
+    .notNull(),
+  side: text("side").notNull(),
+  symbol: text("symbol").notNull(),
   executeDate: text("execute_date").notNull(),
+  quantity: real("quantity").notNull(),
   status: text("status").notNull(),
   venueOrderId: text("venue_order_id"),
   filledQuantity: real("filled_quantity"),
@@ -50,20 +108,19 @@ const orderEvidence = sqliteTable("execution_order_intents", {
   errorSummary: text("error_summary"),
   updatedAt: integer("updated_at").notNull(),
 });
-export type PipelineQuoteSnapshot = {
-  symbol: string;
-  openPrice: number | null;
-  lastPrice: number | null;
-  prevClose: number | null;
-  upperLimit: number | null;
-  lowerLimit: number | null;
-  suspended: boolean;
-};
+const fillLinks = sqliteTable("execution_fill_links", {
+  intentId: text("intent_id"),
+  source: text("fill_source").notNull(),
+  fillId: text("fill_id").notNull(),
+});
+export type { PipelineQuoteSnapshot } from "./pipeline-quote-provider";
 export interface PipelineExecutorDeps extends VenueRouterDeps {
-  readQuote?: (
-    symbol: string,
-    executeDate: string,
-  ) => PipelineQuoteSnapshot | null | Promise<PipelineQuoteSnapshot | null>;
+  executionCalendar?: ExecutionCalendar;
+  executionWindowCheck?: (
+    nowMs: number,
+    deployment?: DeploymentRecord,
+  ) => boolean;
+  readQuote?: PipelineQuoteReader;
 }
 type RunInput = {
   runId: string;
@@ -78,6 +135,61 @@ const reconciliationStatuses = [
   "partial_filled",
   "unknown_reconcile",
 ] as const;
+function canSubmitSleeveSell(i: Intent, db: Db) {
+  let free = new Big(ownedHolding(i, db)?.quantity ?? 0);
+  if (free.lt(i.quantity)) return false;
+  const outstanding = drizzle(db)
+    .select({
+      id: orderEvidence.id,
+      quantity: orderEvidence.quantity,
+      binding: orderEvidence.binding,
+    })
+    .from(orderEvidence)
+    .where(
+      and(
+        eq(orderEvidence.deploymentId, i.deploymentId),
+        eq(orderEvidence.side, "SELL"),
+        eq(sql`${orderEvidence.symbol} COLLATE NOCASE`, i.symbol),
+        ne(orderEvidence.id, i.id),
+        inArray(orderEvidence.status, [...reconciliationStatuses]),
+      ),
+    )
+    .all();
+  const account = fillAccount(i.venueBinding);
+  for (const other of outstanding) {
+    const key = fillAccount(other.binding);
+    if (
+      key.accountScope === account.accountScope &&
+      key.accountId === account.accountId
+    )
+      free = free
+        .minus(other.quantity)
+        .plus(sleeveFillCheckpoint(other.id, db)?.quantity ?? 0);
+  }
+  if (free.lt(i.quantity)) return false;
+  if (i.venueBinding.kind !== "local_sim") return true;
+
+  // A manual reduction after planning can leave the venue holding smaller
+  // than the aggregate sleeve balances. Recheck against the live local ledger.
+  const repo = new SimAccountRepository(db);
+  const { market } = repo.account(i.venueBinding.simAccountId);
+  const symbol = normalizeSimSymbol(i.symbol, market);
+  const fills = repo.fills(account.accountId, symbol);
+  if ((repo.latestDate(account.accountId) ?? "") > i.executeDate) return false;
+  const position = replayPositions(fills, market, i.executeDate).get(symbol);
+  if (!position) return false;
+  const scale = new Big(10).pow(quantityDigits(market));
+  const physical = new Big(position.quantity.toString()).div(scale);
+  const sellable = new Big(position.sellable.toString()).div(scale);
+  const foreign = listAccountSleeveHoldings(account, db)
+    .filter(
+      (row) =>
+        normalizePoolSymbol(row.symbol) === normalizePoolSymbol(symbol) &&
+        (row.ownerKind !== "deployment" || row.ownerId !== i.deploymentId),
+    )
+    .reduce((total, row) => total.plus(row.quantity), new Big(0));
+  return physical.minus(foreign).gte(i.quantity) && sellable.gte(i.quantity);
+}
 // Leave time for the active request (built-in live transports time out at 10 seconds).
 const submittingGraceMs = 30_000;
 function stageFor(intents: Intent[], current: PipelineStage): PipelineStage {
@@ -159,35 +271,44 @@ function quoteDecision(
   deployment: DeploymentRecord,
 ) {
   if (!q || q.symbol.toUpperCase() !== i.symbol.toUpperCase())
-    return "缺少标的执行行情";
-  if (q.suspended) return "标的停牌，取消本次委托";
-  const price = q.openPrice ?? q.lastPrice;
-  if (!positive(price) || (q.lastPrice !== null && !positive(q.lastPrice)))
+    return "missing-execution-quote";
+  if (q.suspended !== false) return "suspended";
+  const price = q.lastPrice ?? q.openPrice;
+  if (
+    !positive(price) ||
+    (q.openPrice !== null && !positive(q.openPrice)) ||
+    (q.lastPrice !== null && !positive(q.lastPrice))
+  )
     return "缺少有效开盘价或最新价";
   if (deployment.market === "cn-equity") {
     if (
-      (q.upperLimit !== null && !positive(q.upperLimit)) ||
-      (q.lowerLimit !== null && !positive(q.lowerLimit)) ||
-      (q.upperLimit !== null &&
-        q.lowerLimit !== null &&
-        q.lowerLimit > q.upperLimit)
+      !positive(q.upperLimit) ||
+      !positive(q.lowerLimit) ||
+      q.lowerLimit >= q.upperLimit
     )
-      return "当日涨跌停行情无效";
-    const last = q.lastPrice ?? price;
-    if (i.side === "BUY") {
-      if (q.upperLimit !== null && last >= q.upperLimit)
-        return "买入触及涨停，取消本次委托";
-      if (
-        new Big(price).gt(
-          new Big(i.referencePrice).times(
-            new Big(1).plus(deployment.riskPolicy.maxGapPct),
-          ),
-        )
-      )
-        return "开盘向上跳空超过风控上限，取消本次买入";
-    } else if (q.lowerLimit !== null && last <= q.lowerLimit)
+      return "missing-limit-bounds";
+    if (price < q.lowerLimit || price > q.upperLimit)
+      return "invalid-execution-price";
+    if (i.side === "BUY" && price >= q.upperLimit)
+      return "买入触及涨停，取消本次委托";
+    if (i.side === "SELL" && price <= q.lowerLimit)
       return "卖出触及跌停，取消本次委托";
   }
+  const gap = new Big(deployment.riskPolicy.maxGapPct);
+  if (
+    i.side === "BUY" &&
+    new Big(Math.max(q.openPrice ?? price, price)).gt(
+      new Big(i.referencePrice).times(gap.plus(1)),
+    )
+  )
+    return "开盘向上跳空超过风控上限，取消本次买入";
+  if (
+    i.side === "SELL" &&
+    new Big(Math.min(q.openPrice ?? price, price)).lt(
+      new Big(i.referencePrice).times(new Big(1).minus(gap)),
+    )
+  )
+    return "开盘向下跳空超过风控上限，取消本次卖出";
   return price;
 }
 function unresolved(): VenueOrderResult {
@@ -210,7 +331,13 @@ function consistent(i: Intent, r: VenueOrderResult) {
     (r.status !== "submitted" || (qty ?? i.filledQuantity ?? 0) === 0)
   );
 }
-function applyResult(observed: Intent, reported: VenueOrderResult, db: Db) {
+function applyResult(
+  observed: Intent,
+  reported: VenueOrderResult,
+  db: Db,
+  observedAt: number,
+  fillDate: string | null = null,
+) {
   return new AccountWorkspaceRepository(db).atomic(() => {
     // A slower poll cannot overwrite newer fill evidence, even within the same millisecond.
     const i = getIntent(observed.id, db);
@@ -224,11 +351,94 @@ function applyResult(observed: Intent, reported: VenueOrderResult, db: Db) {
       isTerminalIntentStatus(i.status)
     )
       return;
-    const accepted =
+    preserveHistoricPartial(i, db);
+    let accepted =
       consistent(i, reported) &&
       (reported.status === i.status ||
         canTransitionIntentStatus(i.status, reported.status));
-    const r = accepted ? reported : unresolved();
+    const binding = i.venueBinding;
+    const account = fillAccount(binding);
+    const orderId = reported.venueOrderId ?? i.venueOrderId;
+    const fillIds = [
+      ...new Set([
+        ...(reported.fillIds ?? []),
+        ...(reported.fillId ? [reported.fillId] : []),
+      ]),
+    ].map((id) =>
+      JSON.stringify([
+        extractVenueAccountKey(binding),
+        i.symbol,
+        i.executeDate,
+        orderId,
+        id,
+      ]),
+    );
+    const confirmed =
+      reported.status !== "unknown_reconcile" &&
+      reported.status !== "submitted";
+    if (accepted && confirmed && orderId && fillIds.length) {
+      const links = drizzle(db)
+        .select({ intentId: fillLinks.intentId })
+        .from(fillLinks)
+        .where(
+          and(
+            eq(fillLinks.source, account.fillSource),
+            inArray(
+              fillLinks.fillId,
+              sql`(SELECT value FROM json_each(${JSON.stringify(fillIds)}))`,
+            ),
+          ),
+        )
+        .all();
+      if (
+        links.some((link) => link.intentId !== i.id) ||
+        (links.length === fillIds.length &&
+          (reported.filledQuantity ?? 0) > (i.filledQuantity ?? 0))
+      )
+        accepted = false;
+    }
+    let r = accepted ? reported : unresolved();
+    if (
+      accepted &&
+      confirmed &&
+      (r.filledQuantity ?? i.filledQuantity ?? 0) > 0
+    ) {
+      const quantity = r.filledQuantity ?? i.filledQuantity!;
+      const average =
+        r.averageFillPrice ??
+        (quantity === i.filledQuantity ? i.averageFillPrice : null);
+      if (
+        !average ||
+        (i.status === "unknown_reconcile" && r.filledQuantity === null)
+      ) {
+        // Retain the observed quantity for reconciliation and wait for a priced report.
+        r = {
+          ...r,
+          status: "unknown_reconcile",
+          errorSummary: "missing-venue-fill-evidence",
+        };
+      } else {
+        const reportDay = i.venueKind.startsWith("crypto")
+          ? new Date(observedAt).toISOString().slice(0, 10)
+          : chinaDate(observedAt);
+        // Local receipts and THS day orders are dated. For external orders
+        // first seen on a later day, the order date alone cannot date a fill.
+        const datedOrder =
+          i.venueKind === "local_sim" ||
+          i.venueKind === "ths_mock" ||
+          reportDay === i.executeDate;
+        const tradeDate =
+          fillDate && fillDate >= i.executeDate && fillDate <= reportDay
+            ? fillDate
+            : datedOrder
+              ? i.executeDate
+              : null;
+        if (!applySleeveFill(i, quantity, average, tradeDate, observedAt, db)) {
+          accepted = false;
+          r = unresolved();
+        }
+      }
+    }
     const patch = {
       venueOrderId:
         accepted && isLiveVenueKind(i.venueKind)
@@ -243,6 +453,59 @@ function applyResult(observed: Intent, reported: VenueOrderResult, db: Db) {
           : i.averageFillPrice),
       errorSummary: r.errorSummary ?? null,
     };
+    if (
+      accepted &&
+      r.status !== "unknown_reconcile" &&
+      i.side === "SELL" &&
+      patch.filledQuantity &&
+      patch.averageFillPrice
+    ) {
+      // Fees and net amounts are cumulative evidence for the reported quantity.
+      const sameFill = r.filledQuantity === patch.filledQuantity;
+      recordSellSettlement(
+        { ...i, ...patch },
+        getDeployment(i.deploymentId, db)!.market,
+        sameFill ? r : {},
+        db,
+      );
+    }
+    if (
+      accepted &&
+      r.status !== "unknown_reconcile" &&
+      patch.venueOrderId &&
+      (patch.filledQuantity ?? 0) > 0
+    ) {
+      const arrival = arrivalEvidence(i.id, db)?.price ?? null;
+      for (const fillId of fillIds)
+        recordExecutionFillLink(
+          {
+            intentId: i.id,
+            ...account,
+            venueOrderId: patch.venueOrderId,
+            fillId,
+            arrivalPrice: arrival,
+          },
+          db,
+        );
+      if (
+        !fillIds.length &&
+        (patch.filledQuantity !== i.filledQuantity || r.status !== i.status)
+      )
+        appendExecutionAuditEvent(
+          {
+            deploymentId: i.deploymentId,
+            runId: i.runId,
+            intentId: i.id,
+            eventType: "fill_identity_unavailable",
+            details: {
+              venueOrderId: patch.venueOrderId,
+              filledQuantity: patch.filledQuantity,
+              arrivalPrice: arrival,
+            },
+          },
+          db,
+        );
+    }
     if (r.status !== i.status) {
       transitionIntentStatus(i.id, r.status, patch, db);
     } else if (
@@ -276,61 +539,233 @@ async function executeOne(
   input: RunInput,
   db: Db,
 ) {
-  if (submissionDateExpired(i, input.deps?.now)) return "execute-date-expired";
-  let executePrice = i.referencePrice;
+  const now = input.deps?.now ?? Date.now;
+  const windowClosed = () =>
+    input.deps?.executionWindowCheck?.(now()) === false;
+  if (windowClosed()) return "execution-window-closed";
+  if (submissionDateExpired(i, now)) return "execute-date-expired";
+  const reader = input.deps?.readQuote ?? createPipelineQuoteReader({ now });
   let quote: PipelineQuoteSnapshot | null = null;
-  if (input.deps?.readQuote) {
-    try {
-      quote = await input.deps.readQuote(i.symbol, input.executeDate);
-    } catch {
-      /* Missing evidence prevents submission. */
-    }
-    const decision = quoteDecision(i, quote, deployment);
-    if (typeof decision === "string") {
-      new AccountWorkspaceRepository(db).atomic(() => {
-        const current = getIntent(i.id, db);
-        if (current && pending(current))
-          transitionIntentStatus(
-            i.id,
-            "rejected",
-            { errorSummary: decision },
-            db,
-          );
-      });
-      return;
-    }
-    executePrice = decision;
+  let readError: string | null = null;
+  try {
+    quote = reader.readChecked
+      ? await reader.readChecked(
+          i.symbol,
+          input.executeDate,
+          "venue" in i.venueBinding ? i.venueBinding.venue : undefined,
+        )
+      : await reader(i.symbol, input.executeDate);
+  } catch (e) {
+    readError =
+      e instanceof ExecutionQuoteError ? e.message : "missing-execution-quote";
   }
-  if (submissionDateExpired(i, input.deps?.now)) return "execute-date-expired";
+  const timeError = () =>
+    quote
+      ? quoteTimeError(
+          quote,
+          input.executeDate,
+          now(),
+          i.venueKind === "local_sim",
+        )
+      : null;
+  const decision =
+    readError ?? timeError() ?? quoteDecision(i, quote, deployment);
+  if (windowClosed()) return "execution-window-closed";
+  const executePrice = typeof decision === "number" ? decision : null;
   const adapter = resolveVenueAdapter(i.venueBinding, input.deps);
-  const claim = claimIntentForSubmission(
-    i.id,
-    { manualApproved: input.manualApproved, now: input.deps?.now?.() },
-    db,
-  );
-  if (!claim.claimed) {
-    if (claim.reason === "invalid-status" || claim.reason === "not-found")
-      return;
-    return claim.reason === "execution-mode-blocked"
-      ? "shadow-mode"
-      : claim.reason;
-  }
+  const externalBuy =
+    executePrice !== null && i.phase === 2 && i.venueKind !== "local_sim";
+  const orders = externalBuy ? listIntentsByRun(i.runId, db) : [];
+  const sells = orders.filter((o) => o.phase === 1);
+  const proceeds = sells.length
+    ? sellProceeds(sells, deployment.market, db)
+    : null;
+  const coverage =
+    proceeds &&
+    (sells.some((o) => o.status !== "filled") ||
+      proceeds.realized.lt(proceeds.expected))
+      ? buyBalanceCoverage(orders, deployment, db)
+      : null;
+  const capSnapshot =
+    i.side === "BUY" && executePrice !== null
+      ? await readExecutionRiskSnapshot(
+          i,
+          deployment,
+          executePrice,
+          reader,
+          adapter,
+          now,
+          db,
+        )
+      : null;
+  const state = capSnapshot?.state;
+  const cash: BuyCashSnapshot | null =
+    coverage && state && Number.isFinite(state.cash) && state.cash >= 0
+      ? { cash: state.cash, ...coverage }
+      : null;
+  const submissionBlock = () => {
+    const current = getDeployment(i.deploymentId, db);
+    if (!current) return "deployment-inactive";
+    if (current.executionMode !== deployment.executionMode)
+      return "execution-mode-changed";
+    if (input.deps?.executionWindowCheck?.(now(), current) === false)
+      return "execution-window-closed";
+    if (submissionDateExpired(i, now)) return "execute-date-expired";
+    return gate(current, [i], input.manualApproved, db);
+  };
+  // Take the SQLite writer lock before sampling the clock or inspecting phase
+  // and cash. Publish the claim, reservation and arrival evidence together.
+  const prepared = new AccountWorkspaceRepository(db).atomic(() => {
+    const current = getIntent(i.id, db);
+    if (!current || !pending(current)) return null;
+    if (current.executeDate !== input.executeDate)
+      return "execute-date-mismatch";
+    const reason = submissionBlock();
+    if (reason) return reason;
+    const quoteError =
+      timeError() ?? (typeof decision === "string" ? decision : null);
+    if (executePrice === null || quoteError) {
+      transitionIntentStatus(
+        i.id,
+        "rejected",
+        { errorSummary: quoteError ?? "missing-execution-quote" },
+        db,
+      );
+      return null;
+    }
+    if (
+      current.phase === 2 &&
+      listIntentsByRun(i.runId, db).some(
+        (o) => o.phase === 1 && !isTerminalIntentStatus(o.status),
+      )
+    )
+      return "pending-sell-phase";
+    if (current.side === "SELL" && !canSubmitSleeveSell(current, db)) {
+      transitionIntentStatus(
+        i.id,
+        "rejected",
+        { errorSummary: "insufficient-sleeve-quantity" },
+        db,
+      );
+      return null;
+    }
+    const affordable =
+      current.phase === 2
+        ? affordableBuy(
+            current,
+            executePrice,
+            deployment,
+            cash,
+            db,
+            adapter.cnBuyStep,
+          )
+        : current.quantity;
+    const cap =
+      affordable && current.side === "BUY"
+        ? limitExecutionBuy(
+            current,
+            affordable,
+            executePrice,
+            getDeployment(i.deploymentId, db)!,
+            capSnapshot,
+            db,
+            adapter.cnBuyStep,
+          )
+        : null;
+    const quantity = cap?.quantity ?? affordable;
+    if (!quantity) {
+      transitionIntentStatus(
+        i.id,
+        "rejected",
+        { errorSummary: cap?.reason ?? "insufficient-realized-proceeds" },
+        db,
+      );
+      return null;
+    }
+    const updatedAt = now();
+    drizzle(db)
+      .update(orderEvidence)
+      .set({ status: "submitting", quantity, updatedAt })
+      .where(
+        and(
+          eq(orderEvidence.id, i.id),
+          eq(orderEvidence.status, current.status),
+        ),
+      )
+      .run();
+    appendExecutionAuditEvent(
+      {
+        deploymentId: i.deploymentId,
+        runId: i.runId,
+        intentId: i.id,
+        eventType: "intent_claimed",
+        details: { from: current.status, to: "submitting" },
+        createdAt: updatedAt,
+      },
+      db,
+    );
+    appendExecutionAuditEvent(
+      {
+        deploymentId: i.deploymentId,
+        runId: i.runId,
+        intentId: i.id,
+        eventType: "execution_arrival",
+        details: {
+          arrivalPrice: executePrice,
+          plannedQuantity: current.quantity,
+          quantity,
+          source: quote?.source ?? null,
+          observedAt: quote?.observedAt ?? null,
+        },
+      },
+      db,
+    );
+    return { intent: getIntent(i.id, db)!, price: executePrice };
+  });
+  if (!prepared || typeof prepared === "string") return prepared ?? undefined;
+  const submission = prepared.intent;
+  const beforeSend = () => {
+    const current = getIntent(i.id, db);
+    if (
+      current?.status !== "submitting" ||
+      current.updatedAt !== submission.updatedAt
+    )
+      return "intent-not-claimed";
+    return (
+      submissionBlock() ??
+      timeError() ??
+      (capSnapshot &&
+      executionRiskFactsChanged(current, deployment, capSnapshot.facts, db)
+        ? "execution-account-state-changed"
+        : null) ??
+      (current.side === "SELL" && !canSubmitSleeveSell(current, db)
+        ? "insufficient-sleeve-quantity"
+        : null)
+    );
+  };
   let response: VenueOrderResult;
   try {
-    response = await adapter.submitOrder(claim.intent, {
-      executePrice,
-      executeDate: input.executeDate,
-      db,
-      ...(quote ? { quote } : {}),
-    });
+    const reason = beforeSend();
+    response = reason
+      ? { ...unresolved(), status: "rejected", errorSummary: reason }
+      : await adapter.submitOrder(submission, {
+          executePrice: prepared.price,
+          submissionBlock: beforeSend,
+          executeDate: input.executeDate,
+          db,
+          ...(quote ? { quote } : {}),
+        });
   } catch {
     response = unresolved();
   }
-  applyResult(claim.intent, response, db);
+  applyResult(submission, response, db, now());
   if (
     response.status === "rejected" &&
-    (response.errorSummary === "live-kill-switch-off" ||
-      response.errorSummary === "execute-date-expired")
+    (response.errorSummary === "kill-switch-off" ||
+      response.errorSummary === "stale-execution-quote" ||
+      response.errorSummary === "live-kill-switch-off" ||
+      response.errorSummary === "execute-date-expired" ||
+      response.errorSummary === "execution-window-closed")
   )
     return response.errorSummary;
 }
@@ -343,7 +778,11 @@ async function execute(input: RunInput, db: Db, onlyIntent?: string) {
   const deployment = getDeployment(run.deploymentId, db);
   if (!deployment) throw new Error("策略部署不存在");
   const stop = (reason: string) => {
-    if (reason === "kill-switch-off" || reason === "live-kill-switch-off")
+    if (
+      reason === "kill-switch-off" ||
+      reason === "live-kill-switch-off" ||
+      reason === "execution-window-closed"
+    )
       appendExecutionAuditEvent(
         {
           deploymentId: deployment.id,
@@ -355,13 +794,25 @@ async function execute(input: RunInput, db: Db, onlyIntent?: string) {
       );
     return skipped(reason);
   };
-  const intents = listIntentsByRun(run.id, db);
+  let intents = listIntentsByRun(run.id, db);
   const reason = gate(deployment, intents, input.manualApproved, db);
   if (reason) return stop(reason);
   if (onlyIntent && deployment.executionMode !== "manual_confirm")
     return skipped("manual-confirm-mode-required");
   if (input.executeDate !== run.executeDate)
     return skipped("execute-date-mismatch");
+  if (deployment.market === "cn-equity" && intents.some(pending)) {
+    const date = await settlePendingRunDate(
+      run,
+      deployment,
+      db,
+      input.deps?.now,
+      input.deps?.executionCalendar,
+    );
+    if (date.reason) return skipped(date.reason);
+    input = { ...input, executeDate: date.executeDate };
+    intents = listIntentsByRun(run.id, db);
+  }
   const eligible = intents.filter(
     (i) =>
       pending(i) &&
@@ -410,6 +861,14 @@ export async function approveAndExecuteIntent(
     input.intentId,
   );
 }
+// Keep timed-out transports in the in-flight set until they actually settle.
+// A second tick can submit orders immediately and use any spare polling slots.
+const reconciliationLanes = new WeakMap<
+  Db,
+  { active: Set<string>; cursor: string }
+>();
+const reconciliationConcurrency = 4;
+const reconciliationDeadlineMs = 2_000;
 export async function reconcilePendingIntents(
   input: {
     deploymentId?: string;
@@ -422,46 +881,91 @@ export async function reconcilePendingIntents(
   if (db.inTransaction) throw new Error("流水线对账不能在外部事务内运行");
   const submittingCutoff =
     (input.deps?.now?.() ?? Date.now()) - submittingGraceMs;
-  const runs = drizzle(db)
-    .selectDistinct({ runId: orderEvidence.runId })
-    .from(orderEvidence)
-    .where(
-      and(
-        inArray(orderEvidence.status, [...reconciliationStatuses]),
-        input.runId === undefined
-          ? undefined
-          : eq(orderEvidence.runId, input.runId),
-        input.deploymentId === undefined
-          ? undefined
-          : eq(orderEvidence.deploymentId, input.deploymentId),
-        input.executeDate === undefined
-          ? undefined
-          : eq(orderEvidence.executeDate, input.executeDate),
-      ),
-    )
-    .orderBy(orderEvidence.runId)
-    .all();
-  let queried = 0;
-  for (const { runId } of runs) {
-    for (const i of listIntentsByRun(runId, db)) {
-      if (
-        !reconciliationStatuses.some((status) => status === i.status) ||
-        (i.status === "submitting" && i.updatedAt > submittingCutoff)
+  let lane = reconciliationLanes.get(db);
+  if (!lane) {
+    lane = { active: new Set(), cursor: "" };
+    reconciliationLanes.set(db, lane);
+  }
+  const { active, cursor } = lane;
+  const capacity = reconciliationConcurrency - active.size;
+  if (capacity <= 0) return { queried: 0 };
+  const eligible = and(
+    inArray(orderEvidence.status, [...reconciliationStatuses]),
+    or(
+      ne(orderEvidence.status, "submitting"),
+      lte(orderEvidence.updatedAt, submittingCutoff),
+    ),
+    input.runId === undefined
+      ? undefined
+      : eq(orderEvidence.runId, input.runId),
+    input.deploymentId === undefined
+      ? undefined
+      : eq(orderEvidence.deploymentId, input.deploymentId),
+    input.executeDate === undefined
+      ? undefined
+      : eq(orderEvidence.executeDate, input.executeDate),
+    active.size ? notInArray(orderEvidence.id, [...active]) : undefined,
+  );
+  const page = (wrap: boolean, limit: number) =>
+    drizzle(db)
+      .select({ id: orderEvidence.id })
+      .from(orderEvidence)
+      .where(
+        and(
+          eligible,
+          wrap ? lte(orderEvidence.id, cursor) : gt(orderEvidence.id, cursor),
+        ),
       )
-        continue;
+      .orderBy(orderEvidence.id)
+      .limit(limit)
+      .all();
+  const batch = page(false, capacity);
+  if (cursor && batch.length < capacity)
+    batch.push(...page(true, capacity - batch.length));
+  if (!batch.length) return { queried: 0 };
+  lane.cursor = batch.at(-1)!.id;
+  let queried = 0;
+  const polls = batch.map(async ({ id }) => {
+    active.add(id);
+    try {
+      const i = getIntent(id, db)!;
+      const evidence =
+        i.venueKind === "crypto_live"
+          ? observeFillDates(input.deps?.fetchImpl ?? fetch)
+          : null;
       let response: VenueOrderResult;
       try {
         response = await resolveVenueAdapter(
           i.venueBinding,
-          input.deps,
+          evidence ? { ...input.deps, fetchImpl: evidence.read } : input.deps,
         ).reconcileOrder(i, { db });
       } catch {
         response = unresolved();
       }
-      applyResult(i, response, db);
+      if (!db.open) return;
+      applyResult(
+        i,
+        response,
+        db,
+        input.deps?.now?.() ?? Date.now(),
+        evidence?.firstDate(response.fillIds ?? []) ?? null,
+      );
+      refreshStage(i.runId, db);
       queried++;
+    } finally {
+      active.delete(id);
     }
-    refreshStage(runId, db);
+  });
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      Promise.all(polls),
+      new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, reconciliationDeadlineMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
   }
   return { queried };
 }

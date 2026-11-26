@@ -22,6 +22,8 @@ import {
   type OrderIntentRecord,
 } from "~/server/db/pipeline-repository";
 import { SimAccountRepository } from "~/server/db/sim-account-repository";
+import { upsertSleeveHolding } from "~/server/db/sleeve-holding-repository";
+import * as gfCalendar from "~/server/data-sources/gf/gf-calendar";
 import {
   approveAndExecuteIntent,
   executePipelineRun,
@@ -36,6 +38,7 @@ import {
 } from "~/server/execution/venue-router";
 import {
   createSimAccount,
+  confirmSimOrder,
   executePipelineSimOrder,
   getSimAccountDetail,
 } from "~/server/portfolio/sim-accounts/service";
@@ -83,11 +86,32 @@ const buyBitcoin = {
   referencePrice: 60_000,
 };
 
+function fixtureQuote(symbol: string): PipelineQuoteSnapshot {
+  const price =
+    symbol === stockA ? 11 : symbol === buyBitcoin.symbol ? 60_000 : 10;
+  return {
+    symbol,
+    tradeDate: executeDate,
+    openPrice: price,
+    lastPrice: price,
+    prevClose: price,
+    upperLimit: price * 1.1,
+    lowerLimit: price * 0.9,
+    suspended: false,
+  };
+}
+
 let db: Database.Database;
 const unexpectedFetch = vi.fn<typeof fetch>();
 const registeredKeys = new Set<string>();
 
 beforeEach(() => {
+  vi.spyOn(gfCalendar, "gfCalendarReference").mockResolvedValue({
+    days: [decisionDate, executeDate],
+    source: "fixture",
+    hash: null,
+  });
+  vi.spyOn(Date, "now").mockImplementation(sessionNow);
   unexpectedFetch.mockReset().mockRejectedValue(new Error("离线测试禁止联网"));
   vi.stubGlobal("fetch", unexpectedFetch);
   db = new Database(":memory:");
@@ -98,6 +122,7 @@ afterEach(() => {
   for (const key of registeredKeys) unregisterLiveVenueAdapter(key);
   registeredKeys.clear();
   if (db.open) db.close();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
   expect(unexpectedFetch).not.toHaveBeenCalled();
 });
@@ -106,10 +131,11 @@ function createRun(
   executionMode: CreateDeploymentInput["executionMode"],
   venueBinding: VenueBinding,
   orders: readonly Order[] = [buyB],
+  name = "执行安全测试",
 ) {
   const deployment = createDeployment(
     {
-      name: "执行安全测试",
+      name,
       market:
         venueBinding.kind === "crypto_live" ||
         venueBinding.kind === "crypto_sim"
@@ -150,8 +176,20 @@ function createRun(
     })),
     db,
   );
-  return { runId: run.id, executeDate, intents };
+  return {
+    runId: run.id,
+    executeDate,
+    intents,
+    deps: { readQuote: fixtureQuote },
+  };
 }
+
+const fundedAccount = {
+  cash: 100000,
+  equity: 100000,
+  positions: [],
+  drawdownPct: 0,
+};
 
 function mockVenue(
   kind: "ths_mock" | "cn_broker_live" | "crypto_live" | "crypto_sim",
@@ -169,7 +207,9 @@ function mockVenue(
     isLive: kind === "cn_broker_live" || kind === "crypto_live",
     submitOrder,
     reconcileOrder: vi.fn<ExecutionVenueAdapter["reconcileOrder"]>(),
-    readAccountState: vi.fn<ExecutionVenueAdapter["readAccountState"]>(),
+    readAccountState: vi
+      .fn<ExecutionVenueAdapter["readAccountState"]>()
+      .mockResolvedValue(fundedAccount),
     cancelOrder: vi.fn<ExecutionVenueAdapter["cancelOrder"]>(),
   } satisfies ExecutionVenueAdapter;
 }
@@ -187,9 +227,149 @@ function auditFor(intent: OrderIntentRecord) {
   ).items;
 }
 
+it("同账号字符串换至另一券商后，提交卖单不能借用原券商分仓", async () => {
+  setGlobalAutoLiveEnabled(true, db);
+  const binding = { ...broker, broker: "ptrade" } as const;
+  const run = createRun("auto_live", binding, [sellA]);
+  upsertSleeveHolding(
+    {
+      accountScope: "real",
+      accountId: extractVenueAccountKey(broker),
+      ownerKind: "deployment",
+      ownerId: run.intents[0]!.deploymentId,
+      symbol: stockA,
+      quantity: 100,
+      avgEntryPrice: 10,
+      entryDate: decisionDate,
+      updatedAt: Date.parse(decisionDate),
+    },
+    db,
+  );
+  const adapter = mockVenue("cn_broker_live");
+  registerVenue(binding, adapter);
+  await executePipelineRun(run, db);
+  expect(listIntentsByRun(run.runId, db)[0]).toMatchObject({
+    status: "rejected",
+    errorSummary: "insufficient-sleeve-quantity",
+  });
+  expect(adapter.submitOrder).not.toHaveBeenCalled();
+});
+
+it("慢对账轮次有截止时间，挂起查询占用并发名额且后续轮次轮转", async () => {
+  setGlobalAutoSimEnabled(true, db);
+  const run = createRun(
+    "auto_sim",
+    ths,
+    Array.from({ length: 6 }, (_, index) => ({
+      ...buyB,
+      symbol: `sh60000${index}`,
+    })),
+  );
+  for (const i of run.intents) {
+    transitionIntentStatus(i.id, "submitting", {}, db);
+    transitionIntentStatus(i.id, "submitted", { venueOrderId: i.id }, db);
+  }
+  const adapter = mockVenue("ths_mock");
+  const release: (() => void)[] = [];
+  adapter.reconcileOrder.mockImplementation(async (i) => {
+    await new Promise<void>((resolve) => release.push(resolve));
+    return {
+      status: "submitted",
+      venueOrderId: i.id,
+      filledQuantity: 0,
+      averageFillPrice: null,
+    };
+  });
+  const poll = () =>
+    reconcilePendingIntents({ deps: { thsAdapter: adapter } }, db);
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  try {
+    const round = poll();
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(await round).toEqual({ queried: 0 });
+    expect(adapter.reconcileOrder).toHaveBeenCalledTimes(4);
+    expect(await poll()).toEqual({ queried: 0 });
+    expect(adapter.reconcileOrder).toHaveBeenCalledTimes(4);
+    release.splice(0).forEach((finish) => finish());
+    await vi.advanceTimersByTimeAsync(0);
+    const next = poll();
+    await vi.advanceTimersByTimeAsync(0);
+    release.splice(0).forEach((finish) => finish());
+    expect(await next).toEqual({ queried: 4 });
+    expect(
+      new Set(adapter.reconcileOrder.mock.calls.map(([i]) => i.id)).size,
+    ).toBe(6);
+  } finally {
+    release.forEach((finish) => finish());
+    vi.useRealTimers();
+  }
+});
+
+it("计划后手工减仓制造同票缺口，自动卖单不能消耗同账户另一分仓", async () => {
+  const { id: accountId } = createSimAccount(
+    { name: "共享账户", market: "cn-equity", initialCapital: "10000" },
+    db,
+  );
+  executePipelineSimOrder(
+    {
+      accountId,
+      clientRequestId: "opening-positions",
+      symbol: stockA,
+      side: "buy",
+      tradeDate: decisionDate,
+      price: 10,
+      quantity: 200,
+    },
+    db,
+  );
+  const {
+    intents: [sell],
+    ...input
+  } = createRun("auto_sim", { kind: "local_sim", simAccountId: accountId }, [
+    sellA,
+  ]);
+  for (const ownerId of [sell!.deploymentId, "peer"]) {
+    upsertSleeveHolding(
+      {
+        accountScope: "local_sim",
+        accountId,
+        ownerKind: "deployment",
+        ownerId,
+        symbol: stockA,
+        quantity: 100,
+        avgEntryPrice: 10,
+        entryDate: decisionDate,
+      },
+      db,
+    );
+  }
+  confirmSimOrder(
+    {
+      accountId,
+      clientRequestId: "manual-reduction",
+      symbol: stockA,
+      side: "sell",
+      tradeDate: executeDate,
+      price: "10",
+      quantity: "100",
+      executionMode: "manual",
+    },
+    db,
+  );
+  setGlobalAutoSimEnabled(true, db);
+  await executePipelineRun(input, db);
+  expect(listIntentsByRun(input.runId, db)).toMatchObject([
+    { status: "rejected", errorSummary: "insufficient-sleeve-quantity" },
+  ]);
+  expect(
+    getSimAccountDetail({ accountId, currentTradeDate: executeDate }, db)
+      .positions,
+  ).toMatchObject([{ symbol: stockA, quantity: "100" }]);
+});
+
 it("先卖 A 再用回款买 B，精确结算且重跑不新增成交", async () => {
   const { id: accountId } = createSimAccount(
-    { name: "换仓账户", market: "cn-equity", initialCapital: "1005.50" },
+    { name: "换仓账户", market: "cn-equity", initialCapital: "10010.00" },
     db,
   );
   executePipelineSimOrder(
@@ -200,7 +380,7 @@ it("先卖 A 再用回款买 B，精确结算且重跑不新增成交", async ()
       side: "buy",
       tradeDate: decisionDate,
       price: 10,
-      quantity: 100,
+      quantity: 1000,
     },
     db,
   );
@@ -211,9 +391,9 @@ it("先卖 A 再用回款买 B，精确结算且重跑不新增成交", async ()
   expect(ledger().positions).toMatchObject([
     {
       symbol: stockA,
-      quantity: "100",
-      sellableQuantity: "100",
-      costBasis: "1005.50",
+      quantity: "1000",
+      sellableQuantity: "1000",
+      costBasis: "10010.00",
     },
   ]);
 
@@ -224,8 +404,21 @@ it("先卖 A 再用回款买 B，精确结算且重跑不新增成交", async ()
     ...input
   } = createRun("auto_sim", { kind: "local_sim", simAccountId: accountId }, [
     buyB,
-    sellA,
+    { ...sellA, quantity: 1000 },
   ]);
+  upsertSleeveHolding(
+    {
+      accountScope: "local_sim",
+      accountId,
+      ownerKind: "deployment",
+      ownerId: sell!.deploymentId,
+      symbol: stockA,
+      quantity: 1000,
+      avgEntryPrice: 10,
+      entryDate: decisionDate,
+    },
+    db,
+  );
   expect(await executePipelineRun(input, db)).toMatchObject({
     skipped: false,
     stage: "completed",
@@ -237,9 +430,9 @@ it("先卖 A 再用回款买 B，精确结算且重跑不新增成交", async ()
     finishedAt: expect.any(Number),
   });
   const after = ledger();
-  // Sell: 1100 - 5 commission - 0.55 tax - 0.55 slippage = 1093.90.
+  // Sell: 11000 - 5 commission - 5.50 tax - 5.50 slippage = 10984.00.
   // Buy: 1000 + 5 commission + 0.50 slippage = 1005.50.
-  expect(repo.account(accountId).cash_atoms).toBe(8_840n);
+  expect(repo.account(accountId).cash_atoms).toBe(997_850n);
   expect(after.positions).toMatchObject([
     {
       symbol: stockB,
@@ -249,22 +442,22 @@ it("先卖 A 再用回款买 B，精确结算且重跑不新增成交", async ()
     },
   ]);
   expect(Array.from(repo.fills(accountId))).toMatchObject([
-    { symbol: stockA, side: "buy", quantity_atoms: 100n },
-    { symbol: stockA, side: "sell", quantity_atoms: 100n },
+    { symbol: stockA, side: "buy", quantity_atoms: 1000n },
+    { symbol: stockA, side: "sell", quantity_atoms: 1000n },
     { symbol: stockB, side: "buy", quantity_atoms: 100n },
   ]);
   expect(after.cashFlows.map(({ delta }) => delta)).toEqual([
     "-1005.50",
-    "1093.90",
-    "-1005.50",
-    "1005.50",
+    "10984.00",
+    "-10010.00",
+    "10010.00",
   ]);
   const settled = listIntentsByRun(input.runId, db);
   expect(settled).toMatchObject([
     {
       id: sell!.id,
       status: "filled",
-      filledQuantity: 100,
+      filledQuantity: 1000,
       averageFillPrice: 11,
       venueOrderId: after.trades[1]?.orderId,
     },
@@ -282,7 +475,7 @@ it("先卖 A 再用回款买 B，精确结算且重跑不新增成交", async ()
     stage: "completed",
   });
   expect(Array.from(repo.fills(accountId))).toHaveLength(3);
-  expect(repo.account(accountId).cash_atoms).toBe(8_840n);
+  expect(repo.account(accountId).cash_atoms).toBe(997_850n);
   expect(ledger()).toEqual(after);
   expect(listIntentsByRun(input.runId, db)).toEqual(settled);
   expect(getPipelineRun(input.runId, db)).toEqual(completed);
@@ -301,9 +494,22 @@ it("卖单提交超时后重开 SQLite 仍绝不重发，查实全成交后才�
     intents: [sell, buy],
     ...input
   } = createRun("auto_sim", ths, [sellA, buyB]);
+  upsertSleeveHolding(
+    {
+      accountScope: "ths_mock",
+      accountId: ths.accountTag,
+      ownerKind: "deployment",
+      ownerId: sell!.deploymentId,
+      symbol: stockA,
+      quantity: 100,
+      avgEntryPrice: 10,
+      entryDate: decisionDate,
+    },
+    db,
+  );
   const adapter = mockVenue(ths.kind);
   adapter.submitOrder.mockRejectedValueOnce(new Error("network timeout"));
-  const deps = { thsAdapter: adapter };
+  const deps = { readQuote: fixtureQuote, thsAdapter: adapter };
   expect(await executePipelineRun({ ...input, deps }, db)).toMatchObject({
     stage: "executing",
   });
@@ -401,7 +607,11 @@ it("滞留的 submitting 卖单在宽限期后恢复对账，查实成交前不�
   const claim = claimIntentForSubmission(sell!.id, claimedAt, db);
   if (!claim.claimed) throw new Error(claim.reason);
   const adapter = mockVenue(ths.kind);
-  const deps = { thsAdapter: adapter, now: () => claimedAt + 60_000 };
+  const deps = {
+    readQuote: fixtureQuote,
+    thsAdapter: adapter,
+    now: () => claimedAt + 60_000,
+  };
 
   expect(
     await reconcilePendingIntents(
@@ -455,7 +665,10 @@ it("只开实盘总开关时依然拦截 auto_sim", async () => {
   } = createRun("auto_sim", ths);
   const thsAdapter = mockVenue(ths.kind);
   expect(
-    await executePipelineRun({ ...input, deps: { thsAdapter } }, db),
+    await executePipelineRun(
+      { ...input, deps: { readQuote: fixtureQuote, thsAdapter } },
+      db,
+    ),
   ).toEqual({
     skipped: true,
     reason: "kill-switch-off",
@@ -522,7 +735,13 @@ it("未配置券商桥接地址时拒单，不读取凭证、不联网且不写�
     await executePipelineRun(
       {
         ...input,
-        deps: { fetchImpl, readCredential, thsAdapter, now: sessionNow },
+        deps: {
+          readQuote: fixtureQuote,
+          fetchImpl,
+          readCredential,
+          thsAdapter,
+          now: sessionNow,
+        },
       },
       db,
     ),
@@ -558,6 +777,7 @@ it("实盘开关启用时券商桥接通过 POST /orders 携带幂等键并落�
   };
   const fetchImpl = vi
     .fn<typeof fetch>()
+    .mockResolvedValueOnce(Response.json(fundedAccount))
     .mockResolvedValueOnce(Response.json(fill));
   const token = "bridge-test-token";
 
@@ -566,6 +786,7 @@ it("实盘开关启用时券商桥接通过 POST /orders 携带幂等键并落�
       {
         ...input,
         deps: {
+          readQuote: fixtureQuote,
           fetchImpl,
           readCredential: async () => ({ token }),
           now: sessionNow,
@@ -574,11 +795,13 @@ it("实盘开关启用时券商桥接通过 POST /orders 携带幂等键并落�
       db,
     ),
   ).toMatchObject({ skipped: false, stage: "completed" });
-  expect(fetchImpl).toHaveBeenCalledExactlyOnceWith(
+  expect(fetchImpl).toHaveBeenCalledTimes(2);
+  expect(fetchImpl).toHaveBeenNthCalledWith(
+    2,
     `${endpointUrl}/orders`,
     expect.objectContaining({ method: "POST" }),
   );
-  const request = fetchImpl.mock.calls[0]?.[1];
+  const request = fetchImpl.mock.calls[1]?.[1];
   expect(new Headers(request?.headers).get("Idempotency-Key")).toBe(
     intent!.idempotencyKey,
   );
@@ -613,6 +836,7 @@ it.each([null, { token: "   " }])(
     } = createRun("auto_live", binding);
     const fetchImpl = vi.fn<typeof fetch>();
     const deps = {
+      readQuote: fixtureQuote,
       now: sessionNow,
       fetchImpl,
       readCredential: async () => credential,
@@ -649,15 +873,26 @@ it.each([
     auth: { apiKey: "spot-key", apiSecret: "spot-secret" },
   },
 ])(
-  "$binding.kind 在认领后读取凭证期间关闭实盘总开关时拒单且不联网",
+  "$binding.kind 在认领后读取凭证期间关闭实盘总开关时拒单，只有先前的账户查询",
   async ({ binding, order, auth }) => {
     setGlobalAutoLiveEnabled(true, db);
     const {
       intents: [intent],
       ...input
     } = createRun("auto_live", binding, [order]);
-    const fetchImpl = vi.fn<typeof fetch>();
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValueOnce(
+      Response.json(
+        binding.kind === "crypto_live"
+          ? {
+              canTrade: true,
+              balances: [{ asset: "USDT", free: "100000", locked: "0" }],
+            }
+          : fundedAccount,
+      ),
+    );
     const readCredential = vi.fn(async () => {
+      if (listIntentsByRun(input.runId, db)[0]?.status === "planned")
+        return auth;
       expect(listIntentsByRun(input.runId, db)).toMatchObject([
         { status: "submitting" },
       ]);
@@ -668,15 +903,24 @@ it.each([
 
     expect(
       await executePipelineRun(
-        { ...input, deps: { now: sessionNow, fetchImpl, readCredential } },
+        {
+          ...input,
+          deps: {
+            readQuote: fixtureQuote,
+            now: sessionNow,
+            fetchImpl,
+            readCredential,
+          },
+        },
         db,
       ),
     ).toEqual({
       skipped: true,
       reason: "live-kill-switch-off",
     });
-    expect(readCredential).toHaveBeenCalledTimes(1);
-    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(readCredential).toHaveBeenCalledTimes(2);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(fetchImpl.mock.calls[0]?.[1]?.method).toBe("GET");
     expect(listIntentsByRun(input.runId, db)).toMatchObject([
       {
         id: intent!.id,
@@ -686,6 +930,46 @@ it.each([
     ]);
   },
 );
+
+it("实盘委托认领后若其他部署占用同票额度，发送前拒单且桥接只收到账户查询", async () => {
+  setGlobalAutoLiveEnabled(true, db);
+  const binding = { ...broker, endpointUrl: "https://broker.example.invalid" };
+  const { runId } = createRun("auto_live", binding);
+  const fetchImpl = vi
+    .fn<typeof fetch>()
+    .mockResolvedValueOnce(Response.json(fundedAccount));
+  await executePipelineRun(
+    {
+      runId,
+      executeDate,
+      deps: {
+        readQuote: fixtureQuote,
+        now: sessionNow,
+        fetchImpl,
+        readCredential: async () => {
+          if (listIntentsByRun(runId, db)[0]?.status === "submitting")
+            createRun(
+              "auto_live",
+              binding,
+              [{ ...buyB, quantity: 2000 }],
+              "共用券商账户的另一部署",
+            );
+          return "fixture-token";
+        },
+      },
+    },
+    db,
+  );
+  expect(fetchImpl.mock.calls.map(([, options]) => options?.method)).toEqual([
+    "GET",
+  ]);
+  expect(listIntentsByRun(runId, db)).toMatchObject([
+    {
+      status: "rejected",
+      errorSummary: "execution-account-state-changed",
+    },
+  ]);
+});
 
 it("resolveVenueAdapter 只向已注册的实盘适配器转发仍处于认领态的委托", async () => {
   setGlobalAutoLiveEnabled(true, db);
@@ -742,7 +1026,7 @@ it("人工审批实盘意图也必须开启实盘总开关", async () => {
   const approval = {
     intentId: intent!.id,
     executeDate,
-    deps: { now: sessionNow },
+    deps: { readQuote: fixtureQuote, now: sessionNow },
   };
 
   expect(await approveAndExecuteIntent(approval, db)).toEqual({
@@ -779,7 +1063,11 @@ it.each([
     const adapter = mockVenue(binding.kind);
     if (!isSim) registerVenue(binding, adapter);
     const midnight = Date.parse(rollover);
-    const deps = { cryptoSimAdapter: adapter, now: () => midnight };
+    const deps = {
+      readQuote: fixtureQuote,
+      cryptoSimAdapter: adapter,
+      now: () => midnight,
+    };
 
     expect(await executePipelineRun({ ...input, deps }, db)).toEqual({
       skipped: true,
@@ -828,6 +1116,7 @@ it.each(Object.values(syntheticCredential))(
     });
     registerVenue(broker, adapter);
     const deps = {
+      readQuote: fixtureQuote,
       now: sessionNow,
       readCredential: async () => syntheticCredential,
     };
@@ -853,22 +1142,26 @@ it.each(["a".repeat(129), "bridge/order\n", "order-bridge-token-123"])(
       ...broker,
       endpointUrl: "https://broker.example.invalid",
     });
-    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValueOnce(
-      Response.json({
-        status: "submitted",
-        venueOrderId,
-        filledQuantity: null,
-        averageFillPrice: null,
-      }),
-    );
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json(fundedAccount))
+      .mockResolvedValueOnce(
+        Response.json({
+          status: "submitted",
+          venueOrderId,
+          filledQuantity: null,
+          averageFillPrice: null,
+        }),
+      );
     const deps = {
+      readQuote: fixtureQuote,
       now: sessionNow,
       fetchImpl,
       readCredential: async () => "bridge-token",
     };
 
     await executePipelineRun({ runId, executeDate, deps }, db);
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
     expect(listIntentsByRun(runId, db)).toMatchObject([
       { status: "submitted", venueOrderId: null },
     ]);
@@ -883,7 +1176,7 @@ it("shadow 即使开启两个总开关并明确批准也永不发单", async () 
     ...input
   } = createRun("shadow", ths);
   const thsAdapter = mockVenue(ths.kind);
-  const deps = { thsAdapter };
+  const deps = { readQuote: fixtureQuote, thsAdapter };
   const blocked = { skipped: true, reason: "shadow-mode" };
 
   expect(await executePipelineRun({ ...input, deps }, db)).toEqual(blocked);
@@ -907,7 +1200,7 @@ it("manual_confirm 仅成交明确批准的意图，同一 run 的其他买单�
     ...input
   } = createRun("manual_confirm", ths, [buyB, { ...buyB, symbol: stockA }]);
   const thsAdapter = mockVenue(ths.kind);
-  const deps = { thsAdapter };
+  const deps = { readQuote: fixtureQuote, thsAdapter };
 
   expect(await executePipelineRun({ ...input, deps }, db)).toEqual({
     skipped: true,
@@ -934,6 +1227,7 @@ it("manual_confirm 仅成交明确批准的意图，同一 run 的其他买单�
 });
 
 const openingQuote: PipelineQuoteSnapshot = {
+  tradeDate: executeDate,
   symbol: stockB,
   openPrice: 10,
   lastPrice: 10,
@@ -943,6 +1237,60 @@ const openingQuote: PipelineQuoteSnapshot = {
   suspended: false,
 };
 
+it("人工逐笔审批跨越部分成交，沿用首次可用余额，剩余冻结和最低佣金各计一次", async () => {
+  const run = createRun("manual_confirm", ths, [
+    sellA,
+    { ...buyB, quantity: 300 },
+    { ...buyB, symbol: "sh600003" },
+    { ...buyB, symbol: "sh600004", quantity: 300 },
+  ]);
+  const [sale, first, second, third] = run.intents;
+  transitionIntentStatus(sale!.id, "rejected", {}, db);
+  const adapter = mockVenue("ths_mock");
+  const deps = { readQuote: fixtureQuote, thsAdapter: adapter };
+  const approve = (id: string) =>
+    approveAndExecuteIntent({ intentId: id, executeDate, deps }, db);
+  adapter.readAccountState
+    .mockResolvedValueOnce({ ...fundedAccount, cash: 5020 })
+    .mockResolvedValue({
+      cash: 2011,
+      equity: 100000,
+      positions: [],
+      drawdownPct: null,
+    });
+  adapter.submitOrder.mockResolvedValueOnce({
+    status: "submitted",
+    venueOrderId: "v",
+    filledQuantity: null,
+    averageFillPrice: null,
+  });
+  await approve(first!.id);
+  await approve(second!.id);
+  adapter.reconcileOrder.mockResolvedValue({
+    status: "partial_filled",
+    venueOrderId: "v",
+    filledQuantity: 100,
+    averageFillPrice: 10,
+    fillId: "v1",
+  });
+  await reconcilePendingIntents({ runId: run.runId, deps }, db);
+  await reconcilePendingIntents({ runId: run.runId, deps }, db);
+  adapter.readAccountState.mockResolvedValue({
+    cash: 1005.5,
+    equity: 100000,
+    positions: [],
+    drawdownPct: null,
+  });
+  await approve(third!.id);
+  expect(
+    adapter.submitOrder.mock.calls.map(([i]) => [i.id, i.quantity]),
+  ).toEqual([
+    [first!.id, 300],
+    [second!.id, 100],
+    [third!.id, 100],
+  ]);
+});
+
 it.each([
   {
     name: "开盘跳空超过 maxGapPct",
@@ -950,7 +1298,7 @@ it.each([
     reason: "开盘向上跳空超过风控上限",
   },
   { name: "最新价触及涨停", quote: { lastPrice: 11 }, reason: "买入触及涨停" },
-  { name: "标的停牌", quote: { suspended: true }, reason: "标的停牌" },
+  { name: "标的停牌", quote: { suspended: true }, reason: "suspended" },
 ])("$name 时拒绝 BUY 并持久化审计证据", async ({ quote, reason }) => {
   setGlobalAutoSimEnabled(true, db);
   const {

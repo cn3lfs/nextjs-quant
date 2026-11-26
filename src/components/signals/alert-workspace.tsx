@@ -76,7 +76,9 @@ export function AlertWorkspace() {
     }),
   );
   const [category, setCategory] = useState<AlertKindGroupId | "all">("all");
-  const categoryKinds = alertKindGroups.find(({ id }) => id === category)?.kinds;
+  const categoryKinds = alertKindGroups.find(
+    ({ id }) => id === category,
+  )?.kinds;
   const groupOnly = !filter.kind && !!categoryKinds;
   const historyInputs = groupOnly
     ? categoryKinds.map((kind) => ({ ...filter, kind }))
@@ -309,7 +311,9 @@ export function AlertWorkspace() {
         data={historyRows}
         rowCount={events.total}
         loading={historyLoading}
-        error={historyError ? alertDisplayCopy(historyError.message) : undefined}
+        error={
+          historyError ? alertDisplayCopy(historyError.message) : undefined
+        }
         onRetry={() => {
           for (const query of historyQueries) void query.refetch();
         }}

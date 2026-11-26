@@ -9,6 +9,7 @@ import {
   type Position,
 } from "~/lib/portfolio/trade-ledger";
 
+export class MockSubmissionBlocked extends Error {}
 export const mockHost = "http://trade.10jqka.com.cn:8088";
 export type MockAccount = {
   username: string;
@@ -49,10 +50,11 @@ export type MockOrderReceipt = {
  * result can be asserted.
  */
 export type MockFillStatus = "matched" | "unfilled" | "unknown";
-export type MockOrderStatus = {
+type ReportedTrade = Omit<MockTrade, "fee"> & { fee?: number };
+export type MockOrderStatus<T extends ReportedTrade = MockTrade> = {
   attributable: boolean;
   fillStatus: MockFillStatus;
-  rows: MockTrade[];
+  rows: T[];
   /** Why attribution is unavailable, for the operator-facing query result. */
   reason?: string;
 };
@@ -221,6 +223,7 @@ export class MockTradingAdapter {
     path: string,
     params: Record<string, string>,
     validate?: (value: Record<string, unknown>) => void,
+    submissionBlock?: () => string | null,
   ): Promise<Record<string, unknown>> {
     this.guard();
     const url = new URL(path, this.deps.baseUrl ?? mockHost);
@@ -241,6 +244,8 @@ export class MockTradingAdapter {
     let rawBody: string | null = null,
       httpStatus: number | null = null;
     const failures: MockResponseEvidence["failures"] = [];
+    const reason = submissionBlock?.();
+    if (reason) throw new MockSubmissionBlocked(reason);
     try {
       const response = await fetch(url, {
         redirect: "error",
@@ -462,6 +467,12 @@ export class MockTradingAdapter {
     return schema.parse(result);
   }
   async todayTrades(): Promise<MockTrade[]> {
+    return (await this.readTrades(false)).map((row) => ({
+      ...row,
+      fee: numeric.parse(row.fee),
+    }));
+  }
+  private async readTrades(allowMissingFee: boolean): Promise<ReportedTrade[]> {
     const a = await this.account();
     const row = z.object({
       zqdm: z.string().regex(/^\d{6}$/),
@@ -469,7 +480,7 @@ export class MockTradingAdapter {
       cjg: numeric,
       cje: numeric,
       cjsj: z.string().min(1),
-      fee: numeric,
+      fee: allowMissingFee ? numeric.optional() : numeric,
       entrust_no: entrustNoField,
       entrustNo: entrustNoField,
       trade_no: tradeNoField,
@@ -499,7 +510,7 @@ export class MockTradingAdapter {
               cjje: numeric,
               cjsl: numeric.pipe(z.number().int().positive()),
               cjsj: z.string().min(1),
-              fee: numeric,
+              fee: allowMissingFee ? numeric.optional() : numeric,
               entrust_no: entrustNoField,
               entrustNo: entrustNoField,
               trade_no: tradeNoField,
@@ -533,8 +544,18 @@ export class MockTradingAdapter {
   }
 
   /** Read-only attribution: rows are matched exclusively by entrust number. */
-  async orderStatus(entrustNos: readonly string[]): Promise<MockOrderStatus> {
-    const rows = await this.todayTrades();
+  async orderStatus(entrustNos: readonly string[]): Promise<MockOrderStatus>;
+  async orderStatus(
+    entrustNos: readonly string[],
+    allowMissingFee: boolean,
+  ): Promise<MockOrderStatus<ReportedTrade>>;
+  async orderStatus(
+    entrustNos: readonly string[],
+    allowMissingFee = false,
+  ): Promise<MockOrderStatus<ReportedTrade>> {
+    const rows = allowMissingFee
+      ? await this.readTrades(true)
+      : await this.todayTrades();
     const wanted = new Set(
       entrustNos.map((value) => value.trim()).filter((value) => value !== ""),
     );
@@ -560,6 +581,7 @@ export class MockTradingAdapter {
   async order(
     input: TradeInput,
     confirmed: boolean,
+    submissionBlock?: () => string | null,
   ): Promise<MockOrderReceipt> {
     this.guard();
     if (!confirmed) throw new Error("下单必须在界面确认");
@@ -579,16 +601,21 @@ export class MockTradingAdapter {
       if (!p || p.sellable < t.quantity)
         throw new Error("远程 T+1 可卖数量不足");
     }
-    const response = await this.request("/pt_stk_weituo_dklc", {
-      usrid: a.account!,
-      zqdm: t.symbol.slice(2),
-      gddh: share.gddm,
-      scdm,
-      yybd: "997376",
-      wtjg: String(t.price),
-      wtsl: String(t.quantity),
-      mmlb: t.side === "buy" ? "B" : "S",
-    });
+    const response = await this.request(
+      "/pt_stk_weituo_dklc",
+      {
+        usrid: a.account!,
+        zqdm: t.symbol.slice(2),
+        gddh: share.gddm,
+        scdm,
+        yybd: "997376",
+        wtjg: String(t.price),
+        wtsl: String(t.quantity),
+        mmlb: t.side === "buy" ? "B" : "S",
+      },
+      undefined,
+      submissionBlock,
+    );
     return {
       message: "委托请求已受理，不等于成交；请人工核对成交后另行记入本地账本",
       entrustNos: entrustNosFromResponse(response, a),

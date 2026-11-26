@@ -1,4 +1,5 @@
 import Database from "better-sqlite3";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { migrate, migrations } from "~/server/db/migrations";
@@ -7,6 +8,7 @@ import {
   createSimAccount,
   deleteSimAccount,
   ensureDefaultSimAccount,
+  executePipelineSimOrder,
   getSimAccountDetail,
   listSimAccounts,
   postSimCashFlow,
@@ -16,6 +18,11 @@ import {
   simPlanBindingSave,
 } from "~/server/portfolio/sim-accounts/service";
 import { orderTerms, quote } from "~/server/portfolio/sim-accounts/engine";
+import {
+  listAccountSleeveHoldings,
+  upsertSleeveHolding,
+} from "~/server/db/sleeve-holding-repository";
+import octoberCalendar from "../fixtures/gf-calendar-202610.json";
 
 let db: Database.Database;
 const firstDay = "2026-11-19",
@@ -42,6 +49,107 @@ const buy = (accountId: string) => ({
 });
 const detail = (accountId: string, currentTradeDate = nextDay) =>
   getSimAccountDetail({ accountId, currentTradeDate }, db);
+
+it("同步模拟委托以已校验的共享月历为准，拒绝设置中误记为开市的休市日", () => {
+  const accountId = equity();
+  const now = Date.parse("2026-10-08T10:00:00+08:00");
+  const closed = { ...buy(accountId), tradeDate: "2026-10-01" };
+  const open = { ...closed, tradeDate: "2026-10-08" };
+  const put = db.prepare(
+    "INSERT INTO records(id,kind,payload,updated_at) VALUES(?,?,?,?)",
+  );
+  put.run(
+    "settings",
+    "settings",
+    JSON.stringify({ calendar: [closed.tradeDate] }),
+    now,
+  );
+  put.run(
+    "gf-calendar-1-2026-10",
+    "calendar",
+    JSON.stringify({ raw: octoberCalendar }),
+    now,
+  );
+
+  expect(() => previewSimOrder(closed, db, now)).toThrow("已确认休市");
+  expect(() =>
+    confirmSimOrder({ ...closed, clientRequestId: "closed" }, db, now),
+  ).toThrow("已确认休市");
+  expect(() =>
+    executePipelineSimOrder(
+      {
+        ...closed,
+        clientRequestId: "pipeline:closed",
+        quantity: 100,
+        price: 10,
+      },
+      db,
+      now,
+    ),
+  ).toThrow("已确认休市");
+  expect(previewSimOrder(open, db, now)).toMatchObject({
+    tradeDate: open.tradeDate,
+  });
+  expect(
+    confirmSimOrder({ ...open, clientRequestId: "open" }, db, now),
+  ).toMatchObject({ tradeDate: open.tradeDate });
+  expect(detail(accountId, open.tradeDate).trades).toHaveLength(1);
+});
+
+it("手动成交仅标记本次手动数量，重试及流水线服务保持旧持仓归属", () => {
+  const accountId = equity();
+  const key = { accountScope: "local_sim", accountId } as const;
+  const historical = buy(accountId);
+  const legacyFill = {
+    ...historical,
+    clientRequestId: "pipeline:legacy",
+    price: 10,
+    quantity: 100,
+  };
+  executePipelineSimOrder(legacyFill, db);
+  upsertSleeveHolding(
+    {
+      ...key,
+      ownerKind: "legacy_unknown",
+      ownerId: "legacy_unknown",
+      symbol: historical.symbol,
+      quantity: 100,
+      avgEntryPrice: null,
+      entryDate: null,
+    },
+    db,
+  );
+  const legacy = listAccountSleeveHoldings(key, db);
+  expect(executePipelineSimOrder(legacyFill, db).executionMode).toBe(
+    "plan-auto",
+  );
+  expect(listAccountSleeveHoldings(key, db)).toEqual(legacy);
+
+  const manual = { ...historical, clientRequestId: "manual" };
+  const receipt = confirmSimOrder(manual, db);
+  expect(confirmSimOrder(manual, db)).toEqual(receipt);
+  executePipelineSimOrder(
+    { ...legacyFill, clientRequestId: "pipeline:new" },
+    db,
+  );
+  expect(listAccountSleeveHoldings(key, db)).toMatchObject([
+    legacy[0],
+    { ownerKind: "manual", ownerId: "manual", quantity: 100 },
+  ]);
+  expect(detail(accountId).positions).toMatchObject([{ quantity: "300" }]);
+
+  confirmSimOrder(
+    {
+      ...manual,
+      side: "sell",
+      tradeDate: nextDay,
+      clientRequestId: "manual-sell",
+    },
+    db,
+  );
+  expect(listAccountSleeveHoldings(key, db)).toEqual(legacy);
+  expect(detail(accountId).positions).toMatchObject([{ quantity: "200" }]);
+});
 
 function seedPlan(
   id: string,
@@ -116,6 +224,149 @@ it("手算买入耗尽 1005.50 元，T+1 解锁，卖出净收 1093.90 元", () 
       { delta: "-1005.50" },
       { delta: "1005.50" },
     ],
+  });
+});
+
+it.each([
+  { symbol: "sh511010", day: firstDay, next: nextDay, t0: true, tax: "0.00" },
+  { symbol: "sh518880", day: firstDay, next: nextDay, t0: true, tax: "0.00" },
+  {
+    symbol: "sz159920",
+    day: "2015-01-16",
+    next: "2015-01-19",
+    t0: false,
+    tax: "0.00",
+  },
+  {
+    symbol: "sz159920",
+    day: "2015-01-19",
+    next: "2015-01-20",
+    t0: true,
+    tax: "0.00",
+  },
+  { symbol: "sh510300", day: firstDay, next: nextDay, t0: false, tax: "0.00" },
+  { symbol: "sz000001", day: firstDay, next: nextDay, t0: false, tax: "0.50" },
+])(
+  "$symbol 于 $day 成交后按 T+0=$t0 核对持仓、可卖数量与逐项费用",
+  ({ symbol, day, next, t0, tax }) => {
+    const id = equity();
+    const order = { ...buy(id), symbol, tradeDate: day };
+    const now = Date.parse("2026-11-23T12:00:00+08:00");
+    expect(
+      confirmSimOrder({ ...order, clientRequestId: "buy" }, db, now),
+    ).toMatchObject({
+      commission: "5.00",
+      transfer: "0.00",
+      tax: "0.00",
+      slippage: "0.50",
+    });
+    expect(detail(id, day).positions[0]?.sellableQuantity).toBe(
+      t0 ? "100" : "0",
+    );
+    const sell = { ...order, side: "sell" as const };
+    if (!t0) {
+      expect(() =>
+        confirmSimOrder({ ...sell, clientRequestId: "sell" }, db, now),
+      ).toThrow("可卖数量不足");
+      sell.tradeDate = next;
+    }
+    const fees = {
+      commission: "5.00",
+      transfer: "0.00",
+      tax,
+      slippage: "0.50",
+      netCashDelta: tax === "0.00" ? "994.50" : "994.00",
+    };
+    expect(previewSimOrder(sell, db, now)).toMatchObject(fees);
+    expect(
+      confirmSimOrder({ ...sell, clientRequestId: "sell" }, db, now),
+    ).toMatchObject(fees);
+    expect(detail(id, sell.tradeDate).positions).toEqual([]);
+  },
+);
+
+it("T+0 ETF 以 1.237 元当日往返，成交保留三位，现金逐分重放", () => {
+  const id = equity("三位报价", "128.76");
+  const order = { ...buy(id), symbol: "sh513100", price: "1.237" };
+  const amounts = {
+    price: "1.237",
+    gross: "123.70",
+    commission: "5.00",
+    tax: "0.00",
+    transfer: "0.00",
+    slippage: "0.06",
+  };
+  expect(previewSimOrder(order, db)).toMatchObject({
+    ...amounts,
+    netCashDelta: "-128.76",
+    cashAfter: "0.00",
+  });
+  const bought = confirmSimOrder({ ...order, clientRequestId: "buy" }, db);
+  expect(bought).toMatchObject({ ...amounts, netCashDelta: "-128.76" });
+  expect(detail(id, firstDay)).toMatchObject({
+    cash: "0.00",
+    positions: [{ sellableQuantity: "100", costBasis: "128.76" }],
+    trades: [bought],
+  });
+  const sale = {
+    ...order,
+    side: "sell" as const,
+    price: 1.237,
+    quantity: 100,
+    clientRequestId: "auto-sale",
+  };
+  const sold = executePipelineSimOrder(sale, db);
+  expect(sold).toMatchObject({ ...amounts, netCashDelta: "118.64" });
+  expect(executePipelineSimOrder(sale, db)).toEqual(sold);
+  expect(() => executePipelineSimOrder({ ...sale, price: 1.238 }, db)).toThrow(
+    "幂等键冲突",
+  );
+  expect(detail(id, firstDay)).toMatchObject({
+    cash: "118.64",
+    account: { revision: 2 },
+    positions: [],
+    trades: [sold, bought],
+    cashFlows: [{ delta: "118.64" }, { delta: "-128.76" }, { delta: "128.76" }],
+  });
+  expect(
+    db
+      .prepare(
+        `SELECT o.price_atoms AS ordered, f.price_atoms AS filled,
+    json_extract(o.rules_json, '$.priceDigits') AS digits FROM sim_orders o
+    JOIN sim_fills f ON f.account_id=o.account_id AND f.order_id=o.id`,
+      )
+      .all(),
+  ).toEqual(Array(2).fill({ ordered: 1237, filled: 1237, digits: 3 }));
+});
+
+it.each([
+  ["sh510300", "1.2375"],
+  ["sh600519", "10.123"],
+])("%s 拒绝超出报价步长的 %s，预览和确认均不入账", (symbol, price) => {
+  const id = equity(),
+    order = { ...buy(id), symbol, price };
+  const before = detail(id);
+  expect(() => previewSimOrder(order, db)).toThrow("精度");
+  expect(() =>
+    confirmSimOrder({ ...order, clientRequestId: "invalid" }, db),
+  ).toThrow("精度");
+  expect(detail(id)).toEqual(before);
+});
+
+it("ETF 卖清 5 份零股，成交额 6.185 元按半分进位至 6.19 元", () => {
+  const terms = orderTerms(
+    {
+      ...buy("odd-lot"),
+      symbol: "sh510300",
+      side: "sell",
+      quantity: "5",
+      price: "1.237",
+    },
+    "cn-equity",
+  );
+  expect(quote(terms, "cn-equity", 0n, 5n)).toMatchObject({
+    gross: 619n,
+    delta: 119n,
   });
 });
 
@@ -462,12 +713,13 @@ it("币种 T+0 使用八位原子，超出 JS 安全整数余额仍逐原子守�
     symbol: "BTCUSDT",
     tradeDate: "2026-11-21",
     quantity: "0.001",
-    price: "60000",
+    price: "60000.00000001",
     clientRequestId: "btc",
   };
   const filled = confirmSimOrder(order, db);
   expect(filled).toMatchObject({
     symbol: "cxBTCUSDT",
+    price: "60000.00000001",
     gross: "60.00000000",
     commission: "0.06000000",
     transfer: "0.00000000",
@@ -594,42 +846,66 @@ it("两个连接争用同一笔余额与可卖股数时，旧预览不能重复�
   }
 });
 
-it("v22 历史成交迁入 v23 后过户费默认为零，负过户费被拒绝", () => {
-  const legacy = new Database(":memory:");
-  try {
-    for (const sql of migrations.slice(0, 22)) legacy.exec(sql);
-    legacy.pragma("user_version=22");
-    const id = createSimAccount(
-      { name: "历史账户", market: "cn-equity", initialCapital: "10000" },
-      legacy,
-    ).id;
-    legacy
-      .prepare(
-        "INSERT INTO sim_orders VALUES(?,'order','req','hash','sh600519','buy','manual',NULL,100,1000,?,1,'{}')",
-      )
-      .run(id, firstDay);
-    legacy
-      .prepare(
-        "INSERT INTO sim_fills VALUES(?,'fill','order','sh600519','buy',100,1000,100000,500,0,50,?,1)",
-      )
-      .run(id, firstDay);
-    legacy
-      .prepare(
-        "INSERT INTO sim_cash_flows VALUES(?,'flow','settle','settlement',-100550,'fill',1,'')",
-      )
-      .run(id);
-    migrate(legacy);
-    expect(legacy.pragma("user_version", { simple: true })).toBe(25);
-    expect(
-      getSimAccountDetail({ accountId: id, currentTradeDate: nextDay }, legacy),
-    ).toMatchObject({
-      trades: [{ transfer: "0.00", netCashDelta: "-1005.50" }],
-      positions: [{ costBasis: "1005.50" }],
-    });
-    expect(() => legacy.exec("UPDATE sim_fills SET transfer_atoms=-1")).toThrow(
-      /CHECK/,
-    );
-  } finally {
-    legacy.close();
-  }
-});
+it.each(["sh600519", "sh510300"])(
+  "v22 的 %s 按分读取原价并允许原请求重试，过户费默认为零",
+  (symbol) => {
+    const legacy = new Database(":memory:");
+    try {
+      for (const sql of migrations.slice(0, 22)) legacy.exec(sql);
+      legacy.pragma("user_version=22");
+      const id = createSimAccount(
+        { name: "历史账户", market: "cn-equity", initialCapital: "10000" },
+        legacy,
+      ).id;
+      const legacyHash = createHash("sha256")
+        .update(
+          JSON.stringify({
+            symbol,
+            quantity: "100",
+            price: "1000",
+            side: "buy",
+            tradeDate: firstDay,
+            executionMode: "manual",
+            planId: null,
+          }),
+        )
+        .digest("hex");
+      legacy
+        .prepare(
+          "INSERT INTO sim_orders VALUES(?,'order','req',?,?,'buy','manual',NULL,100,1000,?,1,'{}')",
+        )
+        .run(id, legacyHash, symbol, firstDay);
+      legacy
+        .prepare(
+          "INSERT INTO sim_fills VALUES(?,'fill','order',?,'buy',100,1000,100000,500,0,50,?,1)",
+        )
+        .run(id, symbol, firstDay);
+      legacy
+        .prepare(
+          "INSERT INTO sim_cash_flows VALUES(?,'flow','settle','settlement',-100550,'fill',1,'')",
+        )
+        .run(id);
+      migrate(legacy);
+      expect(legacy.pragma("user_version", { simple: true })).toBe(26);
+      expect(
+        getSimAccountDetail(
+          { accountId: id, currentTradeDate: nextDay },
+          legacy,
+        ),
+      ).toMatchObject({
+        trades: [
+          { price: "10.00", transfer: "0.00", netCashDelta: "-1005.50" },
+        ],
+        positions: [{ costBasis: "1005.50" }],
+      });
+      expect(
+        confirmSimOrder({ ...buy(id), symbol, clientRequestId: "req" }, legacy),
+      ).toMatchObject({ fillId: "fill", price: "10.00" });
+      expect(() =>
+        legacy.exec("UPDATE sim_fills SET transfer_atoms=-1"),
+      ).toThrow(/CHECK/);
+    } finally {
+      legacy.close();
+    }
+  },
+);

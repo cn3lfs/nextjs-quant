@@ -51,6 +51,11 @@ const newTables = [
   "execution_order_intents",
   "execution_audit_events",
   "deployment_pool_entries",
+  "account_risk_states",
+  "account_sleeve_holdings",
+  "execution_fill_links",
+  "intraday_alert_config",
+  "intraday_watch_rules",
 ];
 
 function readSchema(db: Database.Database) {
@@ -95,9 +100,9 @@ describe("SQLite v25 migration", () => {
     );
   });
 
-  it("initializes a fresh database with five STRICT tables and their indexes", () => {
+  it("initializes a fresh database with the v25 and v26 STRICT tables and the v25 indexes", () => {
     migrate(db);
-    expect(db.pragma("user_version", { simple: true })).toBe(25);
+    expect(db.pragma("user_version", { simple: true })).toBe(26);
     const tables = db.pragma("table_list") as {
       name: string;
       strict: number;
@@ -129,7 +134,7 @@ describe("SQLite v25 migration", () => {
     const composites = db.prepare("SELECT * FROM factor_composites").all();
     expect(db.pragma("user_version", { simple: true })).toBe(24);
     migrate(db);
-    expect(db.pragma("user_version", { simple: true })).toBe(25);
+    expect(db.pragma("user_version", { simple: true })).toBe(26);
     expect(
       readSchema(db).filter((entry) => !newTables.includes(entry.tbl_name)),
     ).toEqual(schema);
@@ -139,15 +144,15 @@ describe("SQLite v25 migration", () => {
     );
   });
 
-  it("reapplies v25 safely and rejects a future v26 database", () => {
+  it("reapplies v26 safely and rejects a future v27 database", () => {
     migrate(db);
     const schema = readSchema(db);
     migrate(db);
-    expect(db.pragma("user_version", { simple: true })).toBe(25);
-    expect(readSchema(db)).toEqual(schema);
-    db.pragma("user_version=26");
-    expect(() => migrate(db)).toThrow("数据库版本高于此应用版本");
     expect(db.pragma("user_version", { simple: true })).toBe(26);
+    expect(readSchema(db)).toEqual(schema);
+    db.pragma("user_version=27");
+    expect(() => migrate(db)).toThrow("数据库版本高于此应用版本");
+    expect(db.pragma("user_version", { simple: true })).toBe(27);
     expect(readSchema(db)).toEqual(schema);
   });
 

@@ -353,7 +353,8 @@ describe("CandidateTable columns", () => {
       priceText: "11.24 / 10.99 / 9.43",
     },
     {
-      scenario: "keeps the local close when the live quote is from an older day",
+      scenario:
+        "keeps the local close when the live quote is from an older day",
       marketMetrics: localMetrics,
       liveQuotes: {
         sh600000: { price: 12.3456, quoteTime: "2026-11-20 15:00:00" },
@@ -361,7 +362,8 @@ describe("CandidateTable columns", () => {
       priceText: "11.24 / 10.99 / 9.43",
     },
     {
-      scenario: "keeps the dated local close when the live quote has only a time",
+      scenario:
+        "keeps the dated local close when the live quote has only a time",
       marketMetrics: localMetrics,
       liveQuotes: {
         sh600000: { price: 12.3456, quoteTime: "14:30:00" },

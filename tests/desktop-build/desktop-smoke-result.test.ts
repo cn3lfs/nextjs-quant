@@ -1,6 +1,9 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
+import { mkdtemp, realpath, unlink, rmdir } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
+import Database from "better-sqlite3";
 import { describe, expect, it } from "vitest";
 import { exitedResult, spawnErrorResult } from "../../electron/startup-health";
 import {
@@ -8,6 +11,7 @@ import {
   createSmokeJob,
   defaultSmokePassed,
   observeSmokeProcess,
+  seedCandidateDatabase,
   terminateSmokeProcess,
   windowsProcesses,
 } from "../../scripts/desktop-smoke.mjs";
@@ -16,12 +20,113 @@ import {
   type DesktopStartupOutcome,
 } from "../../electron/startup-log";
 import {
+  candidateSmokePassed,
   diagnoseSmokePassed,
   isThsdkDisabledRejection,
   lifecycleSmokePassed,
   readStartupConclusion,
   smokePassed,
 } from "../../scripts/lib/desktop-smoke-result.mjs";
+
+describe("candidate release receipt", () => {
+  const receipt = {
+    gitCommit: "a".repeat(40),
+    appVersion: "0.4.0",
+    schemaVersion: 26,
+    czscSha256: "b".repeat(64),
+    thsdkSha256: "c".repeat(64),
+    envFileCount: 0,
+    residualProcesses: 0,
+    failedAt: null,
+    checks: {
+      upgradeV24: true,
+      upgradeV25: true,
+      rejectV27: true,
+      clsWebView: true,
+      thsdkLoad: true,
+      thsdkRejectBadHash: true,
+      diagnose: true,
+      cleaned: true,
+    },
+  };
+
+  it("requires the exact version, source commit, DLL identities and clean package and process counts", () => {
+    expect(candidateSmokePassed(receipt)).toBe(true);
+    for (const mismatch of [
+      { gitCommit: null },
+      { gitCommit: "1234567" },
+      { appVersion: "0.3.0" },
+      { schemaVersion: 24 },
+      { schemaVersion: 25 },
+      { schemaVersion: 27 },
+      { czscSha256: "g".repeat(64) },
+      { thsdkSha256: null },
+      { thsdkSha256: "ab" },
+      { envFileCount: 1 },
+      { envFileCount: null },
+      { residualProcesses: 1 },
+      { residualProcesses: null },
+      { failedAt: "diagnose" },
+    ]) {
+      expect(candidateSmokePassed({ ...receipt, ...mismatch })).toBe(false);
+    }
+  });
+
+  it("rejects a failure in any required probe or cleanup", () => {
+    for (const check of Object.keys(receipt.checks)) {
+      expect(
+        candidateSmokePassed({
+          ...receipt,
+          checks: { ...receipt.checks, [check]: false },
+        }),
+        check,
+      ).toBe(false);
+    }
+  });
+
+  it.each([24, 25, 27])(
+    "plants a real v%i SQLite fixture with related business rows",
+    async (version) => {
+      const directory = await mkdtemp(
+        join(await realpath(tmpdir()), "quant-candidate-fixture-"),
+      );
+      const path = join(directory, "quant.sqlite");
+      try {
+        await seedCandidateDatabase(directory, version);
+        const db = new Database(path, { readonly: true, fileMustExist: true });
+        try {
+          expect(db.pragma("user_version", { simple: true })).toBe(version);
+          expect(db.pragma("foreign_key_check")).toEqual([]);
+          expect(db.prepare("SELECT symbol FROM sim_fills").all()).toEqual([
+            { symbol: "sh600000" },
+          ]);
+          expect(
+            db
+              .prepare(
+                "SELECT delta_atoms FROM sim_cash_flows WHERE fill_id = 'fill'",
+              )
+              .get(),
+          ).toEqual({ delta_atoms: -10050000 });
+          const table = db.prepare(
+            "SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ?",
+          );
+          expect(Boolean(table.get("pipeline_runs"))).toBe(version >= 25);
+          expect(Boolean(table.get("intraday_watch_rules"))).toBe(
+            version === 27,
+          );
+          expect(Boolean(table.get("future_only"))).toBe(version === 27);
+        } finally {
+          db.close();
+        }
+      } finally {
+        await unlink(path).catch((error) => {
+          if (error.code !== "ENOENT") throw error;
+        });
+        await rmdir(directory);
+      }
+    },
+  );
+});
 
 const noResiduals = {
   backend: 0,
@@ -458,7 +563,7 @@ describe("diagnose smoke pass gate", () => {
     archiveRead: true,
     jobStatus: "completed",
     boundaryState: "zero-signal",
-    schemaVersion: 25,
+    schemaVersion: 26,
     czsc: {
       apiVersion: 22,
       dllHash: "ab".repeat(32),
@@ -477,9 +582,9 @@ describe("diagnose smoke pass gate", () => {
     cleaned: true,
   };
 
-  it("requires SQLite schema v25", () => {
+  it("requires SQLite schema v26", () => {
     expect(diagnoseSmokePassed(clean)).toBe(true);
-    for (const schemaVersion of [null, 24, 26]) {
+    for (const schemaVersion of [null, 24, 25, 27]) {
       expect(diagnoseSmokePassed({ ...clean, schemaVersion })).toBe(false);
     }
   });

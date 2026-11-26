@@ -36,6 +36,11 @@ const newTables = [
   "execution_order_intents",
   "execution_audit_events",
   "deployment_pool_entries",
+  "account_risk_states",
+  "account_sleeve_holdings",
+  "execution_fill_links",
+  "intraday_alert_config",
+  "intraday_watch_rules",
 ];
 
 it("keeps the released v1 through v23 migration SQL frozen", () => {
@@ -107,7 +112,7 @@ it("upgrades a populated v23 database and preserves every existing schema object
       oldSchema.filter(({ tbl_name }) => newTables.includes(tbl_name)),
     ).toEqual([]);
     migrate(db);
-    expect(db.pragma("user_version", { simple: true })).toBe(25);
+    expect(db.pragma("user_version", { simple: true })).toBe(26);
     expect(
       readSchema(db).filter(({ tbl_name }) => !newTables.includes(tbl_name)),
     ).toEqual(oldSchema);
@@ -136,7 +141,7 @@ it("upgrades a populated v23 database and preserves every existing schema object
     const reopened = new Database(path, { fileMustExist: true });
     try {
       migrate(reopened);
-      expect(reopened.pragma("user_version", { simple: true })).toBe(25);
+      expect(reopened.pragma("user_version", { simple: true })).toBe(26);
       expect(readSchema(reopened)).toEqual(upgradedSchema);
       expect(readTables(reopened, oldSchema)).toEqual(oldRows);
     } finally {
@@ -166,20 +171,20 @@ it("rolls the first v24 table and index back if the second table's DDL fails", (
   }
 });
 
-it("refuses a future v26 database without advancing its schema or changing business rows", () => {
+it("refuses a future v27 database without advancing its schema or changing business rows", () => {
   const path = join(directory, "future.sqlite");
   createV23(path);
   const db = new Database(path, { fileMustExist: true });
   try {
     migrate(db);
     db.exec(
-      "CREATE TABLE future_metadata(note TEXT); INSERT INTO future_metadata VALUES ('v26')",
+      "CREATE TABLE future_metadata(note TEXT); INSERT INTO future_metadata VALUES ('v27')",
     );
-    db.pragma("user_version=26");
+    db.pragma("user_version=27");
     const schema = readSchema(db);
     const rows = readTables(db, schema);
     expect(() => migrate(db)).toThrow("数据库版本高于此应用版本");
-    expect(db.pragma("user_version", { simple: true })).toBe(26);
+    expect(db.pragma("user_version", { simple: true })).toBe(27);
     expect(readSchema(db)).toEqual(schema);
     expect(readTables(db, schema)).toEqual(rows);
   } finally {

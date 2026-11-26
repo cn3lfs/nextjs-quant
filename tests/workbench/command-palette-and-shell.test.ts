@@ -196,7 +196,7 @@ it("renders all glossary values in readable Chinese and preserves fallback seman
     expect(labelFor("")).toBe("—");
     expect(labelFor("future-key")).toBe("future-key");
   }
-  expect(termLabel("shadow")).toBe("观察模式（不推送）");
+  expect(termLabel("shadow")).toBe("空跑观察");
   expect(termLabel("frozenSnapshot")).toBe("选股当时快照");
 });
 

@@ -1,5 +1,7 @@
-import type Database from "better-sqlite3";
-import { sqlite } from "./index";
+import Database from "better-sqlite3";
+import { statSync } from "node:fs";
+import { join } from "node:path";
+import { dataDirectory, sqlite } from "./index";
 import { DeliveryStore } from "./delivery-store";
 import { TradeLedgerStore } from "./trade-ledger-store";
 import { PaperRepository } from "./paper-repository";
@@ -11,6 +13,52 @@ import type {
   PlatformTrade,
 } from "../crypto-trading/account-model";
 import type { BotState } from "../crypto-trading/model";
+import type { CorporateEvidence } from "~/lib/portfolio/trade-ledger";
+import { readMockCache } from "../portfolio/account-workspace/mock-cache";
+import type { MockResponseEvidence } from "../portfolio/mock/mock-trading";
+import type { FuturesSimAccountSummary } from "~/lib/portfolio/futures-sim";
+import {
+  positionView,
+  replayPositions,
+} from "../portfolio/sim-accounts/engine";
+import { SimAccountRepository } from "./sim-account-repository";
+
+export function openAccountWorkspaceRead() {
+  const path = join(dataDirectory(), "quant.sqlite");
+  if (!statSync(path, { throwIfNoEntry: false }))
+    return { repo: null, close: () => {} };
+  const db = new Database(path, { readonly: true, fileMustExist: true });
+  return { repo: new AccountWorkspaceRepository(db), close: () => db.close() };
+}
+
+type MockOrderCache = {
+  state: "pending" | "attempted" | "accepted" | "unknown" | "blocked";
+  input: { date: string };
+  receipt?: { entrustNos: string[]; at: number; tradeDate: string };
+};
+
+type AccountFacts = ReturnType<AccountWorkspaceRepository["snapshot"]>;
+
+export function emptyAccountFacts(): AccountFacts {
+  return {
+    version: "empty",
+    fills: [],
+    cashFlows: [],
+    batches: [],
+    local: [],
+    paper: [],
+    crypto: [],
+    localSim: [],
+    futuresSim: [],
+    thsMock: null,
+    links: [],
+    expectations: [],
+    expectationStatuses: [],
+    definitions: [],
+    plans: [],
+    events: [],
+  };
+}
 
 export type AccountExpectation = {
   strategyId: string;
@@ -66,7 +114,65 @@ export class AccountWorkspaceRepository {
       .get(id) as { payload: string } | undefined;
     return r ? (JSON.parse(r.payload) as T) : null;
   }
-  snapshot() {
+  bonusListings() {
+    const rows = this.db
+      .prepare<[], { id: string; payload: string }>(
+        "SELECT id,payload FROM records WHERE id>='trade-bonus-' AND id<'trade-bonus.'",
+      )
+      .all();
+    return new Map(
+      rows.map(({ id, payload }) => [
+        id.slice("trade-bonus-".length),
+        JSON.parse(payload) as NonNullable<CorporateEvidence["bonusListings"]>,
+      ]),
+    );
+  }
+  thsMockMetadata(at: number) {
+    const config = this.db
+      .prepare<[], { payload: string; updated_at: number }>(
+        "SELECT payload,updated_at FROM records WHERE id='mock-trading-config' AND kind='mock-trading-config'",
+      )
+      .get();
+    const diagnostics =
+      this.record<MockResponseEvidence[]>("mock-diagnostics") ?? [];
+    const orders = this.db
+      .prepare<[], { id: string; payload: string; updated_at: number }>(
+        "SELECT id,payload,updated_at FROM records WHERE kind='mock-order' ORDER BY updated_at,id",
+      )
+      .all();
+    if (!config && !diagnostics.length && !orders.length) return null;
+    const receipts = orders.map(({ id, payload, updated_at }) => {
+      const order = JSON.parse(payload) as MockOrderCache;
+      return {
+        id,
+        state: order.state,
+        updatedAt: updated_at,
+        tradeDate: order.receipt?.tradeDate ?? order.input.date,
+        acceptedAt: order.receipt?.at ?? null,
+        entrustNos: order.receipt?.entrustNos ?? [],
+      };
+    });
+    return {
+      kind: "ths-mock" as const,
+      account: "default",
+      accountName: "同花顺模拟盘",
+      market: "cn-equity" as const,
+      enabled: config
+        ? (JSON.parse(config.payload) as { enabled: boolean }).enabled
+        : null,
+      configuredAt: config?.updated_at ?? null,
+      diagnostics: diagnostics.map(({ path, httpStatus, envelope }) => ({
+        path,
+        httpStatus,
+        fetchedAt: envelope.fetchedAt,
+        quality: envelope.quality,
+        payloadHash: envelope.payloadHash,
+      })),
+      ...readMockCache(diagnostics, receipts, at),
+      orders: receipts,
+    };
+  }
+  snapshot(at = Date.now()) {
     return this.db.transaction(() => {
       const deliveries = new DeliveryStore(this.db),
         paper = new PaperRepository(this.db),
@@ -101,6 +207,11 @@ export class AccountWorkspaceRepository {
               : [],
           };
         }),
+        localSim: this.localSimAccounts(at),
+        futuresSim: this.records<FuturesSimAccountSummary>(
+          "futures-sim-account",
+        ),
+        thsMock: this.thsMockMetadata(at),
         links: (
           this.db
             .prepare(
@@ -126,6 +237,30 @@ export class AccountWorkspaceRepository {
       };
     })();
   }
+  private localSimAccounts(at: number) {
+    const repo = new SimAccountRepository(this.db);
+    return repo.list().map((account) => {
+      const row = repo.account(account.id);
+      const today = new Date(
+        at + (account.market === "crypto" ? 0 : 8 * 3600000),
+      )
+        .toISOString()
+        .slice(0, 10);
+      const latest = repo.latestDate(account.id);
+      const holdings = replayPositions(
+        repo.fills(account.id),
+        account.market,
+        latest && latest > today ? latest : today,
+      );
+      return {
+        account,
+        trades: repo.trades(row, undefined, -1).reverse(),
+        positions: Array.from(holdings, ([symbol, holding]) =>
+          positionView(symbol, holding, account.market),
+        ),
+      };
+    });
+  }
   link(link: TradeLink) {
     this.db
       .prepare(
@@ -138,6 +273,16 @@ export class AccountWorkspaceRepository {
       )
       .run(link.tradeId, JSON.stringify(link));
     return link;
+  }
+  hasSymbolInTable(
+    table: "trade_ledger" | "sim_fills" | "trade_fills",
+    symbol: string,
+  ) {
+    return (
+      this.db
+        .prepare(`SELECT 1 FROM ${table} WHERE symbol=? LIMIT 1`)
+        .get(symbol) !== undefined
+    );
   }
   freezeExpectation(value: AccountExpectation) {
     const previous = this.db

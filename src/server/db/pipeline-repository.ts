@@ -716,6 +716,32 @@ export function listIntentsByRun(
     .map(decodeIntent);
 }
 
+export function cancelPendingIntent(
+  intentId: string,
+  reason = "用户手动取消",
+  connection: Database.Database = sqlite(),
+):
+  | { ok: true; intent: OrderIntentRecord }
+  | { ok: false; code: "NOT_FOUND" | "CONFLICT" } {
+  return connection
+    .transaction(() => {
+      const intent = getIntent(intentId, connection);
+      if (!intent) return { ok: false as const, code: "NOT_FOUND" as const };
+      if (intent.status !== "planned" && intent.status !== "queued")
+        return { ok: false as const, code: "CONFLICT" as const };
+      return {
+        ok: true as const,
+        intent: transitionIntentStatus(
+          intent.id,
+          "cancelled",
+          { errorSummary: reason },
+          connection,
+        ),
+      };
+    })
+    .immediate();
+}
+
 export function listIntentsByDate(
   executeDate: string,
   statuses?: readonly OrderIntentStatus[],

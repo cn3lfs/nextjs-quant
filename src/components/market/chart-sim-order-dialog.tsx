@@ -15,6 +15,7 @@ import {
   type FuturesSimOrderPreview,
 } from "~/lib/portfolio/futures-sim";
 import { tradeInputSchema } from "~/lib/portfolio/trade-ledger";
+import { useMarketSession } from "~/lib/stores/market-session";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { Pill, Segmented } from "../panels";
 import {
@@ -48,6 +49,7 @@ type ChartOrderInstrument = {
   displayName: string;
   referencePrice: number | null;
   referenceDate?: string;
+  referenceLabel?: string;
   pricePrecision?: number;
 } & (
   | { market: "cn-equity"; referencePriceSource: ReferencePriceSource }
@@ -60,6 +62,11 @@ type ChartSimOrderDialogProps = ChartOrderInstrument & {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   trigger?: ReactNode;
+  /** Optional prefill from a rebalance ticket or other planning surface. */
+  initialSide?: "buy" | "sell";
+  initialQuantity?: string;
+  /** Chart entries also show the newly confirmed fill in the chart. */
+  syncChartReview?: boolean;
 };
 
 const mockAccountsHref = "/accounts?tab=paper&channel=ths-mock";
@@ -70,6 +77,9 @@ export function ChartSimOrderDialog({
   open,
   onOpenChange,
   trigger,
+  initialSide,
+  initialQuantity,
+  syncChartReview = Boolean(trigger),
   ...instrument
 }: ChartSimOrderDialogProps) {
   return (
@@ -86,6 +96,9 @@ export function ChartSimOrderDialog({
                 instrument.referenceDate,
             ].join(":")}
             {...instrument}
+            initialSide={initialSide}
+            initialQuantity={initialQuantity}
+            syncChartReview={syncChartReview}
             onNavigate={() => onOpenChange(false)}
           />
         )}
@@ -101,9 +114,19 @@ function ChartOrderContent({
   referencePrice,
   referencePriceSource,
   referenceDate,
+  referenceLabel = "最新参考价",
   pricePrecision,
+  initialSide,
+  initialQuantity,
+  syncChartReview,
   onNavigate,
-}: ChartOrderInstrument & { onNavigate: () => void }) {
+}: ChartOrderInstrument & {
+  initialSide?: "buy" | "sell";
+  initialQuantity?: string;
+  syncChartReview: boolean;
+  onNavigate: () => void;
+}) {
+  const utils = api.useUtils();
   const contract = market === "futures" ? futuresContract(symbol) : undefined;
   const digits =
     pricePrecision ?? (market === "cn-equity" ? 2 : contract?.precision);
@@ -157,7 +180,7 @@ function ChartOrderContent({
             {contract && " · " + contract.unit}
           </span>
           <span>
-            最新参考价 {latestPrice || "—"}
+            {referenceLabel} {latestPrice || "—"}
             {latestPrice && date}
           </span>
           {contract && (
@@ -178,7 +201,7 @@ function ChartOrderContent({
             else changePrice(latestPrice);
           }}
         >
-          回填最新价
+          {referenceLabel === "最新参考价" ? "回填最新价" : "回填参考价"}
         </Button>
       </DialogHeader>
       {priceWarning && (
@@ -225,6 +248,8 @@ function ChartOrderContent({
           price={price}
           onPriceChange={changePrice}
           onNavigate={onNavigate}
+          initialSide={initialSide}
+          initialQuantity={initialQuantity}
         />
       ) : (
         <SimOrderForm
@@ -232,8 +257,50 @@ function ChartOrderContent({
           lockSymbol
           quickCreateDefault
           marketHint={market}
-          defaults={{ symbol, price: latestPrice }}
+          defaults={{
+            symbol,
+            price: latestPrice,
+            ...(initialSide ? { side: initialSide } : {}),
+            ...(initialQuantity ? { quantity: initialQuantity } : {}),
+          }}
           referencePrice={latestPrice ? Number(latestPrice) : null}
+          onDone={(trade) => {
+            if (market !== "cn-equity") return;
+            void utils.chartPosition.invalidate(trade.symbol);
+            void utils.chartTradeReview.invalidate();
+            void utils.accountPositions.invalidate();
+            void utils.accountTrades.invalidate();
+            if (!syncChartReview) return;
+            const chart = useMarketSession.getState();
+            if (chart.chartPeriod === "day" && chart.loaded)
+              void utils.chartBars.invalidate({
+                snapshotId: chart.loaded.id,
+                period: "day",
+              });
+            if (
+              chart.chartPeriod === "day" &&
+              chart.chartMode === "k" &&
+              chart.adjustment !== "none"
+            )
+              chart.setAdjustment("none");
+            chart.setTradeContext({
+              symbol: trade.symbol,
+              at: trade.tradeDate,
+              review: {
+                source: "paper-account",
+                refId: `local-sim:${trade.accountId}`,
+                accountId: trade.accountId,
+                symbol: trade.symbol,
+                label: "本地模拟",
+                backHref: `/accounts?${new URLSearchParams({
+                  tab: "trades",
+                  kind: "local-sim",
+                  symbol: trade.symbol,
+                  trade: `local-sim:${trade.accountId}:${trade.fillId}`,
+                })}`,
+              },
+            });
+          }}
         />
       )}
       <DialogFooter className="border-t border-nc-border-soft pt-3">
@@ -269,12 +336,19 @@ function ThsMockOrderForm({
   price,
   onPriceChange,
   onNavigate,
-}: OrderPriceProps & { symbol: string; onNavigate: () => void }) {
+  initialSide = "buy",
+  initialQuantity,
+}: OrderPriceProps & {
+  symbol: string;
+  onNavigate: () => void;
+  initialSide?: "buy" | "sell";
+  initialQuantity?: string;
+}) {
   const meta = api.thsMockMeta.useQuery();
   const prepare = api.thsMockPreviewOrder.useMutation(manualRequest);
   const confirm = api.thsMockConfirmOrder.useMutation(manualRequest);
   const status = api.thsMockOrderStatus.useMutation(manualRequest);
-  const [side, setSide] = useState<"buy" | "sell">("buy");
+  const [side, setSide] = useState(initialSide);
   const [preview, setPreview] = useState<ThsPreview | null>(null);
   const [expired, setExpired] = useState(false);
   const [validation, setValidation] = useState("");
@@ -405,6 +479,7 @@ function ThsMockOrderForm({
               min="100"
               max="100000000"
               step="100"
+              defaultValue={initialQuantity}
               required
             />
           </label>
@@ -639,7 +714,11 @@ function FuturesOrderForm({
   const prepare = api.futuresSimOrderPreview.useMutation(manualRequest);
   const confirm = api.futuresSimOrderConfirm.useMutation({
     ...manualRequest,
-    onSuccess: () => utils.futuresSimAccountsList.invalidate(),
+    onSuccess: () =>
+      Promise.all([
+        utils.futuresSimAccountsList.invalidate(),
+        utils.accountPositions.invalidate(),
+      ]),
   });
   const key = JSON.stringify([account?.id, symbol, action, price.revision]);
   const current = preview?.key === key ? preview : null;

@@ -646,10 +646,53 @@ function riskSnapshot(
           ? (policy.maxEtfWeight ?? policy.maxSingleInstrumentWeight)
           : policy.maxSingleInstrumentWeight,
     ),
+    futures: futuresMarginExposure(book.positions, input.account),
     industrySource: book.industrySource,
     reasons,
   };
   return { snapshot, holdings, context };
+}
+
+/** Margin and open notionals are native-currency, entry-basis amounts.
+ * Neither belongs in the marked A-share NAV or concentration denominators. */
+function futuresMarginExposure(
+  positions: AccountBook["positions"],
+  account?: string,
+) {
+  const futures = positions.filter(
+    (row) =>
+      row.kind === "futures-sim" && (!account || row.account === account),
+  );
+  return (["CNY", "USD"] as const).flatMap((currency) => {
+    const rows = futures.filter((row) => row.currency === currency);
+    if (!rows.length) return [];
+    const sum = (
+      key: "marginUsed" | "notional",
+      direction?: "long" | "short",
+    ) => {
+      let amount = big(0);
+      for (const row of rows) {
+        if (direction && row.direction !== direction) continue;
+        const value = row[key];
+        if (value == null || !Number.isFinite(value)) return null;
+        amount = amount.plus(value);
+      }
+      return amount;
+    };
+    const long = sum("notional", "long"),
+      short = sum("notional", "short");
+    return [
+      {
+        currency,
+        basis: "entry-notional" as const,
+        positions: rows.length,
+        marginUsed: sum("marginUsed")?.toNumber() ?? null,
+        longNotional: long?.toNumber() ?? null,
+        shortNotional: short?.toNumber() ?? null,
+        netNotional: long && short ? long.minus(short).toNumber() : null,
+      },
+    ];
+  });
 }
 
 export function evaluateAccountPortfolioRisk(
@@ -675,22 +718,9 @@ export async function readAccountSourceBars(root: string, symbol: string) {
 }
 
 export async function loadReadOnlyAccountBook(at = Date.now()) {
-  const repo = new AccountWorkspaceRepository();
-  const config = settings();
-  const facts = repo.snapshot();
-  const symbols = new Set([
-    ...facts.fills.flatMap((fill) =>
-      fill.symbol && (fill.instrument === "stock" || fill.instrument === "fund")
-        ? [fill.symbol]
-        : [],
-    ),
-    ...facts.local.map((trade) => trade.symbol),
-  ]);
-  const bars: AccountBook["bars"] = {};
-  for (const symbol of symbols)
-    bars[symbol] = await readAccountSourceBars(config.tdxRoot, symbol);
-  repo.assertVersion(facts.version);
-  return loadAccountBook(repo, config, at, { bars, localOnly: true });
+  return loadAccountBook(new AccountWorkspaceRepository(), settings(), at, {
+    localOnly: true,
+  });
 }
 
 export async function loadPortfolioRiskBook(

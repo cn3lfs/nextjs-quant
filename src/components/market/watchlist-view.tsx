@@ -29,7 +29,7 @@ import { Checkbox } from "../ui/checkbox";
 import { DataTable, type DataTableColumn } from "../ui/data-table";
 import { Input } from "../ui/input";
 import { useInfiniteSlice } from "../ui/use-infinite-table";
-import { Segmented } from "../panels";
+import { Pill, Segmented } from "../panels";
 import { useQuoteRefreshInterval } from "./use-quote-session";
 import { useSecurityNames } from "./use-security-names";
 import { BrowseSource, useOpenChart } from "./open-chart";
@@ -47,9 +47,11 @@ type WatchlistRow = {
   changePct: number | null;
   amount: number | null;
   savedIndex: number;
+  holding: boolean;
 };
 
 const A_SHARE_CODE = /^(sh|sz|bj)\d{6}$/;
+const holdingScope = { kind: "all", market: "cn-equity", page: 0 } as const;
 
 function normalizeDirectSymbol(raw: string): string | null {
   const cleaned = raw.trim().toLowerCase();
@@ -135,6 +137,32 @@ export function WatchlistView() {
   });
   const names = useSecurityNames().data ?? {};
 
+  const holdingOptions = {
+    enabled: visible && watchlist.length > 0,
+    retry: false,
+    staleTime: 30_000,
+  };
+  const holdings = api.accountPositions.useQuery(holdingScope, holdingOptions);
+  const moreHoldings = api.useQueries((query) =>
+    Array.from(
+      { length: Math.max(0, Math.ceil((holdings.data?.total ?? 0) / 20) - 1) },
+      (_, index) =>
+        query.accountPositions(
+          { ...holdingScope, page: index + 1 },
+          holdingOptions,
+        ),
+    ),
+  );
+  const holdingBySymbol = useMemo(() => {
+    return new Set(
+      [
+        ...(holdings.data?.items ?? []),
+        ...moreHoldings.flatMap((page) => page.data?.items ?? []),
+      ]
+        .filter((position) => position.quantity > 0)
+        .map((position) => position.symbol),
+    );
+  }, [holdings.data, moreHoldings]);
   const quotes = api.overviewQuotes.useQuery(watchlist, {
     enabled: visible && watchlist.length > 0,
     retry: false,
@@ -296,6 +324,7 @@ export function WatchlistView() {
           changePct,
           amount,
           savedIndex,
+          holding: holdingBySymbol.has(symbol),
         };
       })
       .filter(
@@ -316,7 +345,7 @@ export function WatchlistView() {
       const delta = sort === "loss" ? av - bv : bv - av;
       return delta !== 0 ? delta : a.savedIndex - b.savedIndex;
     });
-  }, [watchlist, names, quoteBySymbol, filterText, sort]);
+  }, [watchlist, names, quoteBySymbol, filterText, sort, holdingBySymbol]);
 
   const orderedSymbols = useMemo(() => rows.map((r) => r.symbol), [rows]);
   const summary = useMemo(() => {
@@ -761,6 +790,7 @@ function WatchlistTable({
               <span className="text-xs tabular-nums text-nc-text-4">
                 {item.symbol.toUpperCase()}
               </span>
+              {item.holding && <Pill tone="accent">持仓</Pill>}
             </Link>
           );
         },
@@ -841,6 +871,20 @@ function WatchlistTable({
           const item = row.original;
           return (
             <div className="inline-flex items-center justify-end gap-1">
+              {A_SHARE_CODE.test(item.symbol) && (
+                <Button
+                  asChild
+                  size="sm"
+                  variant="ghost"
+                  title="到盘中预警页为这只标的设置价格阈值"
+                >
+                  <Link
+                    href={`/?tab=intraday-alerts&symbol=${encodeURIComponent(item.symbol)}`}
+                  >
+                    设盘中预警
+                  </Link>
+                </Button>
+              )}
               {sort === "saved" && item.savedIndex > 0 && (
                 <Button
                   type="button"

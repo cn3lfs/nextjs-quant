@@ -1,16 +1,18 @@
 import { isDeepStrictEqual } from "node:util";
 import type Database from "better-sqlite3";
 import { big, bigMin, toNumber } from "trading-strategy-core/money";
-import { researchExecutionCosts } from "trading-strategy-core/costs";
+import { defaultPortfolioRiskPolicy } from "quant-execution";
+import {
+  executionCostsForInstrument,
+  researchExecutionCosts,
+} from "trading-strategy-core/costs";
 import { completedBarFilter } from "trading-strategy-core/completed-bars";
 import {
   evaluateDowDualIndex,
   evaluateOneilMarketDirection,
-  poolSyncSnapshotSchema,
-  strategyTargetProposalSchema,
+  isTerminalIntentStatus,
   type PipelineTriggerKind,
   type RegimeGateSpec,
-  type StrategyTargetProposal,
   type VenueBinding,
 } from "trading-strategies";
 import { researchDateSchema } from "trading-strategies/research/contracts/date";
@@ -24,6 +26,7 @@ import {
 } from "../db/deployment-repository";
 import type { JsonValue } from "../db/execution-audit";
 import {
+  appendExecutionAuditEvent,
   getOrCreatePipelineRun,
   getPipelineRun,
   insertOrderIntents,
@@ -37,9 +40,18 @@ import {
   getActivePoolEntries,
   normalizePoolSymbol,
 } from "../db/pool-repository";
-import { SimAccountRepository } from "../db/sim-account-repository";
+import {
+  decisionIndustries,
+  freezePlanningSleeves,
+  ownedPlanningPositions,
+  planningAccount,
+  planningCalendarWarning,
+  readPlanningFacts,
+  type PlanningFacts,
+} from "./account-coordinator";
+import { readLocalSimAccountState } from "./local-account-state";
+export { readLocalSimAccountState } from "./local-account-state";
 import { sentimentRegimeSnapshot } from "../market/limit-sentiment-regime";
-import { getSimAccountDetail } from "../portfolio/sim-accounts/service";
 import { quantityDigits } from "../portfolio/sim-accounts/engine";
 import {
   checkTicketUnlockEvents,
@@ -48,9 +60,12 @@ import {
 import { previewMacroClockAllocation } from "../research/value-pit-service";
 import {
   evaluateDeploymentStrategy,
+  evaluatedStrategyProposalSchema,
+  type EvaluatedStrategyProposal,
   type StrategyEvaluatorDeps,
 } from "./strategy-evaluator";
 import {
+  parseEvaluatedPoolSnapshot,
   readDecisionBars,
   syncDeploymentPool,
   type UniversePoolDeps,
@@ -66,6 +81,7 @@ export type PipelineAccountState = {
   cash: number;
   equity: number;
   drawdownPct: number | null;
+  riskRegime?: "normal" | "reduced" | "halted";
   positions: readonly {
     symbol: string;
     quantity: number;
@@ -82,64 +98,6 @@ function readClose(readBars?: UniversePoolDeps["readBars"]): ReadPrice {
   return async (symbol, date) => {
     const last = (await readDecisionBars(symbol, date, readBars)).at(-1);
     return last?.date === date ? last.close : null;
-  };
-}
-
-export async function readLocalSimAccountState(
-  simAccountId: string,
-  executeDate: string,
-  db: Database.Database,
-  readPrice: ReadPrice = readClose(),
-  decisionDate = executeDate,
-): Promise<PipelineAccountState> {
-  const repo = new SimAccountRepository(db);
-  const { detail, baseline } = repo.read(() => {
-    const latest = repo.latestDate(simAccountId);
-    if (latest && latest > decisionDate)
-      throw new Error("交易日期早于账户已成交日期");
-    const detail = getSimAccountDetail(
-      { accountId: simAccountId, currentTradeDate: executeDate, limit: 1 },
-      db,
-    );
-    const account = repo.account(simAccountId);
-    let baseline = big(detail.account.initialCapital);
-    let cursor: string | undefined;
-    do {
-      const page = repo.flows(account, cursor, 1000);
-      for (const flow of page) {
-        if (flow.kind === "deposit" || flow.kind === "withdrawal")
-          baseline = baseline.plus(flow.delta);
-      }
-      cursor = page.length === 1000 ? page.at(-1)?.id : undefined;
-    } while (cursor);
-    return { detail, baseline };
-  });
-  const positions = await Promise.all(
-    detail.positions.map(async (position) => {
-      const symbol = normalizePoolSymbol(position.symbol);
-      const price = await readPrice(symbol, decisionDate);
-      return {
-        symbol,
-        quantity: Number(position.quantity),
-        sellable: Number(position.sellableQuantity),
-        lastPrice: validPrice(price) ? price : null,
-      };
-    }),
-  );
-  const equity = positions.reduce(
-    (total, position) =>
-      position.lastPrice === null
-        ? total
-        : total.plus(big(position.quantity).times(position.lastPrice)),
-    big(detail.cash),
-  );
-  return {
-    cash: Number(detail.cash),
-    equity: toNumber(equity),
-    drawdownPct: baseline.gt(0)
-      ? Math.max(0, toNumber(baseline.minus(equity).div(baseline)))
-      : null,
-    positions,
   };
 }
 
@@ -323,6 +281,7 @@ type CheckUnlockEvents = (
 type OrderPlanningDeps = {
   readReferencePrice?: ReadPrice;
   checkUnlockEvents?: CheckUnlockEvents;
+  readIndustries?: (symbol: string, decisionDate: string) => readonly string[];
 };
 
 export type PipelinePlanningDeps = OrderPlanningDeps & {
@@ -332,9 +291,10 @@ export type PipelinePlanningDeps = OrderPlanningDeps & {
   regime?: RegimeGateDeps;
   readAccountState?: (
     binding: VenueBinding,
-    executeDate: string,
+    decisionDate: string,
     db: Database.Database,
-  ) => MaybePromise<PipelineAccountState>;
+    asOfCreatedAt?: number,
+  ) => MaybePromise<PipelineAccountState | null>;
 };
 
 type SkippedOrder = {
@@ -396,12 +356,24 @@ export async function planOrderIntents({
   run,
   proposal,
   accountState,
+  ownerPositions,
+  commitments = [],
+  accountCaps,
   regimeVerdict,
   deps = {},
 }: {
   deployment: DeploymentRecord;
   run: Pick<PipelineRunRecord, "id" | "decisionDate" | "executeDate">;
-  proposal: StrategyTargetProposal;
+  proposal: EvaluatedStrategyProposal;
+  ownerPositions: readonly {
+    symbol: string;
+    quantity: number;
+    executionSellable: number;
+    pendingSell?: number;
+    sellLimitReason?: string;
+  }[];
+  commitments?: PlanningFacts["commitments"];
+  accountCaps?: PlanningFacts["accountCaps"];
   accountState: PipelineAccountState;
   regimeVerdict: RegimeGateVerdict;
   deps?: OrderPlanningDeps;
@@ -409,16 +381,46 @@ export async function planOrderIntents({
   const { decisionDate, executeDate } = run;
   if (proposal.asOf !== decisionDate) throw new Error("策略信号与决策日不匹配");
   const { market, riskPolicy, venueBinding } = deployment;
-  const { equity, drawdownPct } = accountState;
-  if (![accountState.cash, equity, drawdownPct ?? 0].every(Number.isFinite))
-    throw new Error("账户资金、权益或回撤无效");
-
+  const { equity, drawdownPct, riskRegime } = accountState;
   const riskReasons = [...regimeVerdict.reasons];
+  const missingEvidence =
+    !Number.isFinite(accountState.cash) ||
+    !Number.isFinite(equity) ||
+    !Number.isFinite(drawdownPct) ||
+    (drawdownPct ?? -1) < 0 ||
+    !Array.isArray(accountState.positions) ||
+    accountState.positions.some(
+      (p) =>
+        !Number.isFinite(p.quantity) ||
+        p.quantity < 0 ||
+        !Number.isFinite(p.sellable) ||
+        p.sellable < 0 ||
+        (venueBinding.kind !== "local_sim" &&
+          p.quantity > 0 &&
+          !validPrice(p.lastPrice)),
+    );
   const drawdownPaused =
-    drawdownPct !== null && drawdownPct >= riskPolicy.drawdownPausePct;
+    riskRegime === "halted" ||
+    (drawdownPct !== null &&
+      Number.isFinite(drawdownPct) &&
+      drawdownPct >= riskPolicy.drawdownPausePct);
+  if (missingEvidence) riskReasons.push("risk-evidence-missing");
   if (drawdownPaused) riskReasons.push("drawdown_pause");
-  const allowNewEntries = canEnter(regimeVerdict) && !drawdownPaused;
-  const entryScale = allowNewEntries ? Math.min(1, regimeVerdict.scale) : 0;
+  if (riskRegime === "reduced") riskReasons.push("drawdown_reduced");
+  const allowNewEntries =
+    !missingEvidence && canEnter(regimeVerdict) && !drawdownPaused;
+  const entryScale = allowNewEntries
+    ? Math.min(
+        regimeVerdict.scale,
+        riskRegime === "reduced" ? defaultPortfolioRiskPolicy.reducedScale : 1,
+      )
+    : 0;
+  const clipped: {
+    symbol: string;
+    side: "BUY" | "SELL";
+    reasons: string[];
+    quantity: number;
+  }[] = [];
   const skipped: SkippedOrder[] = [];
   const skip = (
     symbol: string,
@@ -434,6 +436,12 @@ export async function planOrderIntents({
     });
   };
   const intents: InsertOrderIntentInput[] = [];
+  const theoreticalOrders: {
+    symbol: string;
+    side: "BUY" | "SELL";
+    theoreticalQuantity: number;
+    referencePrice: number;
+  }[] = [];
   const addIntent = (
     symbol: string,
     phase: 1 | 2,
@@ -455,18 +463,9 @@ export async function planOrderIntents({
 
   const readPrice =
     deps.readReferencePrice ?? defaultReferencePrice(deployment);
-  const positions = new Map<
-    string,
-    PipelineAccountState["positions"][number]
-  >();
-  for (const position of accountState.positions) {
-    if (![position.quantity, position.sellable].every(Number.isFinite))
-      throw new Error(`无效账户持仓：${position.symbol}`);
-    if (position.quantity <= 0) continue;
-    const symbol = normalizePoolSymbol(position.symbol);
-    if (positions.has(symbol)) throw new Error(`重复账户持仓：${symbol}`);
-    positions.set(symbol, position);
-  }
+  const positions = new Map(
+    ownerPositions.map((p) => [normalizePoolSymbol(p.symbol), p]),
+  );
   const targets = new Map(
     Object.entries(proposal.targets).map(([symbol, weight]) => [
       normalizePoolSymbol(symbol),
@@ -480,84 +479,185 @@ export async function planOrderIntents({
     ]),
   );
   const targetMode = proposal.mode === "target-weights";
-  const { minimumCommission, commissionBps, sellTaxBps, slippageBps } =
-    researchExecutionCosts(market, "fixed");
-  const sellPriceFactor = big(1)
-    .minus(riskPolicy.maxGapPct)
-    .minus(big(slippageBps).div(10_000));
-  const buyPriceFactor = big(1)
-    .plus(riskPolicy.maxGapPct)
-    .plus(big(slippageBps).div(10_000));
-  const commission = big(commissionBps).div(10_000);
-  const tax = big(sellTaxBps).div(10_000);
-  const commissionFor = (gross: ReturnType<typeof big>) => {
-    const proportional = gross.times(commission);
-    return proportional.gte(minimumCommission)
-      ? proportional
-      : minimumCommission;
-  };
-  // Round fee reserves up by a few currency ticks to cover ledger rounding.
+  const fixed = researchExecutionCosts(market, "fixed");
+  const costsFor = (symbol: string, date: string) =>
+    market === "cn-equity"
+      ? executionCostsForInstrument(fixed, symbol, date)
+      : fixed;
   const feeRounding = market === "cn-equity" ? 0.02 : 0.00000002;
-  let cash = big(accountState.cash);
-  let exposure = big(0);
-  let turnover = big(0);
+  type Amount = ReturnType<typeof big>;
+  const grossWithGap = (gross: Amount, gap: number) =>
+    gross.times(big(1).plus(gap));
+  function buyCost(symbol: string, date: string, gross: Amount, gap: number) {
+    const costs = costsFor(symbol, date);
+    const value = grossWithGap(gross, gap);
+    const commission = value.times(costs.commissionBps).div(10000);
+    return value
+      .plus(
+        commission.gt(costs.minimumCommission)
+          ? commission
+          : costs.minimumCommission,
+      )
+      .plus(
+        value.times(costs.slippageBps + (costs.transferBps ?? 0)).div(10000),
+      )
+      .plus(feeRounding);
+  }
+  let cash = big(Number.isFinite(accountState.cash) ? accountState.cash : 0);
+  let exposure = big(0),
+    turnover = big(0),
+    dailyOrders = 0;
   let unpricedHolding = false;
-  const remainingValues = new Map<string, ReturnType<typeof big>>();
+  const accountValues = new Map<string, Amount>();
+  const ownerValues = new Map<string, Amount>();
+  const industryValues = new Map<string, Amount>();
   const marks = new Map<string, number>();
+  const industries = (symbol: string) => {
+    if (market !== "cn-equity") return [];
+    const groups = deps.readIndustries?.(symbol, decisionDate);
+    return groups?.length ? [...new Set(groups)] : ["unknown"];
+  };
+  function addExposure(symbol: string, delta: Amount) {
+    exposure = exposure.plus(delta);
+    accountValues.set(
+      symbol,
+      (accountValues.get(symbol) ?? big(0)).plus(delta),
+    );
+    for (const group of industries(symbol))
+      industryValues.set(
+        group,
+        (industryValues.get(group) ?? big(0)).plus(delta),
+      );
+  }
+  for (const p of accountState.positions ?? []) {
+    if (!Number.isFinite(p.quantity) || p.quantity <= 0) continue;
+    const symbol = normalizePoolSymbol(p.symbol);
+    if (accountValues.has(symbol)) throw new Error(`重复账户持仓：${symbol}`);
+    const mark = validPrice(p.lastPrice)
+      ? p.lastPrice
+      : await readPrice(symbol, decisionDate);
+    if (!validPrice(mark)) {
+      unpricedHolding = true;
+      continue;
+    }
+    marks.set(symbol, mark);
+    addExposure(symbol, big(p.quantity).times(mark));
+  }
+  for (const i of commitments) {
+    const symbol = normalizePoolSymbol(i.symbol);
+    const live = !isTerminalIntentStatus(i.status);
+    if (i.executeDate === executeDate) {
+      dailyOrders++;
+      turnover = turnover.plus(
+        big(live ? i.quantity : i.filledQuantity).times(i.referencePrice),
+      );
+    }
+    // No other run may spend anticipated sale proceeds or free up its exposure.
+    if (!live || i.side !== "BUY") continue;
+    const gross = big(i.quantity)
+      .minus(i.filledQuantity)
+      .times(i.referencePrice);
+    if (gross.lte(0)) continue;
+    const frozenAtVenue =
+      venueBinding.kind !== "local_sim" &&
+      (i.status === "submitted" || i.status === "partial_filled");
+    if (!frozenAtVenue)
+      cash = cash.minus(buyCost(symbol, i.executeDate, gross, i.maxGapPct));
+    addExposure(symbol, gross);
+    if (i.deploymentId === deployment.id)
+      ownerValues.set(symbol, (ownerValues.get(symbol) ?? big(0)).plus(gross));
+  }
   for (const [symbol, position] of [...positions].sort(([a], [b]) =>
     a.localeCompare(b),
   )) {
     const weight = targets.get(symbol) ?? 0;
     const couldSell = targetMode
-      ? weight === 0 || equity > 0
+      ? targets.has(symbol) &&
+        (weight === 0 || (Number.isFinite(equity) && equity > 0))
       : signals.get(symbol)?.action === "SELL";
-    const sellable = Math.min(position.quantity, position.sellable);
-    const referencePrice = validPrice(position.lastPrice)
-      ? position.lastPrice
-      : await readPrice(symbol, decisionDate);
-    if (!validPrice(referencePrice)) {
-      unpricedHolding = true;
+    const mark = marks.get(symbol);
+    if (!mark) {
       if (couldSell) skip(symbol, "SELL", "missing_reference_price");
-      if (couldSell && weight === 0 && sellable <= 0)
-        skip(symbol, "SELL", "t_plus_1_locked");
       continue;
     }
-    marks.set(symbol, referencePrice);
-    const value = big(position.quantity).times(referencePrice);
-    const targetValue = targetMode
-      ? big(Math.max(equity, 0)).times(weight)
-      : big(0);
-    let remainingValue = value;
-    if (couldSell && value.gt(targetValue)) {
-      if (sellable <= 0) {
-        skip(symbol, "SELL", "t_plus_1_locked");
-      } else if (intents.length >= riskPolicy.maxDailyOrders) {
-        skip(symbol, "SELL", "max_daily_orders");
-      } else {
-        const quantity = targetValue.eq(0)
-          ? sellable
-          : roundedQuantity(
-              bigMin(sellable, value.minus(targetValue).div(referencePrice)),
-              market,
-            );
-        if (quantity > 0) {
-          addIntent(symbol, 1, quantity, referencePrice);
-          const gross = big(quantity).times(referencePrice);
-          const estimatedGross = gross.times(sellPriceFactor);
-          cash = cash
-            .plus(estimatedGross)
-            .minus(commissionFor(estimatedGross))
-            .minus(estimatedGross.times(tax))
-            .minus(feeRounding);
-          remainingValue = value.minus(gross);
-          turnover = turnover.plus(gross);
-        } else {
-          skip(symbol, "SELL", "below_min_lot");
-        }
-      }
+    const value = big(position.quantity).times(mark);
+    ownerValues.set(symbol, (ownerValues.get(symbol) ?? big(0)).plus(value));
+    if (!couldSell) continue;
+    const desired =
+      weight === 0
+        ? big(position.quantity)
+        : value.minus(big(equity).times(weight)).div(mark);
+    if (desired.lte(0)) continue;
+    const pending = position.pendingSell ?? 0;
+    const wanted = desired.minus(pending);
+    const theoreticalQuantity =
+      weight === 0 ? wanted.toNumber() : roundedQuantity(wanted, market);
+    if (theoreticalQuantity > 0)
+      theoreticalOrders.push({
+        symbol,
+        side: "SELL",
+        theoreticalQuantity,
+        referencePrice: mark,
+      });
+    const available = Math.min(position.quantity, position.executionSellable);
+    const remaining = bigMin(desired.minus(pending), available);
+    if (remaining.lte(0)) {
+      skip(
+        symbol,
+        "SELL",
+        pending > 0 && desired.lte(pending)
+          ? "pending_sell"
+          : (position.sellLimitReason ?? "t_plus_1_locked"),
+      );
+      continue;
     }
-    exposure = exposure.plus(remainingValue);
-    remainingValues.set(symbol, remainingValue);
+    if (intents.length + dailyOrders >= riskPolicy.maxDailyOrders) {
+      skip(symbol, "SELL", "max_daily_orders");
+      continue;
+    }
+    const quantity =
+      weight === 0 ? remaining.toNumber() : roundedQuantity(remaining, market);
+    if (quantity <= 0) {
+      skip(symbol, "SELL", "below_min_lot");
+      continue;
+    }
+    addIntent(symbol, 1, quantity, mark);
+    if (remaining.lt(desired))
+      clipped.push({
+        symbol,
+        side: "SELL",
+        quantity,
+        reasons: [
+          ...new Set([
+            ...(pending > 0 ? ["pending_sell"] : []),
+            ...(remaining.lt(desired.minus(pending))
+              ? [position.sellLimitReason ?? "t_plus_1_locked"]
+              : []),
+          ]),
+        ],
+      });
+    const gross = big(quantity).times(mark);
+    const costs = costsFor(symbol, executeDate);
+    const estimated = gross.times(big(1).minus(riskPolicy.maxGapPct));
+    const commission = estimated.times(costs.commissionBps).div(10000);
+    cash = cash
+      .plus(estimated)
+      .minus(
+        commission.gt(costs.minimumCommission)
+          ? commission
+          : costs.minimumCommission,
+      )
+      .minus(
+        estimated
+          .times(
+            costs.sellTaxBps + costs.slippageBps + (costs.transferBps ?? 0),
+          )
+          .div(10000),
+      )
+      .minus(feeRounding);
+    turnover = turnover.plus(gross);
+    addExposure(symbol, gross.times(-1));
+    ownerValues.set(symbol, ownerValues.get(symbol)!.minus(gross));
   }
 
   const candidates = (
@@ -579,15 +679,45 @@ export async function planOrderIntents({
   );
   let entriesBlocked = false;
   for (const { symbol, weight } of candidates) {
+    const currentValue = ownerValues.get(symbol) ?? big(0);
+    const requested = Number.isFinite(equity)
+      ? big(equity).times(weight).minus(currentValue)
+      : big(0);
+    let referencePrice: number | null | undefined;
+    let failedQuote: { error: unknown } | undefined;
+    if (requested.gt(0) && (!positions.has(symbol) || marks.has(symbol))) {
+      try {
+        referencePrice =
+          marks.get(symbol) ?? (await readPrice(symbol, decisionDate));
+      } catch (error) {
+        // A blocked order can be published without a theoretical size; an
+        // otherwise executable order still needs to retry its failed quote.
+        failedQuote = { error };
+      }
+      if (validPrice(referencePrice)) {
+        const theoreticalQuantity = roundedQuantity(
+          requested.div(referencePrice),
+          market,
+        );
+        if (theoreticalQuantity > 0)
+          theoreticalOrders.push({
+            symbol,
+            side: "BUY",
+            theoreticalQuantity,
+            referencePrice,
+          });
+      }
+    }
+    if (missingEvidence) {
+      entriesBlocked = true;
+      skip(symbol, "BUY", "risk-evidence-missing");
+      continue;
+    }
     if (equity <= 0) {
       skip(symbol, "BUY", "nonpositive_equity");
       continue;
     }
-    const currentValue = remainingValues.get(symbol) ?? big(0);
-    const targetValue = bigMin(weight, riskPolicy.maxSymbolWeight).times(
-      equity,
-    );
-    if (targetValue.lte(currentValue)) continue;
+    if (requested.lte(0)) continue;
     if (!allowNewEntries) {
       entriesBlocked = true;
       skip(
@@ -601,32 +731,65 @@ export async function planOrderIntents({
       skip(symbol, "BUY", "unpriced_account_exposure");
       continue;
     }
-    if (intents.length >= riskPolicy.maxDailyOrders) {
+    if (intents.length + dailyOrders >= riskPolicy.maxDailyOrders) {
       skip(symbol, "BUY", "max_daily_orders");
       continue;
     }
-    const symbolRoom = targetValue.times(entryScale).minus(currentValue);
-    if (symbolRoom.lte(0)) continue;
-    const cashAfterRounding = cash.minus(feeRounding);
-    const spendingRoom = bigMin(
-      cashAfterRounding.div(big(1).plus(commission)),
-      cashAfterRounding.minus(minimumCommission),
-    ).div(buyPriceFactor);
-    const budget = bigMin(
-      symbolRoom,
-      big(equity)
-        .times(riskPolicy.maxTotalExposure)
-        .times(entryScale)
-        .minus(exposure),
-      big(equity).times(riskPolicy.maxDailyTurnover).minus(turnover),
-      spendingRoom,
+    const costs = costsFor(symbol, executeDate);
+    const cashRoom = cash.minus(feeRounding);
+    const factor = big(1).plus(
+      big(costs.slippageBps + (costs.transferBps ?? 0)).div(10000),
     );
+    const spendingRoom = bigMin(
+      cashRoom.div(factor.plus(big(costs.commissionBps).div(10000))),
+      cashRoom.minus(costs.minimumCommission).div(factor),
+    ).div(big(1).plus(riskPolicy.maxGapPct));
+    const limits: [string, Amount][] = [
+      [
+        "instrument_cap",
+        big(equity)
+          .times(Math.min(riskPolicy.maxSymbolWeight, accountCaps?.symbol ?? 1))
+          .times(entryScale)
+          .minus(accountValues.get(symbol) ?? 0),
+      ],
+      [
+        "total_exposure_cap",
+        big(equity)
+          .times(Math.min(riskPolicy.maxTotalExposure, accountCaps?.total ?? 1))
+          .times(entryScale)
+          .minus(exposure),
+      ],
+      [
+        "daily_turnover_cap",
+        big(equity).times(riskPolicy.maxDailyTurnover).minus(turnover),
+      ],
+      ["cash_cap", spendingRoom],
+    ];
+    if (entryScale < 1)
+      limits.push([
+        riskRegime === "reduced" ? "drawdown_reduced" : "regime_scale",
+        big(equity).times(weight).times(entryScale).minus(currentValue),
+      ]);
+    for (const group of industries(symbol))
+      limits.push([
+        "industry_cap",
+        big(equity)
+          .times(defaultPortfolioRiskPolicy.maxIndustryWeight)
+          .minus(industryValues.get(group) ?? 0),
+      ]);
+    const budget = bigMin(requested, ...limits.map(([, room]) => room));
+    const reasons = [
+      ...new Set(
+        limits
+          .filter(([, room]) => room.lt(requested))
+          .map(([reason]) => reason),
+      ),
+    ];
     if (budget.lte(0)) {
-      skip(symbol, "BUY", "risk_budget_exhausted");
+      skip(symbol, "BUY", limits.find(([, room]) => room.eq(budget))![0]);
       continue;
     }
-    const referencePrice =
-      marks.get(symbol) ?? (await readPrice(symbol, decisionDate));
+    if (failedQuote) throw failedQuote.error;
     if (!validPrice(referencePrice)) {
       skip(symbol, "BUY", "missing_reference_price");
       continue;
@@ -634,6 +797,8 @@ export async function planOrderIntents({
     const quantity = roundedQuantity(budget.div(referencePrice), market);
     if (quantity <= 0) {
       skip(symbol, "BUY", "below_min_lot");
+      if (reasons.length)
+        clipped.push({ symbol, side: "BUY", quantity: 0, reasons });
       continue;
     }
     const windowDays = deployment.regimeGate.unlockAvoidanceDays;
@@ -657,12 +822,12 @@ export async function planOrderIntents({
     }
     addIntent(symbol, 2, quantity, referencePrice);
     const gross = big(quantity).times(referencePrice);
-    const estimatedGross = gross.times(buyPriceFactor);
-    cash = cash
-      .minus(estimatedGross)
-      .minus(commissionFor(estimatedGross))
-      .minus(feeRounding);
-    exposure = exposure.plus(gross);
+    if (reasons.length)
+      clipped.push({ symbol, side: "BUY", quantity, reasons });
+    cash = cash.minus(
+      buyCost(symbol, executeDate, gross, riskPolicy.maxGapPct),
+    );
+    addExposure(symbol, gross);
     turnover = turnover.plus(gross);
   }
   return {
@@ -671,7 +836,14 @@ export async function planOrderIntents({
     riskVerdict: {
       regime: regimeVerdict,
       allowNewEntries,
-      drawdownPct,
+      scope: "account",
+      ...planningAccount(venueBinding),
+      entryScale,
+      maxGapPct: riskPolicy.maxGapPct,
+      riskRegime: riskRegime ?? null,
+      drawdownPct: Number.isFinite(drawdownPct) ? drawdownPct : null,
+      theoreticalOrders,
+      clipped,
       reasons: riskReasons,
       skipped,
     },
@@ -684,6 +856,7 @@ type PlanningInput = {
   executeDate: string;
   runSlot?: string;
   triggerKind: PipelineTriggerKind;
+  calendarWarning?: string | null;
   stopAfterStage?: "universe" | "signals" | "risk";
   deps?: PipelinePlanningDeps;
 };
@@ -698,7 +871,7 @@ const plansAlreadyPublished = new Set<PipelineRunRecord["stage"]>([
 const activePlanning = new Map<string, Promise<unknown>>();
 
 export async function runPipelinePlanning(
-  { stopAfterStage, deps = {}, ...input }: PlanningInput,
+  { stopAfterStage, calendarWarning, deps = {}, ...input }: PlanningInput,
   db: Database.Database = sqlite(),
 ) {
   const deployment = getDeployment(input.deploymentId, db);
@@ -713,9 +886,34 @@ export async function runPipelinePlanning(
     )(researchDateSchema.parse(input.decisionDate))
   )
     throw new Error("A 股交易日尚未收盘，无法固化当日日频流水线");
-  const { run } = getOrCreatePipelineRun(input, db);
-  // Serialize concurrent requests for the same run, including different stop stages.
-  const previous = activePlanning.get(run.id) ?? Promise.resolve();
+  const { run, warning, sleeves } = new AccountWorkspaceRepository(db).atomic(
+    () => {
+      const { run, created } = getOrCreatePipelineRun(input, db);
+      const saved = planningCalendarWarning(run.id, db);
+      if (!saved && calendarWarning)
+        appendExecutionAuditEvent(
+          {
+            deploymentId: deployment.id,
+            runId: run.id,
+            eventType: "execution_calendar_fallback",
+            details: { executeDate: run.executeDate, warning: calendarWarning },
+          },
+          db,
+        );
+      return {
+        run,
+        warning: saved ?? calendarWarning ?? null,
+        sleeves: plansAlreadyPublished.has(run.stage)
+          ? []
+          : freezePlanningSleeves(deployment, run, db, created),
+      };
+    },
+  );
+  const accountKey = JSON.stringify([
+    db.name,
+    planningAccount(deployment.venueBinding),
+  ]);
+  const previous = activePlanning.get(accountKey) ?? Promise.resolve();
   const planning = previous
     .catch(() => undefined)
     .then(() =>
@@ -723,15 +921,17 @@ export async function runPipelinePlanning(
         getPipelineRun(run.id, db)!,
         deployment,
         stopAfterStage,
+        sleeves,
         deps,
         db,
       ),
     );
-  activePlanning.set(run.id, planning);
+  activePlanning.set(accountKey, planning);
   try {
-    return await planning;
+    return { ...(await planning), calendarWarning: warning };
   } finally {
-    if (activePlanning.get(run.id) === planning) activePlanning.delete(run.id);
+    if (activePlanning.get(accountKey) === planning)
+      activePlanning.delete(accountKey);
   }
 }
 
@@ -739,10 +939,24 @@ async function advancePipelinePlanning(
   run: PipelineRunRecord,
   deployment: DeploymentRecord,
   stopAfterStage: PlanningInput["stopAfterStage"],
+  sleeves: ReturnType<typeof freezePlanningSleeves>,
   deps: PipelinePlanningDeps,
   db: Database.Database,
 ) {
-  const result = () => ({ run, intents: listIntentsByRun(run.id, db) });
+  const result = () => {
+    const signals = run.signals;
+    const skipReason =
+      signals && typeof signals === "object" && !Array.isArray(signals)
+        ? signals.skipReason
+        : undefined;
+    return {
+      run,
+      intents: listIntentsByRun(run.id, db),
+      ...(skipReason === "missing-data" || skipReason === "non-rebalance-day"
+        ? { skipReason }
+        : {}),
+    };
+  };
   if (plansAlreadyPublished.has(run.stage)) return result();
 
   const { decisionDate, executeDate } = run;
@@ -777,22 +991,42 @@ async function advancePipelinePlanning(
     }
     if (plansAlreadyPublished.has(run.stage) || stopAfterStage === "universe")
       return result();
-    const pool = poolSyncSnapshotSchema.parse(universeSnapshot);
+    const pool = parseEvaluatedPoolSnapshot(universeSnapshot);
     const binding = deployment.venueBinding;
-    let accountState: PipelineAccountState;
-    if (deps.readAccountState) {
-      accountState = await deps.readAccountState(binding, executeDate, db);
-    } else if (binding.kind === "local_sim") {
-      accountState = await readLocalSimAccountState(
-        binding.simAccountId,
+    const readFacts = () =>
+      readPlanningFacts(
+        deployment,
+        decisionDate,
         executeDate,
         db,
-        referencePrice,
-        decisionDate,
+        run.startedAt,
+        sleeves,
       );
-    } else {
-      throw new Error(`交易通道 ${binding.kind} 缺少账户快照读取器`);
-    }
+    const readState = async (): Promise<PipelineAccountState> => {
+      const state = deps.readAccountState
+        ? await deps.readAccountState(
+            binding,
+            decisionDate,
+            db,
+            ...(binding.kind === "local_sim" ? [run.startedAt] : []),
+          )
+        : binding.kind === "local_sim"
+          ? await readLocalSimAccountState(
+              binding.simAccountId,
+              decisionDate,
+              db,
+              referencePrice,
+              executeDate,
+              run.startedAt,
+            )
+          : null;
+      // Keep absent monetary evidence distinct from zero until the verdict is published.
+      return (
+        state ?? { cash: NaN, equity: NaN, drawdownPct: null, positions: [] }
+      );
+    };
+    let facts = readFacts();
+    let decisionState: PipelineAccountState | undefined;
 
     if (run.signals === null) {
       const symbols = new Set(pool.activeSymbols);
@@ -802,13 +1036,20 @@ async function advancePipelinePlanning(
       );
       if (activePoolEntries.length !== symbols.size)
         throw new Error("监控池已改变，无法恢复当前决策日的信号计算");
+      decisionState = await readState();
+      const held = new Set(
+        (decisionState.positions ?? [])
+          .filter((p) => Number.isFinite(p.quantity) && p.quantity > 0)
+          .map((p) => normalizePoolSymbol(p.symbol)),
+      );
       const signals = await evaluateDeploymentStrategy({
         deployment,
         decisionDate,
         activePoolEntries,
-        heldSymbols: accountState.positions
-          .filter((position) => position.quantity > 0)
-          .map((position) => position.symbol),
+        heldSymbols: facts.ownedSleeves
+          .map((row) => normalizePoolSymbol(row.symbol))
+          .filter((symbol) => held.has(symbol)),
+        universeSkipReason: pool.skipReason,
         deps: { readBars, ...deps.strategy },
         db,
       });
@@ -816,7 +1057,23 @@ async function advancePipelinePlanning(
     }
     if (plansAlreadyPublished.has(run.stage) || stopAfterStage === "signals")
       return result();
-    const proposal = strategyTargetProposalSchema.parse(run.signals);
+    const proposal = evaluatedStrategyProposalSchema.parse(run.signals);
+    if (proposal.skipReason) {
+      run = checkpoint({
+        stage: "completed",
+        finishedAt: Date.now(),
+        riskVerdict: {
+          scope: "account",
+          ...planningAccount(binding),
+          skipReason: proposal.skipReason,
+          allowNewEntries: false,
+          reasons: [proposal.skipReason],
+          skipped: [],
+        },
+      });
+      return result();
+    }
+    let accountState = decisionState ?? (await readState());
     const regimeVerdict = await evaluateRegimeGate(
       deployment.regimeGate,
       decisionDate,
@@ -825,43 +1082,84 @@ async function advancePipelinePlanning(
         ...deps.regime,
       },
     );
-    const plan = await planOrderIntents({
-      deployment,
-      run,
-      proposal,
-      accountState,
-      regimeVerdict,
-      deps: {
-        readReferencePrice: referencePrice,
-        checkUnlockEvents: deps.checkUnlockEvents,
-      },
-    });
-
-    return workspace.atomic(() => {
-      const current = currentRun();
-      if (!isDeepStrictEqual(current, run)) {
-        run = current;
-        return result();
-      }
-      const intents = insertOrderIntents(run.id, plan.intents, db);
-      const stage = intents.length
-        ? "risk_checked"
-        : plan.entriesBlocked
-          ? "blocked"
-          : "completed";
-      const updated = updatePipelineRunStage(
-        run.id,
-        {
-          stage,
-          riskVerdict: plan.riskVerdict,
-          errorSummary: null,
-          finishedAt: stage === "risk_checked" ? null : Date.now(),
+    const groups =
+      deployment.market === "cn-equity" && !deps.readIndustries
+        ? decisionIndustries(decisionDate, db)
+        : null;
+    for (;;) {
+      const plan = await planOrderIntents({
+        deployment,
+        accountCaps: facts.accountCaps,
+        run,
+        proposal,
+        accountState,
+        ownerPositions: ownedPlanningPositions(deployment, accountState, facts),
+        commitments: facts.commitments,
+        regimeVerdict,
+        deps: {
+          readReferencePrice: referencePrice,
+          checkUnlockEvents: deps.checkUnlockEvents,
+          readIndustries:
+            deps.readIndustries ?? ((symbol) => groups?.get(symbol) ?? []),
         },
-        db,
-      );
-      run = updated;
-      return result();
-    });
+      });
+
+      const published = workspace.atomic(() => {
+        const current = currentRun();
+        if (!isDeepStrictEqual(current, run)) {
+          run = current;
+          return result();
+        }
+        // Another process can publish or settle during asynchronous pricing.
+        if (!isDeepStrictEqual(readFacts(), facts)) return null;
+        const intents = insertOrderIntents(run.id, plan.intents, db);
+        const stage = intents.length
+          ? "risk_checked"
+          : plan.entriesBlocked
+            ? "blocked"
+            : "completed";
+        const updated = updatePipelineRunStage(
+          run.id,
+          {
+            stage,
+            riskVerdict: {
+              ...plan.riskVerdict,
+              unattributedPositions: (accountState.positions ?? []).flatMap(
+                (p) => {
+                  if (!Number.isFinite(p.quantity) || p.quantity <= 0)
+                    return [];
+                  const owned = facts.sleeves
+                    .filter(
+                      (s) =>
+                        normalizePoolSymbol(s.symbol) ===
+                        normalizePoolSymbol(p.symbol),
+                    )
+                    .reduce((sum, s) => sum.plus(s.quantity), big(0));
+                  const residual = big(p.quantity).minus(owned);
+                  return residual.gt(0)
+                    ? [
+                        {
+                          symbol: p.symbol,
+                          quantity: residual.toNumber(),
+                          ownerKind: "legacy_unknown",
+                        },
+                      ]
+                    : [];
+                },
+              ),
+            },
+            errorSummary: null,
+            finishedAt: stage === "risk_checked" ? null : Date.now(),
+          },
+          db,
+        );
+        run = updated;
+        return result();
+      });
+      if (published) return published;
+      facts = readFacts();
+      accountState = await readState();
+    }
   } catch (error) {
     const errorSummary = error instanceof Error ? error.message : String(error);
     checkpoint({ stage: "failed", errorSummary, finishedAt: Date.now() });

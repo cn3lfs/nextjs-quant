@@ -25,9 +25,17 @@ import {
   MethodologyPopover,
   Pill,
   Segmented,
+  StateBanner,
   type MethodologyItem,
 } from "../panels";
 import { StrategyCenter } from "./strategy-center";
+import {
+  DeployStrategyDialog,
+  type DeployStrategyPreset,
+  type StrategySpecInput,
+} from "../pipeline/deploy-strategy-dialog";
+import { deployableStrategySpecSchema } from "trading-strategies";
+import { z } from "zod";
 import { PortfolioEvidencePanel } from "./portfolio-evidence-panel";
 import { PaperForwardStatus } from "../portfolio/paper-forward-status";
 import { usePanelVisible } from "../workbench/keep-alive";
@@ -339,6 +347,207 @@ function LabDetailBackLink() {
     </Link>
   );
 }
+type LabDetailData = RouterOutputs["strategyLabDetail"];
+
+const frozenReference = z.string().min(1);
+const snapshotReferences = z.object({
+  snapshotId: frozenReference.optional(),
+  snapshotHash: frozenReference.optional(),
+  panelSnapshotId: frozenReference.optional(),
+  panelId: frozenReference.optional(),
+});
+const researchFraction = z.number().min(0).max(1).optional();
+const frozenBacktestSchema = snapshotReferences.extend({
+  archiveId: frozenReference.optional(),
+  frozenRefId: frozenReference.optional(),
+  inputHash: frozenReference,
+  targetSnapshot: snapshotReferences.optional(),
+  frozen: snapshotReferences.extend({
+    strategyBuildHash: frozenReference.optional(),
+    request: z
+      .object({
+        accountMaxSymbolWeight: researchFraction,
+        riskPolicy: z
+          .object({
+            maxSingleInstrumentWeight: researchFraction,
+            pauseThreshold: researchFraction,
+          })
+          .optional(),
+      })
+      .optional(),
+  }),
+});
+
+/**
+ * Map a registered strategy object onto the deployment dialog's preset. Only
+ * rules the pipeline can actually evaluate are offered; everything else keeps
+ * the button disabled instead of pretending a deployment was prefilled.
+ */
+export function labDeployPreset(
+  detail: Pick<LabDetailData, "strategy" | "row">,
+  id: string,
+  version: number,
+  backtest?: { id: string; result?: unknown },
+): DeployStrategyPreset | null {
+  const { strategy } = detail;
+  if (!strategy) return null;
+  const entry = strategy.entry;
+  let spec: StrategySpecInput;
+  if (strategy.market === "crypto") {
+    if (
+      entry.kind !== "dual-ma" ||
+      strategy.period === "week" ||
+      strategy.period === "60m"
+    )
+      return null;
+    spec = {
+      kind: "crypto-dual-ma",
+      fast: entry.fast,
+      slow: entry.slow,
+      period: strategy.period,
+    };
+  } else {
+    switch (entry.kind) {
+      case "study-rule":
+        spec = { kind: "study-rule", strategyId: entry.strategy };
+        break;
+      case "theory-screener":
+        spec = {
+          kind: "theory-screener",
+          methodId: entry.methodId,
+          holdBars: Math.min(
+            entry.holdBars,
+            strategy.exit.maxBars ?? entry.holdBars,
+          ),
+          minScore: entry.minScore,
+          useScreenerStops: entry.useScreenerStops,
+        };
+        break;
+      case "formula":
+        spec = {
+          kind: "formula",
+          name: id,
+          source: entry.source,
+          parameters: entry.parameters,
+        };
+        break;
+      case "double-breakout":
+        if (
+          entry.useStructureStop === false ||
+          Object.keys(entry.filter ?? {}).some(
+            (key) => key !== "direction" && key !== "minVolumeRatio",
+          ) ||
+          entry.filter?.minVolumeRatio === 0
+        )
+          return null;
+        spec = {
+          kind: "double-breakout",
+          minVolumeRatio: entry.filter?.minVolumeRatio,
+        };
+        break;
+      case "chan-native":
+        if (entry.firstIndex !== undefined) return null;
+        spec = {
+          kind: "chan-native",
+          profile: (
+            {
+              "chan-first-native": "first",
+              "chan-second-native": "second",
+              "chan-third-native": "third",
+              "chan-hold-cash-native": "hold-cash",
+            } as const
+          )[entry.profile],
+        };
+        break;
+      default:
+        return null;
+    }
+  }
+  const strategySpec = deployableStrategySpecSchema.safeParse(spec);
+  if (!strategySpec.success) return null;
+  const evidence = detail.row?.evidence;
+  const frozen = frozenBacktestSchema.safeParse(backtest?.result).data;
+  const archiveId = frozen?.archiveId ?? frozen?.frozenRefId ?? backtest?.id;
+  const snapshotId =
+    frozen?.targetSnapshot?.snapshotHash ??
+    frozen?.targetSnapshot?.snapshotId ??
+    frozen?.snapshotHash ??
+    frozen?.snapshotId ??
+    frozen?.frozen.snapshotHash ??
+    frozen?.frozen.snapshotId;
+  const panelId =
+    frozen?.targetSnapshot?.panelId ??
+    frozen?.targetSnapshot?.panelSnapshotId ??
+    frozen?.panelSnapshotId ??
+    frozen?.panelId ??
+    frozen?.frozen.panelSnapshotId ??
+    frozen?.frozen.panelId;
+  const request = frozen?.frozen.request;
+  const researchRisk = request?.riskPolicy;
+  const weightLimits = [
+    request?.accountMaxSymbolWeight,
+    researchRisk?.maxSingleInstrumentWeight,
+    strategy.sizing.kind === "weight" ? strategy.sizing.weight : undefined,
+  ].filter((weight): weight is number => weight !== undefined);
+  const maxWeight = weightLimits.length ? Math.min(...weightLimits) : undefined;
+  const pauseThreshold = researchRisk?.pauseThreshold;
+  const canPrefillPause =
+    pauseThreshold !== undefined && pauseThreshold > 0 && pauseThreshold <= 0.5;
+  const provenanceRefs = {
+    strategy: `${id}@v${version}`,
+    inputHash: frozen?.inputHash ?? evidence?.inputHash,
+    ...(backtest && archiveId !== backtest.id && { jobId: backtest.id }),
+    snapshotId,
+    panelId,
+  };
+  const note = JSON.stringify({
+    ...provenanceRefs,
+    exit: strategy.exit,
+    sizing: strategy.sizing,
+    riskPolicy: researchRisk,
+  });
+  // The deployment contract limits notes to 500 characters. The immutable
+  // strategy version and archive still identify long exit formulas exactly.
+  const { rule, ...exitParameters } = strategy.exit;
+  const compactNote = JSON.stringify({
+    ...provenanceRefs,
+    exit: { ...exitParameters, ...(rule && { rule: rule.kind }) },
+  });
+  return {
+    name: `${id} v${version} · 运行台`,
+    market: strategy.market,
+    strategySpec: strategySpec.data,
+    description: [
+      archiveId || evidence?.resultHash
+        ? "已带入当前版本的冻结回测出处。"
+        : "当前版本没有可关联的冻结回测归档。",
+      "请核对选股范围和初始风控。独立退出规则随研究出处保留，运行使用所选规则支持的退出条件。",
+      maxWeight === 0 || (pauseThreshold !== undefined && !canPrefillPause)
+        ? "部分回测风控值超出运行台配置范围，请确认对应限制。"
+        : "",
+    ].join(""),
+    ...(strategy.universe.kind === "symbols" && {
+      universeSpec: {
+        kind: "fixed-symbols",
+        symbols: strategy.universe.symbols,
+      },
+    }),
+    riskPolicy: {
+      maxSymbolWeight: maxWeight === 0 ? undefined : maxWeight,
+      drawdownPausePct: canPrefillPause ? pauseThreshold : undefined,
+    },
+    provenance: {
+      sourceKind: "lab-backtest",
+      sourceRefId: archiveId ?? evidence?.resultHash ?? `${id}@v${version}`,
+      buildHash: frozen?.frozen.strategyBuildHash ?? evidence?.buildHash,
+      createdFromRoute: "/lab",
+      note: [note, compactNote, JSON.stringify(provenanceRefs)].find(
+        (entry) => entry.length <= 500,
+      ),
+    },
+  };
+}
+
 function LabDetail({ id, version }: { id: string; version: number }) {
   const visible = useScreenVisible();
   const query = api.strategyLabDetail.useQuery(
@@ -364,6 +573,15 @@ function LabDetail({ id, version }: { id: string; version: number }) {
     null,
   );
   const [riskAccepted, setRiskAccepted] = useState(false);
+  const [deployOpen, setDeployOpen] = useState(false);
+  const [deploymentId, setDeploymentId] = useState<string | null>(null);
+  const backtestId = d?.lifecycleGates.find(
+    (gate) => gate.key === "backtest" && gate.status === "passed",
+  )?.evidence[0];
+  const backtest = api.job.useQuery(
+    { id: backtestId ?? "" },
+    { enabled: visible && deployOpen && Boolean(backtestId), retry: false },
+  );
   const change = api.strategyLabAction.useMutation({
     onSuccess: () => {
       setAction(null);
@@ -404,6 +622,15 @@ function LabDetail({ id, version }: { id: string; version: number }) {
   const stateTone =
     d.eligible && d.promotion ? "ok" : d.shadow?.active ? "accent" : "neutral";
   const backtestHref = `/lab/backtest?strategy=${encodeURIComponent(id)}&version=${version}`;
+  const frozenJob =
+    backtestId &&
+    backtest.data?.id === backtestId &&
+    backtest.data.status === "completed" &&
+    frozenBacktestSchema.safeParse(backtest.data.result).success
+      ? backtest.data
+      : undefined;
+  const deployPreset = labDeployPreset(d, id, version, frozenJob);
+  const waitingForBacktest = Boolean(backtestId && backtest.isPending);
   return (
     <section aria-label="实验室策略详情" className="space-y-4">
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -570,7 +797,44 @@ function LabDetail({ id, version }: { id: string; version: number }) {
                   {labActionLabels[a]}
                 </Button>
               ))}
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!deployPreset || (deployOpen && waitingForBacktest)}
+                title={
+                  deployPreset
+                    ? "带入当前策略规则到策略运行台"
+                    : "当前策略对象暂不支持一键部署，请在运行台手动新建部署"
+                }
+                onClick={() => setDeployOpen(true)}
+              >
+                {deployOpen && waitingForBacktest
+                  ? "正在读取冻结回测…"
+                  : "部署到运行台"}
+              </Button>
             </div>
+            {deployOpen && backtestId && !waitingForBacktest && !frozenJob && (
+              <StateBanner
+                state="error"
+                title="无法读取当前版本的冻结回测"
+                action={{
+                  label: "重试",
+                  onClick: () => void backtest.refetch(),
+                }}
+              >
+                {backtest.error?.message ?? "归档缺失或冻结输入无效。"}
+              </StateBanner>
+            )}
+            {deploymentId && (
+              <StateBanner state="info" title="已创建策略部署" hideIcon>
+                <Link
+                  href={`/?tab=pipeline&deployment=${encodeURIComponent(deploymentId)}`}
+                  className="text-nc-accent underline underline-offset-2"
+                >
+                  前往策略运行台查看
+                </Link>
+              </StateBanner>
+            )}
             <div className="flex flex-wrap gap-x-3 gap-y-1 border-t border-nc-border-soft pt-2 text-sub">
               <Link href={backtestHref} className="underline">
                 用此策略对象回测
@@ -659,6 +923,14 @@ function LabDetail({ id, version }: { id: string; version: number }) {
           )}
         </DialogContent>
       </Dialog>
+      {deployPreset && (
+        <DeployStrategyDialog
+          open={deployOpen && (!backtestId || Boolean(frozenJob))}
+          onOpenChange={setDeployOpen}
+          defaultPreset={deployPreset}
+          onDeployed={setDeploymentId}
+        />
+      )}
     </section>
   );
 }
@@ -701,7 +973,7 @@ function StrategyLibraryGuide() {
         <li>
           <strong>第 1 阶段 · 定义冻结和第 2 阶段 · 回测证据</strong>
           <span className="ml-2">
-            新登记的策略要等到首次回测才会生成「冻结输入哈希」。点「用此策略对象回测」跑完一次组合回测，系统会自动冻结行情输入、生成证据，并同时通过这两个阶段。
+            新登记的策略会在首次组合回测时保存行情输入和摘要。点「用此策略对象回测」即可生成这两个阶段所需的证据。
           </span>
         </li>
         <li>

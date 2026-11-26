@@ -4,6 +4,7 @@ import { get, put, sqlite } from "../../db";
 import { saveSecret, readSecret } from "../../vault";
 import {
   MockTradingAdapter,
+  MockSubmissionBlocked,
   mockCredentialRevision,
   reconcilePositions,
   type MockAccount,
@@ -57,7 +58,7 @@ export async function reconcileMock() {
 type PendingOrder = {
   input: TradeInput;
   expires: number;
-  state: "pending" | "attempted" | "accepted" | "unknown";
+  state: "pending" | "attempted" | "accepted" | "unknown" | "blocked";
   receipt?: {
     entrustNos: string[];
     at: number;
@@ -65,11 +66,19 @@ type PendingOrder = {
     tradeDate: string;
   };
 };
-export async function previewMockOrder(input: unknown) {
+export async function previewMockOrder(
+  input: unknown,
+  sessionConfirmed?: (date: string) => Promise<boolean>,
+) {
   if (!mockEnabled()) throw new Error("同花顺模拟盘未开启");
   const t = tradeInputSchema.parse(input);
   const context = await tradeContext();
-  if (t.date !== context.today || !context.calendar.includes(t.date))
+  if (
+    t.date !== context.today ||
+    !(sessionConfirmed
+      ? await sessionConfirmed(t.date)
+      : context.calendar.includes(t.date))
+  )
     throw new Error("模拟委托仅接受当前已核验交易日");
   if (t.symbol.startsWith("bj"))
     throw new Error("模拟盘不支持北交所契约，仅可本地记账");
@@ -81,7 +90,11 @@ export async function previewMockOrder(input: unknown) {
   });
   return { id, input: t };
 }
-export async function confirmMockOrder(id: string) {
+export async function confirmMockOrder(
+  id: string,
+  submissionBlock?: () => string | null,
+  sessionConfirmed?: (date: string) => Promise<boolean>,
+) {
   if (get<string>("paper-mirror-reservation-ths-simulation"))
     throw new Error("该模拟账户由纸面镜像独占；请先关闭镜像");
   if (!mockEnabled()) throw new Error("同花顺模拟盘未开启");
@@ -97,14 +110,20 @@ export async function confirmMockOrder(id: string) {
       return o;
     })
     .immediate();
-  const context = await tradeContext();
-  if (
-    order.input.date !== context.today ||
-    !context.calendar.includes(context.today)
-  )
-    throw new Error("交易日期已变化，请重新预览");
   try {
-    const receipt = await adapter().order(order.input, true);
+    const context = await tradeContext();
+    if (
+      order.input.date !== context.today ||
+      !(sessionConfirmed
+        ? await sessionConfirmed(context.today)
+        : context.calendar.includes(context.today))
+    ) {
+      if (!submissionBlock) throw new Error("交易日期已变化，请重新预览");
+      throw new MockSubmissionBlocked(
+        submissionBlock() ?? "execute-date-expired",
+      );
+    }
+    const receipt = await adapter().order(order.input, true, submissionBlock);
     put<PendingOrder>("mock-order", id, {
       ...order,
       state: "accepted",
@@ -117,15 +136,33 @@ export async function confirmMockOrder(id: string) {
     });
     return receipt;
   } catch (error) {
-    // The single attempt already left the process; never let the token look
-    // confirmable again, and keep the remote outcome unknown.
-    put<PendingOrder>("mock-order", id, { ...order, state: "unknown" });
+    // A blocked transport never sent a request. Other failures retain the one-attempt fence.
+    put<PendingOrder>("mock-order", id, {
+      ...order,
+      state:
+        submissionBlock && error instanceof MockSubmissionBlocked
+          ? "blocked"
+          : "unknown",
+    });
     throw error;
   }
 }
 
 /** Read-only: consults the venue, never resubmits or rewrites business state. */
-export async function queryMockOrderStatus(id: string) {
+type MockStatusReceipt = { state: PendingOrder["state"]; entrustNos: string[] };
+export function queryMockOrderStatus(
+  id: string,
+): Promise<MockStatusReceipt & MockOrderStatus>;
+export function queryMockOrderStatus(
+  id: string,
+  allowMissingFee: true,
+): Promise<
+  MockStatusReceipt & Awaited<ReturnType<MockTradingAdapter["orderStatus"]>>
+>;
+export async function queryMockOrderStatus(
+  id: string,
+  allowMissingFee = false,
+) {
   if (!/^mock-order-[\da-f-]{36}$/.test(id)) throw new Error("无效委托编号");
   if (!mockEnabled()) throw new Error("同花顺模拟盘未开启");
   const order = get<PendingOrder>(id);
@@ -163,7 +200,9 @@ export async function queryMockOrderStatus(id: string) {
       entrustNos,
       ...unattributable("跨日无历史委托查询能力，保持未知"),
     };
-  const status = await adapter().orderStatus(entrustNos);
+  const status = allowMissingFee
+    ? await adapter().orderStatus(entrustNos, true)
+    : await adapter().orderStatus(entrustNos);
   if (chinaDate(Date.now()) !== today)
     return {
       state: order.state,

@@ -235,6 +235,7 @@ it("reads an enabled live snapshot with one GET /account and strips extra bridge
 
   await expect(readThsLiveAccountSnapshot(saved.id)).resolves.toEqual({
     ...state,
+    drawdownPct: 0,
     positions: [position],
     fetchedAt: expect.any(Number),
   });

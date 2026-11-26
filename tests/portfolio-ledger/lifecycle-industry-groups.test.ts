@@ -20,11 +20,16 @@ import { alertKey, type AlertEvent } from "~/lib/strategy-facts/alerts";
 
 const blocks = vi.hoisted(() => vi.fn());
 const localPrices = vi.hoisted(() => vi.fn());
+const readBars = vi.hoisted(() => vi.fn());
 vi.mock("~/server/market/industry-blocks", () => ({
   readIndustryBlocks: blocks,
 }));
+vi.mock("tstdx/local", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("tstdx/local")>()),
+  readSnapshot: localPrices,
+}));
 vi.mock("~/server/market/bar-store/read-bars", () => ({
-  readBars: localPrices,
+  readBars,
 }));
 const connections: Database.Database[] = [];
 const now = Date.parse("2026-11-16T17:00:00+08:00");
@@ -363,27 +368,26 @@ it("freezes the actual industry source and proposed groups in a new plan audit",
 it("local-only account previews request completed local prices without an automatic online source", async () => {
   const f = fixture();
   localPrices.mockResolvedValue({
-    bars: calendar.map((date) => ({
+    bars: calendar.map((date, i) => ({
       date,
       open: 10,
-      high: 10,
+      high: 10 + i,
       low: 10,
-      close: 10,
+      close: 10 + i,
       volume: 10000,
       amount: 100000,
     })),
   });
-  const book = await loadAccountBook(f.repo, config, now, {
+  const beforeCloseReady = Date.parse("2026-11-16T15:04:00+08:00");
+  const book = await loadAccountBook(f.repo, config, beforeCloseReady, {
     context,
     localOnly: true,
   });
-  expect(localPrices).toHaveBeenCalledWith(
-    expect.objectContaining({
-      instrument: { market: "cn-equity", symbol: "sh600519" },
-      source: "local",
-      live: false,
-    }),
-  );
+  expect(localPrices).toHaveBeenCalledWith(config.tdxRoot, "sh600519", "day", {
+    chartFunds: true,
+  });
+  expect(readBars).not.toHaveBeenCalled();
+  expect(book.bars.sh600519?.map((bar) => bar.date)).toEqual([calendar[0]]);
   expect(book.positions[0]!.value).toBe(15000);
 });
 

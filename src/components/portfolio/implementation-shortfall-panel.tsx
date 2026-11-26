@@ -1,13 +1,13 @@
 "use client";
 
 import { ListChecks } from "@phosphor-icons/react/ssr";
+import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import {
   formatNumber,
   formatPercent,
 } from "trading-strategy-core/format-number";
 import { z } from "zod";
-import type { AccountRiskScope } from "~/lib/portfolio/account-workspace";
 import {
   shortfallComponentKeys,
   shortfallFrozenPlanSchema,
@@ -41,6 +41,13 @@ type ShortfallRequest = Extract<
   RouterInputs["implementationShortfall"],
   { account: string }
 >;
+/** The server accepts local simulation and 同花顺模拟 beyond real/paper. */
+export type ShortfallScope = "real" | "paper" | "local_sim";
+export const shortfallScopeLabels: Record<ShortfallScope, string> = {
+  real: "真实账户",
+  paper: "纸面账户",
+  local_sim: "本地模拟",
+};
 type Reconciliation = NonNullable<ShortfallReport["reconciliation"]>;
 const componentLabels: Record<(typeof shortfallComponentKeys)[number], string> =
   {
@@ -62,6 +69,21 @@ const dateSchema = z.string().date();
 const rate = (fraction: number | null) =>
   formatPercent(fraction === null ? null : fraction * 100, 2);
 
+/** One plain-Chinese takeaway at the top of the result, no English statuses. */
+export function shortfallConclusion(report: ShortfallReport): string {
+  const adherence = rate(report.disciplineAdherenceRate);
+  const missed = rate(report.missedTradeRate);
+  const bp = formatNumber(
+    report.reconciliation?.amounts.totalShortfall.bps ?? null,
+    2,
+  );
+  return `交易复盘结论：纪律遵循率 ${adherence}，漏单率 ${missed}，实施缺口合计 ${bp} bp。${
+    report.status === "incomplete" || report.missing.length > 0
+      ? "仍有缺失证据，先补齐成交与指令归属，再评价执行质量。"
+      : "证据完整，可结合策略归因核对偏差来自延迟、滑点还是纪律。"
+  }`;
+}
+
 export function ImplementationShortfallPanel({
   scope,
   accounts,
@@ -69,7 +91,7 @@ export function ImplementationShortfallPanel({
   accountsLoading,
   accountsError,
 }: {
-  scope: AccountRiskScope;
+  scope: ShortfallScope;
   accounts: readonly string[];
   asOf: string | null;
   accountsLoading: boolean;
@@ -79,7 +101,7 @@ export function ImplementationShortfallPanel({
     <Panel
       title="三账实施缺口与纪律偏差"
       icon={ListChecks}
-      meta="Perold"
+      meta={`Perold · ${shortfallScopeLabels[scope]}`}
       bodyClassName="space-y-4"
     >
       {accountsLoading ? (
@@ -91,7 +113,7 @@ export function ImplementationShortfallPanel({
           {accountsError}
         </StateBanner>
       ) : accounts.length === 0 ? (
-        <StateBanner state="warn" title="实施缺口不可得（incomplete）">
+        <StateBanner state="warn" title="实施缺口暂不可得">
           当前账户类型下没有可选的人民币 A 股账本。
         </StateBanner>
       ) : (
@@ -106,7 +128,7 @@ function ShortfallForm({
   accounts,
   asOf,
 }: {
-  scope: AccountRiskScope;
+  scope: ShortfallScope;
   accounts: readonly string[];
   asOf: string | null;
 }) {
@@ -262,8 +284,19 @@ function ShortfallResults({ report }: { report: ShortfallReport }) {
           {report.currency}
         </p>
       )}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <p className="m-0 text-sm font-medium text-nc-text">
+          {shortfallConclusion(report)}
+        </p>
+        <Link
+          href="/lab"
+          className="text-sm text-nc-accent underline underline-offset-2"
+        >
+          去策略库核对策略归因 →
+        </Link>
+      </div>
       {report.status === "incomplete" && (
-        <StateBanner state="warn" title="实施缺口数据不完整（incomplete）">
+        <StateBanner state="warn" title="实施缺口数据不完整">
           <ul
             aria-label="实施缺口缺失原因"
             className="list-disc space-y-1 pl-4"

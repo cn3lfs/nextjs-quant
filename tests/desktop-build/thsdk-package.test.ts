@@ -132,9 +132,9 @@ describe("THSDK config in an isolated data directory", () => {
     expect(existsSync(sqlitePath)).toBe(false);
   });
 
-  it("persists and reads THSDK config without migrating schema v25", () => {
+  it("persists and reads THSDK config without migrating schema v26", () => {
     const db = database.sqlite();
-    expect(db.pragma("user_version", { simple: true })).toBe(25);
+    expect(db.pragma("user_version", { simple: true })).toBe(26);
 
     const patch = {
       enabled: true,
@@ -143,6 +143,6 @@ describe("THSDK config in an isolated data directory", () => {
     const saved = auth.saveThsdkConfig(patch);
     expect(saved).toMatchObject(patch);
     expect(auth.readThsdkConfig()).toEqual(saved);
-    expect(db.pragma("user_version", { simple: true })).toBe(25);
+    expect(db.pragma("user_version", { simple: true })).toBe(26);
   });
 });

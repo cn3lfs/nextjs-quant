@@ -1,3 +1,9 @@
+import {
+  cnTradingCalendar,
+  cnExecutionWindow,
+} from "../../pipeline/cn-trading-calendar";
+import { settlePendingRunDate } from "../../pipeline/provisional-run";
+import { createPipelineQuoteReader } from "../../execution/pipeline-quote-provider";
 import { TRPCError } from "@trpc/server";
 import {
   deployableStrategySpecSchema,
@@ -31,11 +37,11 @@ import {
 import {
   findPipelineRun,
   getIntent,
+  cancelPendingIntent,
   getPipelineRun,
   listExecutionAuditEvents,
   listIntentsByRun,
   listPipelineRuns,
-  transitionIntentStatus,
 } from "../../db/pipeline-repository";
 import {
   getActivePoolEntries,
@@ -58,6 +64,7 @@ import { capabilityProcedure as p, createTRPCRouter } from "../trpc";
 const idSchema = z.string().trim().min(1);
 const dateSchema = z.string().date();
 const cursorSchema = z.string().regex(/^[A-Za-z0-9_-]+$/);
+const directionSchema = z.enum(["forward", "backward"]).optional();
 const timestampSchema = z.number().int().safe().nonnegative();
 const pageLimitSchema = z.number().int().min(1).max(1000).default(50);
 
@@ -130,14 +137,6 @@ const deploymentConfigPatchSchema = z
 
 const liveConfirmationPhrase = "ENABLE_LIVE_TRADING";
 
-function nextCnWeekday(date: string) {
-  const d = new Date(`${date}T00:00:00Z`);
-  do {
-    d.setUTCDate(d.getUTCDate() + 1);
-  } while (d.getUTCDay() === 0 || d.getUTCDay() === 6);
-  return d.toISOString().slice(0, 10);
-}
-
 const pipelineStageSchema = z.enum([
   "universe",
   "signals",
@@ -192,6 +191,7 @@ export const pipelineRouter = createTRPCRouter({
           market: z.enum(deploymentMarkets).optional(),
           limit: pageLimitSchema,
           cursor: cursorSchema.optional(),
+          direction: directionSchema,
         })
         .strict(),
     )
@@ -291,6 +291,7 @@ export const pipelineRouter = createTRPCRouter({
           status: z.enum(["watching", "evicted"]).optional(),
           limit: pageLimitSchema,
           cursor: cursorSchema.optional(),
+          direction: directionSchema,
         })
         .strict(),
     )
@@ -367,31 +368,96 @@ export const pipelineRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       const db = sqlite();
       const deployment = getDeployment(input.deploymentId, db);
-      const defaultExecuteDate =
-        deployment?.market === "cn-equity"
-          ? nextCnWeekday(input.decisionDate)
-          : input.decisionDate;
-      const executeDate = input.executeDate ?? defaultExecuteDate;
-      const deps: PipelinePlanningDeps = {
-        readAccountState: (binding, asOfDate) =>
-          resolveVenueAdapter(binding).readAccountState(binding, asOfDate, db),
-      };
+      const existing = findPipelineRun(
+        input.deploymentId,
+        input.decisionDate,
+        input.runSlot ?? "daily",
+        db,
+      );
+      const calendar =
+        deployment?.market === "cn-equity" ? cnTradingCalendar(db) : undefined;
+      const requestedDate = input.executeDate ?? existing?.executeDate;
+      const { executeDate, calendarWarning } =
+        !requestedDate &&
+        calendar &&
+        input.stage !== "reconcile" &&
+        input.stage !== "execute"
+          ? await calendar.nextSession(input.decisionDate)
+          : {
+              executeDate: requestedDate ?? input.decisionDate,
+              calendarWarning: null,
+            };
+      function futureExecution(dep: DeploymentRecord, date: string) {
+        const today =
+          dep.market === "crypto"
+            ? new Date(Date.now()).toISOString().slice(0, 10)
+            : beijingToday();
+        return date > today
+          ? { skipped: true as const, reason: "future-execute-date" }
+          : null;
+      }
+      async function execute(run: NonNullable<typeof existing>) {
+        const dep = requireDeploymentOrThrow(input.deploymentId, db);
+        const checked = calendar
+          ? await settlePendingRunDate(run, dep, db, Date.now, calendar)
+          : null;
+        const executeDate = checked?.executeDate ?? run.executeDate;
+        const deferred = checked?.reason
+          ? { skipped: true as const, reason: checked.reason }
+          : futureExecution(dep, executeDate);
+        if (deferred) return deferred;
+        const autoCn =
+          dep.market === "cn-equity" &&
+          (dep.executionMode === "auto_sim" ||
+            dep.executionMode === "auto_live");
+        const confirmed =
+          autoCn &&
+          cnExecutionWindow(dep, executeDate, Date.now()) &&
+          (await calendar!.session(executeDate)) === true;
+        return executePipelineRun(
+          {
+            runId: run.id,
+            executeDate,
+            manualApproved: input.manualApproved,
+            deps: {
+              readQuote: createPipelineQuoteReader(),
+              executionCalendar: calendar,
+              ...(autoCn && {
+                executionWindowCheck: (ms: number, current = dep) =>
+                  confirmed && cnExecutionWindow(current, executeDate, ms),
+              }),
+            },
+          },
+          db,
+        );
+      }
+      const deps: PipelinePlanningDeps =
+        deployment?.venueBinding.kind === "local_sim"
+          ? {}
+          : {
+              readAccountState: (binding, ...args) =>
+                resolveVenueAdapter(binding).readAccountState(binding, ...args),
+            };
+      function plan(stopAfterStage?: "universe" | "signals" | "risk") {
+        return runPipelinePlanning(
+          {
+            deploymentId: input.deploymentId,
+            decisionDate: input.decisionDate,
+            executeDate,
+            runSlot: input.runSlot,
+            triggerKind: "manual",
+            stopAfterStage,
+            calendarWarning,
+            deps,
+          },
+          db,
+        );
+      }
       switch (input.stage) {
         case "universe":
         case "signals":
         case "risk":
-          return runPipelinePlanning(
-            {
-              deploymentId: input.deploymentId,
-              decisionDate: input.decisionDate,
-              executeDate,
-              runSlot: input.runSlot,
-              triggerKind: "manual",
-              stopAfterStage: input.stage,
-              deps,
-            },
-            db,
-          );
+          return plan(input.stage);
         case "execute": {
           const run = findPipelineRun(
             input.deploymentId,
@@ -404,48 +470,40 @@ export const pipelineRouter = createTRPCRouter({
               code: "NOT_FOUND",
               message: "流水线运行不存在，请先执行规划阶段",
             });
-          return executePipelineRun(
-            {
-              runId: run.id,
-              executeDate: run.executeDate,
-              manualApproved: input.manualApproved,
-            },
-            db,
-          );
+          return execute(run);
         }
         case "reconcile":
+          if (existing && deployment && calendar)
+            await settlePendingRunDate(
+              existing,
+              deployment,
+              db,
+              Date.now,
+              calendar,
+            );
           return reconcilePendingIntents(
             { deploymentId: input.deploymentId },
             db,
           );
         case "full": {
-          const planned = await runPipelinePlanning(
-            {
-              deploymentId: input.deploymentId,
-              decisionDate: input.decisionDate,
-              executeDate,
-              runSlot: input.runSlot,
-              triggerKind: "manual",
-              deps,
-            },
-            db,
-          );
+          const planned = await plan();
           const deployment = requireDeploymentOrThrow(input.deploymentId, db);
           if (
             planned.intents.length > 0 &&
             deployment.executionMode !== "shadow"
           ) {
-            const execution = await executePipelineRun(
-              {
-                runId: planned.run.id,
-                executeDate: planned.run.executeDate,
-                manualApproved: input.manualApproved,
-              },
-              db,
-            );
-            return { ...planned, execution };
+            const execution = await execute(planned.run);
+            return {
+              ...planned,
+              run: getPipelineRun(planned.run.id, db)!,
+              intents: listIntentsByRun(planned.run.id, db),
+              execution,
+            };
           }
-          return { ...planned, execution: null };
+          return {
+            ...planned,
+            execution: futureExecution(deployment, planned.run.executeDate),
+          };
         }
       }
     }),
@@ -456,6 +514,7 @@ export const pipelineRouter = createTRPCRouter({
           deploymentId: idSchema.optional(),
           limit: pageLimitSchema,
           cursor: cursorSchema.optional(),
+          direction: directionSchema,
         })
         .strict(),
     )
@@ -508,14 +567,25 @@ export const pipelineRouter = createTRPCRouter({
         })
         .strict(),
     )
-    .mutation(({ input }) =>
-      transitionIntentStatus(
+    .mutation(({ input }) => {
+      const result = cancelPendingIntent(
         input.intentId,
-        "cancelled",
-        { errorSummary: input.reason ?? "用户手动取消" },
+        input.reason ?? "用户手动取消",
         sqlite(),
-      ),
-    ),
+      );
+      if (!result.ok) {
+        if (result.code === "NOT_FOUND")
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "订单意图不存在",
+          });
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "仅可本地取消尚未提交的意图，已报委托须等待场所确认",
+        });
+      }
+      return result.intent;
+    }),
   pipelineIntentApprove: p("portfolio", "compute")
     .input(
       z
@@ -537,6 +607,7 @@ export const pipelineRouter = createTRPCRouter({
         {
           intentId: input.intentId,
           executeDate: input.executeDate ?? intent.executeDate,
+          deps: { readQuote: createPipelineQuoteReader() },
         },
         db,
       );

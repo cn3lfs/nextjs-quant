@@ -4,8 +4,12 @@ import {
   bpsOf,
   feesFor,
   notional,
+  resolveInstrumentRule,
 } from "quant-execution";
-import { researchExecutionCosts } from "trading-strategy-core/costs";
+import {
+  executionCostsForInstrument,
+  researchExecutionCosts,
+} from "trading-strategy-core/costs";
 import { formatSimAtoms as formatAtoms } from "~/lib/portfolio/sim-accounts";
 import type {
   SimAccountSummary,
@@ -84,21 +88,26 @@ export function replayPositions(
     keepLot: (q) => q > 0n,
     keepPosition: (q) => q > 0n,
   });
-  const available = (lot: SimLot, day: string) =>
-    market === "crypto" || lot.date < day;
-  const sellable = (lots: SimLot[], day: string) =>
+  const availableOn = (symbol: string, day: string) => {
+    const sameDay =
+      market === "crypto" ||
+      resolveInstrumentRule(symbol, day).settlementDays === 0;
+    return (lot: SimLot) => sameDay || lot.date < day;
+  };
+  const sellable = (lots: SimLot[], available: (lot: SimLot) => boolean) =>
     lots.reduce(
-      (total, lot) => (available(lot, day) ? total + lot.quantity : total),
+      (total, lot) => (available(lot) ? total + lot.quantity : total),
       0n,
     );
   for (const fill of fills) {
     if (fill.trade_date > currentTradeDate)
       throw new Error("交易日期早于账户已成交日期");
     const day = settlementDate(market, fill.trade_date);
+    const available = availableOn(fill.symbol, day);
     const qty = fill.quantity_atoms;
     if (
       fill.side === "sell" &&
-      qty > sellable(book.positions.get(fill.symbol)?.lots ?? [], day)
+      qty > sellable(book.positions.get(fill.symbol)?.lots ?? [], available)
     )
       throw new Error("账户可卖数量不足");
     // This projection replays positions only. Cash comes from sim_cash_flows.
@@ -108,7 +117,7 @@ export function replayPositions(
       qty,
       0n,
       book.cash,
-      (lot) => available(lot, day),
+      available,
       () => ({ quantity: qty, date: fill.trade_date }),
       (prior, quantity, lots) => ({
         quantity,
@@ -131,7 +140,7 @@ export function replayPositions(
     positions.set(symbol, {
       quantity: position.quantity,
       basis: position.cost,
-      sellable: sellable(position.lots, day),
+      sellable: sellable(position.lots, availableOn(symbol, day)),
     });
   return positions;
 }
@@ -173,10 +182,18 @@ export function orderTerms(input: SimOrderPreview, market: Market) {
     (input.currency && input.currency !== currency)
   )
     throw new Error("委托市场或币种与账户不匹配");
+  const symbol = normalizeSimSymbol(input.symbol, market);
+  const priceDigits =
+    market === "crypto"
+      ? atomScales.crypto.price
+      : resolveInstrumentRule(symbol, input.tradeDate).priceTick === 0.001
+        ? 3
+        : 2;
   return {
-    symbol: normalizeSimSymbol(input.symbol, market),
+    symbol,
     quantity: parseAtoms(input.quantity, quantityDigits(market)),
-    price: parseAtoms(input.price, moneyDigits(market)),
+    price: parseAtoms(input.price, priceDigits),
+    priceDigits,
     side: input.side,
     tradeDate: input.tradeDate,
     executionMode: input.executionMode ?? "manual",
@@ -201,12 +218,18 @@ export function quote(
   )
     throw new Error("A股委托必须为100股整手，零股仅可一次卖清");
   const grossNumerator = quantity * price;
-  const unit = scale(quantityDigits(market));
+  const unit = scale(
+    quantityDigits(market) + terms.priceDigits - moneyDigits(market),
+  );
   if (grossNumerator < unit) throw new Error("成交额不足一个最小货币单位");
   const priceAtoms =
-    price * scale(atomScales[market].price - moneyDigits(market));
+    price * scale(atomScales[market].price - terms.priceDigits);
   const gross = checkedAtoms(notional(quantity, priceAtoms, market));
-  const costs = researchExecutionCosts(market, "fixed");
+  const fixed = researchExecutionCosts(market, "fixed");
+  const costs =
+    market === "cn-equity"
+      ? executionCostsForInstrument(fixed, terms.symbol, terms.tradeDate)
+      : fixed;
   const fees = feesFor(side, gross, {
     ...costs,
     transferBps: costs.transferBps ?? 0,

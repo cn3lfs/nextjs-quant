@@ -1274,7 +1274,9 @@ test("R2b shadow history groups signals, exports and creates then cancels a stag
     const sell = categories.getByRole("radio", { name: "卖出·止盈止损" });
     const kind = page.getByRole("combobox", { name: "提醒类型" });
     await kind.click();
-    await page.getByRole("option", { name: "移动止损出场", exact: true }).click();
+    await page
+      .getByRole("option", { name: "移动止损出场", exact: true })
+      .click();
     await expect(sell).toHaveAttribute("aria-checked", "true");
     await expect(history.getByText("卖出·移动止损出场")).toBeVisible();
     await expect(history.getByText("卖出·触发止损")).toHaveCount(0);

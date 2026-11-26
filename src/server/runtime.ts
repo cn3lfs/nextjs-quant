@@ -11,6 +11,8 @@ import { settings } from "./infra/settings";
 import { put } from "./db";
 import type { Coverage } from "~/lib/domain";
 import { tickAlerts } from "./alerts/service";
+import { tickIntradayAlerts } from "./alerts/intraday-alert-service";
+import { createPipelineQuoteReader } from "./execution/pipeline-quote-provider";
 import { tickPipelineScheduler } from "./pipeline/pipeline-scheduler";
 const scope = globalThis as typeof globalThis & {
   quantRuntimeStarted?: boolean;
@@ -40,6 +42,8 @@ export function startRuntime() {
   }, 60000);
   const outbox = setInterval(() => {
     if (!acquireScheduler()) return;
+    // Reuse the leased heartbeat for intervals shorter than the minute scheduler.
+    scheduleIntradayAlerts();
     if (!scope.quantDeliveriesRecovered) {
       recoverDeliveries();
       scope.quantDeliveriesRecovered = true;
@@ -84,6 +88,7 @@ export function scanJob() {
 }
 export async function tick() {
   if (!acquireScheduler()) return;
+  scheduleIntradayAlerts();
   scheduleRps(Date.now());
   scheduleClsReview();
   scheduleNews();
@@ -104,7 +109,9 @@ export async function tick() {
   }
   if (!scope.quantPipelineTicking) {
     scope.quantPipelineTicking = true;
-    void tickPipelineScheduler()
+    void tickPipelineScheduler({
+      deps: { readQuote: createPipelineQuoteReader() },
+    })
       .catch((error) => {
         // The diagnostics registry currently uses this event for scheduler failures.
         recordRuntimeError("scheduler-tick", error);
@@ -113,4 +120,10 @@ export async function tick() {
         scope.quantPipelineTicking = false;
       });
   }
+}
+
+function scheduleIntradayAlerts() {
+  void tickIntradayAlerts().catch((error) =>
+    recordRuntimeError("alert-engine", error),
+  );
 }

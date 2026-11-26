@@ -247,8 +247,8 @@ function EditableChart({
   bars,
   barsConfirmed,
   historyLimit,
-  cost,
-  positionMessage,
+  cost: ledgerCost,
+  positionMessage: ledgerPositionMessage,
   aggregateErrors,
   rps,
   rpsMessage,
@@ -305,6 +305,36 @@ function EditableChart({
       ? sessionTradeContext
       : null;
   const reviewRef = tradeContext?.review;
+  const localSimAccountId =
+    reviewRef?.source === "paper-account" &&
+    reviewRef.refId.startsWith("local-sim:")
+      ? reviewRef.accountId
+      : undefined;
+  const showLocalSimCost = adjustment === "none" && !!localSimAccountId;
+  const reviewedAccount = api.simAccountDetail.useQuery(
+    visible && showLocalSimCost
+      ? { accountId: localSimAccountId, limit: 1 }
+      : skipToken,
+    { retry: false },
+  );
+  const reviewedPosition = reviewedAccount.data?.positions?.find(
+    (position) => position.symbol === snapshot.symbol,
+  );
+  const cost = showLocalSimCost
+    ? chartCost(
+        reviewedPosition && {
+          quantity: Number(reviewedPosition.quantity),
+          adjustedCost: Number(reviewedPosition.averageCost),
+        },
+      )
+    : ledgerCost;
+  const positionMessage = showLocalSimCost
+    ? reviewedAccount.error
+      ? `本地模拟持仓读取失败：${reviewedAccount.error.message}`
+      : reviewedAccount.isLoading
+        ? "正在读取本地模拟持仓成本…"
+        : undefined
+    : ledgerPositionMessage;
   const reviewQuery = api.chartTradeReview.useQuery(
     visible && reviewRef ? reviewRef : skipToken,
     { retry: false, refetchOnWindowFocus: false, staleTime: 60_000 },
@@ -398,6 +428,14 @@ function EditableChart({
         : (tradeContext?.portfolioFills ?? tradeFillsFromDiagnose(scenario)),
     [reviewRef, reviewQuery.data, tradeContext?.portfolioFills, scenario],
   );
+  const chartNeedsRecentSimBar =
+    showLocalSimCost &&
+    tradeContext?.visible &&
+    period === "day" &&
+    barsConfirmed &&
+    !!entryDate &&
+    tradeFills.some((fill) => fill.date === entryDate) &&
+    entryDate > (bars.at(-1)?.date ?? "");
   const archiveMessage =
     !reviewRef && tradeContext?.diagnose && !tradeContext.portfolioFills
       ? archive.isError
@@ -1051,11 +1089,17 @@ function EditableChart({
       )}
       {cost != null && (
         <p data-testid="position-cost" className="!my-0 text-xs">
-          持仓成本 {formatNumber(cost, 2)} ·{" "}
+          {showLocalSimCost ? "本地模拟持仓成本" : "持仓成本"}{" "}
+          {formatNumber(cost, 2)} ·{" "}
           {(bars.at(-1)?.close ?? cost) >= cost
             ? "图中收盘价高于或等于成本（红）"
             : "图中收盘价低于成本（绿）"}{" "}
           · P1 移动加权成本 · {chartAdjustmentLabels[adjustment]}
+        </p>
+      )}
+      {chartNeedsRecentSimBar && (
+        <p role="status" className="!my-0 text-xs">
+          {entryDate} 的模拟成交已入账，行情含该交易日后即可显示买卖点。
         </p>
       )}
       {reviewRef && (

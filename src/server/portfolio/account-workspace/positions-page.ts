@@ -1,21 +1,23 @@
 import {
-  accountPageSchema,
+  unifiedAccountPageSchema,
   positionMetrics,
   industryGroupsFor,
+  matchesAccountKind,
   stopStatusFor,
+  type AccountCurrency,
   type AccountPosition,
 } from "~/lib/portfolio/account-workspace";
 import { type AccountBook } from "./load-book";
 import { reconcileRealHoldings } from "./reconciliation";
 
 export function pageAccountBook(book: AccountBook, raw: unknown) {
-  const input = accountPageSchema.parse(raw);
+  const input = unifiedAccountPageSchema.parse(raw);
   // Delivery vs manual ledger is fixed by the position id prefix built below,
   // never by the mutable account display name. Non-real kinds have no source.
   const source = input.kind === "real" ? input.source : "all";
   const scope = book.positions.filter(
     (p) =>
-      (input.kind === "all" || p.kind === input.kind) &&
+      matchesAccountKind(p.kind, input.kind) &&
       (input.market === "all" || p.market === input.market) &&
       (!input.sleeve || p.sleeve === input.sleeve) &&
       (input.stopStatus === "all" || stopStatusFor(p) === input.stopStatus),
@@ -28,8 +30,11 @@ export function pageAccountBook(book: AccountBook, raw: unknown) {
         a.account.localeCompare(b.account) ||
         a.id.localeCompare(b.id),
     );
-  const totals = (["CNY", "USDT"] as const).map((currency) => {
-    const rows = positions.filter((p) => p.currency === currency);
+  const spot = positions.filter((p) => p.market !== "futures");
+  const currencies: AccountCurrency[] = ["CNY", "USDT"];
+  if (positions.some((p) => p.currency === "USD")) currencies.push("USD");
+  const totals = currencies.map((currency) => {
+    const rows = spot.filter((p) => p.currency === currency);
     return {
       currency,
       count: rows.length,
@@ -51,12 +56,12 @@ export function pageAccountBook(book: AccountBook, raw: unknown) {
     (dimension) =>
       [
         ...new Set(
-          positions.flatMap((p) =>
+          spot.flatMap((p) =>
             groupNames(p, dimension).map((group) => `${p.currency}:${group}`),
           ),
         ),
       ].map((key) => {
-        const rows = positions.filter((p) =>
+        const rows = spot.filter((p) =>
           groupNames(p, dimension).some(
             (group) => `${p.currency}:${group}` === key,
           ),

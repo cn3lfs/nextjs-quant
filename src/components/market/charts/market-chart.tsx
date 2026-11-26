@@ -971,9 +971,7 @@ export function MarketChart({
                     }}
                   />
                 </label>
-                <span>
-                  虚线：回填数据 · 实线：向前新增 · 后复权日线排名
-                </span>
+                <span>虚线：回填数据 · 实线：向前新增 · 后复权日线排名</span>
               </div>
             </PopoverContent>
           </Popover>

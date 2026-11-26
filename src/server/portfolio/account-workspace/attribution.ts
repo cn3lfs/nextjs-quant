@@ -93,6 +93,7 @@ export function accountAttribution(
             t.strategyVersion === s.version,
         )
         .flatMap((t) => {
+          if (t.market === "futures") return [];
           if (
             t.id.startsWith("delivery:") &&
             book.facts.fills.find((f) => `delivery:${f.id}` === t.id)

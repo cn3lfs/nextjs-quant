@@ -41,7 +41,10 @@ vi.mock("~/server/market/bar-store/read-bars", () => ({
 }));
 vi.mock("~/server/portfolio/trade-ledger-service", () => ({
   tradePositionState: async () => ({ positions: [] }),
-  tradeContext: async () => ({
+}));
+vi.mock("~/server/portfolio/account-workspace/read-sources", () => ({
+  readAccountEquitySource: async () => fixture.bars,
+  readBookContext: async () => ({
     today: "2026-01-08",
     calendar: ["2026-01-05", "2026-01-07", ...calendar],
     calendarSource: "fixture",

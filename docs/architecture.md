@@ -1,45 +1,51 @@
 # 系统架构与模块入口
 
-## 2026-11-19 当前结构摘要
+## 2026-11-25 当前结构摘要
 
 - 一级导航为七个语义工作区：今日交易 `/`、行情看盘 `/scan`（市场标签）、选股筛选 `/scan`（公式 / RPS / 股票池等标签）、策略回测 `/lab`、持仓复盘 `/accounts`、资讯研报 `/intel`、系统设置 `/system`。工作区名称、分组与界面词汇由 [navigation.ts](../src/components/workbench/navigation.ts) 和 [ui-glossary.ts](../src/lib/common/ui-glossary.ts) 统一，底层路由不因此改变。
-- Schema v20 新增单行 `workspace_preferences`（密度、侧栏折叠、展开分组、关闭到托盘、双账预览口径、单键快捷键）。旧 exe 拒绝高版本库；升级前须备份，并按交付规则更新与新 schema 配套的正式包。
+- 当前交付基线为 `master@d73c2534`（`v0.3.0 / SQLite v25`），单行 `workspace_preferences` 自 v20 保存工作区偏好。`v0.4.0 / SQLite v26` 的五张新增表与单次迁移按 [Iteration 5 实施计划](project/2026-11-25-iter5-v040-plan.md)推进。
 - Electron 托盘常驻：关闭窗口按偏好最小化到托盘，托盘菜单可重开窗口或打开数据/日志目录。`POST /api/shutdown` 只接受与 `QUANT_SESSION_TOKEN` 常量时间一致的 `x-quant-session` 头或 `quant-session` cookie；未配置或错误一律 403。停服只做 WAL checkpoint，不创建或迁移数据库。
 - 模块位置：账户/复盘路由拆为 `src/server/api/routers/portfolio-*.ts`；交易所适配器在 `src/server/crypto-trading/adapters/*`；研究生命周期在 `src/server/research/lifecycle/*`；图表族组件在 `src/components/market/charts/*`；提醒链路只读投影在 `src/server/infra/alert-pipeline-diagnostics.ts`。
 
-## L0–L5 交易生命周期优化（进行中，2026-11-16）
+## 统一策略流水线与平行模拟
 
-范围及顺序见[最新优化计划](project/2026-11-15-optimization-plan.md)。L0 先修正现有提醒、纸面输入、计划与今日投影，不引入新数据库版本；收盘扫描以最近已完成交易日的回执为依据，行情符号只在读取边界归一，冻结研究输入保持原字节。手动影子治理继续由策略登记所有者管理；展示提示不自动启用扫描、live、订阅或镜像。
+- 研究交付已接通次日调仓单，使用 v24 起的 `rebalance_plans` 记录计划与回执。策略部署通过 [pipeline router](../src/server/api/routers/pipeline.ts) 进入 [流水线仓储](../src/server/db/pipeline-repository.ts)。[调度器](../src/server/pipeline/pipeline-scheduler.ts) 编排持续候选池、信号与风险规划，[执行器](../src/server/execution/pipeline-executor.ts) 消费订单意图，[场所路由](../src/server/execution/venue-router.ts) 提供场所适配。策略运行台 `/?tab=pipeline` 归策略回测导航，模拟与实盘有独立总开关。冻结研究版本、运行与调仓单身份的贯通是 Iteration 5 的收口项。
+- [平行账户入口](../src/components/portfolio/parallel-accounts-hub.tsx) 位于 `/accounts?tab=paper`，包含本地模拟、同花顺模拟、同花顺实盘桥接只读查账、期货模拟。实盘查账须显式操作，受实盘总开关约束，凭证由仓库外 DPAPI 保存。
+- [图表下单弹窗](../src/components/market/chart-sim-order-dialog.tsx) 供三市场看盘复用。A 股对接本地和同花顺模拟，数字货币对接 USDT 现货模拟，期货经 [模拟服务](../src/server/portfolio/futures-sim-service.ts) 处理双向保证金开平仓，轻账本暂存于 `records`。界面采用未复权参考价和预览确认，服务端检查幂等键与账户身份。新模拟、期货与 `AccountBook`、K 线成交投影的统一按 Iteration 5 计划推进。
+
+## L0–L5 交易生命周期优化（2026-11-16 交付）
+
+范围及顺序见[当期优化计划](project/2026-11-15-optimization-plan.md)。L0 先修正现有提醒、纸面输入、计划与今日投影，不引入新数据库版本；收盘扫描以最近已完成交易日的回执为依据，行情符号只在读取边界归一，冻结研究输入保持原字节。手动影子治理继续由策略登记所有者管理；展示提示不自动启用扫描、live、订阅或镜像。
 
 L1仓位和保护、L2集中验证判定、L3统一组合决策、L4前向一致性及L5复盘消费链已分批实现。最终完整工程门禁与生产构建通过；L3实际研究及同身份恢复复核完成、晋级0项，输入缺口仍显式保留。功能实现、研究证据及自然时间观察分别验收，容量/UI和未完成项见[交付记录](project/2026-11-16-lifecycle.md)。
 
 L0 的提醒 tick 已经由宿主单次派发到现有任务 worker，整个求值/授权闭包/提交留在线程内。worker 读取 SQLite 中宿主持有的调度租约身份，不调用自己的随机租约身份抢占；定时 tick 在上一任务完成前合并，失败释放。收盘日期显式传入输入适配，跨日读取不切成尚未完成的当天行情。实际主线程阻塞测量及 worker 隔离运行结果见交付记录。
 
-L1 仓位唯一计算位于 `quant-backtest/portfolio-sizing`，原组合引擎、纸面与计划共用费用、数量网格及已有持仓风险；应用的 `alerts/plan-sizing` 只提供同版本冻结政策与信号日权重。`accountReview.portfolioLimits` 保存已确认默认限额，经既有敞口检查和审计执行，行业默认仅A股。`account_protections`（schema19）由保护仓储拥有，绑定真实成交指纹、账户和策略版本；退出投影与来源关联分工明确，建议止损任务不代表券商已挂单。Today使用服务端最新扫描水位、按标的合并分页的候选、同页计划与保护任务。schema20 已完成真实迁移，正式包已更新并运行。
+L1 仓位唯一计算位于 `quant-backtest/portfolio-sizing`，原组合引擎、纸面与计划共用费用、数量网格及已有持仓风险；应用的 `alerts/plan-sizing` 只提供同版本冻结政策与信号日权重。`accountReview.portfolioLimits` 保存已确认默认限额，经既有敞口检查和审计执行，行业默认仅A股。`account_protections`（schema19）由保护仓储拥有，绑定真实成交指纹、账户和策略版本；退出投影与来源关联分工明确，建议止损任务不代表券商已挂单。Today使用服务端最新扫描水位、按标的合并分页的候选、同页计划与保护任务。该阶段完成 v20 迁移与配套桌面包验收。
 
 行业敞口使用原始全部已知分组，各组独立检查；同一证券可以同时进入多个行业组，组合资金与市值仍只计算一次。账户事实和未成交计划均携带去重后的分组数组，计划审计冻结行业来源哈希；显式空数组表示未知，不能从展示字符串推断归属。候选查询先按实际策略分数、缺失时按RPS20/100排序并合并，再分页。
 
 L3 的 `trading-strategies/strategy-book` 拥有完成时点的截面排序、regime、周调仓与风险目标；scan/watch/paper/backtest 通过各自适配器消费相同决策。原始行情与冻结财务归源适配器管理，市场低位模块只计算因果观察，不持有账户或下单状态。研究 CLI 先冻结源、共同日期轴、独立历史目标对照与分段调用预算，管理者核对精确计划哈希后才能计算收益。固定菜单区分16个可选主配置、104个经济邻域和8个不执行的schema no-op；缺输入保留证据不足，不填零或改成成功的无交易。
 
-L4 的前向参考仓储保存不可变的同策略定义、输入、结果与执行构建身份；纯一致性判定与纸面登记/推进、实验室资格投影分离。实际 worker 字节与其构建清单不一致时仍拒绝使用；策略/引擎版本变化记录为 `buildDrift` 并继续，不再阻断冻结输入读取或纸面推进，旧账户执行版本仍以同请求完整重放核对。L5 的账户期望由真实冻结回测成交和原价二十市场日收益自动发布，不能手工填汇总；来源失配或公司行动覆盖不足时不可用于衰减建议。以上记录复用typed records，不新增schema20。 纸面账户读取投影逐账户核验当前定义、登记绑定、冻结参考和执行身份，移除响应中的旧评估，不加载checkpoint或改财务历史。影子样本只保留观察覆盖；成绩单与Lab读取当前一致性和回测双门槛，历史晋级不覆盖当前资格。实验室的复盘暂停建议复用周复盘的同策略/版本/revision证据，陈旧建议仅刷新；真实分仓品种上限只取唯一冻结或实际保存的执行政策。
+L4 的前向参考仓储保存不可变的同策略定义、输入、结果与执行构建身份；纯一致性判定与纸面登记/推进、实验室资格投影分离。实际 worker 字节与其构建清单不一致时仍拒绝使用；策略/引擎版本变化记录为 `buildDrift` 并继续，不再阻断冻结输入读取或纸面推进，旧账户执行版本仍以同请求完整重放核对。L5 的账户期望由真实冻结回测成交和原价二十市场日收益自动发布，不能手工填汇总；来源失配或公司行动覆盖不足时不可用于衰减建议。L4–L5 的相关记录复用类型化 `records`。纸面账户读取投影逐账户核验当前定义、登记绑定、冻结参考和执行身份，移除响应中的旧评估，不加载checkpoint或改财务历史。影子样本只保留观察覆盖；成绩单与Lab读取当前一致性和回测双门槛，历史晋级不覆盖当前资格。实验室的复盘暂停建议复用周复盘的同策略/版本/revision证据，陈旧建议仅刷新；真实分仓品种上限只取唯一冻结或实际保存的执行政策。
 
 ## 工作区收口（2026-11-15 起）
 
-工作区从六个入口演进为 2026-11-19 的七个语义工作区（今日交易、行情看盘、选股筛选、策略回测、持仓复盘、资讯研报、系统设置）。A 股研究主池为当前中证800，数字货币为 BTC/ETH；sleeve 分仓、影子与纸面账本由现有所有者管理。后续 L0–L5 与 Schema v20 已完成真实迁移与正式包更新。
+工作区从六个入口演进为 2026-11-19 的七个语义工作区（今日交易、行情看盘、选股筛选、策略回测、持仓复盘、资讯研报、系统设置）。A 股研究主池为当前中证800，数字货币为 BTC/ETH；sleeve 分仓、影子与纸面账本由现有所有者管理。这一阶段的 L0–L5 交付及 v20 迁移记录见上节。
 
 - 实验室默认列出已登记策略和成绩单状态，详情身份在 `strategy` / `version` URL；方法目录及日线运行比较在 `?tab=catalog`，研究任务在 `?tab=tasks`。证据分析、档案、数据指南保持普通子路由。`db/strategy-lab.ts`投影版本对应的成绩、前推与纸面账户；晋级、影子、策略live、全局模式须用户二次确认，策略操作绑定当前证据修订摘要。发布成绩单及首次纸面登记不自动开启影子；已保存观察不被新报告静默关闭。订阅和渠道仍在系统，开启策略live本身不投递或下单。
 - `/lab/backtest`保留原实验，并增加策略对象入口；对象可显式登记到策略列表，版本不可变，登记不启用观察或提醒。`research/lab-backtest.ts`冻结本地BarStore数据并调用同一个`runPortfolio`：A股日线、BTC/ETH原生归档；五分钟仍由原入口执行。需要原生观察、RPS或时点外部输入的规则走已有冻结研究流程，缺输入明确拒绝。参数、本金、费用/公司行动情景、来源和构建摘要随任务保留；结果摘要有界投影，完整冻结输入仅按显式导出读取。
 - `scripts/research.ts`与界面worker共用`research/research-command.ts`的只读子集：`inspect <cn-equity|crypto>`、`verify-input <SHA256>`。前者检查已有成绩单，后者核对冻结输入与版本。采集、规模化计算和发布继续使用CLI的显式隔离配置，不从界面执行任意命令或生成代码。
-- 情报合并新闻/主题、财联社复盘及持仓计划摘要。`news/intel-service.ts`只读现有已配置新闻存档，按保存名称/代码匹配并披露关联限制；新增来源在对应适配器登记后接入。今日显示本日摘要，图表按时间及标题标注，点击展开并跳到精确原文。隐藏图表暂停查询；新闻标注不参与策略求值。
+- 情报合并新闻/主题、财联社复盘及持仓计划摘要。`news/intel-service.ts`只读现有已配置新闻存档，按保存名称/代码匹配并披露关联限制；新增来源在对应适配器登记后接入。今日显示本日摘要，图表新闻面板按标的打开 CLS 搜索，Electron 使用经白名单校验的 WebView，浏览器提供降级入口。新闻展示独立于策略求值。
 - 系统保留数据连接、任务、提醒渠道和订阅；UI组件示例仅开发模式可见，生产直接404。BTC/ETH保留官方目录/回填并增加只读本地校验worker、索引导出。`db/backups.ts`读取真实`user_version`、库路径与最近成功备份；SQLite online backup包含已提交WAL，默认保留3份、可配1–30份，只轮换本功能创建的成功副本。跨进程租约串行，失败不删成功备份，异常退出的pending由下次持有者清理；删除失败报告错误。
 - 成交来源为服务端20行分页的紧凑表格，提醒显示策略名/品种/bar日期/类型，并按精确键定位；键只用于请求、归属和导出。普通证据预览改用字段文本；完整JSON仍可显式导出，策略/公式JSON编辑器保留其编辑用途，受保护MCP诊断文案未改。
 - 数字展示统一在`trading-strategy-core/format-number`；Big任意精度资金序列化与固定测试/历史设计样例按逐处理由保留。图标统一Phosphor；三档布局为≤1024、1025–1279、≥1280。暗色控件、条件样式及渲染标记移除；读取旧视图时仅丢弃已退役字段，不改绘图证据。
 
-正式部署顺序：验收差异与隔离门禁 → 关闭旧应用 → 对真实库执行一致性备份 → 部署匹配目标 schema 的 source/runtime/build/desktop 资源（当前为 schema20）。旧 exe 拒绝高版本库，不降 `user_version`，不复制 QA 库；真实源目录、DPAPI 凭证、live/订阅/镜像保持用户现状，启用仍由用户操作。
+获授权后的正式部署依次完成隔离验收、关闭旧应用、一致性备份，并部署与目标 schema 配套的应用和 runtime 资源。当前源码交付基线为 v25，Iteration 5 验收目标为 v26。旧 exe 拒绝高版本库，QA 库用于隔离验证。正式提醒、订阅和镜像由用户启用。
 
 ## R3b 账户与复盘
 
-`portfolio/account-workspace-service.ts` 只读投影交割单、手工账本、纸面事实和模拟钱包，原始所有者不变；UI `/accounts` 默认真实持仓，按市场/分仓/类型分组，CNY/USDT各自汇总。普通子页及标签保留导入、现金核对、台账、交易日志和模拟操作；持仓身份在URL，离开不缓存账户页实例。来源人工确认写 `account_trade_links`，每次修订追加 `account_link_audit`；schema18 起引入相关表，后续已由 schema20 接替。
+`portfolio/account-workspace-service.ts` 只读投影交割单、手工账本、纸面事实和模拟钱包，原始所有者不变；UI `/accounts` 默认真实持仓，按市场/分仓/类型分组，CNY/USDT各自汇总。普通子页及标签保留导入、现金核对、台账、交易日志和模拟操作；持仓身份在URL，离开不缓存账户页实例。来源人工确认写 `account_trade_links`，每次修订追加 `account_link_audit`；相关关联表自 v18 起引入，沿用至 v25。
 
 计划写入前在同一事实版本下检查真实持仓与未完成计划预留，超限需显式确认并把上限/明细固化到计划；不调用交易或投递。衰减比较同版本、同参数的入场后20个市场日原价收益，历史分布从完成回测的冻结输入校验并首次保存；旧不等长收益不当作同口径分布。缺行情/除权证据、期初成本、历史行业与完整现金时留空。只提示，不晋级、调参或自动下单。
 
@@ -57,7 +63,7 @@ schema17增加账户、checkpoint及分类型事实表和paper-fill提醒。订�
 
 今日列纸面变化，账户并列独立模拟区（真实合计默认不含模拟，CNY/USDT不合并），实验室列前推状态，系统 `?tab=paper` 管本金/登记/镜像。权益按20天分页绘图，期望展示原同参数研究分布及偏差；30信号或60实际市场日后复用相同门槛，只给建议。paper-fill须用户开启live及订阅才投递，补推/过期零投递。
 
-核对日期：2026-11-15。本页描述当前工作树，实施范围见 [roadmap](roadmap.md)，剩余工作见 [next-plan](next-plan.md)，正确性约束见 [invariants](invariants.md)。模块细节按 [模块索引](modules/README.md) 查阅；不把目录存在、方法登记或构建通过当作实际功能验收。
+纸面账户基线核对日期为 2026-11-15。当前实施范围见 [roadmap](roadmap.md)，剩余工作见 [next-plan](next-plan.md)，正确性约束见 [invariants](invariants.md)。模块细节按 [模块索引](modules/README.md) 查阅；不把目录存在、方法登记或构建通过当作实际功能验收。
 
 ## R3a：按交易日组织工作区（2026-11-15）
 
@@ -93,6 +99,7 @@ flowchart LR
 | 路由                       | 页面模型       | 保留的状态与归属                                                                                                                                                                               |
 | -------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/`                        | 常规路由       | 排名口径 URL；首页数据 query cache                                                                                                                                                             |
+| `/?tab=pipeline`           | 常规路由       | 策略运行台，部署、运行与订单意图由服务端仓储持有，筛选和编辑由页面管理 |
 | `/scan?tab=pool`           | 常规路由       | 池、搜索、排序、周期、分页 URL；成分 query cache；翻股列表交给 market-session                                                                                                                  |
 | `/scan`                    | 显式保留       | 证券、图表周期、来源、复权、图表/财务视图 URL；基础快照周期 `base=5m`；选择/已选快照/候选列表 market-session；图表设置、画线仍按证券×周期经 query cache/服务端保存；图表实例与视窗留在保留组件 |
 | `/scan?tab=formula`        | 显式保留       | 任务身份 URL；任务、搜索、排序、分页 screen-session；公式/因子未保存编辑留在保留组件；已保存公式/结果 query cache/服务端                                                                       |
@@ -113,7 +120,7 @@ flowchart LR
 | `/lab/data-guide`          | 常规路由       | 文档内容；无跨页草稿                                                                                                                                                                           |
 | `/scan?tab=sentiment`      | 常规路由       | 日期/所选池 limit-up-store（池持久化，日期仅会话）、池数据 query cache；弹层本页                                                                                                               |
 | `/scan?tab=crypto`         | 常规路由       | pair URL；该市场独立来源/周期及未提交表单本页；账户事实 query cache/服务端，不消费 A 股选择                                                                                                    |
-| `/scan?tab=futures`        | 常规路由       | code URL；该市场独立来源/周期本页；快照缓存复用，不消费 A 股选择                                                                                                                               |
+| `/scan?tab=futures`        | 常规路由       | code URL；该市场独立来源/周期本页；快照缓存复用，期货模拟账户事实由服务端持有                                                                                                                               |
 | `/system/tasks`            | 常规请求时路由 | 已应用筛选 URL；草稿/游标/取消反馈 task-history-session；任务结果 query cache                                                                                                                  |
 | `/system/ui-gallery`       | 常规路由       | UI 示例；无业务状态                                                                                                                                                                            |
 
@@ -141,7 +148,7 @@ flowchart LR
 | `/lab/data-guide`          | 静态说明，无草稿                                                      | 无提交                                                                           | [research-data-guide.tsx](../src/components/research/research-data-guide.tsx)        |
 | `/scan?tab=sentiment`      | 池持久化、日期仅内存会话；弹层/输入本页，刷新恢复既有池               | 校验/请求反馈本页；读取失败不造结果                                              | [limit-up-store.ts](../src/lib/stores/limit-up-store.ts)                             |
 | `/scan?tab=crypto`         | pair URL；独立周期/来源、策略/凭证输入本页；离开或刷新清空            | 提交/故障本页；保存成功清凭证；账户事实服务端，不以 UI pending 推断成交          | [crypto-bot-panel.tsx](../src/components/market/crypto-bot-panel.tsx)                |
-| `/scan?tab=futures`        | code URL；来源/周期/选择器本页，离开或刷新重置                        | 读取故障本页，无交易提交                                                         | [futures-view.tsx](../src/components/market/futures-view.tsx)                        |
+| `/scan?tab=futures`        | code URL；来源/周期/选择器本页，离开或刷新重置                        | 读行情错误与预览／确认反馈在本页                                                         | [futures-view.tsx](../src/components/market/futures-view.tsx)                        |
 | `/system/tasks`            | 已应用筛选 URL；草稿/游标 task-history-session，刷新回 URL 首页       | 取消中状态按 ID 跨卸载保留；刷新查服务器，不自动重提取消                         | [task-history-session.ts](../src/lib/stores/task-history-session.ts)                 |
 | `/system/ui-gallery`       | 示例草稿本页，离开/刷新重置                                           | 示例校验/反馈无业务提交                                                          | [ui-gallery.tsx](../src/components/common/ui-gallery.tsx)                            |
 
@@ -178,11 +185,12 @@ flowchart LR
 | `src/server/strategies/`、`research/` | 规则输入/来源适配、原生调用、研究证据与报告编排              |
 | `src/server/backtest/`                | 当前回测输入、任务与结果适配，撮合规则由 quant-backtest 提供 |
 | `src/server/portfolio/`               | 成交账本、账户与复盘、已授权模拟交易                         |
+| `src/server/pipeline/`、`execution/` | 策略调度、候选与信号编排、意图执行及场所适配 |
 | `src/server/monitoring/`、`news/`     | 监控/投递边界与新闻复盘；实际调度服从能力策略                |
 | `src/server/jobs/`、`infra/`          | 任务与 worker 编排、并发、配置及外部集成基础设施             |
 | `src/server/api/`、`db/`、`data/`     | API、共享 SQLite 底座和静态资产                              |
 
-专用 worker/store 随业务域放置。数据源不反向依赖研究或交易编排；客户端不直接导入 server。`src/server/mcp.ts` 及用户维护文案仍按项目指导保护。规则与目录护栏见 [server-layout.test.ts](../tests/engineering-validation/server-layout.test.ts) 和 [策略归属计划](strategy-signals/2026-09-21-strategy-consolidation-plan.md)。
+专用 worker/store 随业务域放置。数据源不反向依赖研究或交易编排；客户端不直接导入 server。`src/server/mcp.ts` 及用户维护文案仍按项目指导保护。规则与目录护栏见 [依赖边界测试](../tests/engineering-validation/dependency-check.test.ts) 和 [策略归属计划](strategy-signals/2026-09-21-strategy-consolidation-plan.md)。
 
 ## 计算与数据包
 
@@ -198,11 +206,15 @@ flowchart LR
 | [quant-performance](../packages/quant-performance/package.json)         | 独立收益/风险、交易轮次和分期绩效评价         | 无                                                         |
 | [quant-rps](../packages/quant-rps/package.json)                         | 多周期横截面强度排名                          | 无                                                         |
 
-例如 core 的 financial 子路径目前转出 tstdx/financial-model；这层现状不等于已完成下一轮包边界清理。纯策略包不反向导入应用、服务端、撮合包或 IO。绩效评价与撮合事务分开，评价失败不改写已完成交易。`packages:build` 通过 pnpm 依赖图编排各工作区包，共用构建器对源码、工具链、依赖产物和输出校验后跳过未变包。策略身份生成器另外声明源码输入；runtime worker 仍重新打包，不凭包缓存跳过。
+例如 core 的 financial 子路径目前转出 tstdx/financial-model；这层现状不等于已完成下一轮包边界清理。纯策略包不反向导入应用、服务端、撮合包或 IO。绩效评价与撮合事务分开，评价失败不改写已完成交易。`packages:build` 通过 pnpm 依赖图编排各工作区包，共用构建器对源码、工具链、依赖产物和输出校验后跳过未变包。策略身份生成器单独声明源码输入。[runtime 构建器](../scripts/build-runtime.mjs) 依 worker 的实际输入、构建配置及输出内容校验决定是否复用，缓存清单位于 `node_modules/.cache/quant-runtime-build.json`，与打包用 `runtime/` 分开。
 
 ## 数据源、持久化与任务
 
-行情序列统一经 [BarStore](../src/server/market/bar-store/read-bars.ts) 读取；标的具有 `cn-equity/crypto/futures` 市场身份，客户端与回测共用的 [市场规则表](../packages/trading-strategy-core/src/market-rules.ts) 集中提供交易时段、结算、数量、涨跌停、费用模板与做空能力。期货合约时段/费用与数字货币数量步长没有凭据时为未知，不赋予执行授权；期货行情本单继续使用原有合约适配。
+行情序列统一经 [BarStore](../src/server/market/bar-store/read-bars.ts) 读取；标的具有 `cn-equity/crypto/futures` 市场身份，客户端与回测共用的 [市场规则表](../packages/trading-strategy-core/src/market-rules.ts) 集中提供交易时段、结算、数量、涨跌停、费用模板与做空能力。期货行情沿用合约适配，双向保证金模拟使用显式的合约乘数、保证金率和费用口径。缺凭据的时段、费用和数量步长保留为未知。
+
+[MarketPanelStore](../src/server/market/market-panel/index.ts) 提供独立的只读列式研究快照，供 Alpha、市场温度与行业轮动消费。今日页的「生成冻结面板」通过 `marketPanelBuild` 进入[行情域任务服务](../src/server/market/market-panel-job.ts)，由通用 worker 的 `market-panel-build` 任务从配置的通达信目录读取并原子发布；`marketPanelStatus` 返回状态与进度。板块估值使用腾讯自选股申万一、二级估值适配，属于独立数据链路。
+
+[THSDK](data-sources/2026-11-19-thsdk-delivery.md) 固定内置 `hq.dll 2.0.2`。构建时从 `vendor/thsdk/hq.dll` 准备 runtime 副本，加载前校验 PE 头和固定 SHA-256，由专用 Node 子进程串行调用。设置页提供服务启停和会话管理，服务默认停用，会话与凭据留在仓库外。
 
 BarStore 在 QUANT_DATA_DIR/bar-store 保存原价 QBARCOL1 文件：16 KiB 版本/来源头、Float64/Int32 列块，前缀不变时追加，修订时替换。v2 头部与完整列内容使用 CRC32 检查损坏，写入仍记录 SHA256；v1 文件先验证 SHA256，再在写锁内只升级头部，不重写列数据。来源指纹保留 inode/size/mtime/ctime/birthtime 与 SHA256：稳定读取整份源文件后以全内容 CRC32 探测变化，进程首次或探针改变时求 SHA256，最多保留 32768 个小型身份记录。即使 Windows 保留相同时间戳，首部、中部与尾部修订也进入变化检测；这是本地意外损坏检测，不是恶意篡改认证。列文件每次读取并校验，单文件上限 128 MiB；不共享可变 bars，只复用最多各 65536 个日线/盘中日期标签。已校验基础日线只标完成状态，不重新分组/合成；复权价格仍检查溢出与下溢。读取时使用 tstdx 的 GBBQ 因子，进程按来源身份共享一次解析（包括并发首次读取），历史截止先于前复权分母选择；分红文件缺失即失败，不降级。公式与双突破的信号使用前复权，RPS 的资格/事件校验后使用后复权；回测成交与账户仍取原价。公式候选冻结信号 bars 与对应原价供图表重开，不能拿今天的新历史替换原候选。
 
@@ -223,6 +235,9 @@ A 股日/5分钟与完整包进入同一读取路径；完整包新导入只写�
 任务、监控、信号和投递的分页顺序都有唯一 ID/数组位置作为 tie-breaker，返回 `items/nextCursor/hasMore`；恢复任务及投递先冻结 ID 集再更新，新增 ID 留到下次。新任务完整校验，更新不补造历史记录缺字段；类型仓储在立即事务内检查 ID 不跨 kind 覆盖。ESLint 通过 TypeScript 方法声明识别真实 SQLite 调用，覆盖全部服务端业务代码；源库/独立日志按所有者保留，列明的跨域用例只允许 transaction，仍禁止 prepare/exec；其他对象的同名方法不受影响。
 
 SQLite 文件格式与应用 user_version 分开管理：较旧应用拒绝高于自身迁移版本的库。仓储整理不必修改 schema，确需迁移时保留版本保护；开发/测试必须先指定隔离 QUANT_DATA_DIR，不能打开默认用户库来验证迁移。
+
+- **v25 已交付**：保留 v24 的 `factor_composites`、`rebalance_plans`，新增 `strategy_deployments`、`pipeline_runs`、`execution_order_intents`、`execution_audit_events` 与 `deployment_pool_entries`，由流水线类型仓储读写部署、运行、意图、审计和持续候选池。
+- **v26 实施目标**：在一个版本迁移中新增 `account_risk_states`、`account_sleeve_holdings`、`execution_fill_links`、`intraday_alert_config` 和 `intraday_watch_rules`。分别记录共享账户风险、分仓归属、核实成交及盘中预警配置和规则，保留 v25 的历史数据。
 
 [jobs](../src/server/jobs/jobs.ts) 管任务提交、取消、进度及重启恢复，[worker](../src/server/jobs/worker.ts) 执行受支持任务。恢复先冻结按 ID 排序的活动任务集合，再在立即事务中逐项复查，保留存活宿主和终态，对中断工作记录状态，不自动补跑旧任务。公式结果按任务身份读取、分页与导出，不能回退到另一成功任务来掩盖失败或缺失。
 

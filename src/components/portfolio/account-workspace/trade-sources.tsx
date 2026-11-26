@@ -43,6 +43,7 @@ import {
 export const PositionTradeScope = createContext<string | null>(null);
 
 type TradeSourceProps = {
+  tradeId?: string;
   trades: RouterOutputs["accountTrades"]["trades"];
   suggestions: RouterOutputs["accountTrades"]["suggestions"];
   total: number;
@@ -56,7 +57,7 @@ type TradeSourceProps = {
 export function TradeSources(props: TradeSourceProps) {
   const position = useContext(PositionTradeScope);
   const search = useSearchParams();
-  const tradeId = search.get("trade") ?? "";
+  const tradeId = props.tradeId ?? search.get("trade") ?? "";
   const linkedPaper =
     !position &&
     tradeId.startsWith("paper:") &&
@@ -287,9 +288,10 @@ function TradeSourceTable({
             cell: ({ row }) => {
               const trade = row.original;
               const real = trade.kind === "real";
+              const localSim = trade.kind === "local-sim";
               if (
                 trade.market !== "cn-equity" ||
-                (!real && trade.kind !== "paper") ||
+                (!real && trade.kind !== "paper" && !localSim) ||
                 !(
                   isAShareStockSymbol(trade.symbol) ||
                   isPriceScaleThreeFund(trade.symbol)
@@ -303,15 +305,26 @@ function TradeSourceTable({
               });
               if (real && trade.sourceOrder?.source)
                 back.set("batch", trade.sourceOrder.source);
+              // Returning from the chart must keep the same ledger filter;
+              // otherwise a local simulation fill jumps back to real trades.
+              if (!real) back.set("kind", trade.kind);
               return (
                 <TradeReviewChartLink
                   at={trade.date}
                   review={{
                     source: real ? "real-delivery" : "paper-account",
-                    refId: real ? trade.id : trade.account,
+                    refId: real
+                      ? trade.id
+                      : localSim
+                        ? `local-sim:${trade.account}`
+                        : trade.account,
                     accountId: trade.account,
                     symbol: trade.symbol,
-                    label: real ? "实盘交割单" : "纸面账户",
+                    label: real
+                      ? "实盘交割单"
+                      : localSim
+                        ? "本地模拟"
+                        : "纸面账户",
                     backHref: `/accounts?${back}`,
                   }}
                 />

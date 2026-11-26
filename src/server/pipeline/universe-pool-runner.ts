@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import type Database from "better-sqlite3";
+import { z } from "zod";
 import { isAStock, readSnapshot, scan } from "tstdx/local";
 import type { Bar } from "trading-strategy-core/bars";
 import { completedBarFilter } from "trading-strategy-core/completed-bars";
@@ -32,6 +33,8 @@ import {
 } from "~/lib/market/watchlist-groups";
 import { usageConfigHash } from "../research/research-config-hash";
 import { evaluateValuePitSnapshot } from "../research/value-pit-service";
+import { MissingStrategyData, strategySettings } from "./strategy-rebalance";
+import { beijingClock } from "~/lib/market/market-session";
 
 export type PoolCandidateMatch = {
   symbol: string;
@@ -44,25 +47,52 @@ type MaybePromise<T> = Promise<T> | T;
 type ScanSource<K extends UniverseSpec["kind"]> = (
   spec: Extract<UniverseSpec, { kind: K }>,
   decisionDate: string,
-) => MaybePromise<readonly PoolCandidateMatch[]>;
+) => MaybePromise<readonly PoolCandidateMatch[] | null>;
 export type UniversePoolDeps = {
   readBars?: (
     symbol: string,
     decisionDate: string,
   ) => MaybePromise<readonly Bar[]>;
-  readWatchlist?: () => MaybePromise<readonly string[]>;
+  readWatchlist?: (
+    decisionDate: string,
+  ) => MaybePromise<readonly string[] | null>;
+  readMarketSymbols?: (
+    decisionDate: string,
+  ) => MaybePromise<readonly string[] | null>;
   readRpsCandidates?: ScanSource<"rps-filter">;
   runFormulaScreen?: ScanSource<"formula-screen">;
   runTheoryScreenerScan?: ScanSource<"theory-screener-scan">;
   runValuePitTopN?: ScanSource<"value-pit-topn">;
-  readEtfPoolSymbols?: (poolId: string) => readonly string[];
+  readEtfPoolSymbols?: (poolId: string) => readonly string[] | null;
 };
 
-async function localBars(symbol: string) {
+export type EvaluatedPoolSnapshot = PoolSyncSnapshot & {
+  skipReason?: "missing-data";
+  disclosure?: string;
+};
+
+const poolSkipFields = z
+  .object({
+    skipReason: z.literal("missing-data").optional(),
+    disclosure: z.string().optional(),
+  })
+  .passthrough();
+
+export function parseEvaluatedPoolSnapshot(
+  raw: unknown,
+): EvaluatedPoolSnapshot {
+  const { skipReason, disclosure, ...snapshot } = poolSkipFields.parse(raw);
+  return {
+    ...poolSyncSnapshotSchema.parse(snapshot),
+    ...(skipReason && { skipReason, disclosure }),
+  };
+}
+
+async function localBars(symbol: string, root = settings().tdxRoot) {
   if (!/^(?:sh|sz|bj)\d{6}$/.test(symbol)) return [];
   try {
     return (
-      await readSnapshot(settings().tdxRoot, symbol, "day", {
+      await readSnapshot(root, symbol, "day", {
         allowFunds: true,
       })
     ).bars;
@@ -76,7 +106,8 @@ async function localBars(symbol: string) {
 export async function readDecisionBars(
   symbol: string,
   date: string,
-  read: NonNullable<UniversePoolDeps["readBars"]> = localBars,
+  read: NonNullable<UniversePoolDeps["readBars"]> = (symbol) =>
+    localBars(symbol),
 ) {
   const complete = completedBarFilter("day", Date.now());
   const bars = (await read(symbol, date))
@@ -102,23 +133,37 @@ export function readDecisionRps(
   db = sqlite(),
 ): Record<string, number> {
   const store = new RpsStore(db);
-  const index = store.day(date)?.periods.findIndex((p) => p === period) ?? -1;
-  if (index < 0) throw new Error(`${date} 缺少 RPS${period} 截面`);
-  return Object.fromEntries(
-    store.rows(date).flatMap((row) => {
+  return new AccountWorkspaceRepository(db).atomic(() => {
+    const day = store.day(date);
+    const index = day?.periods.indexOf(period) ?? -1;
+    if (!day || index < 0)
+      throw new MissingStrategyData(`${date} 缺少 RPS${period} 截面`);
+    const rows = store.rows(date);
+    const ranks = rows.flatMap((row) => {
       const value = row.values[index]?.rps;
-      return value == null ? [] : [[normalizePoolSymbol(row.symbol), value]];
-    }),
-  );
+      return value == null
+        ? []
+        : [[normalizePoolSymbol(row.symbol), value] as const];
+    });
+    if (
+      rows.length !== day.total ||
+      ranks.length !== day.counts[index] ||
+      ranks.some(
+        ([, value]) => !Number.isFinite(value) || value < 0 || value > 100,
+      )
+    )
+      throw new MissingStrategyData(`${date} RPS${period} 截面不完整`);
+    return Object.fromEntries(ranks);
+  });
 }
 
-async function marketSymbols() {
-  const { securities } = await scan(settings().tdxRoot);
+async function marketSymbols(root: string) {
+  const { securities } = await scan(root);
   const symbols = securities
     .map((s) => s.symbol)
     .filter(isAStock)
     .sort();
-  if (!symbols.length) throw new Error("本地 A 股行情目录为空");
+  if (!symbols.length) throw new MissingStrategyData("本地 A 股行情目录为空");
   return symbols;
 }
 const plainMatch = (symbol: string, reason: string): PoolCandidateMatch => ({
@@ -135,19 +180,29 @@ async function candidates(
   date: string,
   deps: UniversePoolDeps,
   db: Database.Database,
-): Promise<readonly PoolCandidateMatch[]> {
+): Promise<readonly PoolCandidateMatch[] | null> {
+  const root = () => strategySettings(db).tdxRoot;
+  const readMarket = () =>
+    deps.readMarketSymbols
+      ? deps.readMarketSymbols(date)
+      : marketSymbols(root());
   switch (spec.kind) {
     case "fixed-symbols":
       return spec.symbols.map((s) => plainMatch(s, "固定标的"));
     case "watchlist": {
+      if (deps.readWatchlist) {
+        const symbols = await deps.readWatchlist(date);
+        return symbols?.map((s) => plainMatch(s, "自选股")) ?? null;
+      }
       const workspace = new AccountWorkspaceRepository(db);
-      const symbols = deps.readWatchlist
-        ? await deps.readWatchlist()
-        : (workspace
-            .record<WatchlistGroup[]>("watchlist-groups")
-            ?.flatMap((g) => g.symbols) ??
-          workspace.record<string[]>("watchlist") ??
-          DEFAULT_WATCHLIST_SYMBOLS);
+      const saved =
+        workspace
+          .record<WatchlistGroup[]>("watchlist-groups")
+          ?.flatMap((g) => g.symbols) ??
+        workspace.record<string[]>("watchlist");
+      if (saved && date < beijingClock(Date.now()).date)
+        throw new MissingStrategyData("缺少决策日的自选股历史快照");
+      const symbols = saved ?? DEFAULT_WATCHLIST_SYMBOLS;
       return symbols.map((s) => plainMatch(s, "自选股"));
     }
     case "etf-pool": {
@@ -158,7 +213,7 @@ async function candidates(
           : etfRotationUniverse
               .filter((e) => spec.pool === "full" || e.isLegacyLongHistory)
               .map((e) => e.symbol);
-      return symbols.map((s) => plainMatch(s, "ETF 池"));
+      return symbols?.map((s) => plainMatch(s, "ETF 池")) ?? null;
     }
     case "rps-filter":
       if (deps.readRpsCandidates) return deps.readRpsCandidates(spec, date);
@@ -172,12 +227,20 @@ async function candidates(
         }));
     case "value-pit-topn": {
       if (deps.runValuePitTopN) return deps.runValuePitTopN(spec, date);
+      const symbols = spec.baseSymbols ?? (await readMarket());
+      if (!symbols) return null;
+      if (!symbols.length) return [];
       const snapshot = await evaluateValuePitSnapshot({
         strategyId: spec.strategyId,
         topK: spec.topK,
         asOfDate: date,
-        symbols: spec.baseSymbols ?? (await marketSymbols()),
+        symbols,
+        tdxRoot: root(),
       });
+      if (!Object.keys(snapshot.scores).length)
+        throw new MissingStrategyData(
+          "价值 PIT 缺少可用的财务归档或决策日行情",
+        );
       return Object.keys(snapshot.targets).map((symbol) => ({
         symbol,
         score: snapshot.scores[symbol] ?? null,
@@ -201,10 +264,14 @@ async function candidates(
           : null;
       const hits: PoolCandidateMatch[] = [];
       let hasDecisionBars = false;
-      for (const symbol of await marketSymbols()) {
+      const symbols = await readMarket();
+      if (!symbols?.length) return symbols === null ? null : [];
+      for (const symbol of symbols) {
         const bars = await readDecisionBars(symbol, date, deps.readBars);
         const bar = bars.at(-1);
-        if (!bar || bar.date !== date) continue;
+        if (!bar) continue;
+        if (bar.date !== date)
+          throw new MissingStrategyData(`${symbol} 缺少决策日已收盘日线`);
         hasDecisionBars = true;
         if (spec.kind === "formula-screen") {
           if (formula!.evaluate(bars).outputs[0]?.values.at(-1))
@@ -231,7 +298,7 @@ async function candidates(
         }
       }
       if (!hasDecisionBars)
-        throw new Error(`${date} 缺少全市场已收盘日线，无法选股`);
+        throw new MissingStrategyData(`${date} 缺少全市场已收盘日线，无法选股`);
       return hits;
     }
     default:
@@ -246,6 +313,12 @@ function normalizedHits(
   const unique = new Map<string, PoolCandidateMatch>();
   for (const row of raw) {
     const symbol = normalizePoolSymbol(row.symbol);
+    if (
+      !symbol ||
+      (row.score !== null && !Number.isFinite(row.score)) ||
+      (row.price !== null && (!Number.isFinite(row.price) || row.price <= 0))
+    )
+      throw new MissingStrategyData("决策日选股结果含无效证券、价格或评分");
     const hit = { ...row, symbol };
     const prior = unique.get(symbol);
     if (
@@ -315,25 +388,65 @@ export async function syncDeploymentPool({
   decisionDate: string;
   deps?: UniversePoolDeps;
   db?: Database.Database;
-}): Promise<PoolSyncSnapshot> {
+}): Promise<EvaluatedPoolSnapshot> {
   const asOf = researchDateSchema.parse(decisionDate);
   const spec = deployment.universeSpec;
-  const hits = normalizedHits(await candidates(spec, asOf, deps, db), spec);
+  const { mode, eviction } = deployment.poolPolicy;
+  let dataRoot: string | undefined;
+  const readBars =
+    deps.readBars ??
+    ((symbol) =>
+      localBars(symbol, (dataRoot ??= strategySettings(db).tdxRoot)));
+  function unavailable(disclosure: string): EvaluatedPoolSnapshot {
+    return {
+      ...poolSyncSnapshotSchema.parse({
+        asOf,
+        mode,
+        sourceHash: usageConfigHash({
+          asOf,
+          spec,
+          skipReason: "missing-data",
+          disclosure,
+        }),
+        matchedCount: 0,
+        activePoolCount: 0,
+        activeSymbols: [],
+        added: [],
+        retained: [],
+        missedGrace: [],
+        evicted: [],
+      }),
+      skipReason: "missing-data",
+      disclosure,
+    };
+  }
+  if (
+    deployment.market === "cn-equity" &&
+    !completedBarFilter("day", Date.now())(asOf)
+  )
+    return unavailable("证券池决策日尚未收盘");
+  let hits: PoolCandidateMatch[];
+  try {
+    const raw = await candidates(spec, asOf, { ...deps, readBars }, db);
+    if (raw === null) return unavailable("决策日选股数据不完整");
+    hits = normalizedHits(raw, spec);
+  } catch (error) {
+    return unavailable(error instanceof Error ? error.message : String(error));
+  }
   const sourceHash = usageConfigHash({
     decisionDate: asOf,
     universeSpec: spec,
     hits,
   });
-  const { mode, eviction } = deployment.poolPolicy;
   const current = getActivePoolEntries(deployment.id, db);
+  if (current.some((entry) => entry.lastCheckedDate > asOf))
+    return unavailable("同步日期早于监控池现有记录");
   const old = new Map(current.map((entry) => [entry.symbol, entry]));
   const matched = new Map(hits.map((hit) => [hit.symbol, hit]));
   const active = new Set(matched.keys());
   const missed = new Map<string, number>();
   const evicted: PoolSyncSnapshot["evicted"] = [];
   for (const entry of current) {
-    if (entry.lastCheckedDate > asOf)
-      throw new Error("同步日期早于监控池现有记录");
     const { symbol } = entry;
     const isMatched = matched.has(symbol);
     if (mode === "replace") {
@@ -344,9 +457,18 @@ export async function syncDeploymentPool({
     const needsBars =
       eviction.hardEvictBelowMaDays !== null ||
       (eviction.hardEvictMaxDrawdownPct !== null && entry.entryPrice !== null);
-    const bars = needsBars
-      ? await readDecisionBars(symbol, asOf, deps.readBars)
-      : [];
+    let bars: readonly Bar[] = [];
+    if (needsBars) {
+      try {
+        bars = await readDecisionBars(symbol, asOf, readBars);
+      } catch (error) {
+        return unavailable(
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+      if (bars.at(-1)?.date !== asOf)
+        return unavailable(`${symbol} 缺少核对监控池退出规则所需的日线`);
+    }
     const reason = hardEvictReason(entry, asOf, eviction, bars);
     if (reason) {
       active.delete(symbol);
@@ -405,7 +527,14 @@ export async function syncDeploymentPool({
     }
     let price = hit.price;
     if (price === null && mode === "accumulate") {
-      const bar = (await readDecisionBars(symbol, asOf, deps.readBars)).at(-1);
+      let bar: Bar | undefined;
+      try {
+        bar = (await readDecisionBars(symbol, asOf, readBars)).at(-1);
+      } catch (error) {
+        return unavailable(
+          error instanceof Error ? error.message : String(error),
+        );
+      }
       if (bar?.date === asOf) price = bar.close;
     }
     added.push({ ...hit, metrics, price });

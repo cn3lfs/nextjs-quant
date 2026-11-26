@@ -1,6 +1,7 @@
 "use client";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { formatNumber } from "trading-strategy-core/format-number";
+import { glossary } from "~/lib/common/ui-glossary";
 import { pct } from "./shared";
 
 export function AttributionRows({
@@ -55,7 +56,8 @@ export function AccountAttribution() {
     <section className="space-y-4">
       <h2>策略 / 分仓三方对比</h2>
       <p>
-        同版本同定义的二十市场日入场期望在登记、影子或晋级时自动冻结。缺真实成交/原价及完整来源哈希时保持不可用，不用窗口汇总补造；与前推符合度的交易收益分布分开。
+        同版本同定义的二十市场日入场期望在登记、{glossary.shadow}
+        或晋级时自动冻结。缺真实成交/原价及完整来源哈希时保持不可用，不用窗口汇总补造；与前推符合度的交易收益分布分开。
       </p>
       {query.error && <p role="alert">{query.error.message}</p>}
       <AttributionRows rows={query.data ?? []} />

@@ -1,5 +1,25 @@
 # 当前实施计划
 
+## 当前阶段（2026-11-25）· Iteration 5（v0.4.0 / SQLite v26）Wave 0–4 进行中
+
+从 `master@d73c2534`（`v0.3.0 / v25`）开始，按 [Iteration 5 实施计划](project/2026-11-25-iter5-v040-plan.md)推进。Wave 0 文档入口已拉齐，工程任务包括建立浏览器／原生回归基线和单次 `v25 → v26` 迁移。Wave 1 收口执行、共用账户风控与账本，Wave 2 接通冻结研究交接和 A 股盘中实时预警，Wave 3 已完成全链路研究复算与数据审计，Wave 4 集中验证并核对桌面交付。
+
+## Wave 3 研究验收（行情截至 2026-11-25）
+
+- 股债金默认组与卖出覆盖组共核对 6 笔本地模拟成交，逐笔及两组汇总 Perold 残差均为 0.00 元。旧窗 +34.04% → +13.38% 的主要约束是 10% 单标上限，单独启用时为 +16.97%；单独启用 0.5% ATR 定仓仍为 +34.04%。
+- Alpha 旧窗复现 −71.20%。可观测开盘无摩擦组合已亏 65.07%，1,467 次拒绝中 913 次当天缺有效日线。延长到 20 日调仓后最新净收益仍为 −45.47%，历史行业覆盖为零，维持部署阻断。
+- 六个盘中执行场景均缺独立分钟量证据，收益保留 `null`。五部署单轮规划三次均完成，中位 18.572 秒，最高进程 RSS 400.46 MiB。逐笔账本、分段风控模板与全部对照见 [Wave 3 实证报告](research-backtest/2026-11-26-iter5-closed-loop-empirical.md)。
+
+## 2026-11-25：v0.3.0 交付基线
+
+| 提交 | 已合入内容 |
+| --- | --- |
+| `master@d9aba2a7` | Iteration 4 Milestone 2，统一研究工作室、Perold 三账实施缺口、全天候作战室、Bar Replay 和全市场实证。 |
+| `3af44850` | 研究结果接通次日调仓单，交付宏观择时、情绪状态、价值 PIT 与配对切换。 |
+| `55c9da7d` | `v0.3.0 / SQLite v25`，统一策略流水线、持续候选池、模拟与实盘独立总开关。 |
+| `2f104f33` | 固定内置 `hq.dll 2.0.2` 并移除 DLL 路径配置。 |
+| `d73c2534` | 交付[实测反馈 #1–#20](project/2026-11-25-user-testing-feedback.md)，包括四通道平行账户、三市场图表直接模拟下单、图表指标与筛选交互改造。 |
+
 ## 2026-11-22：回测诊断第二批（量价 / 威科夫）已交付
 
 - 门禁：`pnpm check` 现为异步 `spawn`，每步关闭 stdin、15 分钟单步超时、超时按进程树终止（Windows `taskkill /T`）；`check-result.json` 记录每步耗时与 `timedOut`。完整门禁 6/6 步通过。
@@ -10,7 +30,7 @@
 - 数据：[GBBQ 按标的归因](research-backtest/2026-11-22-data-hardening.md)，无法归属的记录仍阻断 strict；主板 ST 自 2026-07-06 起按 10% 研究口径。
 - 下一阶段可行性：[缠论/成长/RPS](research-backtest/2026-11-22-batch5-feasibility.md)。
 
-## 当前阶段（2026-11-23 重梳）：策略原生适配、PIT 成长与规则健康基线
+## 2026-11-23 阶段记录：策略原生适配、PIT 成长与规则健康基线
 
 完整实施计划见[下一阶段主计划](research-backtest/2026-11-23-phase-plan.md)，前期交接细节见[交接文档](project/2026-11-23-handoff.md)。此前三条特性分支（`feat/global-optimization-20261119`、`feat/thsdk-data-source`、`feat/backtest-infra-p0-degovernance`）均已合入本地 `master`。
 
@@ -21,9 +41,9 @@
 | **M3** | 威科夫口径对齐 + 94-key 真实健康基线                   | 完成 | 对齐 `WY08` `MA60 上升`文字（未改阈值）；`sh600519` `strict` 摸底全部 94 个 catalog key **95/95 ok、0 P0**（88 正常成交 / 6 稀有结构零入场），见[94-key 健康基线](research-backtest/2026-11-23-catalog-94-health.md)                                     |
 | **M4** | 历史成分/退市/ST、周末 bar 第二源、桌面发版与实盘样本  | 挂起 | 依赖外部数据或显式授权；无本地证据前不做横截面外推                                                                                                                                                                                                       |
 
-## 当前阶段（2026-11-24 Iteration 4 Wave 0–4 已交付验收，Milestone 1 已提交 `master@fcf4cdb8`，Milestone 2 待授权提交）：全市场多因子 Alpha、ETF 轮动与执行现实引擎、研究工作室归一、三账实施缺口、全天候作战室与 Bar Replay
+## Iteration 4 Wave 0–4 已交付：全市场 Alpha、ETF 轮动、研究工作室、三账实施缺口、全天候作战室与 Bar Replay
 
-基线提交：`master@e8ef49c0` → `master@fcf4cdb8`（Milestone 1）→ 当前工作树（Milestone 2）。完整蓝图见 [Iteration 4 旗舰主实施计划](project/2026-11-24-iter4-flagship-plan.md)，基于只读 `E:/new_tdx64`（截至 `2026-11-23`）的全市场实证见 [Iteration 4 全市场实证报告](research-backtest/2026-11-24-iter4-flagship-empirical.md)：
+基线提交为 `master@e8ef49c0` → `master@fcf4cdb8`（Milestone 1）→ `master@d9aba2a7`（Milestone 2）。完整蓝图见 [Iteration 4 旗舰主实施计划](project/2026-11-24-iter4-flagship-plan.md)，基于只读 `E:/new_tdx64`（截至 `2026-11-23`）的全市场实证见 [Iteration 4 全市场实证报告](research-backtest/2026-11-24-iter4-flagship-empirical.md)。
 
 - **Milestone 1（Wave 0 + Wave 1 · 已提交 `master@fcf4cdb8`）**：
   - **Wave 0（底座与 Schema v24）**：落地只读 `E:/new_tdx64` 驱动的隔离列式面板 `MarketPanelStore`（实测 5,923 股 + 1,847 ETF + 8 指数 × 8,832 日，冷建 143.15s / 暖校验复用 19.85s / 单日全市场截面 **1.5–1.7 ms**，与 `tstdx/local` 0 价量误差）；补齐按证券×交易日多品种规则（ETF 0 印花税与债券/黄金/跨境 ETF T+0）、回测/纸面/实盘同源 `PortfolioRiskEngine`（5%/8% 回撤熔断、5% 总止损敞口、25% 行业上限、Wilder ATR(14) 0.5% 定仓）与 `ExecutionRealityEngine`（10万/30万/100万 × 多窗口、ADV20 冲击滑点、高开拒追、四大危机切片）；SQLite 向后兼容升至 **`user_version = 24`**（新增 `factor_composites`、`rebalance_plans`，桌面版升 `0.2.0`）。
@@ -79,11 +99,11 @@ Batch 4 收口项：权证 `skippedWarrants` 路径已补测试；`sz000001` 39 
 
 同花顺 `thsdk-hq` 全量接入已在 `feat/thsdk-data-source` 完成 Wave 0–5 并合入 `master`：全局数据源与 `/system` 诊断、`/scan` 盘口/分价/竞价/分时、情绪与板块、问财与资讯，以及图表、公式选股与实验室回测的**可选**输入。交付记录见 [THSDK 交付记录](data-sources/2026-11-19-thsdk-delivery.md)，[实施规格](data-sources/2026-11-19-thsdk-data-source-plan.md)与 [ABI 实证](data-sources/2026-11-19-thsdk-sample-verification.md)保留为背景与证据。
 
-- 驱动为独立 Node 子进程 + `koffi` 直连外部校验过的 `hq.dll`，不依赖 Python/pandas；只读白名单之外的方法在进入 FFI 前拒绝，默认个人账号，游客快速体验为显式开关。
+- 驱动为独立 Node 子进程，通过 `koffi` 直连固定内置 `hq.dll 2.0.2`。构建从 `vendor/thsdk/hq.dll` 准备运行时副本，加载前校验 PE 头和固定 SHA-256。服务默认停用，启用后按账号会话运行，游客快速体验为显式开关。只读白名单之外的方法在进入 FFI 前拒绝。
 - 东财情绪与 IndexedDB 缓存、`src/server/mcp.ts` 均未改动；THS 信号价用原生 `qfq`/`hfq`，成交用同源未复权原价，不二次复权。
 - Wave 5 验收件（`tests/desktop-build/thsdk-package.test.ts`、`tests/e2e/thsdk-acceptance.spec.ts`）已落盘；后续正式打包经明确授权后执行 `pnpm desktop:pack`。
 
-## 当前界面与工程状态（2026-11-19）
+## 2026-11-19 界面与工程验收记录
 
 七工作区重构已 7/7 实机验收：今日交易、行情看盘、选股筛选、策略回测、持仓复盘、资讯研报、系统设置。统一降噪原语（`MethodologyPopover`、`FilterToolbar`、`RiskDistanceBar`、`MonthlyReturnsHeatmap`）与两档密度已落地；工程门禁与双宽度截图证据见 [优化交付](project/2026-11-19-trading-software-benchmark.md)。后续候选能力回到对标报告的 Phase 2 / Phase 3 储备池，立项前回答数据能否支撑、是否需要新授权、验收用什么真实样本。
 
@@ -139,11 +159,11 @@ A 股 118 条、BTC/ETH 114 条完整日线规则完成开发窗基准成本回�
 
 ## 当前待办与剩余验证
 
-1. **THSDK 收口**：合入 `master` 前集中执行 `pnpm check` 与 `pnpm e2e`，并按授权核对桌面安装包；期权 Greeks、港美股与盘前盘后等扩展能力按实际需求再立项。
+1. **Iteration 5 集成回归**：按文首计划核对固定内置 THSDK、三市场图表下单与桌面原生场景，按授权核对目标版本桌面包。期权 Greeks、港美股和盘前盘后按实际需求另行立项。
 2. **成交执行质量**：`accountExecutionQuality` 与复盘已实现，尚缺真实账户的持续运行样本、外部场所联调与长期一致性观察；不因此恢复旧任务书或旧执行入口。
 3. **A 股数据缺口**：历史证券池、非现金公司行动、财务首次披露版本与真实可成交证据按方法逐项登记；缺证据只阻断相应结论。
 4. **外部数据成功态补验**：外部行情成功态、历史盘中批次、行业/概念 RPS 有数据态与桌面原生焦点，按实际可用环境只读补验。
-5. **SQLite 调用收敛**：数据层外的保留调用按登记理由维持；只有实测瓶颈证明需要时才迁移或设计物理表，没有预设 schema 升级。
+5. **SQLite v26**：本轮执行已批准的单次向后兼容迁移；其余数据层外的保留调用沿用登记理由。
 
 ## 持续边界
 

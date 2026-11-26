@@ -1,3 +1,21 @@
+import Database from "better-sqlite3";
+import { migrate } from "~/server/db/migrations";
+import { loadAccountBook } from "~/server/portfolio/account-workspace-service";
+import { AccountWorkspaceRepository } from "~/server/db/account-workspace-repository";
+import {
+  createDeployment,
+  setGlobalAutoSimEnabled,
+} from "~/server/db/deployment-repository";
+import {
+  getOrCreatePipelineRun,
+  insertOrderIntents,
+} from "~/server/db/pipeline-repository";
+import { executePipelineRun } from "~/server/execution/pipeline-executor";
+import { runPipelinePlanning } from "~/server/pipeline/signal-risk-runner";
+import {
+  createSimAccount,
+  executePipelineSimOrder,
+} from "~/server/portfolio/sim-accounts/service";
 import { createTRPCClient, httpBatchStreamLink } from "@trpc/client";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import SuperJSON from "superjson";
@@ -997,5 +1015,393 @@ describe("account-backed read services", () => {
         operation: "read",
       });
     }
+  });
+});
+
+describe("automatic local execution shortfall", () => {
+  async function withExecution(
+    runTest: (
+      db: Database.Database,
+      account: string,
+      foreign: string,
+    ) => Promise<void>,
+    carryPosition = false,
+  ) {
+    const db = new Database(":memory:");
+    const clock = vi.spyOn(Date, "now").mockReturnValue(signalAt);
+    try {
+      migrate(db);
+      setGlobalAutoSimEnabled(true, db);
+      const submit = async (name: string, referencePrice: number) => {
+        clock.mockReturnValue(signalAt);
+        const { id: account } = createSimAccount(
+          { name, market: "cn-equity", initialCapital: "10000" },
+          db,
+        );
+        if (carryPosition && name === "first") {
+          executePipelineSimOrder(
+            {
+              accountId: account,
+              clientRequestId: "prior",
+              symbol: otherSymbol,
+              side: "buy",
+              quantity: 100,
+              price: 9,
+              tradeDate: "2026-11-23",
+            },
+            db,
+            signalAt,
+          );
+        }
+        const dep = createDeployment(
+          {
+            name,
+            market: "cn-equity",
+            status: "active",
+            executionMode: "auto_sim",
+            strategySpec: { kind: "study-rule", strategyId: "breakout" },
+            universeSpec: { kind: "fixed-symbols", symbols: [symbol] },
+            regimeGate: { kind: "none" },
+            riskPolicy: { maxGapPct: 0.1 },
+            venueBinding: { kind: "local_sim", simAccountId: account },
+            schedule: { kind: "manual_only" },
+            provenance: { sourceKind: "manual" },
+          },
+          db,
+        );
+        const { run } = getOrCreatePipelineRun(
+          {
+            deploymentId: dep.id,
+            decisionDate: "2026-11-23",
+            executeDate: terminalDate,
+            triggerKind: "manual",
+          },
+          db,
+        );
+        insertOrderIntents(
+          run.id,
+          [
+            {
+              runId: run.id,
+              deploymentId: dep.id,
+              venueKind: "local_sim",
+              symbol,
+              phase: 2,
+              side: "BUY",
+              quantity: 100,
+              referencePrice,
+            },
+          ],
+          db,
+        );
+        clock.mockReturnValue(filledAt);
+        await executePipelineRun(
+          {
+            runId: run.id,
+            executeDate: terminalDate,
+            deps: {
+              now: () => filledAt,
+              readQuote: async (requestedSymbol) => ({
+                symbol: requestedSymbol,
+                tradeDate: terminalDate,
+                observedAt: filledAt,
+                openPrice: 10.2,
+                lastPrice: 10.2,
+                prevClose: 10,
+                upperLimit: 11,
+                lowerLimit: 9,
+                suspended: false,
+              }),
+            },
+          },
+          db,
+        );
+        return account;
+      };
+      await runTest(
+        db,
+        await submit("first", 10),
+        await submit("second", 10.1),
+      );
+    } finally {
+      clock.mockRestore();
+      db.close();
+    }
+  }
+  const report = (
+    db: Database.Database,
+    account: string,
+    scope: "local_sim" | "ths_mock" = "local_sim",
+    from = terminalDate,
+  ) =>
+    readImplementationShortfall(
+      { scope, account, from, to: terminalDate },
+      async () => {
+        const fixture = accountBook();
+        const book = await loadAccountBook(
+          new AccountWorkspaceRepository(db),
+          undefined,
+          at,
+          {
+            bars: fixture.bars,
+            context: { ...fixture.context, calendar: fixture.calendar },
+          },
+        );
+        // The fixture also supplies terminal marks for proposals clipped to
+        // zero. Those instruments never appear in the account's trade list.
+        return { ...book, bars: { ...fixture.bars, ...book.bars } };
+      },
+      at,
+      db,
+    );
+
+  it.each([
+    {
+      maxWeight: 0.15,
+      planned: 600,
+      price: 9,
+      executable: 500,
+      opportunityCost: 500,
+    },
+    {
+      maxWeight: 0.01,
+      planned: 0,
+      price: 9,
+      executable: 0,
+      opportunityCost: 1000,
+    },
+    {
+      maxWeight: 0.025,
+      planned: 100,
+      price: 9.18,
+      executable: 0,
+      opportunityCost: 1000,
+    },
+  ])(
+    "理论 1000 股，计划 $planned 股，到达价 $price 元，成交 $executable 股，三账残差为零",
+    async ({ maxWeight, planned, price, executable, opportunityCost }) => {
+      const decisionDate = "2026-10-30",
+        executeDate = "2026-11-02";
+      const clock = vi
+        .spyOn(Date, "now")
+        .mockReturnValue(chinaTime(decisionDate, "16:00:00"));
+      const db = new Database(":memory:");
+      try {
+        migrate(db);
+        setGlobalAutoSimEnabled(true, db);
+        const { id: account } = createSimAccount(
+          { name: "规则裁剪", market: "cn-equity", initialCapital: "36000" },
+          db,
+        );
+        const dep = createDeployment(
+          {
+            name: "月末配置",
+            market: "cn-equity",
+            status: "active",
+            executionMode: "auto_sim",
+            strategySpec: { kind: "macro-clock" },
+            universeSpec: { kind: "fixed-symbols", symbols: [symbol] },
+            regimeGate: { kind: "none", unlockAvoidanceDays: 0 },
+            riskPolicy: { maxSymbolWeight: maxWeight },
+            venueBinding: { kind: "local_sim", simAccountId: account },
+            schedule: { kind: "manual_only" },
+            provenance: { sourceKind: "manual" },
+          },
+          db,
+        );
+        const { run, intents } = await runPipelinePlanning(
+          {
+            deploymentId: dep.id,
+            decisionDate,
+            executeDate,
+            triggerKind: "manual",
+            deps: {
+              universe: { readBars: () => [] },
+              readReferencePrice: () => 9,
+              strategy: {
+                readTradingSessions: () => [decisionDate, executeDate],
+                resolveMacroClock: () => ({
+                  regime: "recovery",
+                  targets: { [symbol]: 0.25 },
+                }),
+              },
+            },
+          },
+          db,
+        );
+        expect(run.riskVerdict).toMatchObject({
+          theoreticalOrders: [
+            {
+              symbol,
+              side: "BUY",
+              theoreticalQuantity: 1000,
+              referencePrice: 9,
+            },
+          ],
+        });
+        expect(intents.map((i) => i.quantity)).toEqual(
+          planned ? [planned] : [],
+        );
+        clock.mockReturnValue(chinaTime(executeDate, "09:35:00"));
+        await executePipelineRun(
+          {
+            runId: run.id,
+            executeDate,
+            deps: {
+              readQuote: () => ({
+                symbol,
+                tradeDate: executeDate,
+                observedAt: Date.now(),
+                openPrice: price,
+                lastPrice: price,
+                upperLimit: 9.9,
+                lowerLimit: 8.1,
+                prevClose: 9,
+                suspended: false,
+              }),
+            },
+          },
+          db,
+        );
+        const result = await report(db, account, "local_sim", executeDate);
+        expect(result.missing).toEqual([]);
+        expect(result.rows).toMatchObject([
+          {
+            theoreticalQuantity: 1000,
+            executableQuantity: executable,
+            matchedQuantity: executable,
+          },
+        ]);
+        const rec = result.reconciliation!;
+        expect(rec.amounts.missedTradeOpportunityCost.cny).toBe(
+          opportunityCost,
+        );
+        expect(
+          shortfallComponentKeys.reduce(
+            (cents, key) => cents + Math.round(rec.amounts[key].cny * 100),
+            Math.round(rec.terminalDiff * 100),
+          ),
+        ).toBe(0);
+      } finally {
+        db.close();
+        clock.mockRestore();
+      }
+    },
+  );
+
+  it("reconciles the five costs exactly to actual settled cash and ignores the other account's identical fill sequence", async () => {
+    await withExecution(async (db, account, foreign) => {
+      const result = await report(db, account);
+      expect(result.missing).toEqual([]);
+      expect(result.rows).toHaveLength(1);
+      expect(result.rows[0]?.fills[0]?.matchedQuantity).toBe(100);
+      const row = db
+        .prepare<[string], { fees: number; slippage: number; cash: number }>(
+          `SELECT (commission_atoms+transfer_atoms+tax_atoms)/100.0 fees, slippage_atoms/100.0 slippage,
+      (SELECT SUM(delta_atoms) FROM sim_cash_flows WHERE account_id=f.account_id)/100.0 cash FROM sim_fills f WHERE account_id=?`,
+        )
+        .get(account)!;
+      const rec = result.reconciliation!;
+      expect(rec.actualTerminalValue).toBe(row.cash + 100 * 10);
+      expect(rec.amounts.signalToArrivalDelay.cny).toBe(20);
+      expect(rec.amounts.feeDifference.cny).toBe(row.fees);
+      expect(row.slippage).toBeGreaterThan(0);
+      expect(rec.amounts.arrivalToFillSlippage.cny).toBe(row.slippage);
+      const cents = (amount: number) => Math.round(amount * 100);
+      expect(
+        shortfallComponentKeys.reduce(
+          (total, key) => total + cents(rec.amounts[key].cny),
+          cents(rec.terminalDiff),
+        ),
+      ).toBe(0);
+      const other = await report(db, foreign);
+      expect(other.reconciliation?.amounts.signalToArrivalDelay.cny).toBe(10);
+      expect(other.rows[0]?.fills[0]?.tradeId).not.toBe(
+        result.rows[0]?.fills[0]?.tradeId,
+      );
+    });
+  });
+  it("values a carry-in holding at the prior close and keeps the previous fill outside current-window attribution", async () => {
+    await withExecution(async (db, account) => {
+      const result = await report(db, account);
+      const cash = db
+        .prepare<[number, string], { prior: number; current: number }>(
+          `SELECT
+        SUM(CASE WHEN occurred_at < ? THEN delta_atoms ELSE 0 END)/100.0 prior,
+        SUM(delta_atoms)/100.0 current FROM sim_cash_flows WHERE account_id=?`,
+        )
+        .get(arrivalAt, account)!;
+      expect(result.status).toBe("complete");
+      expect(result.rows).toHaveLength(1);
+      expect(result.openingNav).toBe(cash.prior + 100 * 10);
+      expect(result.reconciliation?.actualTerminalValue).toBe(
+        cash.current + 200 * 10,
+      );
+    }, true);
+  });
+  it("resolves a scoped order-only link and keeps ticket-only evidence separate from executable quantities", async () => {
+    await withExecution(async (db, account) => {
+      db.prepare(
+        "UPDATE execution_fill_links SET intent_id=NULL WHERE account_id=?",
+      ).run(account);
+      expect((await report(db, account)).status).toBe("complete");
+      const order = {
+        symbol,
+        side: "buy",
+        quantity: 200,
+        atrStopPrice: 9,
+        maxBuyPrice: 11,
+        conditional: false,
+        riskChecks: [
+          {
+            code: "ticket.estimate.v1",
+            status: "passed",
+            detail: JSON.stringify({ close: 9.5, estimatedFeesCny: 5 }),
+          },
+        ],
+      };
+      db.prepare(
+        `INSERT INTO rebalance_plans
+        (id,account_scope,account_id,source_kind,source_ref_id,as_of_date,execute_date,status,orders_json,risk_summary_json,expires_at,created_at,updated_at)
+        VALUES ('ticket','paper','original','manual','source','2026-11-23',?,'confirmed',?,'{}',?,?,?)`,
+      ).run(terminalDate, JSON.stringify([order]), at, signalAt, signalAt);
+      db.prepare(
+        "UPDATE execution_order_intents SET venue_order_id=NULL WHERE json_extract(venue_binding_json,'$.simAccountId')=?",
+      ).run(account);
+      db.prepare(
+        "UPDATE execution_fill_links SET rebalance_plan_id='ticket' WHERE account_id=?",
+      ).run(account);
+      const ticket = await report(db, account);
+      const row = ticket.rows.find(
+        (r) => r.instructionId === JSON.stringify(["ticket", symbol, "buy"]),
+      );
+      expect(row).toMatchObject({
+        theoreticalQuantity: 200,
+        nominalCny: 1900,
+        executableQuantity: null,
+      });
+      expect(row?.fills).toHaveLength(1);
+      expect(ticket.reconciliation).toBeNull();
+    });
+  });
+  it("keeps absent arrival, missing scoped links and unverified THS fills incomplete", async () => {
+    await withExecution(async (db, account, foreign) => {
+      db.prepare(
+        "UPDATE execution_fill_links SET arrival_price=NULL WHERE account_id=?",
+      ).run(account);
+      const absent = await report(db, account);
+      expect(absent.missing.map((m) => m.field)).toContain("arrivalPrice");
+      expect(absent.reconciliation).toBeNull();
+      db.prepare("DELETE FROM execution_fill_links WHERE account_id=?").run(
+        account,
+      );
+      const legacy = await report(db, account);
+      expect(legacy.missing.map((m) => m.field)).toContain("fillLink");
+      expect(legacy.reconciliation).toBeNull();
+      expect((await report(db, foreign)).status).toBe("complete");
+      const ths = await report(db, account, "ths_mock");
+      expect(ths.missing.map((m) => m.field)).toContain("actualFills");
+      expect(ths.rows).toEqual([]);
+    });
   });
 });

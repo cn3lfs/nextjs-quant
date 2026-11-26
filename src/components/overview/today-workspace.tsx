@@ -13,7 +13,7 @@ import {
   type MethodologyItem,
 } from "../panels";
 import { Button } from "../ui/button";
-import { alertModeLabel } from "~/lib/common/ui-glossary";
+import { alertModeLabel, glossary } from "~/lib/common/ui-glossary";
 import { CandidateTable, type WorkspaceCandidate } from "./candidate-table";
 import { useSecurityNames } from "../market/use-security-names";
 import {
@@ -62,6 +62,11 @@ const Intraday = dynamic(() =>
 const PipelineConsole = dynamic(() =>
   import("../pipeline/pipeline-console").then((m) => m.PipelineConsole),
 );
+const IntradayAlertWorkspace = dynamic(() =>
+  import("../signals/intraday-alert-workspace").then(
+    (m) => m.IntradayAlertWorkspace,
+  ),
+);
 const closeScanLabel: Record<CloseScanPhase, string> = {
   "unknown-date": "基准交易日未知",
   waiting: "等待收盘",
@@ -71,7 +76,8 @@ const closeScanLabel: Record<CloseScanPhase, string> = {
   complete: "流程已结束",
 };
 
-type TodayTab = "today" | "overview" | "intraday" | "pipeline";
+type TodayTab =
+  "today" | "overview" | "intraday" | "intraday-alerts" | "pipeline";
 
 /** One of the six fixed summary cells; unknown values stay an em dash. */
 function RibbonCell({
@@ -163,7 +169,10 @@ export function TodayWorkspace() {
   const search = useSearchParams();
   const rawTab = search.get("tab");
   const tab: TodayTab =
-    rawTab === "overview" || rawTab === "intraday" || rawTab === "pipeline"
+    rawTab === "overview" ||
+    rawTab === "intraday" ||
+    rawTab === "intraday-alerts" ||
+    rawTab === "pipeline"
       ? rawTab
       : "today";
   return (
@@ -185,6 +194,15 @@ export function TodayWorkspace() {
             </h1>
           </header>
           <PipelineConsole />
+        </>
+      ) : tab === "intraday-alerts" ? (
+        <>
+          <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-nc-border-soft pb-2">
+            <h1 className="m-0 text-[length:var(--nc-font-size-page)] leading-[var(--nc-line-height-page)] font-semibold whitespace-nowrap text-nc-text">
+              盘中预警
+            </h1>
+          </header>
+          <IntradayAlertWorkspace />
         </>
       ) : tab === "intraday" ? (
         <>
@@ -448,12 +466,7 @@ function DailyDecision() {
         ? "收盘已核验"
         : "等待收盘";
   const stopRisks = d.holdings === null ? null : risks.length;
-  const modeValue =
-    d.mode === "live"
-      ? "正式提醒"
-      : d.mode === "shadow"
-        ? "观察模式"
-        : "已关闭";
+  const modeValue = alertModeLabel(d.mode);
   const modeNote =
     d.mode === "live"
       ? `${alertModeLabel("live")}（已开启推送）`
@@ -505,7 +518,7 @@ function DailyDecision() {
     },
     {
       label: "明日计划的来源",
-      detail: `收盘扫描与观察模式候选，逐条标明观察时点；历史候选需核对行情，不是当次推荐。数字货币按下一完成周期。当前基准交易日 ${close.date ?? "待交易日历"}，收盘扫描${closeScanLabel[close.phase]}。`,
+      detail: `收盘扫描与${glossary.shadow}候选，逐条标明观察时点；历史候选需核对行情，不是当次推荐。数字货币按下一完成周期。当前基准交易日 ${close.date ?? "待交易日历"}，收盘扫描${closeScanLabel[close.phase]}。`,
     },
     {
       label: "数量与滑点",
@@ -523,8 +536,7 @@ function DailyDecision() {
     },
     {
       label: "提醒与本地模拟盘",
-      detail:
-        "观察模式只记录不推送，正式提醒需要已启用的订阅；本地模拟盘只记录模拟成交与权益，不连接真实券商。",
+      detail: `${glossary.shadow}只记录不推送，正式提醒需要已启用的订阅；本地模拟盘只记录模拟成交与权益，不连接真实券商。`,
     },
   ] satisfies readonly MethodologyItem[];
   const plannableSources = (row: WorkspaceCandidate) =>
@@ -639,7 +651,7 @@ function DailyDecision() {
           note={modeHint}
           href="/system/notifications"
           tone={d.mode === "off" ? "warn" : undefined}
-          title="观察模式只记录不推送；正式提醒需要已启用的订阅"
+          title={`${glossary.shadow}只记录不推送；正式提醒需要已启用的订阅`}
         />
         <RibbonCell
           label="本地模拟盘"

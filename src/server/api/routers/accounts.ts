@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
-  accountPageSchema,
+  accountKindFilter,
+  unifiedAccountPageSchema,
   accountReviewSettingsSchema,
   stopStatusFor,
   tradeLinkSchema,
@@ -25,6 +26,7 @@ import {
   tradeJournalSchema,
   reviewTradeFingerprint,
 } from "~/lib/portfolio/account-review";
+import { AccountWorkspaceRepository } from "../../db/account-workspace-repository";
 import { AccountReviewRepository } from "../../db/account-review-repository";
 import { monthlyAccountReview } from "../../portfolio/account-monthly-review";
 import { settings, saveSettings } from "../../infra/settings";
@@ -70,9 +72,7 @@ export const accountsRouter = createTRPCRouter({
     .input(
       z.object({
         page: z.number().int().nonnegative().max(1000000).default(0),
-        kind: z
-          .enum(["real", "paper", "exchange-simulation", "all"])
-          .default("real"),
+        kind: accountKindFilter.default("real"),
         symbol: z.string().max(80).default(""),
         tradeId: z.string().max(500).optional(),
       }),
@@ -89,7 +89,7 @@ export const accountsRouter = createTRPCRouter({
     return { items: touched.slice(0, 20), total: touched.length };
   }),
   accountPositions: p("portfolio", "read")
-    .input(accountPageSchema)
+    .input(unifiedAccountPageSchema)
     .query(async ({ input }) =>
       pageAccountBook(await loadAccountBook(), input),
     ),
@@ -114,22 +114,31 @@ export const accountsRouter = createTRPCRouter({
   linkAccountTrade: p("portfolio", "configure")
     .input(tradeLinkSchema)
     .mutation(async ({ input }) =>
-      linkAccountTrade(input, await loadAccountBook()),
+      linkAccountTrade(
+        input,
+        await loadAccountBook(new AccountWorkspaceRepository()),
+      ),
     ),
   accountLinkSuggestions: p("portfolio", "read")
     .input(z.object({ batchId: z.string().max(200).optional() }).default({}))
     .query(async ({ input }) =>
-      accountLinkSuggestions(await loadAccountBook(), input.batchId),
+      accountLinkSuggestions(
+        await loadAccountBook(new AccountWorkspaceRepository()),
+        input.batchId,
+      ),
     ),
   confirmAccountLinks: p("portfolio", "configure")
     .input(batchTradeLinksSchema)
     .mutation(async ({ input }) =>
-      confirmAccountLinks(input, await loadAccountBook()),
+      confirmAccountLinks(
+        input,
+        await loadAccountBook(new AccountWorkspaceRepository()),
+      ),
     ),
   accountJournalContext: p("portfolio", "read")
     .input(z.string().min(1).max(500))
     .query(async ({ input }) => {
-      const book = await loadAccountBook(),
+      const book = await loadAccountBook(new AccountWorkspaceRepository()),
         trade = book.trades.find((t) => t.id === input);
       if (!trade) throw new Error("成交不存在");
       const fingerprint = reviewTradeFingerprint(trade),
@@ -144,7 +153,10 @@ export const accountsRouter = createTRPCRouter({
   saveTradeJournal: p("portfolio", "configure")
     .input(tradeJournalSchema)
     .mutation(async ({ input }) =>
-      saveTradeJournal(input, await loadAccountBook()),
+      saveTradeJournal(
+        input,
+        await loadAccountBook(new AccountWorkspaceRepository()),
+      ),
     ),
   accountExecutionQuality: p("portfolio", "read")
     .input(

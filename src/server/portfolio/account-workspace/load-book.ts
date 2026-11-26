@@ -1,80 +1,137 @@
-import { type Bar } from "~/lib/domain";
+import { settingsSchema, type Bar, type Settings } from "~/lib/domain";
 import { chinaClock } from "~/lib/strategy-facts/notification-policy";
-import { industryGroupsFor } from "~/lib/portfolio/account-workspace";
-import { AccountWorkspaceRepository } from "../../db/account-workspace-repository";
-import { settings } from "../../infra/settings";
-import { readBars } from "../../market/bar-store/read-bars";
-import { tradeContext } from "../trade-ledger-service";
-import { binanceArchiveSource } from "../../market/bar-store/binance-archive-source";
+import {
+  industryGroupsFor,
+  type AccountMarket,
+} from "~/lib/portfolio/account-workspace";
+import {
+  emptyAccountFacts,
+  openAccountWorkspaceRead,
+  type AccountWorkspaceRepository,
+} from "../../db/account-workspace-repository";
+import { readAccountEquitySource, readBookContext } from "./read-sources";
+import type { tradeContext } from "../trade-ledger-service";
+import { readPublicData } from "../../data-sources/binance/public-data-store";
 import { readIndustryBlocks } from "../../market/industry-blocks";
 import { createPositionLedgers } from "./position-ledgers";
 import { readRealPositions } from "./real-positions";
 import { readSimulatedPositions } from "./simulated-positions";
+import { readDirectSimulation } from "./direct-simulation";
 
 export type AccountBook = Awaited<ReturnType<typeof loadAccountBook>>;
 /** No remote balance refresh, writes, notification or order calls on this path. */
 export async function loadAccountBook(
-  repo = new AccountWorkspaceRepository(),
-  config = settings(),
+  repo?: AccountWorkspaceRepository,
+  config?: Settings,
   now = Date.now(),
   dependencies: {
     context?: Awaited<ReturnType<typeof tradeContext>>;
     bars?: Record<string, Bar[]>;
+    /** All book sources are local. Kept for existing callers. */
     localOnly?: boolean;
   } = {},
 ) {
-  const facts = repo.snapshot(),
-    context = dependencies.context ?? (await tradeContext());
+  const reader = repo ? undefined : openAccountWorkspaceRead();
+  const repository = repo ?? reader?.repo;
+  try {
+    return await projectAccountBook(
+      repository,
+      config ?? settingsSchema.parse(repository?.record("settings") ?? {}),
+      now,
+      dependencies,
+    );
+  } finally {
+    reader?.close();
+  }
+}
+
+async function projectAccountBook(
+  repo: AccountWorkspaceRepository | null | undefined,
+  config: Settings,
+  now: number,
+  dependencies: NonNullable<Parameters<typeof loadAccountBook>[3]>,
+) {
+  const facts = repo?.snapshot(now) ?? emptyAccountFacts();
+  const context =
+    dependencies.context ?? (await readBookContext(config, now, repo));
   const today = chinaClock(now),
+    utcDate = new Date(now).toISOString().slice(0, 10),
     bars: Record<string, Bar[]> = {};
-  const symbols = [
-    ...new Set([
-      ...facts.fills.map((f) => f.symbol ?? f.code),
-      ...facts.local.map((t) => t.symbol),
-      ...facts.crypto.flatMap(
-        (c) => c.snapshot?.positions.map((p) => p.symbol) ?? [],
-      ),
-    ]),
-  ];
-  for (const symbol of symbols) {
-    const market = /USDT$/.test(symbol) ? "crypto" : "cn-equity";
+  const symbols = new Map<string, AccountMarket>();
+  for (const f of facts.fills) symbols.set(f.symbol ?? f.code, "cn-equity");
+  for (const t of facts.local) symbols.set(t.symbol, "cn-equity");
+  for (const { snapshot } of facts.crypto)
+    for (const position of snapshot?.positions ?? [])
+      symbols.set(position.symbol, "crypto");
+  for (const { account, positions, trades } of facts.localSim) {
+    for (const trade of trades) symbols.set(trade.symbol, account.market);
+    for (const position of positions)
+      symbols.set(position.symbol, account.market);
+  }
+  for (const account of facts.futuresSim)
+    for (const position of account.positions)
+      symbols.set(position.symbol, "futures");
+
+  const cryptoBars = new Map<string, Bar[]>();
+  for (const [symbol, market] of symbols) {
     try {
-      const result = dependencies.bars
-        ? { bars: dependencies.bars[symbol] ?? [] }
-        : market === "crypto"
-          ? await binanceArchiveSource({
-              symbol: `cx${symbol}`,
-              period: "day",
-              configuredRoot: config.binancePublicDataRoot,
+      let candidates: Bar[] = [];
+      if (market === "crypto") {
+        const pair = symbol.replace(/^cx/i, "");
+        if (dependencies.bars) {
+          candidates =
+            dependencies.bars[symbol] ??
+            dependencies.bars[pair] ??
+            dependencies.bars[`cx${pair}`] ??
+            [];
+        } else {
+          if (!cryptoBars.has(pair)) {
+            const { rows } = await readPublicData(pair, "1d", {
+              root: config.binancePublicDataRoot,
               now,
-            })
-          : await readBars({
-              instrument: { market, symbol },
-              root: config.tdxRoot,
-              period: "day",
-              adjustment: "none",
-              ...(dependencies.localOnly
-                ? { live: false, source: "local" as const }
-                : {}),
             });
-      bars[symbol] = (result?.bars ?? []).filter(
-        (b) =>
-          b.date.slice(0, 10) <
-            (market === "crypto"
-              ? new Date(now).toISOString().slice(0, 10)
-              : today.date) ||
-          (market === "cn-equity" &&
-            b.date.slice(0, 10) === today.date &&
-            today.time >= "15:05"),
-      );
+            cryptoBars.set(
+              pair,
+              rows.map((row) => row.bar),
+            );
+          }
+          candidates = cryptoBars.get(pair)!;
+        }
+      } else if (dependencies.bars) {
+        candidates = dependencies.bars[symbol] ?? [];
+      } else if (market === "cn-equity") {
+        candidates = await readAccountEquitySource(
+          config.tdxRoot,
+          symbol,
+          repo,
+        );
+      }
+      const dateLimit = market === "cn-equity" ? today.date : utcDate;
+      bars[symbol] = candidates
+        .filter((bar) => {
+          const date = bar.date.slice(0, 10);
+          if (!Number.isFinite(bar.close) || bar.close <= 0) return false;
+          if (bar.date.length > 10 && !(Date.parse(bar.date) <= now))
+            return false;
+          return (
+            date < dateLimit ||
+            (market === "cn-equity" &&
+              date === dateLimit &&
+              today.time >= "15:05")
+          );
+        })
+        .sort((a, b) => a.date.localeCompare(b.date));
     } catch {
       bars[symbol] = [];
     }
   }
 
   const ledgers = createPositionLedgers(facts);
-  readRealPositions(ledgers, facts, context, repo, bars, today);
-  readSimulatedPositions(ledgers, facts, repo);
+  if (repo) {
+    readRealPositions(ledgers, facts, context, repo, bars, today);
+    readSimulatedPositions(ledgers, facts, repo);
+  }
+  readDirectSimulation(ledgers, facts, bars);
   const { positions, trades } = ledgers;
   const industryBySymbol = new Map<string, string[]>();
   let industrySource: {
@@ -113,7 +170,7 @@ export async function loadAccountBook(
   }
   for (const p of positions.filter((p) => p.market === "crypto"))
     p.industryGroups = industryGroupsFor(p);
-  repo.assertVersion(facts.version);
+  repo?.assertVersion(facts.version);
   return {
     facts,
     positions,

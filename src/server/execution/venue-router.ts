@@ -9,11 +9,14 @@ import {
   type ExecutionVenueKind,
   type VenueBinding,
 } from "trading-strategies";
+import { cnTradingCalendar } from "../pipeline/cn-trading-calendar";
+import { externalAccountDrawdown } from "../pipeline/external-account-risk";
 import { chinaDate } from "~/lib/market/security-trading-status";
 import { sqlite } from "../db";
 import { AccountWorkspaceRepository } from "../db/account-workspace-repository";
 import { getPipelineGlobalConfig } from "../db/deployment-repository";
 import { getIntent, type OrderIntentRecord } from "../db/pipeline-repository";
+import { normalizePoolSymbol } from "../db/pool-repository";
 import { SimAccountRepository } from "../db/sim-account-repository";
 import {
   readLocalSimAccountState,
@@ -29,6 +32,7 @@ import {
 } from "../portfolio/mock/mock-trading-service";
 import {
   MockTradingAdapter,
+  MockSubmissionBlocked,
   type MockAccount,
 } from "../portfolio/mock/mock-trading";
 import { workflowQuotes } from "../jobs/workflow-quotes";
@@ -59,6 +63,11 @@ const resultSchema = z.object({
   venueOrderId: z.string().min(1).nullable(),
   filledQuantity: z.number().finite().nonnegative().nullable(),
   averageFillPrice: z.number().positive().finite().nullable(),
+  fee: z.number().finite().nonnegative().optional(),
+  grossWithoutFee: z.number().finite().nonnegative().optional(),
+  netProceeds: z.number().finite().optional(),
+  fillId: z.string().min(1).optional(),
+  fillIds: z.array(z.string().min(1)).optional(),
   errorSummary: z.string().nullable().optional(),
 });
 export type VenueOrderResult = z.infer<typeof resultSchema>;
@@ -67,15 +76,19 @@ type Submission = {
   executeDate: string;
   executePrice: number;
   db: Db;
+  submissionBlock?: () => string | null;
   quote?: { upperLimit: number | null; lowerLimit: number | null };
 };
 export interface ExecutionVenueAdapter {
   kind: ExecutionVenueKind;
   isLive: boolean;
+  /** Additional buy increment required by this venue’s A-share order contract. */
+  cnBuyStep?: number;
   readAccountState(
     binding: VenueBinding,
     asOfDate: string,
     db?: Db,
+    asOfCreatedAt?: number,
   ): Promise<PipelineAccountState>;
   submitOrder(intent: Intent, context: Submission): Promise<VenueOrderResult>;
   reconcileOrder(
@@ -134,7 +147,10 @@ export function submissionDateExpired(
     return executeDate !== new Date(now()).toISOString().slice(0, 10);
   if (venueKind === "crypto_sim")
     return executeDate < new Date(now()).toISOString().slice(0, 10);
-  return isLiveVenueKind(venueKind) && executeDate !== chinaDate(now());
+  return (
+    (venueKind === "ths_mock" || isLiveVenueKind(venueKind)) &&
+    executeDate !== chinaDate(now())
+  );
 }
 function result(
   status: VenueOrderResult["status"],
@@ -177,6 +193,10 @@ function fromReceipt(
   return {
     status: "filled",
     venueOrderId: receipt.orderId,
+    fillId: receipt.fillId,
+    ...(receipt.side === "sell" && {
+      netProceeds: Number(receipt.netCashDelta),
+    }),
     filledQuantity: Number(receipt.quantity),
     averageFillPrice: Number(receipt.price),
   };
@@ -210,8 +230,9 @@ function localAdapter(binding: Binding<"local_sim">): ExecutionVenueAdapter {
   return {
     kind: binding.kind,
     isLive: false,
-    readAccountState: (_, date, db = sqlite()) =>
-      readLocalSimAccountState(accountId, date, db),
+    cnBuyStep: 100,
+    readAccountState: (_, date, db = sqlite(), cutoff) =>
+      readLocalSimAccountState(accountId, date, db, undefined, date, cutoff),
     async submitOrder(intent, { executePrice, executeDate, db }) {
       try {
         return fromReceipt(
@@ -240,12 +261,13 @@ function localAdapter(binding: Binding<"local_sim">): ExecutionVenueAdapter {
   };
 }
 
-function thsAdapter(): ExecutionVenueAdapter {
+function thsAdapter(now = Date.now): ExecutionVenueAdapter {
   return {
     kind: "ths_mock",
     isLive: false,
+    cnBuyStep: 100,
     async readAccountState(_, date) {
-      if (!mockEnabled() || date !== chinaDate(Date.now()))
+      if (!mockEnabled() || date !== chinaDate(now()))
         throw new Error("同花顺模拟盘仅可查询已开启账户的当日状态");
       const reader = new MockTradingAdapter({
         enabled: mockEnabled,
@@ -255,31 +277,40 @@ function thsAdapter(): ExecutionVenueAdapter {
         },
       });
       const [funds, holdings] = await Promise.all([
-        queryMockFunds(),
-        reader.positions(),
+        queryMockFunds().catch(() => []),
+        reader.positions().catch(() => null),
       ]);
-      if (funds.length !== 1) throw new Error("模拟盘资金快照不完整");
+      if (!holdings) return externalSnapshot(null);
       const quotes = holdings.length
         ? await workflowQuotes(
             holdings.map((p) => p.symbol),
             date,
-          )
+          ).catch(() => new Map<string, { price: number }>())
         : new Map<string, { price: number }>();
-      let equity = new Big(funds[0]!.zjye);
+      const fund = funds.length === 1 ? funds[0] : undefined;
+      let equity = fund ? new Big(fund.zjye) : null;
       const positions = holdings.map(({ symbol, quantity, sellable }) => {
-        const lastPrice = quotes.get(symbol)?.price;
-        if (!lastPrice) throw new Error("模拟盘持仓缺少估值行情");
-        equity = equity.plus(new Big(quantity).times(lastPrice));
+        const mark = quotes.get(symbol)?.price;
+        const lastPrice =
+          mark && Number.isFinite(mark) && mark > 0 ? mark : null;
+        if (quantity > 0)
+          equity =
+            equity && lastPrice
+              ? equity.plus(new Big(quantity).times(lastPrice))
+              : null;
         return { symbol, quantity, sellable, lastPrice };
       });
       return {
-        cash: funds[0]!.kyje,
-        equity: equity.toNumber(),
+        cash: fund?.kyje ?? NaN,
+        equity: equity?.toNumber() ?? NaN,
         drawdownPct: null,
         positions,
       };
     },
-    async submitOrder(intent, { executeDate, executePrice, quote, db }) {
+    async submitOrder(
+      intent,
+      { executeDate, executePrice, quote, db, submissionBlock },
+    ) {
       if (!mockEnabled()) return result("rejected", null, "同花顺模拟盘未开启");
       if (
         new AccountWorkspaceRepository(db).record(
@@ -289,39 +320,55 @@ function thsAdapter(): ExecutionVenueAdapter {
         return result("rejected", null, "同花顺模拟盘已被纸面镜像独占");
       if (quote?.lowerLimit == null || quote.upperLimit == null)
         return result("rejected", null, "模拟委托缺少当日涨跌停依据");
+      const calendar = cnTradingCalendar(db);
+      const confirmed = async (date: string) =>
+        (await calendar.session(date)) === true;
       let id: string;
       try {
-        ({ id } = await previewMockOrder({
-          id: randomUUID(),
-          date: executeDate,
-          price: executePrice,
-          symbol: intent.symbol,
-          side: intent.side === "BUY" ? "buy" : "sell",
-          quantity: intent.quantity,
-          lowerLimit: quote.lowerLimit,
-          upperLimit: quote.upperLimit,
-          limitSource: "流水线执行日行情",
-        }));
+        ({ id } = await previewMockOrder(
+          {
+            id: randomUUID(),
+            date: executeDate,
+            price: executePrice,
+            symbol: intent.symbol,
+            side: intent.side === "BUY" ? "buy" : "sell",
+            quantity: intent.quantity,
+            lowerLimit: quote.lowerLimit,
+            upperLimit: quote.upperLimit,
+            limitSource: "流水线执行日行情",
+          },
+          confirmed,
+        ));
       } catch {
-        return result("rejected", null, "模拟委托预检失败");
+        return result(
+          "rejected",
+          null,
+          submissionBlock?.() ?? "模拟委托预检失败",
+        );
       }
       try {
-        const receipt = await confirmMockOrder(id);
+        const blocked = submissionBlock?.();
+        if (blocked) return result("rejected", null, blocked);
+        const receipt = await confirmMockOrder(id, submissionBlock, confirmed);
         return receipt.entrustNos.length
           ? result("submitted", id)
           : unknown(id);
-      } catch {
+      } catch (error) {
+        if (error instanceof MockSubmissionBlocked)
+          return result("rejected", null, error.message);
         return unknown(id);
       }
     },
     async reconcileOrder(intent) {
       const id = intent.venueOrderId;
       if (!id) return unknown();
-      const remote = await queryMockOrderStatus(id);
+      const remote = await queryMockOrderStatus(id, true);
       if (remote.fillStatus === "unfilled" && remote.state === "accepted")
         return result("submitted", id);
       if (!remote.attributable || !remote.rows.length) return unknown(id);
       const seen = new Map<string, string>();
+      let fees = new Big(0),
+        grossWithoutFee = new Big(0);
       let qty = new Big(0),
         gross = new Big(0);
       for (const row of remote.rows) {
@@ -347,7 +394,11 @@ function thsAdapter(): ExecutionVenueAdapter {
             : new Big(row.cjsl);
         if (!filled.gt(0) || !filled.eq(filled.round(0))) return unknown(id);
         qty = qty.plus(filled);
-        gross = gross.plus(filled.times(row.cjg));
+        const turnover = filled.times(row.cjg);
+        gross = gross.plus(turnover);
+        if (row.fee === undefined)
+          grossWithoutFee = grossWithoutFee.plus(turnover);
+        else fees = fees.plus(row.fee);
       }
       if (qty.gt(intent.quantity)) return unknown(id);
       return {
@@ -355,6 +406,15 @@ function thsAdapter(): ExecutionVenueAdapter {
         venueOrderId: id,
         filledQuantity: qty.toNumber(),
         averageFillPrice: gross.div(qty).toNumber(),
+        ...(grossWithoutFee.lt(gross) && { fee: fees.toNumber() }),
+        ...(grossWithoutFee.gt(0) && {
+          grossWithoutFee: grossWithoutFee.toNumber(),
+        }),
+        ...(intent.side === "SELL" &&
+          grossWithoutFee.eq(0) && {
+            netProceeds: gross.minus(fees).toNumber(),
+          }),
+        fillIds: [...seen.keys()].filter(Boolean),
       };
     },
     async cancelOrder(intent) {
@@ -369,7 +429,13 @@ function thsAdapter(): ExecutionVenueAdapter {
 const accountSchema = z.object({
   cash: z.number().finite().nonnegative(),
   equity: z.number().finite().nonnegative(),
-  drawdownPct: z.number().finite().nonnegative().nullable(),
+  drawdownPct: z
+    .number()
+    .finite()
+    .nonnegative()
+    .nullish()
+    .transform((n) => n ?? null),
+  riskRegime: z.enum(["normal", "reduced", "halted"]).optional(),
   positions: z.array(
     z.object({
       symbol: z.string().min(1),
@@ -379,6 +445,27 @@ const accountSchema = z.object({
     }),
   ),
 });
+function externalSnapshot(raw: unknown): PipelineAccountState {
+  const parsed = accountSchema.safeParse(raw);
+  // Keep independently verified quantities available to the exit planner.
+  const rows = parsed.success
+    ? parsed
+    : accountSchema.pick({ positions: true }).safeParse(raw);
+  const positions = rows.data?.positions ?? [];
+  const symbols = new Set(positions.map((p) => normalizePoolSymbol(p.symbol)));
+  const valid =
+    symbols.size === positions.length &&
+    positions.every((p) => p.sellable <= p.quantity);
+  return parsed.success && valid
+    ? parsed.data
+    : {
+        cash: NaN,
+        equity: NaN,
+        drawdownPct: null,
+        positions: valid ? positions : [],
+      };
+}
+export class VenueAccountConfigError extends Error {}
 const bridgeMissing =
   "live_venue_not_configured：请先配置实盘桥接地址与鉴权凭证";
 const bridgeOriginMismatch =
@@ -428,7 +515,7 @@ function brokerAdapter(
     asOfDate?: string,
   ) => {
     if (!endpoint || configurationError)
-      throw new Error(configurationError ?? bridgeMissing);
+      throw new VenueAccountConfigError(configurationError ?? bridgeMissing);
     return fetchImpl(endpoint + path, {
       method,
       redirect: "error",
@@ -496,7 +583,7 @@ function brokerAdapter(
         asOfDate,
       );
       if (!response.ok) throw new Error("实盘桥接账户查询失败");
-      return accountSchema.parse(await response.json());
+      return externalSnapshot(await response.json());
     },
     submitOrder: (intent, ctx) =>
       order("POST", intent, {
@@ -541,28 +628,43 @@ async function spotAccount(
   balances: Balance[],
   price: (symbol: string) => Promise<string>,
 ): Promise<PipelineAccountState> {
+  const assets = new Set<string>();
+  for (const balance of balances) {
+    if (
+      assets.has(balance.asset) ||
+      !positiveDecimal.safeParse(balance.total).success ||
+      !positiveDecimal.safeParse(balance.free).success ||
+      new Big(balance.free).gt(balance.total)
+    )
+      return externalSnapshot(null);
+    assets.add(balance.asset);
+  }
   const usdt = balances.find((b) => b.asset === "USDT");
-  let equity = new Big(usdt?.total ?? 0);
+  let equity: Big | null = new Big(usdt?.total ?? 0);
   const positions = [];
   for (const balance of balances) {
     if (balance.asset === "USDT" || new Big(balance.total).eq(0)) continue;
     const symbol = usdtPair.parse(balance.asset + "USDT");
-    const mark = new Big(await price(symbol));
-    if (mark.lte(0)) throw new Error("加密持仓估值行情无效");
-    equity = equity.plus(mark.times(balance.total));
+    const rawMark = await price(symbol).catch(() => null);
+    const mark =
+      rawMark && positiveDecimal.safeParse(rawMark).success
+        ? new Big(rawMark)
+        : null;
+    equity =
+      equity && mark?.gt(0) ? equity.plus(mark.times(balance.total)) : null;
     positions.push({
       symbol,
       quantity: Number(balance.total),
       sellable: Number(balance.free),
-      lastPrice: mark.toNumber(),
+      lastPrice: mark?.gt(0) ? mark.toNumber() : null,
     });
   }
-  return accountSchema.parse({
+  return {
     cash: Number(usdt?.free ?? 0),
-    equity: equity.toNumber(),
+    equity: equity?.toNumber() ?? NaN,
     drawdownPct: null,
     positions,
-  });
+  };
 }
 function spotResult(
   intent: Intent,
@@ -613,6 +715,7 @@ function spotResult(
 }
 function simCryptoAdapter(
   binding: Binding<"crypto_sim">,
+  now = Date.now,
 ): ExecutionVenueAdapter {
   async function exchange() {
     const context = await getCryptoAccountReadContext(binding.accountId);
@@ -644,25 +747,28 @@ function simCryptoAdapter(
       (sum, f) => sum.plus(new Big(f.price).times(f.quantity)),
       new Big(0),
     );
-    return spotResult(
-      intent,
-      remote.exchangeId,
-      remote.state,
-      filled,
-      filled.gt(0) && totalQuantity.eq(filled) ? value.div(filled) : null,
-    );
+    return {
+      ...spotResult(
+        intent,
+        remote.exchangeId,
+        remote.state,
+        filled,
+        filled.gt(0) && totalQuantity.eq(filled) ? value.div(filled) : null,
+      ),
+      fillIds: remote.fills.map((f) => f.id),
+    };
   };
   return {
     kind: binding.kind,
     isLive: false,
     async readAccountState(_, date) {
-      assertCurrentSpotDate(date);
+      assertCurrentSpotDate(date, now);
       const adapter = await exchange();
       return spotAccount((await adapter.snapshot()).balances, (symbol) =>
         adapter.price(z.enum(symbols).parse(symbol)),
       );
     },
-    async submitOrder(intent, { db }) {
+    async submitOrder(intent, { db, submissionBlock }) {
       if (
         new AccountWorkspaceRepository(db).record(
           "paper-mirror-reservation-" + binding.accountId,
@@ -672,6 +778,8 @@ function simCryptoAdapter(
       const adapter = await exchange(),
         order = spotOrder(intent);
       try {
+        const blocked = submissionBlock?.();
+        if (blocked) return result("rejected", null, blocked);
         const placed = await adapter.place(order);
         return result("submitted", placed.exchangeId);
       } catch (error) {
@@ -689,8 +797,8 @@ function simCryptoAdapter(
     },
   };
 }
-function assertCurrentSpotDate(date: string) {
-  if (date !== new Date().toISOString().slice(0, 10))
+function assertCurrentSpotDate(date: string, now: () => number) {
+  if (date !== new Date(now()).toISOString().slice(0, 10))
     throw new Error("该交易所仅提供当前账户快照");
 }
 type Venue = Binding<"crypto_live">["venue"];
@@ -957,7 +1065,7 @@ async function liveSpotOrder(
     }),
   ).orderId;
 }
-async function queryLiveSpot(
+async function queryLiveSpotSummary(
   venue: Venue,
   request: SpotRequest,
   intent: Intent,
@@ -1058,10 +1166,131 @@ async function queryLiveSpot(
       )
     : unknown(intent.venueOrderId);
 }
+// Order-status responses expose cumulative quantities. Fetch the venue's actual trade IDs
+// before closing reconciliation so a delayed or paginated execution history is not lost.
+async function queryLiveSpot(
+  venue: Venue,
+  request: SpotRequest,
+  intent: Intent,
+): Promise<VenueOrderResult> {
+  const summary = await queryLiveSpotSummary(venue, request, intent);
+  const id = summary.venueOrderId;
+  if (!id || !summary.filledQuantity) return summary;
+  const symbol = spotSymbol(intent);
+  const trades = new Map<string, Big>();
+  const seen = new Set<string>();
+  let cursor: string | undefined;
+  try {
+    for (let page = 0; page < 100; page++) {
+      let fills: { id: string; quantity: string }[];
+      let next: string | undefined;
+      if (venue === "binance") {
+        const rows = z
+          .array(
+            z.object({
+              id: orderId,
+              orderId: z.coerce.string().pipe(z.literal(id)),
+              symbol: z.literal(symbol),
+              qty: positiveDecimal,
+              isBuyer: z.literal(intent.side === "BUY"),
+            }),
+          )
+          .parse(
+            await request("GET", "/api/v3/myTrades", {
+              symbol,
+              orderId: id,
+              limit: 1000,
+              ...(cursor && { fromId: cursor }),
+            }),
+          );
+        fills = rows.map((r) => ({ id: r.id, quantity: r.qty }));
+        if (rows.length === 1000) next = String(BigInt(rows.at(-1)!.id) + 1n);
+      } else if (venue === "okx") {
+        const instId = symbol.replace(/USDT$/, "-USDT");
+        const rows = z
+          .array(
+            z.object({
+              ordId: z.literal(id),
+              instId: z.literal(instId),
+              side: z.literal(intent.side.toLowerCase()),
+              tradeId: orderId,
+              billId: orderId,
+              fillSz: positiveDecimal,
+            }),
+          )
+          .parse(
+            await request("GET", "/api/v5/trade/fills-history", {
+              instType: "SPOT",
+              instId,
+              ordId: id,
+              limit: 100,
+              ...(cursor && { after: cursor }),
+            }),
+          );
+        fills = rows.map((r) => ({ id: r.tradeId, quantity: r.fillSz }));
+        if (rows.length === 100) next = rows.at(-1)!.billId;
+      } else {
+        const batch = z
+          .object({
+            list: z.array(
+              z.object({
+                orderId: z.literal(id),
+                symbol: z.literal(symbol),
+                side: z.literal(intent.side === "BUY" ? "Buy" : "Sell"),
+                execId: orderId,
+                execQty: positiveDecimal,
+              }),
+            ),
+            nextPageCursor: z.string().optional(),
+          })
+          .parse(
+            await request("GET", "/v5/execution/list", {
+              category: "spot",
+              symbol,
+              orderId: id,
+              limit: 100,
+              ...(cursor && { cursor }),
+            }),
+          );
+        fills = batch.list.map((r) => ({ id: r.execId, quantity: r.execQty }));
+        next = batch.nextPageCursor;
+      }
+      for (const fill of fills) {
+        const qty = new Big(fill.quantity);
+        if (
+          !qty.gt(0) ||
+          (trades.has(fill.id) && !trades.get(fill.id)!.eq(qty))
+        )
+          throw new Error("inconsistent-fill");
+        trades.set(fill.id, qty);
+      }
+      if (!next) {
+        const total = [...trades.values()].reduce(
+          (a, b) => a.plus(b),
+          new Big(0),
+        );
+        if (total.eq(summary.filledQuantity))
+          return { ...summary, fillIds: [...trades.keys()] };
+        break;
+      }
+      if (seen.has(next)) break;
+      seen.add(next);
+      cursor = next;
+    }
+  } catch {
+    /* Reconcile again when authenticated trade details become available. */
+  }
+  return {
+    ...summary,
+    status: "unknown_reconcile",
+    errorSummary: "missing-venue-fill-evidence",
+  };
+}
 function liveCryptoAdapter(
   binding: Binding<"crypto_live">,
   fetchImpl: typeof fetch,
   key: unknown,
+  now = Date.now,
 ): ExecutionVenueAdapter {
   const { venue } = binding;
   const auth = apiCredential.safeParse(key);
@@ -1073,8 +1302,8 @@ function liveCryptoAdapter(
     kind: binding.kind,
     isLive: true,
     async readAccountState(_, date) {
-      assertCurrentSpotDate(date);
-      if (!request) throw new Error(cryptoMissing);
+      if (!request) throw new VenueAccountConfigError(cryptoMissing);
+      assertCurrentSpotDate(date, now);
       return spotAccount(await liveBalances(venue, request), (symbol) =>
         livePrice(venue, request, symbol),
       );
@@ -1144,11 +1373,11 @@ export function resolveVenueAdapter(
       case "local_sim":
         return localAdapter(binding);
       case "ths_mock":
-        return deps.thsAdapter ?? thsAdapter();
+        return deps.thsAdapter ?? thsAdapter(deps.now);
       case "cn_broker_live":
         return undefined;
       case "crypto_sim":
-        return deps.cryptoSimAdapter ?? simCryptoAdapter(binding);
+        return deps.cryptoSimAdapter ?? simCryptoAdapter(binding, deps.now);
       case "crypto_live":
         return deps.cryptoLiveAdapter;
     }
@@ -1173,7 +1402,7 @@ export function resolveVenueAdapter(
     if (binding.kind === "cn_broker_live")
       return brokerAdapter(binding, fetchImpl, auth);
     if (binding.kind === "crypto_live")
-      return liveCryptoAdapter(binding, fetchImpl, auth);
+      return liveCryptoAdapter(binding, fetchImpl, auth, deps.now);
     throw new Error("执行适配器未配置");
   }
   const check = (other: VenueBinding) => {
@@ -1212,6 +1441,10 @@ export function resolveVenueAdapter(
     const { errorSummary } = receipt;
     return {
       ...receipt,
+      fillId: safeLiveOrderId(receipt.fillId ?? null, secrets) ?? undefined,
+      fillIds: receipt.fillIds?.flatMap(
+        (id) => safeLiveOrderId(id, secrets) ?? [],
+      ),
       venueOrderId:
         safeLiveOrderId(receipt.venueOrderId, secrets) ??
         safeIntent.venueOrderId,
@@ -1224,13 +1457,33 @@ export function resolveVenueAdapter(
   return {
     kind: binding.kind,
     isLive,
-    async readAccountState(b, date, db) {
+    cnBuyStep: adapter?.cnBuyStep,
+    async readAccountState(b, date, db, cutoff) {
       check(b);
       assertAccountReadEnabled(db);
       const venue = adapter ?? operationAdapter(await loadCredential());
       // The live switch can change while the vault is being read.
       assertAccountReadEnabled(db);
-      return venue.readAccountState(b, date, db);
+      const read = () =>
+        cutoff === undefined
+          ? venue.readAccountState(b, date, db)
+          : venue.readAccountState(b, date, db, cutoff);
+      if (b.kind === "local_sim") return read();
+      let snapshot;
+      try {
+        snapshot = externalSnapshot(await read());
+      } catch (error) {
+        if (!(error instanceof z.ZodError || error instanceof SyntaxError))
+          throw error;
+        snapshot = externalSnapshot(null);
+      }
+      const drawdownPct = externalAccountDrawdown(
+        b,
+        date,
+        snapshot,
+        db ?? sqlite(),
+      );
+      return { ...snapshot, drawdownPct };
     },
     async submitOrder(i, ctx) {
       if (i.status !== "submitting")
@@ -1256,6 +1509,8 @@ export function resolveVenueAdapter(
           getPipelineGlobalConfig(ctx.db).autoLiveEnabled !== true
         )
           return result("rejected", null, "live-kill-switch-off");
+        const blocked = ctx.submissionBlock?.();
+        if (blocked) return result("rejected", null, blocked);
         return venue.submitOrder(
           { ...claimed, venueOrderId: intent.venueOrderId },
           ctx,

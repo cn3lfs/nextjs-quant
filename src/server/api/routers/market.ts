@@ -25,7 +25,8 @@ import {
   thsdkBlockConstituents,
 } from "../../data-sources/thsdk/thsdk-blocks";
 import { tradePositionState } from "../../portfolio/trade-ledger-service";
-import { TradeLedgerStore } from "../../db/trade-ledger-store";
+import { openAccountWorkspaceRead } from "../../db/account-workspace-repository";
+import { loadAccountBook } from "../../portfolio/account-workspace/load-book";
 import { indexDirectory } from "../../market/index-directory";
 import {
   chartBars,
@@ -35,6 +36,7 @@ import {
 } from "../../charts/chart-bars";
 import { ChartViewStore } from "../../db/chart-view-store";
 import { chartKeySchema, chartSaveSchema } from "~/lib/chart/chart-view";
+import { chartAdjustmentSchema } from "~/lib/chart/chart-adjustment";
 import { sqlite as chartSqlite } from "../../db";
 import { securityProfile } from "../../market/securities";
 import { verifySecurityLifecycle } from "../../market/security-lifecycle";
@@ -299,20 +301,60 @@ export const marketRouter = createTRPCRouter({
     .input(mxQuerySchema)
     .mutation(({ input, signal }) => queryMxData(input, signal)),
   chartPosition: p("portfolio", "read")
-    .input(symbolSchema)
-    .query(
-      // Runs alongside chartBars on every chart open: skip the book entirely
-      // for an untraded symbol, and never read the signal ledger (the full
-      // dashboard took ~14s and blocked the chart's own requests).
-      async ({ input }) =>
-        new TradeLedgerStore(chartSqlite())
-          .trades()
-          .some((t) => t.symbol === input)
-          ? ((await tradePositionState()).positions.find(
+    .input(
+      z.union([
+        symbolSchema,
+        z.object({
+          symbol: symbolSchema,
+          adjustment: chartAdjustmentSchema.default("none"),
+        }),
+      ]),
+    )
+    .query(async ({ input: request }) => {
+      if (typeof request !== "string" && request.adjustment !== "none")
+        return null;
+      const input = typeof request === "string" ? request : request.symbol;
+      const reader = openAccountWorkspaceRead();
+      try {
+        const { repo } = reader;
+        if (!repo) return null;
+        const exists = (table: "trade_ledger" | "sim_fills" | "trade_fills") =>
+          repo.hasSymbolInTable(table, input);
+        const manual = exists("trade_ledger")
+          ? (await tradePositionState()).positions.find(
               (p) => p.symbol === input,
-            ) ?? null)
-          : null,
-    ),
+            )
+          : undefined;
+        if (manual && manual.quantity > 0)
+          return { ...manual, source: "real" as const, account: "手工账本" };
+        if (exists("sim_fills") || exists("trade_fills")) {
+          const book = await loadAccountBook(repo);
+          const accounts = book.positions
+            .filter(
+              (p) =>
+                p.symbol === input &&
+                p.market === "cn-equity" &&
+                p.quantity > 0 &&
+                (p.id.startsWith("delivery:") || p.kind === "local-sim"),
+            )
+            .map((p) => ({
+              account: p.account,
+              accountName: p.accountName ?? p.account,
+              source: p.kind,
+              quantity: p.quantity,
+              adjustedCost: p.cost,
+            }));
+          const selected =
+            accounts.find((p) => p.source === "real") ?? accounts[0];
+          if (selected) return { ...selected, symbol: input, accounts };
+        }
+        return manual
+          ? { ...manual, source: "real" as const, account: "手工账本" }
+          : null;
+      } finally {
+        reader.close();
+      }
+    }),
   chartBars: p("market", "read")
     .input(chartBarsInput)
     .query(({ input }) => chartBars(input)),

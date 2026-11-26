@@ -7,6 +7,7 @@ import {
   updateDeploymentStatus,
   type CreateDeploymentInput,
 } from "~/server/db/deployment-repository";
+import { upsertSleeveHolding } from "~/server/db/sleeve-holding-repository";
 import { migrate } from "~/server/db/migrations";
 import {
   findPipelineRun,
@@ -27,6 +28,7 @@ import {
 import {
   confirmSimOrder,
   createSimAccount,
+  executePipelineSimOrder,
   postSimCashFlow,
 } from "~/server/portfolio/sim-accounts/service";
 
@@ -54,6 +56,7 @@ beforeEach(() => {
 
 afterEach(() => {
   db.close();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
   expect(fetchAttempt).not.toHaveBeenCalled();
 });
@@ -106,9 +109,35 @@ function deployment(overrides: Partial<CreateDeploymentInput> = {}) {
 const flatAccount: PipelineAccountState = {
   cash: 100_000,
   equity: 100_000,
-  drawdownPct: null,
+  drawdownPct: 0,
   positions: [],
 };
+
+const monthEnd = "2024-04-30";
+const monthEndEvidence = () => ["2024-04-29", monthEnd, "2024-05-06"];
+function seedSleeve(
+  ownerId: string,
+  symbol: string,
+  quantity: number,
+  accountScope: "ths_mock" | "local_sim" = "ths_mock",
+  accountId = "default",
+  entryDate = day1,
+) {
+  upsertSleeveHolding(
+    {
+      ownerId,
+      symbol,
+      quantity,
+      accountScope,
+      accountId,
+      ownerKind: "deployment",
+      entryDate,
+      avgEntryPrice: 10,
+      updatedAt: Date.parse(entryDate + "T14:30:00+08:00"),
+    },
+    db,
+  );
+}
 
 function quotes(series: Record<string, Bar[]>) {
   return (symbol: string) => series[symbol] ?? [];
@@ -177,7 +206,7 @@ it("三日留池、均线淘汰、放量突破与 BUY 信号回写使用真实�
   expect(readAccountState).toHaveBeenCalledTimes(1);
   expect(readAccountState).toHaveBeenCalledWith(
     { kind: "ths_mock", accountTag: "default" },
-    day2,
+    day1,
     db,
   );
 
@@ -293,10 +322,13 @@ it("缺决策日收盘时，旧收盘和未来收盘都不能触发均线或回�
     db,
   );
   expect(run.universeSnapshot).toMatchObject({
-    activeSymbols: [A],
-    missedGrace: [{ symbol: A, consecutiveMissedDays: 1 }],
+    skipReason: "missing-data",
     evicted: [],
+    missedGrace: [],
   });
+  expect(getActivePoolEntries(id, db)).toMatchObject([
+    { symbol: A, lastCheckedDate: day2, consecutiveMissedDays: 0 },
+  ]);
 });
 
 it("满池按命中优先裁剪，首个超过宽限期的未命中日立即淘汰", async () => {
@@ -339,6 +371,7 @@ it.each([500, 0])(
       universeSpec: { kind: "rps-filter", period: 20, minRps: 85 },
       poolPolicy: { mode: "replace" },
     });
+    seedSleeve(id, C, 500);
     const deps: PipelinePlanningDeps = {
       universe: {
         readBars: quotes({ [C]: [...history(day1), bar(day2, 6)] }),
@@ -405,6 +438,7 @@ it.each([
     const { id } = deployment({
       regimeGate: { kind: "sentiment-regime", unlockAvoidanceDays: 0 },
     });
+    seedSleeve(id, C, 550);
     const readBars = quotes({
       [A]: [...history(day1), bar(day2, 15, 800)],
       [C]: [...history(day1), bar(day2, 6)],
@@ -461,6 +495,7 @@ it.each([
 
 it("达到回撤阈值只暂停买入，部分 T+1 锁定按完整可卖量退出", async () => {
   const { id } = deployment({ riskPolicy: { drawdownPausePct: 0.08 } });
+  seedSleeve(id, C, 550);
   const { run, intents } = await runPipelinePlanning(
     input(id, day2, {
       strategy: {
@@ -489,6 +524,7 @@ it("市场基准读取抛错时阻止买入，并持久化已有持仓的卖单"
   const { id } = deployment({
     regimeGate: { kind: "oneil-market-direction", unlockAvoidanceDays: 0 },
   });
+  seedSleeve(id, C, 550);
   const error = "沪深 300 日线读取失败";
   const { run, intents } = await runPipelinePlanning(
     input(id, day2, {
@@ -542,7 +578,7 @@ it.each([
   {
     strategySpec: valuePitSpec,
     strategy: { resolveValuePit: async () => ({}) },
-    reason: "缺少可用的财务归档、行情",
+    reason: "调仓日没有可用的正权重目标",
   },
   {
     strategySpec: {
@@ -550,7 +586,7 @@ it.each([
       config: etfRotationCatalog[0]!.defaults,
     },
     strategy: { resolveEtfRotation: () => ({}) },
-    reason: "ETF 轮动缺少有效调仓目标",
+    reason: "调仓日没有可用的正权重目标",
   },
   {
     strategySpec: { kind: "macro-clock" },
@@ -568,7 +604,7 @@ it.each([
     strategy: {
       resolveMacroClock: () => ({ regime: "recovery", targets: {} }),
     },
-    reason: "宏观时钟缺少有效配置目标",
+    reason: "调仓日没有可用的正权重目标",
   },
 ] satisfies {
   strategySpec: CreateDeploymentInput["strategySpec"];
@@ -578,10 +614,11 @@ it.each([
   "$reason 时，持仓只生成 HOLD",
   async ({ strategySpec, strategy, reason }) => {
     const { id } = deployment({ strategySpec });
+    for (const symbol of [A, C]) seedSleeve(id, symbol, 100);
     const { run, intents } = await runPipelinePlanning(
-      input(id, day2, {
+      input(id, monthEnd, {
         universe: { readBars: () => [] },
-        strategy,
+        strategy: { ...strategy, readTradingSessions: monthEndEvidence },
         readAccountState: () => ({
           ...flatAccount,
           positions: [A, C].map((symbol) => ({
@@ -613,10 +650,14 @@ it.each([
 
 it("价值 PIT 的有效目标权重仍允许清仓落选持仓", async () => {
   const { id } = deployment({ strategySpec: valuePitSpec });
+  seedSleeve(id, C, 100);
   const { run, intents } = await runPipelinePlanning(
-    input(id, day2, {
+    input(id, monthEnd, {
       universe: { readBars: () => [] },
-      strategy: { resolveValuePit: async () => ({ [A]: 0.5 }) },
+      strategy: {
+        readTradingSessions: monthEndEvidence,
+        resolveValuePit: async () => ({ [A]: 0.5 }),
+      },
       readAccountState: () => ({
         ...flatAccount,
         positions: [{ symbol: C, quantity: 100, sellable: 100, lastPrice: 10 }],
@@ -643,6 +684,7 @@ it("目标权重先减仓，解禁拦截高权重候选，余下买单受总敞�
       maxTotalExposure: 0.62,
     },
   });
+  seedSleeve(id, C, 550);
   const checkUnlockEvents = vi.fn(
     ({ symbols }: { symbols: readonly string[] }) =>
       symbols.includes(B)
@@ -657,23 +699,30 @@ it("目标权重先减仓，解禁拦截高权重候选，余下买单受总敞�
         : [],
   );
   const { run, intents } = await runPipelinePlanning(
-    input(id, day3, {
-      universe: { readBars: () => [] },
-      strategy: {
-        resolveMacroClock: () => ({
-          regime: "recovery",
-          targets: { [A]: 0.55, [B]: 0.65, [C]: 0.385, [D]: 0.4 },
+    {
+      ...input(id, monthEnd, {
+        universe: { readBars: () => [] },
+        readIndustries: (symbol) => [symbol === C ? "银行" : "汽车"],
+        strategy: {
+          readTradingSessions: monthEndEvidence,
+          resolveMacroClock: () => ({
+            regime: "recovery",
+            targets: { [A]: 0.55, [B]: 0.65, [C]: 0.385, [D]: 0.4 },
+          }),
+        },
+        readAccountState: () => ({
+          cash: 4500,
+          equity: 10000,
+          drawdownPct: 0,
+          positions: [
+            { symbol: C, quantity: 550, sellable: 550, lastPrice: 10 },
+          ],
         }),
-      },
-      readAccountState: () => ({
-        cash: 4500,
-        equity: 10000,
-        drawdownPct: null,
-        positions: [{ symbol: C, quantity: 550, sellable: 550, lastPrice: 10 }],
+        readReferencePrice: () => 7,
+        checkUnlockEvents,
       }),
-      readReferencePrice: () => 7,
-      checkUnlockEvents,
-    }),
+      executeDate: "2024-05-06",
+    },
     db,
   );
   // 5500 - 3850 permits a sale of 165 shares, rounded down to 100.
@@ -683,8 +732,8 @@ it("目标权重先减仓，解禁拦截高权重候选，余下买单受总敞�
     { symbol: A, phase: 2, side: "BUY", quantity: 200, referencePrice: 7 },
   ]);
   expect(checkUnlockEvents.mock.calls).toEqual([
-    [{ symbols: [B], executeDate: day4, windowDays: 10 }],
-    [{ symbols: [A], executeDate: day4, windowDays: 10 }],
+    [{ symbols: [B], executeDate: "2024-05-06", windowDays: 10 }],
+    [{ symbols: [A], executeDate: "2024-05-06", windowDays: 10 }],
   ]);
   expect(run.riskVerdict).toMatchObject({
     skipped: [
@@ -724,7 +773,7 @@ it.each([
     turnover: 2,
     cash: 0,
     price: 10,
-    equity: 2_500,
+    equity: 5_000,
     quantity: 100,
   },
   {
@@ -752,15 +801,16 @@ it.each([
       proposal: {
         mode: "target-weights",
         asOf: day3,
-        targets: { [A]: 1 },
+        targets: { [A]: 1, [C]: 0 },
         signals: [],
         regimeScale: null,
         disclosure: "",
       },
+      ownerPositions: [{ symbol: C, quantity: 250, executionSellable: 250 }],
       accountState: {
         cash,
         equity,
-        drawdownPct: null,
+        drawdownPct: 0,
         positions: [
           { symbol: C, quantity: 250, sellable: 1000, lastPrice: 10 },
         ],
@@ -811,6 +861,7 @@ it("按信号分数选买单，缺价和不足一手均留下跳过原因", asyn
         reason: "入场",
       })),
     },
+    ownerPositions: [],
     accountState: flatAccount,
     regimeVerdict: await evaluateRegimeGate(config.regimeGate, day3),
     deps: {
@@ -846,6 +897,7 @@ it("加密订单按账户精度向下截断并跳过 A 股解禁查询", async (
       regimeScale: null,
       disclosure: "",
     },
+    ownerPositions: [],
     accountState: { ...flatAccount, cash: 100, equity: 100 },
     regimeVerdict: await evaluateRegimeGate(config.regimeGate, day3),
     deps: { readReferencePrice: () => 30_000, checkUnlockEvents },
@@ -965,6 +1017,9 @@ it("组合取最保守子门控，欧奈尔跟进日与道氏共振只读已完�
 });
 
 it("本地账户以真实账本现金和执行日可卖量构建快照", async () => {
+  const clock = vi
+    .spyOn(Date, "now")
+    .mockReturnValue(Date.parse(day1 + "T09:00:00+08:00"));
   const account = createSimAccount(
     { market: "cn-equity", name: "离线账户", initialCapital: "1005.50" },
     db,
@@ -982,12 +1037,14 @@ it("本地账户以真实账本现金和执行日可卖量构建快照", async (
     db,
     Date.parse(day1 + "T17:00:00+08:00"),
   );
+  clock.mockRestore();
   const readPrice = vi.fn(() => 11);
   expect(
     await readLocalSimAccountState(account.id, day1, db, readPrice),
   ).toEqual({
     cash: 0,
     equity: 1100,
+    riskRegime: "normal",
     drawdownPct: 0,
     positions: [{ symbol: A, quantity: 100, sellable: 0, lastPrice: 11 }],
   });
@@ -997,29 +1054,27 @@ it("本地账户以真实账本现金和执行日可卖量构建快照", async (
     cash: 0,
     positions: [{ symbol: A, sellable: 100 }],
   });
+  expect(
+    await readLocalSimAccountState(account.id, day1, db, readPrice, day2),
+  ).toMatchObject({
+    cash: 0,
+    equity: 1100,
+    positions: [{ symbol: A, quantity: 100, sellable: 100, lastPrice: 11 }],
+  });
   expect(readPrice.mock.calls).toEqual([
     [A, day1],
     [A, day2],
+    [A, day1],
   ]);
 });
 
-it("模拟账户按净投入本金计算回撤，T 日买入触发退出可在 T+1 卖出", async () => {
+it("资金在建仓前到账时按净投入本金计算回撤，T 日买入触发退出可在 T+1 卖出", async () => {
+  const clock = vi
+    .spyOn(Date, "now")
+    .mockReturnValue(Date.parse(day1 + "T09:00:00+08:00"));
   const account = createSimAccount(
     { market: "cn-equity", name: "本地回撤测试", initialCapital: "2000" },
     db,
-  );
-  confirmSimOrder(
-    {
-      accountId: account.id,
-      symbol: C,
-      side: "buy",
-      quantity: "100",
-      price: "10.00",
-      tradeDate: day2,
-      clientRequestId: "same-day-buy",
-    },
-    db,
-    Date.parse(day2 + "T14:30:00+08:00"),
   );
   postSimCashFlow(
     {
@@ -1048,6 +1103,21 @@ it("模拟账户按净投入本金计算回撤，T 日买入触发退出可在 T
       maxTotalExposure: 1,
     },
   });
+  executePipelineSimOrder(
+    {
+      accountId: account.id,
+      symbol: C,
+      side: "buy",
+      quantity: 100,
+      price: 10,
+      tradeDate: day2,
+      clientRequestId: "same-day-buy",
+    },
+    db,
+    Date.parse(day2 + "T14:30:00+08:00"),
+  );
+  seedSleeve(id, C, 100, "local_sim", account.id, day2);
+  clock.mockRestore();
   const { run, intents } = await runPipelinePlanning(
     input(id, day2, {
       strategy: {

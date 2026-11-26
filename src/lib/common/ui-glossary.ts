@@ -7,8 +7,7 @@
  */
 export const glossary = {
   off: "已关闭",
-  // Shared shell label used by existing workspaces.
-  shadow: "观察模式（不推送）",
+  shadow: "空跑观察",
   live: "正式提醒",
   sleeve: "策略分仓",
   frozenSnapshot: "选股当时快照",
@@ -21,8 +20,7 @@ export const glossary = {
   outbox: "推送队列",
   decay: "表现下滑预警",
   protection: "止损保护价",
-  // Existing candidate-table status label.
-  shadowForward: "观察前推",
+  shadowForward: "空跑验证",
   paperForward: "模拟前推",
   notSetStop: "未设止损",
   touchedStop: "已触及止损",
@@ -35,11 +33,11 @@ export function alertDisplayCopy(message: string): string {
   return message
     .replaceAll("仅影子记录", "仅空跑记录")
     .replaceAll("影子信号", "空跑信号")
-    .replaceAll("影子前推", "空跑验证")
+    .replaceAll("影子前推", glossary.shadowForward)
     .replaceAll("影子扫描", "空跑扫描")
-    .replace(/影子(?:(?:观察|执行)?模式|观察)/g, "空跑观察")
+    .replace(/影子(?:(?:观察|执行)?模式|观察)/g, glossary.shadow)
     .replaceAll("手动确认模式", "人工确认模式")
-    .replace(/[ \t]*\blive[ \t]*提醒/g, "正式提醒");
+    .replace(/[ \t]*\blive[ \t]*提醒/g, glossary.live);
 }
 
 export function termLabel(term: string | null | undefined): string {

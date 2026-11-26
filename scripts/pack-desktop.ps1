@@ -1,3 +1,5 @@
+param([switch] $SkipCandidateSmoke)
+
 $ErrorActionPreference = 'Stop'
 $projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $releaseRoot = [IO.Path]::GetFullPath((Join-Path $projectRoot 'release'))
@@ -162,6 +164,10 @@ try {
     }
     Assert-ReleaseChild $stagingRoot
     if (Test-Path -LiteralPath $stagingRoot) { Remove-Item -LiteralPath $stagingRoot -Recurse -Force }
+    $gitCommit = & git rev-parse HEAD
+    if ($LASTEXITCODE -ne 0 -or $gitCommit -cnotmatch '^[0-9a-f]{40}$') {
+        throw 'Cannot identify the source commit. Existing releases preserved.'
+    }
     & pnpm build
     if ($LASTEXITCODE -ne 0) { throw 'Production build failed; existing releases preserved.' }
     & pnpm desktop:prepare
@@ -182,6 +188,29 @@ try {
     $packagedLinks = @(Get-ChildItem -LiteralPath $packagedServer -Recurse -Force -Attributes ReparsePoint)
     if ($packagedLinks.Count) { throw 'Packaged server still contains links; existing releases preserved.' }
     Assert-NoEnvFiles $packagedServer
+
+    $summaryPath = Join-Path $stagingRoot 'release-summary.json'
+    $summary = [ordered]@{ gitCommit = $gitCommit; candidateSmokeSkipped = $SkipCandidateSmoke.IsPresent; candidateSmoke = $null }
+    $gatePassed = $false
+    $previousBinary = $env:QUANT_DESKTOP_BINARY
+    try {
+        if ($SkipCandidateSmoke) {
+            Write-Warning 'Candidate smoke skipped by explicit request.'
+        } else {
+            $env:QUANT_DESKTOP_BINARY = Join-Path $stagingRoot 'win-unpacked\GuanlanQuant.exe'
+            $receipt = & node scripts/desktop-smoke.mjs --packaged --candidate-gate
+            $gateExit = $LASTEXITCODE
+            $summary.candidateSmoke = ($receipt -join "`n") | ConvertFrom-Json
+            $gatePassed = $gateExit -eq 0 -and $summary.candidateSmoke.desktopSmoke -eq $true -and
+                $summary.candidateSmoke.gitCommit -ceq $gitCommit
+        }
+    } finally {
+        $env:QUANT_DESKTOP_BINARY = $previousBinary
+        [IO.File]::WriteAllText($summaryPath, ($summary | ConvertTo-Json -Depth 10), [Text.UTF8Encoding]::new($false))
+    }
+    if (-not $SkipCandidateSmoke -and -not $gatePassed) {
+        throw "Candidate smoke failed at '$($summary.candidateSmoke.failedAt)'. Existing releases preserved. See $summaryPath"
+    }
     Assert-AppClosed
     Publish-StagedRelease
     Write-Host 'Latest desktop: release\win-unpacked\GuanlanQuant.exe'

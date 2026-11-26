@@ -22,7 +22,9 @@ export function AlertStatus({ compact = false }: { compact?: boolean }) {
         title={`提醒引擎：${mode} · 最近运行 ${last ? new Date(last).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" }) : "尚未运行"}`}
         className="m-0 text-center text-[10px] leading-4 text-nc-text-3"
       >
-        <span>{mode === alertModeLabels.live ? "正式提醒" : `提醒${mode}`}</span>
+        <span>
+          {mode === alertModeLabels.live ? "正式提醒" : `提醒${mode}`}
+        </span>
         <br />
         {last
           ? new Date(last).toLocaleTimeString("zh-CN", {

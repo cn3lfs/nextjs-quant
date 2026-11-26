@@ -14,14 +14,36 @@ export const accountWorkspaceTabs = [
 export const accountRiskHref = "/accounts?tab=risk";
 export type AccountRiskScope = "real" | "paper";
 
-export const accountKinds = ["real", "paper", "exchange-simulation"] as const;
+export const legacyAccountKinds = [
+  "real",
+  "paper",
+  "exchange-simulation",
+] as const;
+export const accountKinds = [
+  ...legacyAccountKinds,
+  "local-sim",
+  "futures-sim",
+  "ths-mock",
+] as const;
 export type AccountKind = (typeof accountKinds)[number];
-export type AccountMarket = "cn-equity" | "crypto";
+export const accountKindFilter = z.enum([...accountKinds, "all"]);
+export function matchesAccountKind(
+  kind: AccountKind,
+  filter: z.infer<typeof accountKindFilter>,
+) {
+  return filter === "all" || kind === filter;
+}
+type SpotAccountMarket = "cn-equity" | "crypto";
+export type AccountMarket = SpotAccountMarket | "futures";
+export type AccountCurrency = "CNY" | "USDT" | "USD";
 export const accountKindLabels = {
   real: "真实",
   paper: "纸面",
   "exchange-simulation": "模拟交易所",
-};
+  "local-sim": "本地模拟",
+  "futures-sim": "期货模拟",
+  "ths-mock": "同花顺模拟",
+} satisfies Record<AccountKind, string>;
 export const exposureCapSchema = z.object({
   market: z.enum(["cn-equity", "crypto"]),
   dimension: z.enum(["market", "sleeve", "symbol", "industry", "heat"]),
@@ -47,7 +69,7 @@ export const accountReviewSettingsSchema = z
 export type AccountReviewSettings = z.infer<typeof accountReviewSettingsSchema>;
 export function effectiveExposureCaps(
   review: AccountReviewSettings,
-  market: AccountMarket,
+  market: SpotAccountMarket,
 ) {
   const defaults: AccountReviewSettings["caps"] = review.portfolioLimits.enabled
     ? [
@@ -79,21 +101,27 @@ export function effectiveExposureCaps(
 }
 export const accountPageSchema = z.object({
   page: z.number().int().min(0).max(1000000).default(0),
-  kind: z.enum(["real", "paper", "exchange-simulation", "all"]).default("real"),
+  kind: z.enum([...legacyAccountKinds, "all"]).default("real"),
   /** Real accounts only; other kinds normalize to all server-side. */
   source: z.enum(["all", "delivery", "local"]).default("all"),
-  market: z.enum(["cn-equity", "crypto", "all"]).default("all"),
+  market: z.enum(["cn-equity", "crypto", "futures", "all"]).default("all"),
   sleeve: z.string().max(100).default(""),
   group: z.enum(["market", "sleeve", "kind"]).default("market"),
   /** Read price vs recorded stop; a read classification, not a live trigger. */
   stopStatus: z.enum(["all", "touched", "unknown"]).default("all"),
 });
+export const unifiedAccountPageSchema = accountPageSchema.extend({
+  kind: accountKindFilter.default("real"),
+});
 export type AccountPosition = {
   id: string;
   account: string;
+  accountName?: string;
+  cacheSource?: string;
+  refreshedAt?: number;
   kind: AccountKind;
   market: AccountMarket;
-  currency: "CNY" | "USDT";
+  currency: AccountCurrency;
   symbol: string;
   sleeve: string;
   industry: string;
@@ -103,6 +131,13 @@ export type AccountPosition = {
   cost: number | null;
   price: number | null;
   value: number | null;
+  direction?: "long" | "short";
+  multiplier?: number;
+  marginUsed?: number;
+  notional?: number | null;
+  entryNotional?: number;
+  leverage?: number | null;
+  unrealizedPnl?: number | null;
   stop: number | null;
   at: string | null;
   strategyId: string | null;
@@ -112,8 +147,12 @@ export type AccountPosition = {
 export type AccountTrade = {
   id: string;
   account: string;
+  accountName?: string;
+  cacheSource?: string;
+  refreshedAt?: number;
   kind: AccountKind;
   market: AccountMarket;
+  currency?: AccountCurrency;
   symbol: string;
   side: "buy" | "sell";
   date: string;
@@ -122,6 +161,18 @@ export type AccountTrade = {
   sourceOrder?: { source: string; index: number };
   price: number;
   quantity: number;
+  fees?: number | null;
+  feeCurrency?: string;
+  fillId?: string;
+  orderId?: string;
+  venueFillKey?: string;
+  slippage?: number;
+  direction?: "long" | "short";
+  action?: "buy_open" | "sell_open" | "sell_close" | "buy_close";
+  multiplier?: number;
+  notional?: number;
+  marginDelta?: number;
+  realizedPnl?: number;
   strategyId: string | null;
   strategyVersion: number | null;
   sleeve: string;
@@ -270,7 +321,7 @@ export function industryGroupsFor(value: {
 export function checkExposureCaps(input: {
   positions: readonly AccountPosition[];
   reserved: readonly {
-    market: AccountMarket;
+    market: SpotAccountMarket;
     symbol: string;
     sleeve: string;
     industry: string;
@@ -279,7 +330,7 @@ export function checkExposureCaps(input: {
     openRisk?: number | null;
   }[];
   proposed: {
-    market: AccountMarket;
+    market: SpotAccountMarket;
     symbol: string;
     sleeve: string;
     industry: string;
@@ -288,7 +339,7 @@ export function checkExposureCaps(input: {
     openRisk?: number | null;
     maxPositions?: number;
   };
-  capital: Record<AccountMarket, number>;
+  capital: Record<SpotAccountMarket, number>;
   caps: AccountReviewSettings["caps"];
 }) {
   const { proposed, caps, capital } = input;

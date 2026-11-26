@@ -305,6 +305,10 @@ $ErrorActionPreference = 'Stop'
 $script:restages = 0
 function Get-CimInstance { }
 function Start-Sleep { }
+function git {
+    $global:LASTEXITCODE = 0
+    '0123456789abcdef0123456789abcdef01234567'
+}
 function pnpm {
     $global:LASTEXITCODE = 0
     if ($args[0] -eq 'exec') {
@@ -338,7 +342,7 @@ function Rename-Item([string] $LiteralPath, [string] $NewName) {
     }
     Microsoft.PowerShell.Management\Rename-Item -LiteralPath $LiteralPath -NewName $NewName
 }
-try { & (Join-Path $PSScriptRoot 'scripts\pack-desktop.ps1') }
+try { & (Join-Path $PSScriptRoot 'scripts\pack-desktop.ps1') -SkipCandidateSmoke }
 catch {
     [Console]::Error.WriteLine($_.Exception.Message)
     exit 1

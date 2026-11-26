@@ -2,13 +2,13 @@
 
 import { Calculator, ShieldCheck } from "@phosphor-icons/react/ssr";
 import { skipToken } from "@tanstack/react-query";
+import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import {
   formatNumber,
   formatPercent,
 } from "trading-strategy-core/format-number";
 import { symbolSchema } from "trading-strategies/research/contracts/security";
-import type { AccountRiskScope } from "~/lib/portfolio/account-workspace";
 import { api, type RouterInputs, type RouterOutputs } from "~/trpc/react";
 import { Panel, PanelEmpty, Pill, Segmented } from "../panels/panel";
 import { StateBanner } from "../panels/state-banner";
@@ -31,16 +31,20 @@ import {
   TableHeader,
   TableRow,
 } from "../ui/table";
-import { ImplementationShortfallPanel } from "./implementation-shortfall-panel";
+import {
+  ImplementationShortfallPanel,
+  shortfallScopeLabels,
+  type ShortfallScope,
+} from "./implementation-shortfall-panel";
 
 type RiskSnapshot = RouterOutputs["accountPortfolioRisk"];
 type EntryInput = RouterInputs["accountEntrySizingPreview"];
 type EntryPreview = RouterOutputs["accountEntrySizingPreview"];
 
-const scopeOptions = [
-  { value: "real", label: "真实账户" },
-  { value: "paper", label: "纸面账户" },
-] as const;
+const scopeOptions = (["real", "paper", "local_sim"] as const).map((value) => ({
+  value,
+  label: shortfallScopeLabels[value],
+}));
 const tierLabels = {
   normal: { label: "正常", tone: "ok" },
   reduced: { label: "缩减定仓", tone: "warn" },
@@ -67,19 +71,27 @@ const weight = (fraction: number | null) =>
   formatPercent(fraction === null ? null : fraction * 100, 2);
 
 export function AccountRiskPanel() {
-  const [scope, setScope] = useState<AccountRiskScope>("real");
+  const [scope, setScope] = useState<ShortfallScope>("real");
   return (
     <>
       <WorkspaceHeader
         title="账户风控与实施缺口"
         scope="人民币 A 股账本"
         secondaryActions={
-          <Segmented
-            label="账户类型"
-            options={scopeOptions}
-            value={scope}
-            onChange={setScope}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <Segmented
+              label="账户类型"
+              options={scopeOptions}
+              value={scope}
+              onChange={setScope}
+            />
+            <Link
+              href="/lab"
+              className="text-sub text-nc-accent underline underline-offset-2"
+            >
+              策略归因去策略库 →
+            </Link>
+          </div>
         }
       />
       <RiskLedgerWorkspace key={scope} scope={scope} />
@@ -87,17 +99,28 @@ export function AccountRiskPanel() {
   );
 }
 
-function RiskLedgerWorkspace({ scope }: { scope: AccountRiskScope }) {
+function RiskLedgerWorkspace({ scope }: { scope: ShortfallScope }) {
   const [selection, setSelection] = useState("all");
-  const all = api.accountPortfolioRisk.useQuery({ scope }, { retry: false });
-  const accounts = all.data?.accounts ?? [];
+  const local = scope === "local_sim";
+  // The risk snapshot service currently covers real/paper ledgers. Local
+  // simulation still gets its own shortfall accounting below.
+  const all = api.accountPortfolioRisk.useQuery(local ? skipToken : { scope }, {
+    retry: false,
+  });
+  const localLedgers = api.simAccountsList.useQuery(undefined, {
+    retry: false,
+    enabled: local,
+  });
+  const localAccounts = (localLedgers.data ?? [])
+    .filter((ledger) => ledger.market === "cn-equity")
+    .map((ledger) => ledger.id);
+  const accounts = local ? localAccounts : (all.data?.accounts ?? []);
   const account = accounts.find((id) => `account:${id}` === selection);
   const scoped = api.accountPortfolioRisk.useQuery(
-    account ? { scope, account } : skipToken,
+    account && !local ? { scope, account } : skipToken,
     { retry: false },
   );
-  const risk = account ? scoped : all;
-
+  const risk = account && !local ? scoped : all;
   return (
     <div className="min-w-0 space-y-[var(--nc-section-gap)]">
       <Panel
@@ -124,7 +147,14 @@ function RiskLedgerWorkspace({ scope }: { scope: AccountRiskScope }) {
         }
         bodyClassName="space-y-4"
       >
-        {risk.isError ? (
+        {local ? (
+          <StateBanner state="info" title="本地模拟盘使用独立账本" hideIcon>
+            可在下方核算本地模拟成交的纪律偏差和实施缺口。
+            <Link href="/accounts?tab=paper" className="underline">
+              查看本地模拟账户
+            </Link>
+          </StateBanner>
+        ) : risk.isError ? (
           <StateBanner
             state="error"
             title="账户风控读取失败"
@@ -143,18 +173,20 @@ function RiskLedgerWorkspace({ scope }: { scope: AccountRiskScope }) {
           </p>
         )}
       </Panel>
-      <EntrySizingForm
-        key={`sizing:${selection}`}
-        scope={scope}
-        account={account}
-      />
+      {!local && (
+        <EntrySizingForm
+          key={`sizing:${selection}`}
+          scope={scope}
+          account={account}
+        />
+      )}
       <ImplementationShortfallPanel
         key={`shortfall:${selection}`}
         scope={scope}
         accounts={account ? [account] : accounts}
         asOf={risk.data?.asOf ?? null}
-        accountsLoading={all.isPending}
-        accountsError={all.error?.message}
+        accountsLoading={local ? localLedgers.isPending : all.isPending}
+        accountsError={local ? localLedgers.error?.message : all.error?.message}
       />
     </div>
   );
@@ -178,9 +210,7 @@ function RiskSnapshotView({ snapshot }: { snapshot: RiskSnapshot }) {
         <StateBanner
           state={snapshot.stale ? "stale" : "warn"}
           title={
-            snapshot.status === "incomplete"
-              ? "风险快照不完整（incomplete）"
-              : "风险快照说明"
+            snapshot.status === "incomplete" ? "风险快照不完整" : "风险快照说明"
           }
         >
           <ul className="list-disc pl-4">
@@ -194,11 +224,7 @@ function RiskSnapshotView({ snapshot }: { snapshot: RiskSnapshot }) {
         <section className="space-y-2" aria-label="回撤熔断">
           <div className="flex flex-wrap items-center gap-2">
             <h4 className="font-semibold">回撤熔断</h4>
-            {tier && (
-              <Pill tone={tier.tone}>
-                {tier.label} · {state.mode}
-              </Pill>
-            )}
+            {tier && <Pill tone={tier.tone}>{tier.label}</Pill>}
           </div>
           <p className="text-lg font-semibold tabular-nums">
             {weight(state?.drawdown ?? null)}
@@ -335,7 +361,7 @@ function EntrySizingForm({
   scope,
   account,
 }: {
-  scope: AccountRiskScope;
+  scope: "real" | "paper";
   account?: string;
 }) {
   const [trial, setTrial] = useState<EntryInput | null>(null);
@@ -462,7 +488,7 @@ function SizingResult({ result }: { result: EntryPreview }) {
           ]}
         />
       ) : (
-        <StateBanner state="warn" title="定仓试算不可得（incomplete）" />
+        <StateBanner state="warn" title="定仓试算暂不可得" />
       )}
       {sizing && sizing.reasons.length > 0 && (
         <p className="text-sub text-nc-text-3">

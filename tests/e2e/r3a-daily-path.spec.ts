@@ -120,7 +120,10 @@ for (const width of [1440, 1024]) {
     });
     await expect(tomorrow).toBeVisible();
     // Tomorrow is on the landing screen: zero interactions, budget <=3.
-    await expect(tomorrow).toContainText("观察前推 · 研究中");
+    await expect(page.getByTitle("空跑观察", { exact: true })).toHaveText(
+      "空跑观察",
+    );
+    await expect(tomorrow).toContainText("空跑验证 · 研究中");
     await expect(
       page.getByRole("navigation", { name: "工作台导航" }).getByRole("link"),
     ).toHaveCount(6);

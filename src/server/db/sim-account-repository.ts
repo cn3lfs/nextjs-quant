@@ -1,4 +1,9 @@
 import type Database from "better-sqlite3";
+import type { PortfolioRiskState } from "quant-execution";
+import {
+  getAccountRiskState,
+  upsertAccountRiskState,
+} from "./account-risk-state-repository";
 import { formatSimAtoms as formatAtoms } from "~/lib/portfolio/sim-accounts";
 import type {
   SimAccountSummary,
@@ -43,6 +48,7 @@ interface TradeRow extends ReplayFill {
   order_id: string;
   transfer_atoms: bigint;
   price_atoms: bigint;
+  price_digits: bigint | null;
   executed_at: bigint;
   client_request_id: string;
   execution_mode: SimTradeRow["executionMode"];
@@ -52,7 +58,8 @@ interface TradeRow extends ReplayFill {
 // Revision order keeps intermediate sums inside the same checked balance range as writes.
 const accounts = `SELECT a.*, (SELECT SUM(delta_atoms ORDER BY id) FROM sim_cash_flows
   WHERE account_id=a.id) AS cash_atoms FROM sim_accounts a`;
-const trades = `SELECT f.*, o.client_request_id,o.execution_mode,o.plan_id,c.delta_atoms
+const trades = `SELECT f.*, json_extract(o.rules_json,'$.priceDigits') AS price_digits,
+  o.client_request_id,o.execution_mode,o.plan_id,c.delta_atoms
   FROM sim_fills f JOIN sim_orders o ON o.account_id=f.account_id AND o.id=f.order_id
   JOIN sim_cash_flows c ON c.account_id=f.account_id AND c.fill_id=f.id`;
 const marker = "sim-accounts:initialized";
@@ -106,7 +113,13 @@ function tradeView(row: TradeRow, account: AccountRow): SimTradeRow {
     planId: row.plan_id,
     tradeDate: row.trade_date,
     quantity: formatAtoms(row.quantity_atoms, quantityDigits(account.market)),
-    price: money(row.price_atoms),
+    // Before priceDigits was recorded, price_atoms always used the cash scale.
+    price: formatAtoms(
+      row.price_atoms,
+      row.price_digits === null
+        ? moneyDigits(account.market)
+        : safeNumber(row.price_digits),
+    ),
     gross: money(row.gross_atoms),
     commission: money(row.commission_atoms),
     transfer: money(row.transfer_atoms),
@@ -116,6 +129,15 @@ function tradeView(row: TradeRow, account: AccountRow): SimTradeRow {
   };
 }
 const sequence = (revision: bigint) => revision.toString().padStart(19, "0");
+export type SimRiskCheckpoint = {
+  asOfCreatedAt: number;
+  flowCount: number;
+  units: string;
+  redemptionNav: string;
+  risk: PortfolioRiskState;
+};
+const riskCheckpointKey = (id: string, date: string) =>
+  JSON.stringify(["local-sim-risk-replay-v1", id, date]);
 
 // The caller owns the transaction so validation and all related writes share a snapshot.
 export class SimAccountRepository {
@@ -233,6 +255,110 @@ export class SimAccountRepository {
       .all(account.id, ...(cursor ? [cursor] : []), limit)
       .map((row) => flowView(row, account.market));
   }
+  /** Settlements belong to the fill's trading session, even when entered later.
+   * Funding has no trade date. Use the account market's civil date. */
+  decisionLedger(id: string, asOfDate: string, asOfCreatedAt = Date.now()) {
+    const account = this.db
+      .prepare<[string], { market: Market }>(
+        "SELECT market FROM sim_accounts WHERE id=?",
+      )
+      .get(id);
+    if (!account) throw new Error("模拟账户不存在");
+    if (!Number.isSafeInteger(asOfCreatedAt))
+      throw new Error("无效的账户快照时间");
+    const zone = account.market === "cn-equity" ? "+08:00" : "Z";
+    const cutoff = Math.min(
+      Date.parse(asOfDate + "T23:59:59.999" + zone),
+      asOfCreatedAt,
+    );
+    type DecisionFlow = {
+      kind: FlowRow["kind"];
+      asOfDate: string;
+      occurredAt: bigint;
+      delta: bigint;
+      symbol: string | null;
+      side: ReplayFill["side"] | null;
+      quantity: bigint | null;
+      price: bigint | null;
+      priceDigits: bigint | null;
+    };
+    const flows = this.db
+      .prepare<[string, string, number, number, string], DecisionFlow>(
+        `WITH ledger AS (
+        SELECT c.id,c.kind,c.delta_atoms AS delta,c.occurred_at AS occurredAt,
+          COALESCE(f.trade_date,date(c.occurred_at/1000,'unixepoch',?)) AS asOfDate,
+          f.symbol,f.side,f.quantity_atoms AS quantity,f.price_atoms AS price,
+          json_extract(o.rules_json,'$.priceDigits') AS priceDigits
+        FROM sim_cash_flows c LEFT JOIN sim_fills f
+          ON f.account_id=c.account_id AND f.id=c.fill_id
+        LEFT JOIN sim_orders o ON o.account_id=f.account_id AND o.id=f.order_id
+        WHERE c.account_id=? AND c.occurred_at<=? AND (c.fill_id IS NULL OR f.executed_at<=?)
+      ) SELECT * FROM ledger WHERE asOfDate<=? ORDER BY asOfDate,occurredAt,id`,
+      )
+      .safeIntegers()
+      .all(
+        account.market === "cn-equity" ? "+8 hours" : "+0 hours",
+        id,
+        cutoff,
+        cutoff,
+        asOfDate,
+      );
+    const fills = this.db
+      .prepare<[string, string, number, number], ReplayFill>(
+        `SELECT f.* FROM sim_fills f JOIN sim_cash_flows c ON c.account_id=f.account_id AND c.fill_id=f.id
+         WHERE f.account_id=? AND f.trade_date<=? AND f.executed_at<=? AND c.occurred_at<=?
+         ORDER BY f.trade_date,f.executed_at,f.id`,
+      )
+      .safeIntegers()
+      .all(id, asOfDate, cutoff, cutoff);
+    return { market: account.market, cutoff, flows, fills };
+  }
+  riskCheckpoint(id: string, date: string): SimRiskCheckpoint | null {
+    const row = this.db
+      .prepare<[string], { payload: string }>(
+        "SELECT payload FROM records WHERE id=?",
+      )
+      .get(riskCheckpointKey(id, date));
+    return row ? (JSON.parse(row.payload) as SimRiskCheckpoint) : null;
+  }
+  /** Writes are batched by the caller after all asynchronous price reads. */
+  saveRiskCheckpoints(id: string, checkpoints: SimRiskCheckpoint[]) {
+    if (!checkpoints.length) return;
+    const key = { accountScope: "local_sim", accountId: id } as const;
+    this.write(() => {
+      const save = this.db
+        .prepare(`INSERT INTO records(id, kind, payload, updated_at)
+        VALUES (?, 'local-sim-risk-replay', ?, ?) ON CONFLICT(id) DO UPDATE SET
+        payload=excluded.payload, updated_at=excluded.updated_at
+        WHERE records.updated_at<=excluded.updated_at AND records.payload<>excluded.payload`);
+      const latest = checkpoints.at(-1)!;
+      let savedLatest = false;
+      for (const checkpoint of checkpoints) {
+        const result = save.run(
+          riskCheckpointKey(id, checkpoint.risk.date),
+          JSON.stringify(checkpoint),
+          checkpoint.asOfCreatedAt,
+        );
+        if (checkpoint === latest) savedLatest = result.changes > 0;
+      }
+      const head = getAccountRiskState(key, this.db);
+      const { risk } = latest;
+      if (savedLatest && (!head || head.asOfDate <= risk.date)) {
+        upsertAccountRiskState(
+          {
+            ...key,
+            asOfDate: risk.date,
+            unitNav: risk.unitNav,
+            peakUnitNav: risk.peakUnitNav,
+            drawdownPct: risk.drawdown,
+            regime: risk.mode === "paused" ? "halted" : risk.mode,
+            recoveryStreak: risk.recoveryCloses,
+          },
+          this.db,
+        );
+      }
+    });
+  }
   trades(account: AccountRow, cursor: string | undefined, limit: number) {
     const sql =
       trades +
@@ -313,6 +439,7 @@ export class SimAccountRepository {
           version: "local-sim-1",
           market: account.market,
           moneyDigits: moneyDigits(account.market),
+          priceDigits: terms.priceDigits,
           quantityDigits: quantityDigits(account.market),
           costs: result.costs,
         }),

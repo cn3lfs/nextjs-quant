@@ -67,7 +67,11 @@ vi.mock("~/components/market/macro-rates-panel", () => ({
   MacroRatesPanel: () => null,
 }));
 vi.mock("~/trpc/react", () => ({
-  api: { futuresQuotes: { useQuery: () => ({ data: [] }) } },
+  api: {
+    futuresQuotes: { useQuery: () => ({ data: [] }) },
+    accountPositions: { useQuery: () => ({ data: { positions: [] } }) },
+    useQueries: () => [],
+  },
 }));
 vi.mock("~/components/panels", async () => {
   const { createElement } = await import("react");

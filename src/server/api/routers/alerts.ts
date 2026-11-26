@@ -7,6 +7,21 @@ import {
 } from "~/lib/strategy-facts/alerts";
 import { AlertRepository } from "../../db/alert-repository";
 import {
+  intradayAlertConfigSchema,
+  intradayAlertStatusSchema,
+  intradayWatchRuleInputSchema,
+  intradayWatchRuleSchema,
+} from "~/lib/strategy-facts/intraday-alerts";
+import {
+  deleteIntradayWatchRule,
+  saveIntradayAlertConfig,
+  upsertIntradayWatchRule,
+} from "../../db/intraday-alert-config-repository";
+import {
+  getIntradayAlertSnapshot,
+  runIntradayAlertsNow,
+} from "../../alerts/intraday-alert-service";
+import {
   createAlertPlanSchema,
   createAlertPlan,
   storedCandidateEligibility,
@@ -45,6 +60,23 @@ async function planAccountContext(localOnly: boolean) {
   };
 }
 export const alertsRouter = createTRPCRouter({
+  intradayAlertOverview: p("alerts", "read")
+    .output(intradayAlertStatusSchema)
+    .query(() => getIntradayAlertSnapshot()),
+  intradayAlertConfigSave: p("alerts", "configure")
+    .input(intradayAlertConfigSchema)
+    .output(intradayAlertConfigSchema)
+    .mutation(({ input }) => saveIntradayAlertConfig(input)),
+  intradayWatchRuleSave: p("alerts", "configure")
+    .input(intradayWatchRuleInputSchema)
+    .output(intradayWatchRuleSchema)
+    .mutation(({ input }) => upsertIntradayWatchRule(input)),
+  intradayWatchRuleDelete: p("alerts", "configure")
+    .input(z.object({ id: z.string().min(1) }))
+    .mutation(({ input }) => deleteIntradayWatchRule(input.id)),
+  intradayAlertRunNow: p("alerts", "configure").mutation(() =>
+    runIntradayAlertsNow(),
+  ),
   planCorrelation: p("portfolio", "read")
     .input(z.string().min(1).max(1000))
     .query(({ input }) => planCorrelation(input, settings())),

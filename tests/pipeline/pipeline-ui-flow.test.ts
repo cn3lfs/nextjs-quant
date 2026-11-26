@@ -150,9 +150,9 @@ function createRpcFixture(liveEnabled: boolean) {
   return { query, mutate };
 }
 
-// Bundle the real components for Chromium. Only the tRPC module is replaced.
+// Bundle the real components with local RPC fixtures and the test page's search params.
 const offlineTrpc = `
-  import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+  import { useInfiniteQuery, useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 
   const query = (name) => ({
     useQuery: (input, options) => useQuery({
@@ -177,8 +177,18 @@ const offlineTrpc = `
   });
 
   export const api = {
+    useQueries: (select) => useQueries({
+      queries: select({
+        pipelineRunDetail: (input, options) => ({
+          ...options,
+          queryKey: ["pipelineRunDetail", input],
+          queryFn: () => window.pipelineQuery("pipelineRunDetail", input),
+        }),
+      }),
+    }),
     pipelineGlobalConfig: query("pipelineGlobalConfig"),
     deploymentList: pages("deploymentList"),
+    deploymentGet: query("deploymentGet"),
     deploymentPoolList: pages("deploymentPoolList"),
     simAccountsList: query("simAccountsList"),
     pipelineSetGlobalAutoSim: mutation("pipelineSetGlobalAutoSim"),
@@ -197,6 +207,7 @@ const offlineTrpc = `
       return {
         pipelineGlobalConfig: utils("pipelineGlobalConfig"),
         deploymentList: utils("deploymentList"),
+        deploymentGet: utils("deploymentGet"),
         deploymentPoolList: utils("deploymentPoolList"),
         pipelineRunDetail: utils("pipelineRunDetail"),
       };
@@ -224,14 +235,26 @@ beforeAll(async () => {
           queries: { retry: false, networkMode: "always" },
           mutations: { retry: false, networkMode: "always" },
         } });
-        function Wizard() {
+        const frozenPreset = {
+          name: "冻结公式部署",
+          strategySpec: { kind: "formula", name: "frozen-formula", source: "XG:C>O;", parameters: { N: 5 } },
+          universeSpec: { kind: "fixed-symbols", symbols: ["sh600000"] },
+          riskPolicy: { maxSymbolWeight: 0.1 },
+          provenance: {
+            sourceKind: "lab-backtest",
+            sourceRefId: "archive-fixture",
+            buildHash: "build-fixture",
+            note: '{"snapshotId":"snapshot-fixture"}',
+          },
+        };
+        function Wizard({ frozen }) {
           const [open, setOpen] = useState(true);
-          return <DeployStrategyDialog open={open} onOpenChange={setOpen} />;
+          return <DeployStrategyDialog open={open} onOpenChange={setOpen} defaultPreset={frozen ? frozenPreset : undefined} />;
         }
         const root = document.getElementById("root");
         createRoot(root).render(
           <QueryClientProvider client={client}>
-            {root.dataset.view === "wizard" ? <Wizard /> : <PipelineConsole />}
+            {root.dataset.view === "console" ? <PipelineConsole /> : <Wizard frozen={root.dataset.view === "frozen"} />}
           </QueryClientProvider>
         );
       `,
@@ -248,6 +271,17 @@ beforeAll(async () => {
       {
         name: "pipeline-offline-trpc",
         setup(builder) {
+          builder.onResolve({ filter: /^next\/navigation$/ }, () => ({
+            path: "navigation",
+            namespace: "pipeline-fixture",
+          }));
+          builder.onLoad(
+            { filter: /^navigation$/, namespace: "pipeline-fixture" },
+            () => ({
+              contents:
+                "export const useSearchParams = () => new URLSearchParams(window.location.search);",
+            }),
+          );
           builder.onResolve({ filter: /^~\/trpc\/react$/ }, () => ({
             path: "trpc",
             namespace: "pipeline-fixture",
@@ -281,7 +315,10 @@ afterEach(async () => {
   expect(pageErrors).toEqual([]);
 });
 
-async function renderPipeline(view: "console" | "wizard", liveEnabled = false) {
+async function renderPipeline(
+  view: "console" | "wizard" | "frozen",
+  liveEnabled = false,
+) {
   const rpc = createRpcFixture(liveEnabled);
   requests.length = 0;
   pageErrors.length = 0;
@@ -380,8 +417,9 @@ describe("策略运行台的全局执行开关", () => {
 describe("部署卡片的持续监控池", () => {
   it("展示在监数量、入池原因和最近信号，支持加票与移出", async () => {
     const { page, mutate } = await renderPipeline("console");
-    await page.getByText("在监 1 只", { exact: true }).waitFor();
+    await page.getByText("监控池 1 只", { exact: true }).waitFor();
     await page.getByRole("button", { name: "展开详情", exact: true }).click();
+    await page.getByText("在监 1 只", { exact: true }).waitFor();
     const screened = page.getByRole("listitem").filter({ hasText: "sh600000" });
     await screened.getByText("放量突破选股命中", { exact: true }).waitFor();
     await screened
@@ -422,6 +460,7 @@ describe("部署卡片的持续监控池", () => {
     ["一键跑完", "full"],
   ] as const)("%s 使用指定部署和规划日期发起 %s", async (action, stage) => {
     const { page, mutate } = await renderPipeline("console");
+    await page.getByRole("button", { name: "展开详情", exact: true }).click();
     await page.getByText("单步规划日期", { exact: true }).click();
     await page.getByLabel("决策日", { exact: true }).fill(decisionDate);
     await page.getByLabel("计划执行日", { exact: true }).fill(executeDate);
@@ -439,6 +478,61 @@ describe("部署卡片的持续监控池", () => {
 });
 
 describe("一键部署向导", () => {
+  it.each([false, true])(
+    "冻结预设修改后提交清理绑定=%s，恢复原值保留绑定",
+    async (modified) => {
+      const { page, mutate } = await renderPipeline("frozen");
+      const dialog = page.getByRole("dialog", { name: "部署到策略运行台" });
+      const warning = dialog.getByText(
+        "已修改预设参数，本次部署不再绑定原冻结回测",
+      );
+      const formula = dialog.getByLabel("公式源码", { exact: true });
+      const symbols = dialog.getByLabel("固定标的代码", { exact: true });
+      const cap = dialog.getByLabel("单票上限（%）", { exact: true });
+      await formula.fill("XG:C<O;");
+      await warning.waitFor();
+      await formula.fill("XG:C>O;");
+      await warning.waitFor({ state: "hidden" });
+      await symbols.fill("sh600001");
+      await warning.waitFor();
+      await symbols.fill("sh600000");
+      await warning.waitFor({ state: "hidden" });
+      await cap.fill("9");
+      await warning.waitFor();
+      if (!modified) {
+        await cap.fill("10");
+        await warning.waitFor({ state: "hidden" });
+      }
+      await dialog
+        .getByRole("button", { name: "创建部署", exact: true })
+        .click();
+      await dialog.waitFor({ state: "hidden" });
+      expect(mutate).toHaveBeenCalledExactlyOnceWith(
+        "deploymentCreate",
+        expect.objectContaining({
+          provenance: expect.objectContaining(
+            modified
+              ? {
+                  sourceKind: "manual",
+                  sourceRefId: null,
+                  buildHash: null,
+                  note: JSON.stringify({
+                    modifiedFromFrozen: true,
+                    derivedFromArchiveId: "archive-fixture",
+                  }),
+                }
+              : {
+                  sourceKind: "lab-backtest",
+                  sourceRefId: "archive-fixture",
+                  buildHash: "build-fixture",
+                  note: '{"snapshotId":"snapshot-fixture"}',
+                },
+          ),
+        }),
+      );
+    },
+  );
+
   it.each(["sim", "live"] as const)(
     "配置持续监控池后以 %s 通道创建影子部署",
     async (channel) => {

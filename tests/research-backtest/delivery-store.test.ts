@@ -377,14 +377,18 @@ it("migrations are repeatable and preserve a genuine version 9 database", () => 
   db.prepare("INSERT INTO concept_rps_days VALUES ('2026-01-01','{}')").run();
   migrate(db);
   migrate(db);
-  expect(db.pragma("user_version", { simple: true })).toBe(25);
+  expect(db.pragma("user_version", { simple: true })).toBe(26);
   expect(
     db
       .prepare(
-        "SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'intraday_%'",
+        "SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'intraday_%' ORDER BY name",
       )
       .all(),
-  ).toHaveLength(2);
+  ).toEqual([
+    { name: "intraday_close_summary" },
+    { name: "intraday_preview_summary" },
+    { name: "intraday_watch_rules_enabled_symbol" },
+  ]);
   expect(db.prepare("SELECT * FROM records").all()).toEqual([
     { id: "old", kind: "snapshot", payload: "{}", updated_at: 1 },
   ]);

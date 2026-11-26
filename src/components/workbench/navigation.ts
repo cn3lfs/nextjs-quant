@@ -94,6 +94,7 @@ export const navGroups: readonly NavGroup[] = [
     items: [
       item("/", "今日计划", Compass),
       item("/?tab=overview", "大盘总览", Gauge),
+      item("/?tab=intraday-alerts", "盘中预警", BellRinging),
       item("/scan?tab=sentiment", "涨停与情绪", Fire),
       item("/scan?tab=valuation", "板块估值", ChartBar),
     ],

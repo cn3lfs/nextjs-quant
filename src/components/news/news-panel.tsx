@@ -1,6 +1,9 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "~/trpc/react";
+import { securityDisplayName } from "~/lib/market/security-display";
+import { useSecurityNames } from "../market/use-security-names";
 import {
   newsWorkspaceSchema,
   newsArchiveIdSchema,
@@ -12,6 +15,7 @@ import {
   FilterToolbar,
   PageGrid,
   Panel,
+  Pill,
   Segmented,
 } from "../panels";
 import { Button } from "../ui/button";
@@ -41,6 +45,46 @@ const initial = () => ({
   historical: true,
 });
 const newsRowKey = (item: { id: number }) => item.id;
+const holdingScope = { kind: "all", market: "cn-equity", page: 0 } as const;
+const candidateScope = { market: "cn-equity", page: 0 } as const;
+
+export type NewsContextTag = "holding" | "watchlist" | "candidate";
+export const newsContextLabels: Record<NewsContextTag, string> = {
+  holding: "持仓",
+  watchlist: "自选",
+  candidate: "候选",
+};
+
+export type NewsContextEntry = {
+  symbol: string;
+  name: string;
+  tags: readonly NewsContextTag[];
+};
+
+/**
+ * Match one news item against the user's own symbols. Codes and display names
+ * are both checked because quick news often names the company, not the code.
+ */
+export function matchNewsContext(
+  text: string,
+  entries: readonly NewsContextEntry[],
+): NewsContextEntry[] {
+  const haystack = text.normalize("NFKC").toUpperCase();
+  if (!haystack) return [];
+  const codes = new Set(
+    haystack.match(/(?<![0-9])(?:SH|SZ|BJ)?\d{6}(?![0-9])/g),
+  );
+  return entries.filter((entry) => {
+    const code = entry.symbol.toUpperCase();
+    const bare = code.replace(/^(SH|SZ|BJ)/, "");
+    const name = entry.name.normalize("NFKC").toUpperCase();
+    return (
+      codes.has(code) ||
+      codes.has(bare) ||
+      (name.length >= 2 && haystack.includes(name))
+    );
+  });
+}
 export function NewsPanel() {
   const visible = useTaskVisible(),
     utils = api.useUtils();
@@ -63,6 +107,7 @@ export function NewsPanel() {
     [scope, setScope] = useState<"page" | "range">("page"),
     [maxItems, setMaxItems] = useState(200),
     [selectedIds, setSelectedIds] = useState<number[]>([]),
+    [contextFilter, setContextFilter] = useState<"all" | NewsContextTag>("all"),
     [returnTarget, setReturnTarget] = useState<{
       selector: string;
       scroll: number;
@@ -121,6 +166,54 @@ export function NewsPanel() {
   const context = api.newsAnalysisContext.useQuery(undefined, {
     enabled: visible && ready,
   });
+  const securityNames = useSecurityNames();
+  const contextOptions = {
+    enabled: visible && ready,
+    retry: false,
+    staleTime: 60_000,
+  };
+  const contextPositions = api.accountPositions.useQuery(
+    holdingScope,
+    contextOptions,
+  );
+  const contextWatchlist = api.watchlistGroups.useQuery(
+    undefined,
+    contextOptions,
+  );
+  const contextCandidates = api.workspaceCandidates.useQuery(
+    candidateScope,
+    contextOptions,
+  );
+  const additionalPositions = api.useQueries((query) =>
+    Array.from(
+      {
+        length: Math.max(
+          0,
+          Math.ceil((contextPositions.data?.total ?? 0) / 20) - 1,
+        ),
+      },
+      (_, index) =>
+        query.accountPositions(
+          { ...holdingScope, page: index + 1 },
+          contextOptions,
+        ),
+    ),
+  );
+  const additionalCandidates = api.useQueries((query) =>
+    Array.from(
+      {
+        length: Math.max(
+          0,
+          Math.ceil((contextCandidates.data?.total ?? 0) / 20) - 1,
+        ),
+      },
+      (_, index) =>
+        query.workspaceCandidates(
+          { ...candidateScope, page: index + 1 },
+          contextOptions,
+        ),
+    ),
+  );
   const archives = context.data?.archives;
   const selectedArchive = news.data?.archive;
   const selectedKey =
@@ -296,6 +389,69 @@ export function NewsPanel() {
     total: newsResult?.total,
     getKey: newsRowKey,
   });
+  const contextEntries = useMemo(() => {
+    const entries = new Map<
+      string,
+      { symbol: string; name: string; tags: Set<NewsContextTag> }
+    >();
+    const add = (symbol: string, tag: NewsContextTag) => {
+      if (!/^(sh|sz|bj)\d{6}$/.test(symbol)) return;
+      const current = entries.get(symbol) ?? {
+        symbol,
+        name: securityDisplayName(symbol, securityNames.data ?? {}),
+        tags: new Set<NewsContextTag>(),
+      };
+      current.tags.add(tag);
+      entries.set(symbol, current);
+    };
+    for (const page of [contextPositions, ...additionalPositions])
+      for (const position of page.data?.items ?? [])
+        if (position.quantity > 0) add(position.symbol, "holding");
+    for (const group of contextWatchlist.data?.groups ?? [])
+      for (const symbol of group.symbols) add(symbol, "watchlist");
+    for (const page of [contextCandidates, ...additionalCandidates])
+      for (const candidate of page.data?.items ?? [])
+        add(candidate.symbol, "candidate");
+    return [...entries.values()].map((entry) => ({
+      ...entry,
+      tags: [...entry.tags],
+    }));
+  }, [
+    contextPositions,
+    additionalPositions,
+    contextWatchlist.data,
+    contextCandidates,
+    additionalCandidates,
+    securityNames.data,
+  ]);
+  const newsMatches = useMemo(
+    () =>
+      new Map(
+        batches.rows.map((item) => [
+          item.id,
+          matchNewsContext(`${item.title}\n${item.preview}`, contextEntries),
+        ]),
+      ),
+    [batches.rows, contextEntries],
+  );
+  const displayedRows =
+    contextFilter === "all"
+      ? batches.rows
+      : batches.rows.filter((item) =>
+          newsMatches
+            .get(item.id)
+            ?.some((entry) => entry.tags.includes(contextFilter)),
+        );
+  const activeContextQueries =
+    contextFilter === "holding"
+      ? [contextPositions, ...additionalPositions]
+      : contextFilter === "candidate"
+        ? [contextCandidates, ...additionalCandidates]
+        : contextFilter === "watchlist"
+          ? [contextWatchlist]
+          : [];
+  const contextLoading = activeContextQueries.some((query) => query.isPending);
+  const contextError = activeContextQueries.some((query) => query.isError);
   const [requestingMore, setRequestingMore] = useState(false);
   useEffect(() => {
     if (!news.isFetching) setRequestingMore(false);
@@ -312,7 +468,7 @@ export function NewsPanel() {
     loading: news.isFetching,
     onLoadMore: loadMore,
   });
-  const loadedIds = batches.rows.map((row) => row.id);
+  const loadedIds = displayedRows.map((row) => row.id);
   const loadedIdSet = new Set(loadedIds);
   const selectedVisibleIds = selectedIds.filter((id) => loadedIdSet.has(id));
   const selectedSet = new Set(selectedVisibleIds);
@@ -324,7 +480,7 @@ export function NewsPanel() {
     canAnalyzeContext &&
     !news.isFetching &&
     !news.error &&
-    batches.rows.length > 0;
+    displayedRows.length > 0;
   function analyzeSelected(ids: number[], source = news.data?.source) {
     if (!ids.length || ids.length > 200) return;
     analyze.mutate({
@@ -523,7 +679,7 @@ export function NewsPanel() {
             title="新闻列表"
             note={complementSelected ? "互补档案仅供阅读。" : undefined}
             actions={
-              batches.rows.length > 0 && analysisAllowed ? (
+              displayedRows.length > 0 && analysisAllowed ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <Button
                     type="button"
@@ -572,8 +728,46 @@ export function NewsPanel() {
           >
             {news.isLoading && <p>正在读取新闻…</p>}
             {news.data?.total === 0 && <p>所选范围没有新闻。</p>}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sub text-nc-text-3">只看我的：</span>
+              <Segmented
+                label="资讯上下文筛选"
+                value={contextFilter}
+                onChange={(value) => {
+                  setContextFilter(value);
+                  setSelectedIds([]);
+                }}
+                options={[
+                  { value: "all", label: "全部" },
+                  { value: "holding", label: newsContextLabels.holding },
+                  { value: "watchlist", label: newsContextLabels.watchlist },
+                  { value: "candidate", label: newsContextLabels.candidate },
+                ]}
+              />
+              {contextLoading ? (
+                <span role="status" className="text-sub text-nc-text-3">
+                  正在读取标的…
+                </span>
+              ) : contextError ? (
+                <span role="alert" className="text-sub text-nc-warn">
+                  部分标的读取失败，匹配结果可能不全。
+                </span>
+              ) : (
+                contextFilter !== "all" && (
+                  <span className="text-sub text-nc-text-4">
+                    当前页命中 {displayedRows.length} 条
+                  </span>
+                )
+              )}
+            </div>
+            {contextFilter !== "all" &&
+              !contextLoading &&
+              !contextError &&
+              displayedRows.length === 0 && (
+                <p>当前页没有命中该上下文标的的快讯，可继续加载更多。</p>
+              )}
             <div className="space-y-2">
-              {batches.rows.map((item) => (
+              {displayedRows.map((item) => (
                 <article
                   key={item.id}
                   className="rounded border border-nc-border p-3 text-sm"
@@ -641,6 +835,24 @@ export function NewsPanel() {
                   <p className="line-clamp-2 break-all text-nc-text-3">
                     {item.preview}
                   </p>
+                  {(newsMatches.get(item.id)?.length ?? 0) > 0 && (
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      {newsMatches.get(item.id)!.map((entry) => (
+                        <Link
+                          key={entry.symbol}
+                          href={`/scan?symbol=${encodeURIComponent(entry.symbol)}`}
+                          className="inline-flex items-center gap-1 rounded border border-nc-border-soft bg-nc-inset px-1.5 py-0.5 text-xs hover:border-nc-accent"
+                        >
+                          <Pill tone="accent">{entry.name}</Pill>
+                          <span className="text-nc-text-3">
+                            {entry.tags
+                              .map((tag) => newsContextLabels[tag])
+                              .join(" / ")}
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </article>
               ))}
             </div>
@@ -657,19 +869,21 @@ export function NewsPanel() {
               </div>
             )}
             <div className="flex flex-wrap items-end gap-3">
-              <label>
-                分析范围
-                <select
-                  aria-label="新闻分析范围"
-                  disabled={!analysisAllowed || busy}
-                  value={scope}
-                  onChange={(e) => setScope(e.target.value as typeof scope)}
-                >
-                  <option value="page">当前页</option>
-                  <option value="range">整个查询范围（设定上限）</option>
-                </select>
-              </label>
-              {scope === "range" && (
+              {contextFilter === "all" && (
+                <label>
+                  分析范围
+                  <select
+                    aria-label="新闻分析范围"
+                    disabled={!analysisAllowed || busy}
+                    value={scope}
+                    onChange={(e) => setScope(e.target.value as typeof scope)}
+                  >
+                    <option value="page">当前页</option>
+                    <option value="range">整个查询范围（设定上限）</option>
+                  </select>
+                </label>
+              )}
+              {contextFilter === "all" && scope === "range" && (
                 <label>
                   最多条数
                   <select
@@ -692,13 +906,21 @@ export function NewsPanel() {
                   busy ||
                   dirty ||
                   news.isFetching ||
-                  !batches.rows.length ||
+                  !displayedRows.length ||
+                  (contextFilter !== "all" &&
+                    (contextLoading ||
+                      contextError ||
+                      displayedRows.length > 200)) ||
                   !!news.error ||
                   !context.data ||
                   !!context.error
                 }
                 onClick={() => {
                   if (!news.data) return;
+                  if (contextFilter !== "all") {
+                    analyzeSelected(loadedIds);
+                    return;
+                  }
                   analyze.mutate({
                     ...filter,
                     page: pages.length - 1,
@@ -718,7 +940,7 @@ export function NewsPanel() {
               >
                 {complementSelected
                   ? "备用档案仅供阅读与打开原文"
-                  : `AI 分类与影响分析（${scope === "page" ? "本页全部" : "查询范围"}）`}
+                  : `AI 分类与影响分析（${contextFilter !== "all" ? "已加载且命中" : scope === "page" ? "本页全部" : "查询范围"}）`}
               </Button>
             </div>
             {complementSelected ? (
@@ -729,10 +951,15 @@ export function NewsPanel() {
               <p className="mt-2 text-sm">
                 模型：{context.data?.model ?? "读取中"} · 匹配
                 {news.data?.total ?? 0}条 · 将选择
-                {scope === "page"
-                  ? batches.rows.length
-                  : Math.min(maxItems, news.data?.total ?? 0)}
+                {contextFilter !== "all"
+                  ? displayedRows.length
+                  : scope === "page"
+                    ? batches.rows.length
+                    : Math.min(maxItems, news.data?.total ?? 0)}
                 条。
+                {contextFilter !== "all" && displayedRows.length > 200
+                  ? "请勾选最多 200 条后分析。"
+                  : null}
               </p>
             )}
             <NewsError

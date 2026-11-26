@@ -4,6 +4,7 @@ import { researchExecutionCosts } from "trading-strategy-core/costs";
 import type { PortfolioFill, runPortfolio } from "quant-backtest";
 import {
   normalizeTradeDate,
+  normalizeTradeSymbol,
   tradeFillsFromDiagnose,
 } from "~/lib/chart/chart-trade-marks";
 import {
@@ -326,6 +327,97 @@ function accountTradeHref(
   return `/accounts?${new URLSearchParams({ tab: "trades", symbol: ref.symbol, trade: tradeId, batch: batchId })}`;
 }
 
+const localSimPrefix = "local-sim:";
+
+/** Accept both the raw account UUID and an explicit `local-sim:<uuid>` refId. */
+function localSimAccountId(ref: TradeReviewRef) {
+  const raw = ref.accountId ?? ref.refId;
+  return raw.startsWith(localSimPrefix)
+    ? raw.slice(localSimPrefix.length)
+    : raw;
+}
+
+function localSimTradeHref(ref: TradeReviewRef, tradeId: string) {
+  return `/accounts?${new URLSearchParams({ tab: "trades", symbol: ref.symbol, trade: tradeId })}`;
+}
+
+/**
+ * Unified local-sim evidence. The book already projects every fill, including
+ * rounds that are now flat; keep the account boundary strict and only accept
+ * A-share rows for the chart's own security.
+ */
+function localSimEvidence(
+  ref: TradeReviewRef,
+  book: Awaited<ReturnType<typeof loadAccountBook>>,
+  warnings: string[],
+): { fills: Fill[]; cycles: Cycle[]; bars: Bar[] | undefined } | null {
+  if (ref.source !== "paper-account") return null;
+  if (
+    !ref.refId.startsWith(localSimPrefix) &&
+    book.facts.paper.some(
+      ({ account }) => account.id === (ref.accountId ?? ref.refId),
+    )
+  )
+    return null;
+  if (
+    ref.refId.startsWith(localSimPrefix) &&
+    ref.accountId &&
+    ref.refId.slice(localSimPrefix.length) !== localSimAccountId(ref)
+  )
+    throw new Error("本地模拟账户标识不一致");
+  const accountId = localSimAccountId(ref);
+  const entry = book.facts.localSim?.find(
+    ({ account }) => account.id === accountId,
+  );
+  if (!entry) return null;
+  if (entry.account.market !== "cn-equity")
+    throw new Error("图表成交复盘仅支持 A 股本地模拟账户");
+  const symbol = normalizeTradeSymbol(ref.symbol);
+  const trades = book.trades
+    .filter(
+      (trade) =>
+        trade.kind === "local-sim" &&
+        trade.account === accountId &&
+        trade.market === "cn-equity" &&
+        normalizeTradeSymbol(trade.symbol) === symbol,
+    )
+    .sort(
+      (a, b) =>
+        a.date.localeCompare(b.date) ||
+        a.time - b.time ||
+        a.id.localeCompare(b.id),
+    );
+  const bars = book.bars[ref.symbol];
+  const rawBars = bars?.length ? bars : undefined;
+  if (!trades.length) {
+    warnings.push("本地模拟账户没有该证券的成交记录");
+    return { fills: [], cycles: [], bars: rawBars };
+  }
+  let holding = 0;
+  const fills: Fill[] = trades.map((trade, index) => {
+    holding += trade.side === "buy" ? trade.quantity : -trade.quantity;
+    return {
+      symbol: ref.symbol,
+      date: normalizeTradeDate(trade.date),
+      side: trade.side,
+      price: trade.price,
+      quantity: trade.quantity,
+      // The local simulator posts exchange fees and its slippage charge to cash.
+      fee: trade.fees!,
+      holdingAfter: holding,
+      strategyId: `${localSimPrefix}${accountId}`,
+      orderId: index,
+      tradeId: trade.id,
+      backHref: localSimTradeHref(ref, trade.id),
+    };
+  });
+  return {
+    fills,
+    cycles: engineCycles(fills, [], warnings),
+    bars: rawBars,
+  };
+}
+
 async function accountEvidence(ref: TradeReviewRef, warnings: string[]) {
   const book = await loadAccountBook(undefined, undefined, undefined, {
     localOnly: true,
@@ -334,6 +426,8 @@ async function accountEvidence(ref: TradeReviewRef, warnings: string[]) {
     .evidence(ref.symbol)
     .events.filter((event) => [1, 11, 12].includes(event.category));
   if (ref.source === "paper-account") {
+    const localSim = localSimEvidence(ref, book, warnings);
+    if (localSim) return localSim;
     const id = ref.accountId ?? ref.refId;
     const paper = book.facts.paper.find(
       ({ account }) => account.id === id && account.market === "cn-equity",
@@ -553,7 +647,11 @@ export async function loadChartTradeReview(
       )
         continue;
       cycle.comparable = false;
-      if (ref.source === "lab-diagnose" || ref.source === "real-delivery") {
+      if (
+        ref.source === "lab-diagnose" ||
+        ref.source === "real-delivery" ||
+        fills.some((fill) => fill.tradeId.startsWith(localSimPrefix))
+      ) {
         cycle.pnlAmount = cycle.pnlPct = null;
         cycle.pnlReason = "持仓跨除权，缺少可核对的公司行动现金流";
       }

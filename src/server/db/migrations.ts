@@ -449,6 +449,70 @@ export const migrations = [
     UNIQUE(deployment_id, symbol)
   ) STRICT;
   CREATE INDEX deployment_pool_entries_dep_status ON deployment_pool_entries(deployment_id, status, updated_at DESC, id DESC);`,
+  `CREATE TABLE account_risk_states (
+    account_scope TEXT NOT NULL CHECK(account_scope IN ('real','paper','local_sim','ths_mock','crypto_sim','futures_sim')),
+    account_id TEXT NOT NULL,
+    as_of_date TEXT NOT NULL,
+    unit_nav REAL NOT NULL CHECK(unit_nav > 0),
+    peak_unit_nav REAL NOT NULL CHECK(peak_unit_nav > 0),
+    drawdown_pct REAL NOT NULL CHECK(drawdown_pct >= 0),
+    regime TEXT NOT NULL CHECK(regime IN ('normal','reduced','halted')),
+    recovery_streak INTEGER NOT NULL DEFAULT 0 CHECK(recovery_streak >= 0),
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY(account_scope, account_id)
+  ) STRICT;
+  CREATE TABLE account_sleeve_holdings (
+    account_scope TEXT NOT NULL CHECK(account_scope IN ('real','paper','local_sim','ths_mock','crypto_sim','futures_sim')),
+    account_id TEXT NOT NULL,
+    owner_kind TEXT NOT NULL CHECK(owner_kind IN ('deployment','manual','legacy_unknown')),
+    owner_id TEXT NOT NULL,
+    symbol TEXT NOT NULL COLLATE NOCASE,
+    quantity REAL NOT NULL CHECK(quantity >= 0),
+    avg_entry_price REAL CHECK(avg_entry_price IS NULL OR avg_entry_price > 0),
+    entry_date TEXT,
+    reserved_cash REAL NOT NULL DEFAULT 0 CHECK(reserved_cash >= 0),
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY(account_scope, account_id, owner_kind, owner_id, symbol)
+  ) STRICT;
+  CREATE INDEX account_sleeve_holdings_account_symbol ON account_sleeve_holdings(account_scope, account_id, symbol);
+  CREATE TABLE execution_fill_links (
+    id TEXT PRIMARY KEY,
+    intent_id TEXT REFERENCES execution_order_intents(id),
+    rebalance_plan_id TEXT REFERENCES rebalance_plans(id),
+    account_scope TEXT NOT NULL CHECK(account_scope IN ('real','paper','local_sim','ths_mock','crypto_sim','futures_sim')),
+    account_id TEXT NOT NULL,
+    venue_order_id TEXT,
+    fill_source TEXT NOT NULL CHECK(fill_source IN ('sim_fills','paper_fills','real_fills','futures_sim','ths_mock','crypto_sim')),
+    fill_id TEXT NOT NULL,
+    arrival_price REAL CHECK(arrival_price IS NULL OR arrival_price > 0),
+    created_at INTEGER NOT NULL,
+    UNIQUE(fill_source, fill_id)
+  ) STRICT;
+  CREATE INDEX execution_fill_links_intent ON execution_fill_links(intent_id);
+  CREATE INDEX execution_fill_links_plan ON execution_fill_links(rebalance_plan_id);
+  CREATE INDEX execution_fill_links_account ON execution_fill_links(account_scope, account_id, created_at DESC);
+  CREATE TABLE intraday_alert_config (
+    id TEXT PRIMARY KEY CHECK(id = 'default'),
+    enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0, 1)),
+    poll_interval_sec INTEGER NOT NULL DEFAULT 30 CHECK(poll_interval_sec BETWEEN 15 AND 300),
+    monitor_holdings_stops INTEGER NOT NULL DEFAULT 1 CHECK(monitor_holdings_stops IN (0, 1)),
+    monitor_planned_entries INTEGER NOT NULL DEFAULT 1 CHECK(monitor_planned_entries IN (0, 1)),
+    monitor_watchlist_rules INTEGER NOT NULL DEFAULT 1 CHECK(monitor_watchlist_rules IN (0, 1)),
+    intraday_scan_enabled INTEGER NOT NULL DEFAULT 0 CHECK(intraday_scan_enabled IN (0, 1)),
+    updated_at INTEGER NOT NULL
+  ) STRICT;
+  CREATE TABLE intraday_watch_rules (
+    id TEXT PRIMARY KEY,
+    symbol TEXT NOT NULL COLLATE NOCASE,
+    direction TEXT NOT NULL CHECK(direction IN ('above','below')),
+    threshold_price REAL NOT NULL CHECK(threshold_price > 0),
+    enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0, 1)),
+    note TEXT NOT NULL DEFAULT '',
+    last_triggered_date TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  ) STRICT;
+  CREATE INDEX intraday_watch_rules_enabled_symbol ON intraday_watch_rules(enabled, symbol, id);`,
 ];
 export function migrate(connection: Database.Database) {
   const version = connection.pragma("user_version", { simple: true }) as number;

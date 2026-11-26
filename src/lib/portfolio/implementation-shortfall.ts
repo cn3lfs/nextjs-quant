@@ -38,6 +38,8 @@ const actual = instrument
     filledAt: time.nullish(),
     fillPrice: price,
     quantity: quantity.positive(),
+    /** Booked separately from both the execution price and venue fees. */
+    slippageCharge: z.number().finite().nonnegative().optional(),
     fees,
   })
   .strict();
@@ -346,6 +348,10 @@ function analyzeRow(
     const step = (from: number, to: number, qty: number) =>
       big(to).minus(from).times(qty).times(sign(side));
     const actualFees = sum(fills.map((fill) => big(fill.fees!)));
+    const charges = fills.map((fill) => big(fill.slippageCharge ?? 0));
+    const matchedCharges = fills.map((fill, i) =>
+      charges[i]!.times(allocations[i]!.matchedQuantity!).div(fill.quantity),
+    );
     // Positive means a worse result for actual: buy higher, sell lower.
     // Only matched shares enter delay/slippage, missed legal and clipped shares
     // both use the decision-to-terminal move, and unmatched actual shares enter behavior.
@@ -353,7 +359,9 @@ function analyzeRow(
       signalToArrivalDelay: step(decision, arrival, matchedQuantity!),
       arrivalToFillSlippage: sum(
         fills.map((fill, i) =>
-          step(arrival, fill.fillPrice!, allocations[i]!.matchedQuantity!),
+          step(arrival, fill.fillPrice!, allocations[i]!.matchedQuantity!).plus(
+            matchedCharges[i]!,
+          ),
         ),
       ),
       missedTradeOpportunityCost: step(
@@ -367,7 +375,9 @@ function analyzeRow(
             mark,
             fill.fillPrice!,
             fill.quantity - allocations[i]!.matchedQuantity!,
-          ),
+          )
+            .plus(charges[i]!)
+            .minus(matchedCharges[i]!),
         ),
       ),
       feeDifference: actualFees.minus(plan?.fees ?? 0),
@@ -388,14 +398,14 @@ function analyzeRow(
         baseline?.fees ?? 0,
       ),
       actualTerminalValue: sum(
-        fills.map((fill) =>
+        fills.map((fill, i) =>
           terminalContribution(
             side,
             fill.quantity,
             fill.fillPrice!,
             mark,
             fill.fees!,
-          ),
+          ).minus(charges[i]!),
         ),
       ),
     };

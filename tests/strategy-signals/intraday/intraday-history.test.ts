@@ -160,7 +160,7 @@ it("adds metadata indexes without rewriting evidence and rejects a newer schema"
     expect(
       db
         .prepare(
-          "SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'intraday_%'",
+          "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='records' AND name LIKE 'intraday_%'",
         )
         .all(),
     ).toHaveLength(2);

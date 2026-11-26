@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import Big from "big.js";
 import type Database from "better-sqlite3";
+import { formatDecimal } from "quant-execution";
 import { z } from "zod";
 import { chinaDate } from "~/lib/market/security-trading-status";
 import { AccountWorkspaceRepository } from "~/server/db/account-workspace-repository";
@@ -27,7 +28,11 @@ import {
   type SimPlanBinding,
   type SimPlanBindingInput,
 } from "~/lib/portfolio/sim-accounts";
-import { settings } from "~/server/infra/settings";
+import { knownCnSession } from "~/server/pipeline/cn-trading-calendar";
+import {
+  listOwnerSleeveHoldings,
+  syncSleeveHoldingDelta,
+} from "~/server/db/sleeve-holding-repository";
 import { tradePlanSchema } from "~/server/db/strategy-repository";
 import {
   accountView,
@@ -239,7 +244,8 @@ function evaluate(
   account: Account,
   terms: OrderTerms,
   now = Date.now(),
-  pipelineDb?: Db,
+  db: Db,
+  pipeline = false,
 ) {
   requireActive(account);
   const today =
@@ -247,20 +253,20 @@ function evaluate(
       ? new Date(now).toISOString().slice(0, 10)
       : chinaDate(now);
   if (terms.tradeDate > today) throw new Error("不能在未来日期成交");
-  if (settlementDate(account.market, terms.tradeDate) !== terms.tradeDate)
-    throw new Error("A股周末休市，不能在该日期成交");
-  const calendar = pipelineDb
-    ? settingsSchema.parse(
-        new AccountWorkspaceRepository(pipelineDb).record("settings") ?? {},
-      ).calendar
-    : settings().calendar;
-  if (
-    account.market === "cn-equity" &&
-    calendar.length &&
-    !calendar.includes(terms.tradeDate)
-  )
-    throw new Error("A股非交易日，不能在该日期成交");
-  if (!pipelineDb && terms.executionMode !== "manual") {
+  if (account.market === "cn-equity") {
+    const known = knownCnSession(db, terms.tradeDate);
+    if (known === false) throw new Error("A股该日已确认休市，不能成交");
+    if (known === null) {
+      if (settlementDate(account.market, terms.tradeDate) !== terms.tradeDate)
+        throw new Error("A股周末休市，不能在该日期成交");
+      const calendar = settingsSchema.parse(
+        new AccountWorkspaceRepository(db).record("settings") ?? {},
+      ).calendar;
+      if (calendar.length && !calendar.includes(terms.tradeDate))
+        throw new Error("A股非交易日，不能在该日期成交");
+    }
+  }
+  if (!pipeline && terms.executionMode !== "manual") {
     if (!terms.planId) throw new Error("计划成交必须指定 planId");
     if (compatiblePlan(repo, terms.planId, account) !== terms.symbol)
       throw new Error("交易计划标的与委托不匹配");
@@ -290,16 +296,20 @@ export function previewSimOrder(
   return repo.read(() => {
     const account = repo.account(order.accountId);
     const terms = orderTerms(order, account.market);
-    const { sellable, result } = evaluate(repo, account, terms, now);
+    const { sellable, result } = evaluate(repo, account, terms, now, db);
     const money = (n: bigint) => formatAtoms(n, moneyDigits(account.market));
     const qty = (n: bigint) => formatAtoms(n, quantityDigits(account.market));
     return {
-      ...terms,
+      symbol: terms.symbol,
+      side: terms.side,
+      tradeDate: terms.tradeDate,
+      executionMode: terms.executionMode,
+      planId: terms.planId,
       accountId: account.id,
       market: account.market,
       currency: account.currency,
       quantity: qty(terms.quantity),
-      price: money(terms.price),
+      price: formatAtoms(terms.price, terms.priceDigits),
       gross: money(result.gross),
       commission: money(result.commission),
       transfer: money(result.transfer),
@@ -353,6 +363,45 @@ export function executePipelineSimOrder(
   );
 }
 
+/** Attribute only the manual part of a discretionary sale. Any remaining
+ * physical shortfall is accounted for by the coordinator's ownership check. */
+function labelManualHolding(
+  account: Account,
+  terms: OrderTerms,
+  now: number,
+  db: Db,
+) {
+  const owner = {
+    accountScope: "local_sim",
+    accountId: account.id,
+    ownerKind: "manual",
+    ownerId: "manual",
+  } as const;
+  const quantity = Number(
+    formatAtoms(terms.quantity, quantityDigits(account.market)),
+  );
+  const held =
+    terms.side === "sell"
+      ? (listOwnerSleeveHoldings(owner, db).find(
+          (row) => row.symbol.toLowerCase() === terms.symbol.toLowerCase(),
+        )?.quantity ?? 0)
+      : 0;
+  const quantityDelta =
+    terms.side === "buy" ? quantity : -Math.min(quantity, held);
+  if (quantityDelta !== 0)
+    syncSleeveHoldingDelta(
+      {
+        ...owner,
+        symbol: terms.symbol,
+        quantityDelta,
+        fillPrice: Number(formatAtoms(terms.price, terms.priceDigits)),
+        tradeDate: terms.tradeDate,
+        updatedAt: now,
+      },
+      db,
+    );
+}
+
 function settleOrder(
   order: SimOrderConfirm,
   db: Db,
@@ -363,12 +412,18 @@ function settleOrder(
   return repo.write(() => {
     const account = repo.account(order.accountId);
     const terms = orderTerms(order, account.market);
+    // Historical hashes express prices in cash atoms. A fractional fen must
+    // stay distinct, while a whole-fen ETF retry must match its original hash.
+    const { priceDigits, ...identity } = terms;
     const hash = createHash("sha256")
       .update(
         JSON.stringify({
-          ...terms,
+          ...identity,
           quantity: terms.quantity.toString(),
-          price: terms.price.toString(),
+          price: formatDecimal(
+            terms.price,
+            priceDigits - moneyDigits(account.market),
+          ),
           ...(pipelineNote === undefined ? {} : { pipelineNote }),
         }),
       )
@@ -383,9 +438,10 @@ function settleOrder(
       account,
       terms,
       now,
-      pipelineNote === undefined ? undefined : db,
+      db,
+      pipelineNote !== undefined,
     );
-    return repo.settle(
+    const receipt = repo.settle(
       account,
       order.clientRequestId,
       hash,
@@ -393,5 +449,9 @@ function settleOrder(
       result,
       pipelineNote === undefined ? Date.now() : now,
     );
+    // Local pipeline service requests are labelled by the deployment executor.
+    if (pipelineNote === undefined && terms.executionMode === "manual")
+      labelManualHolding(account, terms, now, db);
+    return receipt;
   });
 }
