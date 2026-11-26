@@ -172,4 +172,4 @@ A 股 118 条、BTC/ETH 114 条完整日线规则完成开发窗基准成本回�
 - 仅扫描（包含行情/筛选）与回测显式保留实例；普通页面的 URL、内存草稿、sessionStorage 与服务器事实按[架构状态表](architecture.md#页面模型与状态归属)归属，返回不自动重提写入。
 - 通达信/外部 Blocks 只读，凭证在仓库外 DPAPI；任何可能初始化数据库的验证先使用隔离 `QUANT_DATA_DIR`，不降低 `user_version`。
 - 同花顺 `hq.dll`（固定版本 `2.0.2`）现按 `vendor/czsc/CZSC64.dll` 模式归档在 `vendor/thsdk/hq.dll`，由 `pnpm runtime:build` 复制到 `runtime/thsdk/hq.dll` 并按固定 SHA-256 强制校验，省去用户手工配置 DLL 路径；默认停用，会话与凭据仍只留在仓库外 `QUANT_DATA_DIR`。
-- 数字货币模拟交易及其他市场按现有授权运行；新增实盘、合约或真实外部调用需独立授权。`src/server/mcp.ts` 与用户维护文案不动。
+- 数字货币模拟交易及其他市场按现有授权运行；新增实盘、合约或真实外部调用需独立授权。

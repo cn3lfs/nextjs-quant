@@ -54,7 +54,7 @@ electron ──启动/停止──> standalone Node 服务 ──加载──> r
 - `src/lib/` 根部当前有 `domain.ts`、`indicators.ts`、`money.ts`、`completed-bars.ts` 等稳定共享契约与核心模块；有明确职责、被多个领域消费的契约可以新增，纯领域规则放具名目录。
 - 测试按业务模块归档到 `tests/<module>/`，跨域结构与工程检查位于 `tests/engineering-validation/`；共享输入、造数、辅助、测量和人工脚本分别放 fixtures、fixtures/seed、helpers、perf、manual，根部只保留全局 setup 与说明。表中只列代表性保护用例，并非覆盖完整清单。
 - 模块内的交付、核对、任务书和复盘按 `docs/<模块>/YYYY-MM-DD-<主题>.md` 直接存放，结项后留在原位；跨模块记录放 `docs/project/`，不设月份层或历史归档树。
-- 数据源、DLL、SQLite、worker、打包与 MCP 保护路径的完整约束以 [不变量](../invariants.md)、[操作说明](../operations.md) 和 [路线图](../roadmap.md) 为准。
+- 数据源、DLL、SQLite、worker 与打包的完整约束以 [不变量](../invariants.md)、[操作说明](../operations.md) 和 [路线图](../roadmap.md) 为准。
 
 ## 盘点边界与待完成核查
 
@@ -62,7 +62,6 @@ electron ──启动/停止──> standalone Node 服务 ──加载──> r
 - tRPC procedure 按领域位于 `src/server/api/routers/`；`root.ts` 是扁平合并组合根。`tests/api-runtime/api-router-contract.test.ts` 验证域 router 的平面装配、跨域重名和关键 wire path 及 query/mutation 类型。
 - worker 构建清单以 `scripts/build-runtime.mjs` 为准；生成到 `runtime/` 的 tracked 文件并非源码归属依据。
 - 此轮未声称字符串拼接路径、所有 `import()`/`require()`、第三方 Electron 行为或每个脚本的数据副作用均已穷尽。具体迁移前需对相关目标执行路径级复核。
-- `src/server/mcp.ts` 和相关 UI 文案由用户维护，未经明确交接不修改、不回退、不纳入提交。
 
 ## 数字货币自动交易
 

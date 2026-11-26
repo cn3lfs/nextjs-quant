@@ -410,7 +410,7 @@ FINDHIGH FINDHIGHBARS FINDLOW FINDLOWBARS
 - UI研究入口只运行共享CLI服务的只读子集；策略对象回测冻结本地原价、调整来源与引擎版本，调用runPortfolio。缺少原生/外部/时点证据直接拒绝，不能填造；输出明确是规则自检。任务轮询只读小摘要，完整冻结输入由用户显式导出。
 - 今日情报仅按已有新闻库的名称/代码匹配当前持仓和未结束计划；图表事件保留发布时间、标题及原文定位，不作为策略输入，匹配不证明影响。
 - 备份使用SQLite在线备份保证已提交WAL一致性；完成后再轮换自身命名的成功备份，默认保留3份，失败不挤掉成功备份。拒绝目录链接，不删除用户自备份文件。真实库版本取pragma，不硬编码。
-- 提醒去重键仅作内部定位；普通页面显示策略、品种、bar与类型。原始JSON只留显式导出或策略/公式编辑器；用户维护的MCP诊断文案按保护约束保留。验证见[r3c-workspaces.test.ts](../tests/workbench/r3c-workspaces.test.ts)、[两宽度浏览器路径](../tests/e2e/r3c-workspaces.spec.ts)。
+- 提醒去重键仅作内部定位；普通页面显示策略、品种、bar与类型。原始JSON只留显式导出或策略/公式编辑器。验证见[r3c-workspaces.test.ts](../tests/workbench/r3c-workspaces.test.ts)、[两宽度浏览器路径](../tests/e2e/r3c-workspaces.spec.ts)。
 
 ## 回测执行核心与交割单软删除（2026-11-21）
 

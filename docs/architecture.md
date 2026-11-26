@@ -190,7 +190,7 @@ flowchart LR
 | `src/server/jobs/`、`infra/`          | 任务与 worker 编排、并发、配置及外部集成基础设施             |
 | `src/server/api/`、`db/`、`data/`     | API、共享 SQLite 底座和静态资产                              |
 
-专用 worker/store 随业务域放置。数据源不反向依赖研究或交易编排；客户端不直接导入 server。`src/server/mcp.ts` 及用户维护文案仍按项目指导保护。规则与目录护栏见 [依赖边界测试](../tests/engineering-validation/dependency-check.test.ts) 和 [策略归属计划](strategy-signals/2026-09-21-strategy-consolidation-plan.md)。
+专用 worker/store 随业务域放置。数据源不反向依赖研究或交易编排；客户端不直接导入 server。规则与目录护栏见 [依赖边界测试](../tests/engineering-validation/dependency-check.test.ts) 和 [策略归属计划](strategy-signals/2026-09-21-strategy-consolidation-plan.md)。
 
 ## 计算与数据包
 

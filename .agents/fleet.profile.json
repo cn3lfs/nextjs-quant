@@ -2,7 +2,7 @@
   "name": "nextjs-quant",
   "runRoot": ".test-data/fleet",
   "isolatedDataEnv": "QUANT_DATA_DIR",
-  "protectedPaths": ["src/server/mcp.ts"],
+  "protectedPaths": [],
   "defaultModels": {
     "complex": "gpt-6.2-astra",
     "complexEffort": "high",

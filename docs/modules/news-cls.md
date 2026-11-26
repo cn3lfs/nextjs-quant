@@ -38,7 +38,7 @@
 
 验证入口：`tests/news-cls/news-workspace-query.test.ts`、`news-analysis.test.ts`；`tests/news-cls/news-workspace-query.test.ts`、`news-workspace-lifecycle-browser.mjs`、`news-workspace-memory-browser.mjs`；性能与负对照为同名前缀的 query-perf/http-perf/perf-browser/negative-controls。这些验证使用隔离合成数据，不代表真实模型或实源结果。
 
-新分析字段必须标明证据 ID、来源和时间；不得把当日内容回填成历史时点已知信息。模型只负责有校验的解释，不能调用交易或通知执行接口。`src/server/mcp.ts` 与其 UI 文案不属于本模块的可编辑入口。
+新分析字段必须标明证据 ID、来源和时间；不得把当日内容回填成历史时点已知信息。模型只负责有校验的解释，不能调用交易或通知执行接口。
 
 ## 财联社观点复盘工作区
 
