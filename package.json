@@ -56,7 +56,9 @@
     "rps:build": "pnpm --filter quant-rps build",
     "rps:test": "pnpm --filter quant-rps test",
     "e2e:paper": "playwright test --project paper",
-    "e2e:accounts": "playwright test --project accounts"
+    "e2e:accounts": "playwright test --project accounts",
+    "clean:artifacts": "node scripts/clean-dev-artifacts.mjs",
+    "clean:artifacts:apply": "node scripts/clean-dev-artifacts.mjs --apply"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
