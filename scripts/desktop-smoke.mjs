@@ -1535,35 +1535,40 @@ async function probeClsWebView(page) {
       "http://www.cls.cn/",
       "https://www.cls.cn.example.invalid/",
     ];
-    const attached = new Set();
+    const started = new Set();
+    const destroyed = new Set();
     const views = [allowedUrl, ...deniedUrls].map((url) => {
       const view = document.createElement("webview");
-      view.addEventListener("did-attach", () => attached.add(url));
+      view.addEventListener("destroyed", () => destroyed.add(url));
+      view.addEventListener("did-start-navigation", (event) => {
+        const nav =
+          /** @type {Event & { url?: string, isMainFrame?: boolean }} */ (
+            event
+          );
+        if (nav.isMainFrame && nav.url) started.add(nav.url);
+      });
       view.setAttribute("src", url);
       return view;
     });
     try {
-      // The browser is launched with outbound DNS disabled. Fail-load still
-      // proves the allowed guest attached and attempted the exact URL.
-      const navigation = new Promise((resolve) => {
-        const timeout = setTimeout(() => resolve(false), 5000);
-        views[0]?.addEventListener("did-start-navigation", (event) => {
-          const navigation =
-            /** @type {Event & { url?: string, isMainFrame?: boolean }} */ (
-              event
-            );
-          if (navigation.url === allowedUrl && navigation.isMainFrame) {
-            clearTimeout(timeout);
-            resolve(true);
-          }
-        });
+      // The browser is launched with outbound DNS disabled. Denied guests are
+      // prevented in will-attach-webview and fire `destroyed`, while the
+      // allowed guest attempts main-frame navigation to the exact URL.
+      const settled = await new Promise((resolve) => {
+        const deadline = Date.now() + 5000;
+        const poll = () => {
+          const ok =
+            started.has(allowedUrl) &&
+            !destroyed.has(allowedUrl) &&
+            deniedUrls.every((url) => destroyed.has(url) && !started.has(url));
+          if (ok) resolve(true);
+          else if (Date.now() >= deadline) resolve(false);
+          else setTimeout(poll, 50);
+        };
+        document.body.append(...views.slice(1), ...views.slice(0, 1));
+        poll();
       });
-      document.body.append(...views.slice(1), ...views.slice(0, 1));
-      if (!(await navigation)) return false;
-      return (
-        attached.has(allowedUrl) &&
-        deniedUrls.every((url) => !attached.has(url))
-      );
+      return settled;
     } finally {
       for (const view of views) view.remove();
     }
@@ -1669,7 +1674,9 @@ async function runCandidateDesktop(result, signal, directory, probe) {
           !outcome ||
           !outcome.code ||
           outcome.launchFailed ||
-          startup.startupStatus !== "exited" ||
+          startup.state !== "not-ready" ||
+          (startup.startupStatus !== "exited" &&
+            startup.startupStatus !== "timeout") ||
           !log.includes("数据库版本高于此应用版本，请使用较新的应用") ||
           existsSync(smokeFile)
         )
@@ -1754,7 +1761,7 @@ async function probeCandidateThsdk(
           : init.ok === true &&
             init.abiVersion === "2.0.0" &&
             (init.methodsCount ?? 0) > 0);
-      if (child.connected) child.send({ type: "shutdown" });
+      if (child.connected) child.send({ type: "shutdown", id: 2 });
       const exit = await Promise.race([
         outcome,
         delay(8000, null, { signal, ref: false }),
